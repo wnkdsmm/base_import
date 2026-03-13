@@ -11,7 +11,7 @@
     <div class="brand-block">
         <span class="brand-kicker">Fire Monitor</span>
         <h2>Колонки</h2>
-        <p>Отдельная страница для поиска названий колонок по словам. Natasha помогает найти похожие формулировки в таблицах PostgreSQL.</p>
+        <p>Natasha ищет похожие названия колонок, а ниже можно собрать из них новую таблицу <code>modify_...</code> и сразу выбрать тематические группы.</p>
     </div>
 
     <div class="sidebar-actions">
@@ -25,7 +25,7 @@
 <main class="main column-search-main">
     <section class="column-search-toolbar">
         <h1>Table: <span id="columnSearchTableTitle">{{ selected_table or 'Not selected' }}</span></h1>
-        <p id="columnSearchRowsInfo">Showing first 100 rows</p>
+        <p id="columnSearchRowsInfo">Здесь можно искать колонки по словам и собирать новую таблицу из найденных и тематических полей.</p>
         <form id="columnSearchPageForm" class="column-search-form-row" method="get" action="/column-search">
             <label class="column-search-control">
                 <span>Table</span>
@@ -41,13 +41,46 @@
             </label>
             <label class="column-search-control column-search-control-wide">
                 <span>Words</span>
-                <input id="columnSearchQuery" name="query" type="text" value="{{ initial_query }}" placeholder="дети эвакуация причина">
+                <input id="columnSearchQuery" name="query" type="text" value="{{ initial_query }}" placeholder="дети эвакуация причина адрес дата">
             </label>
             <button id="columnSearchButton" class="primary-action column-search-submit" type="submit">Найти колонки</button>
         </form>
+        <div id="columnSearchStatus" class="column-search-status">Сначала выберите таблицу. Поиск и тематические группы работают на одной странице.</div>
+    </section>
+
+    <section class="column-search-builder-grid">
+        <article class="panel column-builder-panel">
+            <div class="panel-head">
+                <h2>Тематические группы</h2>
+                <span class="panel-meta">Даты, причины, адрес, объект, люди, ущерб и другие наборы колонок.</span>
+            </div>
+            <div id="columnSearchGroups" class="column-group-grid">
+                <div class="mini-empty">После выбора таблицы здесь появятся доступные группы.</div>
+            </div>
+        </article>
+
+        <article class="panel column-builder-panel">
+            <div class="panel-head">
+                <h2>Найденные колонки</h2>
+                <span class="panel-meta">Чекбоксы ниже попадут в новую таблицу. Найденные колонки по запросу отмечаются автоматически.</span>
+            </div>
+            <div class="column-builder-actions">
+                <button id="columnSearchSelectAll" class="secondary-action column-inline-action" type="button">Выбрать все найденные</button>
+                <button id="columnSearchClearSelection" class="secondary-action column-inline-action" type="button">Снять выбор</button>
+                <button id="columnSearchCreateTable" class="primary-action column-inline-primary" type="button">Создать modify-таблицу</button>
+            </div>
+            <div id="columnSearchSelectionSummary" class="column-search-selection-summary">Выбрано колонок: 0</div>
+            <div id="columnSearchMatches" class="column-match-list">
+                <div class="mini-empty">После поиска здесь появятся найденные колонки.</div>
+            </div>
+        </article>
     </section>
 
     <section class="column-search-table-section">
+        <div class="panel-head">
+            <h2>Предпросмотр</h2>
+            <span class="panel-meta">Сначала показывается превью найденных колонок, затем после создания - уже новая <code>modify_...</code> таблица.</span>
+        </div>
         <div id="columnSearchPreview" class="column-search-table-shell">
             <div class="mini-empty">После поиска здесь появится таблица.</div>
         </div>
