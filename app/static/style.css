@@ -1132,7 +1132,14 @@ td {
 .column-group-card input,
 .column-match-card input {
     margin-top: 4px;
+    align-self: start;
     accent-color: var(--fire);
+}
+
+.column-group-body,
+.column-match-body {
+    display: block;
+    min-width: 0;
 }
 
 .column-group-title-row {
@@ -1230,3 +1237,4 @@ td {
         grid-template-columns: 1fr;
     }
 }
+

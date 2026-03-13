@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, File, Form, UploadFile
 
 from app.db_views import create_modified_table, get_table_columns, get_table_preview
 from app.log_manager import clear_logs, get_logs
+from app.services.forecasting_service import get_forecasting_data
 from app.services.pipeline_service import import_uploaded_data, run_profiling_for_table, save_uploaded_file
 from app.state import upload_state
 from app.statistics import get_dashboard_data
@@ -16,6 +17,25 @@ router = APIRouter()
 @router.get("/api/dashboard-data")
 def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_column: str = ""):
     return get_dashboard_data(table_name=table_name, year=year, group_column=group_column)
+
+
+@router.get("/api/forecasting-data")
+def forecasting_data_endpoint(
+    table_name: str = "",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+):
+    return get_forecasting_data(
+        table_name=table_name,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        forecast_days=forecast_days,
+    )
 
 
 @router.get("/api/column-search")
@@ -129,7 +149,7 @@ def create_modify_table_endpoint(payload: dict = Body(...)):
     except Exception as exc:
         return {"status": "error", "message": str(exc)}
 
-    replace_message = "Таблица была пересоздана." if created["replaced_existing"] else "Таблица создана." 
+    replace_message = "Таблица была пересоздана." if created["replaced_existing"] else "Таблица создана."
     return {
         "status": "created",
         "message": replace_message,

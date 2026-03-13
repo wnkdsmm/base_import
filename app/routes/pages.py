@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from app.db_views import get_all_tables, get_table_data
 from app.services.dashboard_service import get_dashboard_page_context
 from app.services.fire_map_service import build_fire_map_html
+from app.services.forecasting_service import get_forecasting_page_context
 from app.services.table_options import (
     get_column_search_table_options,
     get_fire_map_table_options,
@@ -22,6 +23,27 @@ templates = Jinja2Templates(directory="app/templates")
 def home(request: Request, table_name: str = "all", year: str = "all", group_column: str = ""):
     dashboard = get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)
     return templates.TemplateResponse("index.html", {"request": request, "dashboard": dashboard})
+
+
+@router.get("/forecasting", response_class=HTMLResponse)
+def forecasting_page(
+    request: Request,
+    table_name: str = "",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+):
+    forecast = get_forecasting_page_context(
+        table_name=table_name,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        forecast_days=forecast_days,
+    )
+    return templates.TemplateResponse("forecasting.html", {"request": request, "forecast": forecast})
 
 
 @router.get("/column-search", response_class=HTMLResponse)

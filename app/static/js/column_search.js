@@ -151,12 +151,14 @@
             return '' +
                 '<label class="column-group-card">' +
                     '<input class="column-group-checkbox" type="checkbox" data-group-id="' + escapeHtml(group.id) + '" ' + checked + '>' +
-                    '<span class="column-group-title-row">' +
-                        '<strong>' + escapeHtml(group.label) + '</strong>' +
-                        '<span class="column-group-count">' + escapeHtml(group.count) + '</span>' +
+                    '<span class="column-group-body">' +
+                        '<span class="column-group-title-row">' +
+                            '<strong>' + escapeHtml(group.label) + '</strong>' +
+                            '<span class="column-group-count">' + escapeHtml(group.count) + '</span>' +
+                        '</span>' +
+                        '<span class="column-group-description">' + escapeHtml(group.description) + '</span>' +
+                        '<span class="column-group-columns">' + columnsPreview + escapeHtml(moreLabel) + '</span>' +
                     '</span>' +
-                    '<span class="column-group-description">' + escapeHtml(group.description) + '</span>' +
-                    '<span class="column-group-columns">' + columnsPreview + escapeHtml(moreLabel) + '</span>' +
                 '</label>';
         }).join('');
 
@@ -408,3 +410,4 @@
         }
     });
 })();
+
