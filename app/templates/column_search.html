@@ -1,0 +1,65 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск колонок</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="brand-block">
+        <span class="brand-kicker">Fire Monitor</span>
+        <h2>Колонки</h2>
+        <p>Отдельная страница для поиска названий колонок по словам. Natasha помогает найти похожие формулировки в таблицах PostgreSQL.</p>
+    </div>
+
+    <div class="sidebar-actions">
+        <button onclick="location.href='/'">Dashboard</button>
+        <button onclick="location.href='/fire-map'">Карта пожаров</button>
+        <button onclick="location.href='/column-search'">Поиск колонок</button>
+        <button onclick="location.href='/tables'">Открыть таблицы</button>
+    </div>
+</aside>
+
+<main class="main column-search-main">
+    <section class="column-search-toolbar">
+        <h1>Table: <span id="columnSearchTableTitle">{{ selected_table or 'Not selected' }}</span></h1>
+        <p id="columnSearchRowsInfo">Showing first 100 rows</p>
+        <form id="columnSearchPageForm" class="column-search-form-row" method="get" action="/column-search">
+            <label class="column-search-control">
+                <span>Table</span>
+                <select id="columnSearchTable" name="table_name">
+                    {% if table_options %}
+                        {% for option in table_options %}
+                        <option value="{{ option.value }}" {% if option.value == selected_table %}selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    {% else %}
+                    <option value="">Нет таблиц</option>
+                    {% endif %}
+                </select>
+            </label>
+            <label class="column-search-control column-search-control-wide">
+                <span>Words</span>
+                <input id="columnSearchQuery" name="query" type="text" value="{{ initial_query }}" placeholder="дети эвакуация причина">
+            </label>
+            <button id="columnSearchButton" class="primary-action column-search-submit" type="submit">Найти колонки</button>
+        </form>
+    </section>
+
+    <section class="column-search-table-section">
+        <div id="columnSearchPreview" class="column-search-table-shell">
+            <div class="mini-empty">После поиска здесь появится таблица.</div>
+        </div>
+    </section>
+</main>
+
+<script>
+window.__COLUMN_SEARCH_INITIAL__ = {
+    tableName: {{ selected_table | tojson }},
+    query: {{ initial_query | tojson }}
+};
+</script>
+<script src="/static/js/column_search.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<div class="sidebar">
+    <h2>Menu</h2>
+    <!-- Кнопка для импорта данных -->
+    <button onclick="importMap()">Import Data</button>
+    <!-- Кнопки для pipeline -->
+    <button onclick="runPipeline('full')">Run Full Pipeline</button>
+    <button onclick="runPipeline('firemap')">Run Fire Map</button>
+    <button onclick="runPipeline('features')">Feature Selection</button>
+</div>
+
+<!-- скрытый input для выбора файла -->
+<input type="file" id="fileInput" style="display:none" />

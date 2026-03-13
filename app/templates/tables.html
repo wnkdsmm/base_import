@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tables in Database</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Menu</h2>
+        <button onclick="location.href='/'">Back to Main</button>
+    </div>
+    <div class="main">
+        <h1>Tables in Database</h1>
+        <ul>
+        {% for table in tables %}
+            <li><a href="/tables/{{ table }}">{{ table }}</a></li>
+        {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>

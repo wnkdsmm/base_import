@@ -1,0 +1,99 @@
+
+base_import/
+│
+├─ config/
+│  ├─ __init__.py
+│  ├─ db.py
+│  ├─ paths.py
+│  ├─ settings.py
+│  └─ constants.py
+│
+├─ steps/
+│  ├─ import_data.py
+│  ├─ fires_feature_profiling.py
+│  ├─ create_clean_table.py
+│  └─ feature_selection.py
+│
+├─ main.py
+└─ pipeline.py
+
+
+
+
+
+
+
+вот файлы config
+__init__:
+from config.db import engine
+db:
+from sqlalchemy import create_engine
+import os
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:1234@localhost/fires"
+)
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True
+)
+paths:
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))):
+settings:
+import os
+from config.paths import BASE_DIR
+
+
+class Settings:
+
+    def __init__(self, input_file):
+
+        self.input_file = input_file
+
+        self.project_name = os.path.splitext(
+            os.path.basename(input_file)
+        )[0]
+
+        self.output_folder = os.path.join(
+            BASE_DIR,
+            f"folder_{self.project_name}"
+        )
+
+        os.makedirs(self.output_folder, exist_ok=True)
+constans:
+# THRESHOLDS
+
+NULL_THRESHOLD = 0.9
+UNIQUE_ID_THRESHOLD = 0.99
+LOW_VARIANCE_THRESHOLD = 0.0001
+DOMINANT_VALUE_THRESHOLD = 0.85
+
+
+# VALUES THAT MEAN "MISSING DATA"
+
+MISSING_LIKE_VALUES = [
+    "нет данных",
+    "н/д",
+    "nan",
+    "none",
+    "null",
+    "-",
+    "",
+    " ",
+    "НЕТ ДАННЫХ"
+]
+
+
+# REPORT FILE SUFFIXES
+
+PROFILING_CSV_SUFFIX = "_fires_profiling_report.csv"
+PROFILING_XLSX_SUFFIX = "_fires_profiling_report.xlsx"
+
+
+если что должна создаваться папка folder_ИмяФайла и в ней все результаты пайпов
+
+Итак, давай я тебе буду кидать остальные файлы а ты их адаптируешь под мою структуру?

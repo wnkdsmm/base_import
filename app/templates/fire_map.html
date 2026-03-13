@@ -1,0 +1,118 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire Map</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="brand-block">
+        <span class="brand-kicker">Fire Monitor</span>
+        <h2>Карта</h2>
+        <p>Интерактивная карта пожаров по координатам из PostgreSQL. Для каждой точки показываются последствия, причины и адрес.</p>
+    </div>
+
+    <div class="sidebar-actions">
+        <button onclick="location.href='/'">Dashboard</button>
+        <button onclick="location.href='/fire-map'">Карта пожаров</button>
+        <button onclick="location.href='/column-search'">Поиск колонок</button>
+        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/tables'">Открыть таблицы</button>
+    </div>
+
+    <div class="sidebar-status">
+        <span class="status-badge status-badge-live">Карта готова к построению</span>
+        <div class="status-line">
+            <span>Таблиц для карты</span>
+            <strong>{{ tables_count }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Выбранная таблица</span>
+            <strong>{{ selected_table or 'Нет данных' }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Источник</span>
+            <strong>PostgreSQL</strong>
+        </div>
+    </div>
+</aside>
+
+<main class="main dashboard-main map-main">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">Геоаналитика</span>
+            <h1>Карта пожаров</h1>
+            <p class="subtitle">Страница использует ваш шаг из `create_fire_map.py`, генерирует HTML-карту и встраивает ее прямо в интерфейс проекта через боковое меню.</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Таблица: <strong>{{ selected_table or 'Не выбрана' }}</strong></span>
+                <span class="hero-tag">Формат: <strong>OpenLayers</strong></span>
+                <span class="hero-tag">Источник: <strong>Широта / Долгота</strong></span>
+            </div>
+        </div>
+
+        <div class="hero-side">
+            <article class="hero-stat-card hero-stat-card-soft">
+                <span class="hero-stat-label">Как работает карта</span>
+                <strong class="hero-stat-value"><small>точки, категории и popup</small></strong>
+                <span class="hero-stat-foot">Если у таблицы нет координат, встроенная область покажет понятное сообщение вместо пустого экрана.</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Выбор таблицы</h2>
+            <span class="panel-meta">Можно быстро переключать карту между доступными таблицами из базы.</span>
+        </div>
+        <form class="filters-grid map-toolbar" method="get" action="/fire-map">
+            <label class="filter-field filter-field-wide">
+                <span>Таблица для карты</span>
+                <select id="mapTableFilter" name="table_name">
+                    {% if table_options %}
+                        {% for option in table_options %}
+                        <option value="{{ option.value }}" {% if option.value == selected_table %}selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    {% else %}
+                    <option value="">Нет доступных таблиц</option>
+                    {% endif %}
+                </select>
+            </label>
+            <div class="filter-field filter-actions map-actions">
+                <span>Действие</span>
+                <button class="primary-action" type="submit">Показать карту</button>
+            </div>
+            <div class="filter-field filter-actions map-actions">
+                <span>Отдельно</span>
+                {% if selected_table %}
+                <a class="secondary-action" href="/fire-map/embed?table_name={{ selected_table }}" target="_blank" rel="noopener">Открыть отдельно</a>
+                {% else %}
+                <span class="secondary-action is-disabled">Нет таблицы</span>
+                {% endif %}
+            </div>
+        </form>
+    </section>
+
+    <section class="panel map-frame-panel">
+        <div class="panel-head">
+            <h2>Интерактивная карта</h2>
+            <span class="panel-meta">Popup содержит дату, адрес, последствия и причины пожара для выбранной записи.</span>
+        </div>
+        <div class="map-frame-shell">
+            {% if selected_table %}
+            <iframe
+                title="Карта пожаров"
+                class="map-frame"
+                src="/fire-map/embed?table_name={{ selected_table }}"
+                loading="lazy">
+            </iframe>
+            {% else %}
+            <div class="chart-empty">Нет доступных таблиц для построения карты.</div>
+            {% endif %}
+        </div>
+    </section>
+</main>
+</body>
+</html>
+
