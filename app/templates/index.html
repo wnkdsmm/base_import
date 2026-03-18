@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fire Data Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=dashboard-focused-layout-1">
 </head>
 <body>
 {% set data = dashboard.initial_data %}
@@ -13,62 +13,32 @@
 {% set charts = data.charts %}
 {% set scope = data.scope %}
 {% set trend = data.trend %}
-{% set rankings = data.rankings %}
 
 {% macro render_plotly_chart(container_id) %}
 <div id="{{ container_id }}" class="plotly-chart"></div>
-{% endmacro %}
-
-{% macro render_list(items, container_id, empty_message, accent_class='') %}
-<div id="{{ container_id }}" class="ranking-list">
-    {% if items %}
-        {% for item in items %}
-        <div class="ranking-row {{ accent_class }}" title="{{ item.label }}: {{ item.value_display }}">
-            <div class="ranking-label">{{ item.label }}</div>
-            <div class="ranking-meta">{{ item.value_display }}</div>
-        </div>
-        {% endfor %}
-    {% else %}
-    <div class="mini-empty">{{ empty_message }}</div>
-    {% endif %}
-</div>
-{% endmacro %}
-
-{% macro render_highlights(items) %}
-<div id="highlightsGrid" class="insight-grid">
-    {% if items %}
-        {% for item in items %}
-        <article class="insight-card tone-{{ item.tone }}" title="{{ item.value }}">
-            <span class="insight-label">{{ item.label }}</span>
-            <strong class="insight-value">{{ item.value }}</strong>
-            <span class="insight-meta">{{ item.meta }}</span>
-        </article>
-        {% endfor %}
-    {% else %}
-    <div class="mini-empty">Инсайты появятся, когда в базе будут данные.</div>
-    {% endif %}
-</div>
 {% endmacro %}
 
 <aside class="sidebar">
     <div class="brand-block">
         <span class="brand-kicker">Fire Monitor</span>
         <h2>Dashboard</h2>
-        <p>Статистика по пожарам из PostgreSQL с акцентом на причины возгораний, последствия, эвакуацию и детей.</p>
+        <p>Статистика по пожарам из PostgreSQL с фокусом на причины возгораний, риск, последствия и сезонность.</p>
     </div>
 
     <div class="sidebar-actions">
         <button onclick="selectAndImport()">Импортировать данные</button>
         <button onclick="location.href='/forecasting'">Прогнозирование</button>
+        <button onclick="location.href='/ml-model'">ML-модель</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
         <button onclick="location.href='/select_table'">Запустить profiling</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
-
     <div class="sidebar-status">
-        <span class="status-badge{% if dashboard.has_data %} status-badge-live{% endif %}">{% if dashboard.has_data %}База доступна{% else %}Нет данных{% endif %}</span>
+        <span class="status-badge{% if dashboard.has_data %} status-badge-live{% endif %}">
+            {% if dashboard.has_data %}База доступна{% else %}Нет данных{% endif %}
+        </span>
         <div class="status-line">
             <span>Таблиц в обзоре</span>
             <strong id="sidebarDatabaseTablesCount">{{ scope.database_tables_count_display }}</strong>
@@ -89,7 +59,7 @@
         <div class="hero-copy">
             <span class="eyebrow">Аналитическая панель</span>
             <h1>Dashboard статистики по пожарам</h1>
-            <p class="subtitle">Собирает агрегаты напрямую из таблиц PostgreSQL и показывает причины возгораний, последствия пожаров, эвакуацию и детскую статистику в одном экране.</p>
+            <p class="subtitle">На этой вкладке оставлены только ключевые графики: причины возгораний, категория риска, последствия, сезонность и структура по площади пожара.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
                 <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
@@ -113,8 +83,8 @@
 
     <section class="panel filters-panel">
         <div class="panel-head">
-            <h2>Фильтры и срез данных</h2>
-            <span class="panel-meta">Форма работает и с перезагрузкой страницы, и через быстрый AJAX-апдейт.</span>
+            <h2>Фильтры</h2>
+            <span class="panel-meta">Можно менять таблицу и год. Распределение закреплено по категории риска.</span>
         </div>
         <form class="filters-grid" id="filtersForm" method="get" action="/">
             <label class="filter-field">
@@ -133,25 +103,7 @@
                     {% endfor %}
                 </select>
             </label>
-            <label class="filter-field filter-field-wide">
-                <span>Колонка распределения</span>
-                <select id="groupColumnFilter" name="group_column">
-                    {% if filters.available_group_columns %}
-                        {% set ns = namespace(current_group='') %}
-                        {% for option in filters.available_group_columns %}
-                            {% if option.group != ns.current_group %}
-                                {% if ns.current_group %}</optgroup>{% endif %}
-                                <optgroup label="{{ option.group }}">
-                                {% set ns.current_group = option.group %}
-                            {% endif %}
-                            <option value="{{ option.value }}" {% if option.value == filters.group_column %}selected{% endif %}>{{ option.label }}</option>
-                        {% endfor %}
-                        {% if ns.current_group %}</optgroup>{% endif %}
-                    {% else %}
-                    <option value="">Нет доступных колонок</option>
-                    {% endif %}
-                </select>
-            </label>
+            <input type="hidden" name="group_column" value="Категория риска">
             <div class="filter-field filter-actions">
                 <span>Действие</span>
                 <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить dashboard</button>
@@ -179,17 +131,17 @@
         <article class="stat-card">
             <span class="stat-label">Эвакуировано</span>
             <strong class="stat-value" id="evacuatedValue">{{ summary.evacuated_display }}</strong>
-            <span class="stat-foot">Отдельная колонка в таблице</span>
+            <span class="stat-foot">По выбранному срезу</span>
         </article>
         <article class="stat-card">
             <span class="stat-label">Эвакуировано детей</span>
             <strong class="stat-value" id="childrenValue">{{ summary.evacuated_children_display }}</strong>
-            <span class="stat-foot">Отдельная колонка в таблице</span>
+            <span class="stat-foot">По выбранному срезу</span>
         </article>
         <article class="stat-card">
             <span class="stat-label">Спасено детей</span>
             <strong class="stat-value" id="rescuedValue">{{ summary.rescued_children_display }}</strong>
-            <span class="stat-foot">Показывается отдельно от взрослых</span>
+            <span class="stat-foot">По выбранному срезу</span>
         </article>
     </section>
 
@@ -205,7 +157,7 @@
         </ul>
     </section>
 
-    <section class="dashboard-layout">
+    <section class="dashboard-layout dashboard-layout-focused">
         <div class="dashboard-primary">
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
@@ -215,19 +167,19 @@
                 {{ render_plotly_chart('yearlyFiresChart') }}
             </article>
 
-            <article class="panel chart-panel chart-panel-large">
-                <div class="panel-head">
-                    <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
-                    <span class="panel-meta">Отдельная колонка или сводка по выбранной группе полей</span>
-                </div>
-                {{ render_plotly_chart('distributionChart') }}
-            </article>
+            <div class="dashboard-grid dashboard-grid-two">
+                <article class="panel chart-panel chart-panel-large">
+                    <div class="panel-head">
+                        <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
+                        <span class="panel-meta">Распределение по категории риска</span>
+                    </div>
+                    {{ render_plotly_chart('distributionChart') }}
+                </article>
 
-            <div class="dashboard-grid">
                 <article class="panel chart-panel chart-panel-large">
                     <div class="panel-head">
                         <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
-                        <span class="panel-meta">Главный аналитический график по выбранному режиму</span>
+                        <span class="panel-meta">Последствия пожара, эвакуация и дети</span>
                     </div>
                     {{ render_plotly_chart('yearlyAreaChart') }}
                 </article>
@@ -237,7 +189,7 @@
                 <article class="panel chart-panel">
                     <div class="panel-head">
                         <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
-                        <span class="panel-meta">Дополнительный разрез по выбранной аналитике</span>
+                        <span class="panel-meta">Сезонная динамика пожаров по месяцам</span>
                     </div>
                     {{ render_plotly_chart('monthlyProfileChart') }}
                 </article>
@@ -245,41 +197,12 @@
                 <article class="panel chart-panel">
                     <div class="panel-head">
                         <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
-                        <span class="panel-meta">Структура выбранной аналитики</span>
+                        <span class="panel-meta">Распределение по диапазонам площади пожара</span>
                     </div>
                     {{ render_plotly_chart('areaBucketsChart') }}
                 </article>
             </div>
         </div>
-
-        <aside class="dashboard-secondary">
-            <article class="panel insight-panel">
-                <div class="panel-head">
-                    <h2>Ключевые инсайты</h2>
-                    <span class="panel-meta">Автоматически собраны из агрегатов</span>
-                </div>
-                {{ render_highlights(data.highlights) }}
-            </article>
-
-            <article class="panel ranking-panel">
-                <div class="panel-head">
-                    <h2>Лидеры выборки</h2>
-                    <span class="panel-meta">Короткие списки для быстрого чтения</span>
-                </div>
-                <div class="ranking-block">
-                    <h3>Топ распределения</h3>
-                    {{ render_list(rankings.top_distribution, 'topDistributionList', 'Нет данных по распределению.', 'ranking-row-fire') }}
-                </div>
-                <div class="ranking-block">
-                    <h3>Топ таблиц</h3>
-                    {{ render_list(rankings.top_tables, 'topTablesList', 'Нет таблиц в текущем фильтре.', 'ranking-row-table') }}
-                </div>
-                <div class="ranking-block">
-                    <h3>Последние годы</h3>
-                    {{ render_list(rankings.recent_years, 'recentYearsList', 'Недостаточно годовых данных.', 'ranking-row-year') }}
-                </div>
-            </article>
-        </aside>
     </section>
 
     <section class="panel logs-panel">
@@ -291,7 +214,7 @@
     </section>
 </main>
 
-<input type="file" id="fileInput" style="display:none" />
+<input type="file" id="fileInput" style="display:none">
 
 <script>
 window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
@@ -301,20 +224,6 @@ window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
 {% endif %}
 <script src="/static/js/import.js"></script>
 <script src="/static/js/dashboard.js"></script>
+<script src="/static/js/sidebar.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

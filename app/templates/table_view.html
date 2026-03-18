@@ -1,54 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Table: {{ table_name }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таблица: {{ table_name }}</title>
     <link rel="stylesheet" href="/static/style.css">
-    <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-    </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h2>Menu</h2>
-        <button onclick="location.href='/'">Back to Main</button>
+<aside class="sidebar">
+    <div class="brand-block">
+        <span class="brand-kicker">Fire Monitor</span>
+        <h2>Просмотр</h2>
+        <p>Предпросмотр выбранной таблицы с фиксированной шапкой и горизонтальной прокруткой только внутри таблицы.</p>
+    </div>
+
+    <div class="sidebar-actions">
+        <button onclick="location.href='/'">Dashboard</button>
         <button onclick="location.href='/forecasting'">Прогнозирование</button>
-        <button onclick="location.href='/tables'">Back to Tables</button>
+        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/fire-map'">Карта пожаров</button>
+        <button onclick="location.href='/column-search'">Поиск колонок</button>
+        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
-    <div class="main">
-        <h1>Table: {{ table_name }}</h1>
-        <p>Showing first 100 rows</p>
-        <table>
-            <thead>
-                <tr>
-                    {% for col in columns %}
+
+    <div class="sidebar-status">
+        <span class="status-badge status-badge-live">Предпросмотр готов</span>
+        <div class="status-line">
+            <span>Таблица</span>
+            <strong>{{ table_name }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Колонок</span>
+            <strong>{{ columns | length }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Показано строк</span>
+            <strong>{{ rows | length }}</strong>
+        </div>
+    </div>
+</aside>
+
+<main class="main dashboard-main simple-page-main">
+    <section class="hero-panel simple-page-intro">
+        <div class="hero-copy">
+            <span class="eyebrow">Table preview</span>
+            <h1>{{ table_name }}</h1>
+            <p class="subtitle">Ниже показаны первые 100 строк таблицы. Для широких наборов данных используется внутренний скролл контейнера, поэтому вся страница остаётся в пределах экрана.</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Колонок: <strong>{{ columns | length }}</strong></span>
+                <span class="hero-tag">Строк показано: <strong>{{ rows | length }}</strong></span>
+            </div>
+        </div>
+        <div class="hero-side">
+            <article class="hero-stat-card">
+                <span class="hero-stat-label">Режим</span>
+                <strong class="hero-stat-value"><small>Только просмотр</small></strong>
+                <span class="hero-stat-foot">Подходит для быстрой проверки структуры данных перед следующими шагами.</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel data-table-panel">
+        <div class="panel-head">
+            <h2>Первые 100 строк</h2>
+            <span class="panel-meta">Шапка таблицы закреплена, длинные значения переносятся внутри ячеек.</span>
+        </div>
+        <div class="data-table-shell">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for col in columns %}
                         <th>{{ col }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in rows %}
-                <tr>
-                    {% for value in row %}
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        {% for value in row %}
                         <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
                     {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<script src="/static/js/sidebar.js"></script>
 </body>
 </html>

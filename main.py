@@ -1,34 +1,35 @@
-# main.py
+﻿# main.py
 import sys
 import tkinter as tk
 from tkinter import filedialog
 
 from config.settings import Settings
-from pipeline import Pipeline
-from steps.import_data import ImportDataStep
-from steps.fires_feature_profiling import FiresFeatureProfilingStep
-from steps.keep_important_columns import KeepImportantColumnsStep
-from steps.create_clean_table import CreateCleanTableStep
-from steps.feature_selection import FeatureSelectionStep
-from steps.create_fire_map import CreateFireMapStep
+from core.processing.pipeline import Pipeline
+from core.processing.steps.create_clean_table import CreateCleanTableStep
+from core.processing.steps.create_fire_map import CreateFireMapStep
+from core.processing.steps.feature_selection import FeatureSelectionStep
+from core.processing.steps.fires_feature_profiling import FiresFeatureProfilingStep
+from core.processing.steps.import_data import ImportDataStep
+from core.processing.steps.keep_important_columns import KeepImportantColumnsStep
+
 
 def choose_file():
     root = tk.Tk()
     root.withdraw()
 
     file_path = filedialog.askopenfilename(
-        title="Выберите файл",
+        title="Select file",
         filetypes=[
-            ("Excel и CSV файлы", "*.xlsx *.xls *.csv"),
-            ("Excel файлы", "*.xlsx *.xls"),
-            ("CSV файлы", "*.csv"),
-            ("Все файлы", "*.*")
-        ]
+            ("Excel and CSV files", "*.xlsx *.xls *.csv"),
+            ("Excel files", "*.xlsx *.xls"),
+            ("CSV files", "*.csv"),
+            ("All files", "*.*"),
+        ],
     )
     root.destroy()
 
     if not file_path:
-        print("❌ Файл не выбран")
+        print("No file selected")
         sys.exit(1)
 
     return file_path
@@ -42,11 +43,9 @@ def main():
     pipeline.add_step(ImportDataStep())
     pipeline.add_step(CreateFireMapStep())
     pipeline.add_step(FiresFeatureProfilingStep())
-    pipeline.add_step(KeepImportantColumnsStep())  # новый шаг интеллектуальной фильтрации
+    pipeline.add_step(KeepImportantColumnsStep())
     pipeline.add_step(CreateCleanTableStep())
     pipeline.add_step(FeatureSelectionStep())
-    
-   
 
     pipeline.run()
 

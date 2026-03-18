@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Прогнозирование пожаров</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/forecasting.css">
+    <link rel="stylesheet" href="/static/forecasting.css?v=3">
 </head>
 <body>
 {% set data = forecast.initial_data %}
@@ -17,12 +17,13 @@
     <div class="brand-block">
         <span class="brand-kicker">Fire Monitor</span>
         <h2>Прогноз</h2>
-        <p>Сценарный прогноз количества пожаров по датам, неделям и месяцам с учетом истории, температуры, района, причины и категории объекта.</p>
+        <p>Простая витрина прогноза: что происходило раньше, что ожидается в ближайшие дни и какие значения сейчас важнее всего.</p>
     </div>
 
     <div class="sidebar-actions">
         <button onclick="location.href='/'">Dashboard</button>
         <button onclick="location.href='/forecasting'">Прогнозирование</button>
+        <button onclick="location.href='/ml-model'">ML-модель</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
         <button onclick="location.href='/select_table'">Запустить profiling</button>
@@ -54,6 +55,7 @@
             <p class="subtitle" id="forecastModelDescription">{{ data.model_description }}</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="forecastTableLabel">{{ summary.selected_table_label }}</strong></span>
+                <span class="hero-tag">История: <strong id="forecastHistoryMode">{{ summary.history_window_label }}</strong></span>
                 <span class="hero-tag">Срез: <strong id="forecastSliceLabel">{{ summary.slice_label }}</strong></span>
                 <span class="hero-tag">Температура: <strong id="forecastTemperatureMode">{{ summary.temperature_scenario_display }}</strong></span>
             </div>
@@ -61,14 +63,14 @@
 
         <div class="hero-side">
             <article class="hero-stat-card trend-flat">
-                <span class="hero-stat-label">Историческое окно</span>
-                <strong class="hero-stat-value"><span id="forecastHistoryRange">{{ summary.history_period_label }}</span></strong>
-                <span class="hero-stat-foot">Последняя дата: <span id="forecastLastObserved">{{ summary.last_observed_date }}</span></span>
+                <span class="hero-stat-label">Средняя вероятность пожара</span>
+                <strong class="hero-stat-value"><span id="forecastAverageValue">{{ summary.average_probability_display }}</span></strong>
+                <span class="hero-stat-foot">На ближайшие <span id="forecastDaysTotal">{{ summary.forecast_days_display }}</span> дней</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Средний прогноз на день</span>
-                <strong class="hero-stat-value"><span id="forecastAverageValue">{{ summary.predicted_average_display }}</span> <small>пожара</small></strong>
-                <span class="hero-stat-foot">Суммарно на горизонт: <span id="forecastTotalValue">{{ summary.predicted_total_display }}</span></span>
+                <span class="hero-stat-label">Максимальная вероятность</span>
+                <strong class="hero-stat-value"><span id="forecastPeakValue">{{ summary.peak_forecast_probability_display }}</span></strong>
+                <span class="hero-stat-foot">Дата: <span id="forecastPeakDay">{{ summary.peak_forecast_day_display }}</span></span>
             </article>
         </div>
     </section>
@@ -76,7 +78,7 @@
     <section class="panel filters-panel">
         <div class="panel-head">
             <h2>Сценарий прогноза</h2>
-            <span class="panel-meta">Можно прогнозировать весь поток пожаров или выбрать район, причину и категорию объекта.</span>
+            <span class="panel-meta">Можно строить прогноз по одной таблице или сразу по всем, а также сузить историю по причине, категории объекта и температурному сценарию.</span>
         </div>
         <form class="filters-grid forecast-form-grid" id="forecastForm" method="get" action="/forecasting">
             <label class="filter-field">
@@ -88,10 +90,10 @@
                 </select>
             </label>
             <label class="filter-field">
-                <span>Район</span>
-                <select id="forecastDistrictFilter" name="district">
-                    {% for option in filters.available_districts %}
-                    <option value="{{ option.value }}" {% if option.value == filters.district %}selected{% endif %}>{{ option.label }}</option>
+                <span>История</span>
+                <select id="forecastHistoryWindowFilter" name="history_window">
+                    {% for option in filters.available_history_windows %}
+                    <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
                 </select>
             </label>
@@ -113,7 +115,7 @@
             </label>
             <label class="filter-field">
                 <span>Температура, °C</span>
-                <input id="forecastTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берем сезонную среднюю">
+                <input id="forecastTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берется сезонная средняя">
             </label>
             <label class="filter-field">
                 <span>Горизонт</span>
@@ -128,7 +130,7 @@
                 <button id="forecastRefreshButton" class="primary-action" type="submit">Пересчитать прогноз</button>
             </div>
         </form>
-        <div class="filter-summary" id="forecastSummaryLine">{{ summary.slice_label }} | История: {{ summary.history_period_label }} | Горизонт: {{ summary.forecast_days_display }} дней</div>
+        <div class="filter-summary" id="forecastSummaryLine">{{ summary.slice_label }} | Средняя вероятность: {{ summary.average_probability_display }} | Максимум: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | К последним 4 неделям: {{ summary.forecast_vs_recent_display }}</div>
     </section>
 
     <section class="stats-grid forecast-stats">
@@ -138,19 +140,19 @@
             <span class="stat-foot">После выбранных фильтров</span>
         </article>
         <article class="stat-card">
-            <span class="stat-label">Дней в истории</span>
-            <strong class="stat-value" id="forecastHistoryDays">{{ summary.history_days_display }}</strong>
-            <span class="stat-foot">Сплошной дневной ряд</span>
+            <span class="stat-label">Дни с пожарами</span>
+            <strong class="stat-value" id="forecastActiveDaysShare">{{ summary.active_days_share_display }}</strong>
+            <span class="stat-foot"><span id="forecastActiveDays">{{ summary.active_days_display }}</span> из <span id="forecastHistoryDays">{{ summary.history_days_display }}</span> дней</span>
         </article>
         <article class="stat-card">
-            <span class="stat-label">Прогноз по неделям</span>
-            <strong class="stat-value" id="forecastWeeklyTotal">{{ summary.weekly_forecast_display }}</strong>
-            <span class="stat-foot">Сумма будущих недель</span>
+            <span class="stat-label">Недавний средний день</span>
+            <strong class="stat-value" id="forecastRecentAverage">{{ summary.recent_average_display }}</strong>
+            <span class="stat-foot">Исторически в среднем: <span id="forecastHistoricalAverage">{{ summary.historical_average_display }}</span></span>
         </article>
         <article class="stat-card">
-            <span class="stat-label">Ближайший месяц</span>
-            <strong class="stat-value" id="forecastMonthlyTotal">{{ summary.monthly_forecast_display }}</strong>
-            <span class="stat-foot">Прогноз первого месяца</span>
+            <span class="stat-label">Максимальная вероятность</span>
+            <strong class="stat-value" id="forecastPeakRiskValue">{{ summary.peak_forecast_probability_display }}</strong>
+            <span class="stat-foot">Дата: <span id="forecastPeakRiskDay">{{ summary.peak_forecast_day_display }}</span></span>
         </article>
     </section>
 
@@ -159,36 +161,25 @@
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
                     <h2 id="forecastDailyChartTitle">{{ charts.daily.title }}</h2>
-                    <span class="panel-meta">История по датам, прогноз на будущие дни и диапазон неопределенности.</span>
+                    <span class="panel-meta">График показывает последние наблюдения, сглаженный тренд и прогноз на ближайшие дни с типичным диапазоном.</span>
                 </div>
                 <div id="forecastDailyChart" class="plotly-chart forecast-plot"></div>
                 <div id="forecastDailyChartFallback" class="chart-empty{% if charts.daily.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.daily.empty_message }}</div>
             </article>
 
-            <div class="forecast-chart-grid">
-                <article class="panel chart-panel">
-                    <div class="panel-head">
-                        <h2 id="forecastWeeklyChartTitle">{{ charts.weekly.title }}</h2>
-                        <span class="panel-meta">Сравнение исторических и прогнозных недель.</span>
-                    </div>
-                    <div id="forecastWeeklyChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
-                    <div id="forecastWeeklyChartFallback" class="chart-empty{% if charts.weekly.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.weekly.empty_message }}</div>
-                </article>
-
-                <article class="panel chart-panel">
-                    <div class="panel-head">
-                        <h2 id="forecastMonthlyChartTitle">{{ charts.monthly.title }}</h2>
-                        <span class="panel-meta">Будущие месяцы против типичного исторического уровня.</span>
-                    </div>
-                    <div id="forecastMonthlyChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
-                    <div id="forecastMonthlyChartFallback" class="chart-empty{% if charts.monthly.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.monthly.empty_message }}</div>
-                </article>
-            </div>
+            <article class="panel chart-panel forecast-support-panel">
+                <div class="panel-head">
+                    <h2 id="forecastBreakdownChartTitle">{{ charts.breakdown.title }}</h2>
+                    <span class="panel-meta">Каждый столбец показывает вероятность пожара в конкретный день. Пунктиром отмечен обычный недавний уровень риска.</span>
+                </div>
+                <div id="forecastBreakdownChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
+                <div id="forecastBreakdownChartFallback" class="chart-empty{% if charts.breakdown.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.breakdown.empty_message }}</div>
+            </article>
 
             <article class="panel forecast-table-panel">
                 <div class="panel-head">
-                    <h2>Будущие даты</h2>
-                    <span class="panel-meta">Дневной прогноз с диапазоном неопределенности и температурным сценарием.</span>
+                    <h2>Ближайшие даты</h2>
+                    <span class="panel-meta">Простая таблица по ближайшим дням: дата, вероятность пожара и короткий комментарий без дробных технических значений.</span>
                 </div>
                 <div id="forecastTableShell" class="forecast-table-shell">
                     {% if data.forecast_rows %}
@@ -196,24 +187,27 @@
                         <thead>
                             <tr>
                                 <th>Дата</th>
-                                <th>Прогноз пожаров</th>
-                                <th>Диапазон</th>
-                                <th>Температура</th>
+                                <th>День недели</th>
+                                <th>Вероятность пожара</th>
+                                <th>Комментарий</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in data.forecast_rows %}
                             <tr>
                                 <td>{{ row.date_display }}</td>
-                                <td>{{ row.forecast_value_display }}</td>
-                                <td>{{ row.lower_bound_display }} - {{ row.upper_bound_display }}</td>
-                                <td>{{ row.temperature_display }}</td>
+                                <td>{{ row.weekday_label }}</td>
+                                <td>{{ row.fire_probability_display }}</td>
+                                <td>
+                                    <span class="forecast-scenario-pill tone-{{ row.scenario_tone }}">{{ row.scenario_label }}</span>
+                                    <div class="forecast-cell-note">{{ row.scenario_hint }}</div>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                     {% else %}
-                    <div class="mini-empty">После расчета здесь появятся будущие даты и ожидаемое количество пожаров.</div>
+                    <div class="mini-empty">После расчета здесь появятся ближайшие даты и вероятность возникновения пожара.</div>
                     {% endif %}
                 </div>
             </article>
@@ -222,8 +216,8 @@
         <aside class="dashboard-secondary forecast-secondary">
             <article class="panel insight-panel">
                 <div class="panel-head">
-                    <h2>Сигналы сценария</h2>
-                    <span class="panel-meta">Быстрые выводы из дневного, недельного и месячного прогноза.</span>
+                    <h2>Ключевые сигналы</h2>
+                    <span class="panel-meta">Четыре коротких вывода, чтобы понять сценарий без лишней аналитики.</span>
                 </div>
                 <div id="forecastInsights" class="insight-grid">
                     {% if data.insights %}
@@ -243,39 +237,16 @@
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2 id="forecastWeekdayChartTitle">{{ charts.weekday.title }}</h2>
-                    <span class="panel-meta">Исторический ритм пожаров по дням недели.</span>
+                    <span class="panel-meta">Показывает, в какие дни недели пожары происходят чаще и где находится общий средний уровень.</span>
                 </div>
                 <div id="forecastWeekdayChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
                 <div id="forecastWeekdayChartFallback" class="chart-empty{% if charts.weekday.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.weekday.empty_message }}</div>
             </article>
 
-            <article class="panel insight-panel">
-                <div class="panel-head">
-                    <h2>Используемые признаки</h2>
-                    <span class="panel-meta">Система показывает, какие колонки реально нашлись в таблице.</span>
-                </div>
-                <div id="forecastFeatures" class="forecast-feature-list">
-                    {% if data.features %}
-                        {% for feature in data.features %}
-                        <article class="forecast-feature-card status-{{ feature.status }}">
-                            <div class="forecast-feature-head">
-                                <strong>{{ feature.label }}</strong>
-                                <span class="forecast-badge">{{ feature.status_label }}</span>
-                            </div>
-                            <div class="forecast-feature-source">Источник: {{ feature.source }}</div>
-                            <p>{{ feature.description }}</p>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Признаки появятся после выбора таблицы.</div>
-                    {% endif %}
-                </div>
-            </article>
-
             <article class="panel ranking-panel">
                 <div class="panel-head">
-                    <h2>Заметки модели</h2>
-                    <span class="panel-meta">Здесь видны ограничения и предупреждения по текущему сценарию.</span>
+                    <h2>Что важно помнить</h2>
+                    <span class="panel-meta">Короткие оговорки, которые помогают не переоценивать точность прогноза.</span>
                 </div>
                 <ul id="forecastNotesList" class="notice-list forecast-note-list">
                     {% if data.notes %}
@@ -297,6 +268,9 @@ window.__FIRE_FORECAST_INITIAL__ = {{ data | tojson }};
 {% if forecast.plotly_js %}
 <script>{{ forecast.plotly_js | safe }}</script>
 {% endif %}
-<script src="/static/js/forecasting.js"></script>
+<script src="/static/js/forecasting.js?v=3"></script>
+<script src="/static/js/sidebar.js"></script>
 </body>
 </html>
+
+

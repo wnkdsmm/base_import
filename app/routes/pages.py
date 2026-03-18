@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -8,15 +8,17 @@ from app.db_views import get_all_tables, get_table_data
 from app.services.dashboard_service import get_dashboard_page_context
 from app.services.fire_map_service import build_fire_map_html
 from app.services.forecasting_service import get_forecasting_page_context
+from app.services.ml_model_service import get_ml_model_page_context
 from app.services.table_options import (
     get_column_search_table_options,
     get_fire_map_table_options,
     resolve_selected_table,
 )
+from config.paths import TEMPLATES_DIR
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -28,12 +30,13 @@ def home(request: Request, table_name: str = "all", year: str = "all", group_col
 @router.get("/forecasting", response_class=HTMLResponse)
 def forecasting_page(
     request: Request,
-    table_name: str = "",
+    table_name: str = "all",
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     temperature: str = "",
     forecast_days: str = "14",
+    history_window: str = "all",
 ):
     forecast = get_forecasting_page_context(
         table_name=table_name,
@@ -42,8 +45,30 @@ def forecasting_page(
         object_category=object_category,
         temperature=temperature,
         forecast_days=forecast_days,
+        history_window=history_window,
     )
     return templates.TemplateResponse("forecasting.html", {"request": request, "forecast": forecast})
+
+
+@router.get("/ml-model", response_class=HTMLResponse)
+def ml_model_page(
+    request: Request,
+    table_name: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+    history_window: str = "all",
+):
+    ml_model = get_ml_model_page_context(
+        table_name=table_name,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        forecast_days=forecast_days,
+        history_window=history_window,
+    )
+    return templates.TemplateResponse("ml_model.html", {"request": request, "ml_model": ml_model})
 
 
 @router.get("/column-search", response_class=HTMLResponse)

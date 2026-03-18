@@ -1,22 +1,23 @@
 import os
-from config.paths import BASE_DIR
+from pathlib import Path
+
+from config.paths import get_result_folder
 
 
 class Settings:
 
     def __init__(self, input_file=None, selected_table=None, output_folder=None):
         """
-        Инициализация настроек.
+        РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РЅР°СЃС‚СЂРѕРµРє.
         
         Args:
-            input_file: путь к загруженному файлу (опционально)
-            selected_table: имя выбранной таблицы (опционально)
-            output_folder: папка для вывода результатов (опционально)
+            input_file: РїСѓС‚СЊ Рє Р·Р°РіСЂСѓР¶РµРЅРЅРѕРјСѓ С„Р°Р№Р»Сѓ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)
+            selected_table: РёРјСЏ РІС‹Р±СЂР°РЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)
+            output_folder: РїР°РїРєР° РґР»СЏ РІС‹РІРѕРґР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)
         """
         self.input_file = input_file
         self.selected_table = selected_table
         
-        # Определяем имя проекта
         if selected_table:
             self.project_name = selected_table
         elif input_file:
@@ -24,17 +25,12 @@ class Settings:
         else:
             self.project_name = "default_project"
         
-        # Если output_folder не указан, создаем стандартный путь
         if output_folder:
-            self.output_folder = output_folder
+            output_path = Path(output_folder)
+            output_path.mkdir(parents=True, exist_ok=True)
+            self.output_folder = str(output_path)
         else:
-            # Папка results внутри BASE_DIR
-            results_dir = os.path.join(BASE_DIR, "results")
-            os.makedirs(results_dir, exist_ok=True)
-            
-            # Папка проекта внутри results
-            self.output_folder = os.path.join(results_dir, f"folder_{self.project_name}")
-            os.makedirs(self.output_folder, exist_ok=True)
+            self.output_folder = str(get_result_folder(self.project_name))
     
     def __repr__(self):
         return f"Settings(project_name={self.project_name}, selected_table={self.selected_table}, output_folder={self.output_folder})"

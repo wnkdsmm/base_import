@@ -79,6 +79,17 @@ _METADATA_CACHE: Dict[str, Any] = {"expires_at": 0.0, "value": None}
 _DASHBOARD_CACHE: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
 _PLOTLY_BUNDLE_CACHE: Optional[str] = None
 
+DISTRICT_COLUMN_CANDIDATES = [
+    "Район",
+    "Муниципальный район",
+    "Муниципальное образование",
+    "Административный район",
+    "Район выезда подразделения",
+    "Район пожара",
+    "Территория",
+]
+SEASON_ORDER = ["Зима", "Весна", "Лето", "Осень"]
+
 
 def build_dashboard_context(
     table_name: str = "all",
@@ -159,6 +170,7 @@ def get_dashboard_data(
         trend = _build_trend(yearly_fires_series)
         rankings = _build_rankings(distribution, table_breakdown_series, yearly_fires_series)
         highlights = _build_highlights(summary, yearly_fires_series, cause_overview)
+        widgets = _build_sql_widgets(selected_tables, selected_year)
         scope = _build_scope(
             summary=summary,
             metadata=metadata,
@@ -179,6 +191,7 @@ def get_dashboard_data(
             "trend": trend,
             "highlights": highlights,
             "rankings": rankings,
+            "widgets": widgets,
             "charts": {
                 "yearly_fires": cause_overview,
                 "yearly_area": yearly_area_chart,
@@ -269,6 +282,11 @@ def _empty_dashboard_data(error_message: str = "") -> Dict[str, Any]:
             "top_distribution": [],
             "top_tables": [],
             "recent_years": [],
+        },
+        "widgets": {
+            "causes": _finalize_chart("SQL-виджет: причины", [], "Нет данных по причинам возгорания."),
+            "districts": _finalize_chart("SQL-виджет: районы", [], "В выбранных таблицах не найдено колонок района."),
+            "seasons": _finalize_chart("SQL-виджет: сезоны", [], "Нет данных для сезонного SQL-виджета."),
         },
         "charts": {
             "yearly_fires": _finalize_chart("Причины возгораний", [], "Нет данных по причинам возгорания."),
@@ -1025,6 +1043,149 @@ def _build_area_buckets_chart(selected_tables: List[Dict[str, Any]], selected_ye
     title = "Структура по площади пожара"
     empty_message = "Нет данных по площади пожара."
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
+
+
+def _build_sql_widgets(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Dict[str, Any]]:
+    return {
+        "causes": _build_sql_cause_widget(selected_tables, selected_year),
+        "districts": _build_sql_district_widget(selected_tables, selected_year),
+        "seasons": _build_sql_season_widget(selected_tables, selected_year),
+    }
+
+
+def _build_sql_cause_widget(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+    grouped: Dict[str, int] = defaultdict(int)
+    with engine.connect() as conn:
+        for table in selected_tables:
+            cause_column = _resolve_cause_column(table)
+            if not cause_column:
+                continue
+            where_clause = _build_year_filter_clause(table, selected_year)
+            if where_clause is None:
+                continue
+            query = text(
+                f"""
+                SELECT
+                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(cause_column)} AS TEXT)), ''), 'Не указано') AS label,
+                    COUNT(*) AS fire_count
+                FROM {_quote_identifier(table['name'])}
+                WHERE {where_clause}
+                GROUP BY label
+                ORDER BY fire_count DESC
+                """
+            )
+            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
+            for row in conn.execute(query, params).mappings().all():
+                grouped[row["label"]] += int(row["fire_count"] or 0)
+
+    items = [
+        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
+        for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
+    ]
+    title = "SQL-виджет: причины"
+    empty_message = "Нет данных по причинам возгорания."
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="fire", value_label="Пожаров"),
+    )
+
+
+def _build_sql_district_widget(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+    grouped: Dict[str, int] = defaultdict(int)
+    with engine.connect() as conn:
+        for table in selected_tables:
+            district_column = _resolve_district_column(table)
+            if not district_column:
+                continue
+            where_clause = _build_year_filter_clause(table, selected_year)
+            if where_clause is None:
+                continue
+            query = text(
+                f"""
+                SELECT
+                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(district_column)} AS TEXT)), ''), 'Не указано') AS label,
+                    COUNT(*) AS fire_count
+                FROM {_quote_identifier(table['name'])}
+                WHERE {where_clause}
+                GROUP BY label
+                ORDER BY fire_count DESC
+                """
+            )
+            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
+            for row in conn.execute(query, params).mappings().all():
+                grouped[row["label"]] += int(row["fire_count"] or 0)
+
+    items = [
+        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
+        for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
+    ]
+    title = "SQL-виджет: районы"
+    empty_message = "В выбранных таблицах не найдено колонок района."
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="Пожаров"),
+    )
+
+
+def _build_sql_season_widget(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+    grouped: Dict[str, int] = defaultdict(int)
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            if DATE_COLUMN not in table["column_set"]:
+                continue
+            month_expression = _month_expression(DATE_COLUMN)
+            conditions = [f"{month_expression} BETWEEN 1 AND 12"]
+            if selected_year is not None:
+                conditions.append(f"{_year_expression(DATE_COLUMN)} = :selected_year")
+            query = text(
+                f"""
+                SELECT
+                    CASE
+                        WHEN {month_expression} IN (12, 1, 2) THEN 'Зима'
+                        WHEN {month_expression} IN (3, 4, 5) THEN 'Весна'
+                        WHEN {month_expression} IN (6, 7, 8) THEN 'Лето'
+                        ELSE 'Осень'
+                    END AS label,
+                    COUNT(*) AS fire_count
+                FROM {_quote_identifier(table['name'])}
+                WHERE {' AND '.join(conditions)}
+                GROUP BY label
+                """
+            )
+            params = {"selected_year": selected_year} if selected_year is not None else {}
+            for row in conn.execute(query, params).mappings().all():
+                grouped[row["label"]] += int(row["fire_count"] or 0)
+
+    items = [
+        {
+            "label": season_label,
+            "value": grouped.get(season_label, 0),
+            "value_display": _format_number(grouped.get(season_label, 0), integer=True),
+        }
+        for season_label in SEASON_ORDER
+        if season_label in grouped
+    ]
+    title = "SQL-виджет: сезоны"
+    empty_message = "Нет данных для сезонного SQL-виджета."
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_sql_widget_season_plotly(title, items, empty_message),
+    )
+
+
+def _resolve_district_column(table: Dict[str, Any]) -> str:
+    for candidate in DISTRICT_COLUMN_CANDIDATES:
+        resolved = _resolve_table_column_name(table, candidate)
+        if resolved:
+            return resolved
+    return ""
 
 
 def _collect_impact_totals(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, float]:
@@ -1916,6 +2077,70 @@ def _build_area_bucket_plotly(title: str, items: List[Dict[str, Any]], empty_mes
 
 
 
+def _build_sql_widget_bar_plotly(
+    title: str,
+    items: List[Dict[str, Any]],
+    empty_message: str,
+    color_key: str,
+    value_label: str,
+) -> Dict[str, Any]:
+    if not items:
+        return _build_empty_plotly_chart(title, empty_message)
+
+    ordered_items = list(reversed(items))
+    color_value = PLOTLY_PALETTE.get(color_key, PLOTLY_PALETTE["fire"])
+    line_color = PLOTLY_PALETTE.get(f"{color_key}_soft", color_value)
+    figure = go.Figure(
+        data=[
+            go.Bar(
+                x=[item["value"] for item in ordered_items],
+                y=[_wrap_plotly_label(item["label"], max_width=26, max_lines=3) for item in ordered_items],
+                orientation="h",
+                text=[item["value_display"] for item in ordered_items],
+                textposition="outside",
+                customdata=[item["label"] for item in ordered_items],
+                marker=dict(
+                    color=color_value,
+                    line=dict(color=line_color, width=1.1),
+                ),
+                hovertemplate=f"<b>%{{customdata}}</b><br>{value_label}: %{{text}}<extra></extra>",
+            )
+        ]
+    )
+    layout = _plotly_layout(value_label, showlegend=False)
+    layout["height"] = max(320, 40 * len(items) + 80)
+    layout["margin"] = {"l": 220, "r": 30, "t": 16, "b": 32}
+    layout["yaxis"]["automargin"] = True
+    figure.update_layout(**layout)
+    return _figure_to_dict(figure)
+
+
+def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+    if not items:
+        return _build_empty_plotly_chart(title, empty_message)
+
+    colors = [
+        PLOTLY_PALETTE["sky"],
+        PLOTLY_PALETTE["forest"],
+        PLOTLY_PALETTE["sand"],
+        PLOTLY_PALETTE["fire_soft"],
+    ]
+    figure = go.Figure(
+        data=[
+            go.Bar(
+                x=[item["label"] for item in items],
+                y=[item["value"] for item in items],
+                text=[item["value_display"] for item in items],
+                textposition="outside",
+                marker=dict(color=colors[: len(items)], line=dict(color="rgba(255,255,255,0.7)", width=1)),
+                hovertemplate="<b>%{x}</b><br>Пожаров: %{text}<extra></extra>",
+            )
+        ]
+    )
+    figure.update_layout(**_plotly_layout("Пожаров", showlegend=False))
+    return _figure_to_dict(figure)
+
+
 def _build_impact_yearly_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not PLOTLY_AVAILABLE or not items:
         return _build_empty_plotly_chart(title, empty_message)
@@ -2002,6 +2227,7 @@ def _build_empty_plotly_chart(title: str, message: str) -> Dict[str, Any]:
 def _plotly_layout(yaxis_title: str, showlegend: bool) -> Dict[str, Any]:
     return {
         "height": 340,
+        "bargap": 0.45,
         "showlegend": showlegend,
         "paper_bgcolor": PLOTLY_PALETTE["paper"],
         "plot_bgcolor": PLOTLY_PALETTE["paper"],
@@ -2143,6 +2369,7 @@ def _format_period_label(years: List[int]) -> str:
 
 def _format_datetime(value: datetime) -> str:
     return value.strftime("%d.%m.%Y %H:%M")
+
 
 
 

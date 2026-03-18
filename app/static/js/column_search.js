@@ -1,9 +1,11 @@
-﻿(function () {
+(function () {
     const state = {
         payload: null,
         selectedColumns: new Set(),
         selectedGroups: new Set(),
-        lastTableName: ''
+        excludedColumns: new Set(),
+        lastTableName: '',
+        previewRequestId: 0
     };
 
     function byId(id) {
@@ -75,7 +77,7 @@
 
         const columns = payload && Array.isArray(payload.preview_columns) ? payload.preview_columns : [];
         const rows = payload && Array.isArray(payload.preview_rows) ? payload.preview_rows : [];
-        const tableName = payload && payload.table_name ? payload.table_name : (payload && payload.source_table ? payload.source_table : 'Not selected');
+        const tableName = payload && payload.table_name ? payload.table_name : (payload && payload.source_table ? payload.source_table : 'Не выбрана');
         const message = payload && payload.message ? payload.message : 'Совпадений не найдено.';
 
         setText('columnSearchTableTitle', tableName);
@@ -103,17 +105,88 @@
         enableDragScroll(previewNode.querySelector('.table-scroll'));
     }
 
+    function isColumnProvidedBySelectedGroup(columnName) {
+        const groups = state.payload && Array.isArray(state.payload.groups) ? state.payload.groups : [];
+        return groups.some(function (group) {
+            return state.selectedGroups.has(group.id) && Array.isArray(group.columns) && group.columns.includes(columnName);
+        });
+    }
+
     function getSelectedColumnsUnion() {
-        const selected = new Set(state.selectedColumns);
+        const selected = new Set();
+
+        state.selectedColumns.forEach(function (column) {
+            if (!state.excludedColumns.has(column)) {
+                selected.add(column);
+            }
+        });
+
         const groups = state.payload && Array.isArray(state.payload.groups) ? state.payload.groups : [];
         groups.forEach(function (group) {
             if (state.selectedGroups.has(group.id) && Array.isArray(group.columns)) {
                 group.columns.forEach(function (column) {
-                    selected.add(column);
+                    if (!state.excludedColumns.has(column)) {
+                        selected.add(column);
+                    }
                 });
             }
         });
+
         return selected;
+    }
+
+    function isColumnSelected(columnName) {
+        return getSelectedColumnsUnion().has(columnName);
+    }
+
+    function getGroupLabelsForColumn(columnName) {
+        const groups = state.payload && Array.isArray(state.payload.groups) ? state.payload.groups : [];
+        return groups
+            .filter(function (group) {
+                return Array.isArray(group.columns) && group.columns.includes(columnName);
+            })
+            .map(function (group) {
+                return group.label;
+            });
+    }
+
+    function buildVisibleMatches() {
+        const payloadColumns = state.payload && Array.isArray(state.payload.columns) ? state.payload.columns : [];
+        const visible = [];
+        const byName = new Map();
+
+        payloadColumns.forEach(function (item) {
+            byName.set(item.name, item);
+            visible.push(item);
+        });
+
+        const groups = state.payload && Array.isArray(state.payload.groups) ? state.payload.groups : [];
+        groups.forEach(function (group) {
+            if (!state.selectedGroups.has(group.id) || !Array.isArray(group.columns)) {
+                return;
+            }
+
+            group.columns.forEach(function (columnName) {
+                if (byName.has(columnName)) {
+                    return;
+                }
+
+                const groupLabels = getGroupLabelsForColumn(columnName);
+                const syntheticItem = {
+                    name: columnName,
+                    matched_terms: [],
+                    score: '',
+                    important_label: '',
+                    group_ids: [],
+                    group_labels: groupLabels,
+                    match_mode: 'group'
+                };
+                byName.set(columnName, syntheticItem);
+                visible.push(syntheticItem);
+            });
+        });
+
+        return visible;
     }
 
     function updateSelectionSummary() {
@@ -125,6 +198,61 @@
         const selectedUnion = getSelectedColumnsUnion();
         const groupCount = state.selectedGroups.size;
         summaryNode.textContent = 'Выбрано колонок: ' + selectedUnion.size + ' | Выбрано групп: ' + groupCount;
+    }
+
+    async function refreshPreviewForSelection() {
+        const tableSelect = byId('columnSearchTable');
+        const previewNode = byId('columnSearchPreview');
+        if (!tableSelect) {
+            return;
+        }
+
+        const selectedColumns = Array.from(getSelectedColumnsUnion());
+        const requestId = ++state.previewRequestId;
+
+        if (!selectedColumns.length) {
+            renderPreviewTable({
+                table_name: tableSelect.value || '',
+                preview_columns: [],
+                preview_rows: [],
+                message: 'Выберите колонки или тематические группы для предпросмотра.'
+            });
+            return;
+        }
+
+        if (previewNode) {
+            previewNode.innerHTML = '<div class="mini-empty">Загружается предпросмотр...</div>';
+        }
+
+        try {
+            const response = await fetch('/api/column-search/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    table_name: tableSelect.value || '',
+                    selected_columns: selectedColumns
+                })
+            });
+            const payload = await response.json();
+            if (requestId !== state.previewRequestId) {
+                return;
+            }
+            renderPreviewTable(payload);
+        } catch (error) {
+            console.error(error);
+            if (requestId !== state.previewRequestId) {
+                return;
+            }
+            renderPreviewTable({
+                table_name: tableSelect.value || '',
+                preview_columns: [],
+                preview_rows: [],
+                message: 'Не удалось загрузить предпросмотр.'
+            });
+        }
     }
 
     function renderGroups(groups) {
@@ -173,7 +301,9 @@
                 } else {
                     state.selectedGroups.delete(groupId);
                 }
+                renderMatches(buildVisibleMatches(), state.payload ? state.payload.message : '');
                 updateSelectionSummary();
+                refreshPreviewForSelection();
             });
         });
 
@@ -193,7 +323,7 @@
         }
 
         node.innerHTML = columns.map(function (item) {
-            const checked = state.selectedColumns.has(item.name) ? 'checked' : '';
+            const checked = isColumnSelected(item.name) ? 'checked' : '';
             const matchedTerms = Array.isArray(item.matched_terms) && item.matched_terms.length
                 ? item.matched_terms.map(function (term) {
                     return '<span class="column-tag">' + escapeHtml(term) + '</span>';
@@ -205,13 +335,15 @@
                 }).join('')
                 : '';
             const label = item.important_label ? '<span class="column-important-label">Важно: ' + escapeHtml(item.important_label) + '</span>' : '';
+            const scoreLabel = item.score === '' || item.score == null ? '—' : item.score;
+            const matchModeLabel = item.match_mode === 'group' ? 'group' : 'query';
 
             return '' +
                 '<label class="column-match-card">' +
                     '<input class="column-match-checkbox" type="checkbox" data-column-name="' + escapeHtml(item.name) + '" ' + checked + '>' +
                     '<span class="column-match-body">' +
                         '<strong class="column-match-name">' + escapeHtml(item.name) + '</strong>' +
-                        '<span class="column-match-meta">Совпадение: ' + escapeHtml(item.match_mode || 'query') + ' | Score: ' + escapeHtml(item.score == null ? '' : item.score) + '</span>' +
+                        '<span class="column-match-meta">Совпадение: ' + escapeHtml(matchModeLabel) + ' | Score: ' + escapeHtml(scoreLabel) + '</span>' +
                         label +
                         '<span class="column-tag-row">' + matchedTerms + groups + '</span>' +
                     '</span>' +
@@ -224,12 +356,22 @@
                 if (!name) {
                     return;
                 }
+
                 if (event.target.checked) {
                     state.selectedColumns.add(name);
+                    state.excludedColumns.delete(name);
                 } else {
                     state.selectedColumns.delete(name);
+                    if (isColumnProvidedBySelectedGroup(name)) {
+                        state.excludedColumns.add(name);
+                    } else {
+                        state.excludedColumns.delete(name);
+                    }
                 }
+
+                renderMatches(buildVisibleMatches(), state.payload ? state.payload.message : '');
                 updateSelectionSummary();
+                refreshPreviewForSelection();
             });
         });
 
@@ -267,22 +409,26 @@
 
         try {
             const response = await fetch('/api/column-search?' + params.toString(), {
-                headers: { 'Accept': 'application/json' }
+                headers: { Accept: 'application/json' }
             });
             if (!response.ok) {
-                throw new Error('Не удалось выполнить поиск колонок');
+                throw new Error('Не удалось выполнить поиск колонок.');
             }
             const payload = await response.json();
             const tableChanged = state.lastTableName !== payload.table_name;
             state.payload = payload;
             state.lastTableName = payload.table_name || '';
-            state.selectedGroups = tableChanged ? new Set() : state.selectedGroups;
-            state.selectedColumns = new Set(payload.columns.map(function (item) {
+
+            if (tableChanged) {
+                state.selectedGroups = new Set();
+            }
+            state.selectedColumns = new Set((payload.columns || []).map(function (item) {
                 return item.name;
             }));
+            state.excludedColumns = new Set();
 
             renderGroups(payload.groups || []);
-            renderMatches(payload.columns || [], payload.message || 'Совпадения не найдены.');
+            renderMatches(buildVisibleMatches(), payload.message || 'Совпадения не найдены.');
             renderPreviewTable(payload);
             setStatus(payload.message || '', false);
             window.history.replaceState({}, '', '/column-search?' + params.toString());
@@ -291,6 +437,7 @@
             state.payload = null;
             state.selectedColumns = new Set();
             state.selectedGroups = new Set();
+            state.excludedColumns = new Set();
             renderGroups([]);
             renderMatches([], 'Ошибка поиска колонок. Проверьте консоль приложения.');
             renderPreviewTable({
@@ -317,9 +464,9 @@
             return;
         }
 
-        const selectedColumns = Array.from(state.selectedColumns);
+        const selectedColumns = Array.from(getSelectedColumnsUnion());
         const selectedGroups = Array.from(state.selectedGroups);
-        const finalSelectedCount = getSelectedColumnsUnion().size;
+        const finalSelectedCount = selectedColumns.length;
 
         if (!finalSelectedCount) {
             setStatus('Нужно выбрать хотя бы одну колонку или одну тематическую группу.', true);
@@ -346,7 +493,7 @@
             });
             const payload = await response.json();
             if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Не удалось создать modify-таблицу');
+                throw new Error(payload.message || 'Не удалось создать modify-таблицу.');
             }
 
             renderPreviewTable(payload);
@@ -380,22 +527,29 @@
 
         if (selectAllButton) {
             selectAllButton.addEventListener('click', function () {
-                if (!state.payload || !Array.isArray(state.payload.columns)) {
+                const visibleMatches = buildVisibleMatches();
+                if (!visibleMatches.length) {
                     return;
                 }
-                state.selectedColumns = new Set(state.payload.columns.map(function (item) {
-                    return item.name;
-                }));
-                renderMatches(state.payload.columns, state.payload.message);
+                visibleMatches.forEach(function (item) {
+                    state.selectedColumns.add(item.name);
+                    state.excludedColumns.delete(item.name);
+                });
+                renderMatches(visibleMatches, state.payload ? state.payload.message : '');
+                refreshPreviewForSelection();
             });
         }
 
         if (clearButton) {
             clearButton.addEventListener('click', function () {
+                const visibleMatches = buildVisibleMatches();
                 state.selectedColumns = new Set();
-                state.selectedGroups = new Set();
+                state.excludedColumns = new Set(visibleMatches.map(function (item) {
+                    return item.name;
+                }));
                 renderGroups(state.payload ? state.payload.groups : []);
-                renderMatches(state.payload ? state.payload.columns : [], state.payload ? state.payload.message : '');
+                renderMatches(buildVisibleMatches(), state.payload ? state.payload.message : '');
+                refreshPreviewForSelection();
             });
         }
 
@@ -410,4 +564,3 @@
         }
     });
 })();
-

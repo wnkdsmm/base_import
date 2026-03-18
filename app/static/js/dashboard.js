@@ -33,7 +33,7 @@
 
         summaryNode.textContent = 'Таблица: ' + getSelectedText(byId('tableFilter'), 'Все таблицы') +
             ' | Год: ' + getSelectedText(byId('yearFilter'), 'Все годы') +
-            ' | Разрез: ' + getSelectedText(byId('groupColumnFilter'), 'Нет данных');
+            ' | Разрез: ' + getSelectedText(byId('groupColumnFilter'), 'Категория риска');
     }
 
     function setText(id, value) {
@@ -83,21 +83,11 @@
         selectNode.innerHTML = html;
     }
 
-    function renderChartFallback(chart, container) {
-        if (!chart || !Array.isArray(chart.items) || !chart.items.length) {
-            container.innerHTML = '<div class="chart-empty">' + escapeHtml(chart && chart.empty_message ? chart.empty_message : 'Нет данных') + '</div>';
-            return;
-        }
-
-        container.innerHTML = '<div class="bars-chart">' + chart.items.map(function (item) {
-            return '<div class="chart-row" title="' + escapeHtml(item.label + ': ' + item.value_display) + '">' +
-                '<div class="chart-label">' + escapeHtml(item.label) + '</div>' +
-                '<div class="chart-track">' +
-                    '<progress class="chart-progress chart-fill-fire" max="100" value="' + escapeHtml(item.width_percent) + '">' + escapeHtml(item.width_percent) + '</progress>' +
-                '</div>' +
-                '<div class="chart-value">' + escapeHtml(item.value_display) + '</div>' +
-            '</div>';
-        }).join('') + '</div>';
+    function renderChartFallback(chart, container, containerId) {
+        const message = chart && chart.empty_message
+            ? chart.empty_message
+            : 'Интерактивный график не загрузился.';
+        container.innerHTML = '<div class="chart-empty">' + escapeHtml(message) + '</div>';
     }
 
     function renderPlotlyChart(chart, containerId) {
@@ -108,11 +98,12 @@
 
         const figure = chart && chart.plotly;
         if (!figure || !window.Plotly) {
-            renderChartFallback(chart, container);
+            renderChartFallback(chart, container, containerId);
             return;
         }
 
         try {
+            container.innerHTML = '';
             window.Plotly.react(
                 container,
                 Array.isArray(figure.data) ? figure.data : [],
@@ -121,7 +112,7 @@
             );
         } catch (error) {
             console.error('Plotly render failed for', containerId, error);
-            renderChartFallback(chart, container);
+            renderChartFallback(chart, container, containerId);
         }
     }
 
@@ -193,6 +184,7 @@
         const trend = data.trend || {};
         const charts = data.charts || {};
         const rankings = data.rankings || {};
+        const widgets = data.widgets || {};
         const filters = data.filters || {};
 
         setSelectOptions('tableFilter', filters.available_tables, filters.table_name, 'Все таблицы');
@@ -237,11 +229,14 @@
         setText('sidebarPeriodLabel', summary.period_label || 'Нет данных');
 
         setText('yearlyFiresTitle', charts.yearly_fires ? charts.yearly_fires.title : 'Причины возгораний');
-        setText('distributionTitle', charts.distribution ? charts.distribution.title : 'Распределение по колонке');
+        setText('distributionTitle', charts.distribution ? charts.distribution.title : 'Распределение: Категория риска');
         setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия, эвакуация и дети');
         setText('tableBreakdownTitle', charts.table_breakdown ? charts.table_breakdown.title : 'Эвакуация и дети');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
+        setText('sqlCausesTitle', widgets.causes ? widgets.causes.title : 'SQL-виджет: причины');
+        setText('sqlDistrictsTitle', widgets.districts ? widgets.districts.title : 'SQL-виджет: районы');
+        setText('sqlSeasonsTitle', widgets.seasons ? widgets.seasons.title : 'SQL-виджет: сезоны');
 
         renderPlotlyChart(charts.yearly_fires, 'yearlyFiresChart');
         renderPlotlyChart(charts.distribution, 'distributionChart');
@@ -249,6 +244,9 @@
         renderPlotlyChart(charts.table_breakdown, 'tableBreakdownChart');
         renderPlotlyChart(charts.monthly_profile, 'monthlyProfileChart');
         renderPlotlyChart(charts.area_buckets, 'areaBucketsChart');
+        renderPlotlyChart(widgets.causes, 'sqlCausesChart');
+        renderPlotlyChart(widgets.districts, 'sqlDistrictsChart');
+        renderPlotlyChart(widgets.seasons, 'sqlSeasonsChart');
 
         renderHighlights(data.highlights || []);
         renderRankingList('topDistributionList', rankings.top_distribution, 'Нет данных по распределению.', 'ranking-row-fire');
@@ -332,6 +330,8 @@
         };
     });
 })();
+
+
 
 
 

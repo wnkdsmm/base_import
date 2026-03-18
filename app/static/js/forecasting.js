@@ -39,29 +39,6 @@
         }).join('');
     }
 
-    function renderFeatures(features) {
-        var container = byId('forecastFeatures');
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(features) || !features.length) {
-            container.innerHTML = '<div class="mini-empty">Признаки появятся после выбора таблицы.</div>';
-            return;
-        }
-
-        container.innerHTML = features.map(function (feature) {
-            return '<article class="forecast-feature-card status-' + escapeHtml(feature.status || 'missing') + '">' +
-                '<div class="forecast-feature-head">' +
-                    '<strong>' + escapeHtml(feature.label) + '</strong>' +
-                    '<span class="forecast-badge">' + escapeHtml(feature.status_label) + '</span>' +
-                '</div>' +
-                '<div class="forecast-feature-source">Источник: ' + escapeHtml(feature.source) + '</div>' +
-                '<p>' + escapeHtml(feature.description) + '</p>' +
-            '</article>';
-        }).join('');
-    }
-
     function renderInsights(items) {
         var container = byId('forecastInsights');
         if (!container) {
@@ -110,13 +87,13 @@
         }
 
         container.innerHTML = '<table class="forecast-table">' +
-            '<thead><tr><th>Дата</th><th>Прогноз пожаров</th><th>Диапазон</th><th>Температура</th></tr></thead>' +
+            '<thead><tr><th>Дата</th><th>День недели</th><th>Вероятность пожара</th><th>Комментарий</th></tr></thead>' +
             '<tbody>' + rows.map(function (row) {
                 return '<tr>' +
                     '<td>' + escapeHtml(row.date_display) + '</td>' +
-                    '<td>' + escapeHtml(row.forecast_value_display) + '</td>' +
-                    '<td>' + escapeHtml(String(row.lower_bound_display || row.lower_bound) + ' - ' + String(row.upper_bound_display || row.upper_bound)) + '</td>' +
-                    '<td>' + escapeHtml(row.temperature_display) + '</td>' +
+                    '<td>' + escapeHtml(row.weekday_label) + '</td>' +
+                    '<td>' + escapeHtml(row.fire_probability_display || '0%') + '</td>' +
+                    '<td><span class="forecast-scenario-pill tone-' + escapeHtml(row.scenario_tone || 'sky') + '">' + escapeHtml(row.scenario_label || 'Около обычного') + '</span><div class="forecast-cell-note">' + escapeHtml(row.scenario_hint || '') + '</div></td>' +
                 '</tr>';
             }).join('') + '</tbody></table>';
     }
@@ -137,12 +114,7 @@
         }
 
         fallbackNode.classList.add('is-hidden');
-        window.Plotly.react(
-            chartNode,
-            figure.data || [],
-            figure.layout || {},
-            figure.config || { responsive: true }
-        );
+        window.Plotly.react(chartNode, figure.data || [], figure.layout || {}, figure.config || { responsive: true });
     }
 
     function applyForecastData(data) {
@@ -155,7 +127,7 @@
         var charts = data.charts || {};
 
         setSelectOptions('forecastTableFilter', filters.available_tables, filters.table_name, 'Нет таблиц');
-        setSelectOptions('forecastDistrictFilter', filters.available_districts, filters.district, 'Все районы');
+        setSelectOptions('forecastHistoryWindowFilter', filters.available_history_windows, filters.history_window, 'Все годы');
         setSelectOptions('forecastCauseFilter', filters.available_causes, filters.cause, 'Все причины');
         setSelectOptions('forecastObjectCategoryFilter', filters.available_object_categories, filters.object_category, 'Все категории');
         setSelectOptions('forecastDaysFilter', filters.available_forecast_days, filters.forecast_days, '14 дней');
@@ -163,37 +135,45 @@
 
         setText('forecastModelDescription', data.model_description || '');
         setText('forecastTableLabel', summary.selected_table_label || 'Нет таблицы');
+        setText('forecastHistoryMode', summary.history_window_label || 'Все годы');
         setText('forecastSliceLabel', summary.slice_label || 'Все пожары');
         setText('forecastTemperatureMode', summary.temperature_scenario_display || 'Историческая сезонность');
-        setText('forecastHistoryRange', summary.history_period_label || 'Нет данных');
-        setText('forecastLastObserved', summary.last_observed_date || '-');
-        setText('forecastAverageValue', summary.predicted_average_display || '0');
-        setText('forecastTotalValue', summary.predicted_total_display || '0');
+        setText('forecastAverageValue', summary.average_probability_display || '0%');
+        setText('forecastDaysTotal', summary.forecast_days_display || '0');
+        setText('forecastChangeValue', summary.forecast_vs_recent_display || '0%');
+        setText('forecastChangeLabel', summary.forecast_vs_recent_label || 'Нет сравнения');
         setText('forecastFiresCount', summary.fires_count_display || '0');
         setText('forecastHistoryDays', summary.history_days_display || '0');
-        setText('forecastWeeklyTotal', summary.weekly_forecast_display || '0');
-        setText('forecastMonthlyTotal', summary.monthly_forecast_display || '0');
+        setText('forecastActiveDays', summary.active_days_display || '0');
+        setText('forecastActiveDaysShare', summary.active_days_share_display || '0%');
+        setText('forecastHistoricalAverage', summary.historical_average_display || '0');
+        setText('forecastRecentAverage', summary.recent_average_display || '0');
+        setText('forecastPeakDay', summary.peak_forecast_day_display || '-');
+        setText('forecastPeakValue', summary.peak_forecast_probability_display || '0%');
+        setText('forecastPeakRiskDay', summary.peak_forecast_day_display || '-');
+        setText('forecastPeakRiskValue', summary.peak_forecast_probability_display || '0%');
         setText('forecastSidebarTable', summary.selected_table_label || 'Нет таблицы');
         setText('forecastSidebarHistory', summary.history_period_label || 'Нет данных');
         setText('forecastSidebarHorizon', (summary.forecast_days_display || '0') + ' дн.');
 
-        setText('forecastDailyChartTitle', charts.daily ? charts.daily.title : 'Прогноз количества пожаров по датам');
-        setText('forecastWeeklyChartTitle', charts.weekly ? charts.weekly.title : 'Недельный прогноз');
-        setText('forecastMonthlyChartTitle', charts.monthly ? charts.monthly.title : 'Месячный сценарий');
-        setText('forecastWeekdayChartTitle', charts.weekday ? charts.weekday.title : 'Ритм по дням недели');
+        setText('forecastDailyChartTitle', charts.daily ? charts.daily.title : 'Что было и что ожидается');
+        setText('forecastBreakdownChartTitle', charts.breakdown ? charts.breakdown.title : 'Вероятность пожара по ближайшим дням');
+        setText('forecastWeekdayChartTitle', charts.weekday ? charts.weekday.title : 'В какие дни недели пожары случаются чаще');
 
         var summaryNode = byId('forecastSummaryLine');
         if (summaryNode) {
-            summaryNode.textContent = (summary.slice_label || 'Все пожары') + ' | История: ' + (summary.history_period_label || 'Нет данных') + ' | Горизонт: ' + (summary.forecast_days_display || '0') + ' дней';
+            summaryNode.textContent =
+                (summary.slice_label || 'Все пожары') +
+                ' | Средняя вероятность: ' + (summary.average_probability_display || '0%') +
+                ' | Максимум: ' + (summary.peak_forecast_probability_display || '0%') + ' (' + (summary.peak_forecast_day_display || '-') + ')' +
+                ' | К последним 4 неделям: ' + (summary.forecast_vs_recent_display || '0%');
         }
 
         renderInsights(data.insights || []);
-        renderFeatures(data.features || []);
         renderNotes(data.notes || []);
         renderForecastTable(data.forecast_rows || []);
         renderChart(charts.daily, 'forecastDailyChart', 'forecastDailyChartFallback');
-        renderChart(charts.weekly, 'forecastWeeklyChart', 'forecastWeeklyChartFallback');
-        renderChart(charts.monthly, 'forecastMonthlyChart', 'forecastMonthlyChartFallback');
+        renderChart(charts.breakdown, 'forecastBreakdownChart', 'forecastBreakdownChartFallback');
         renderChart(charts.weekday, 'forecastWeekdayChart', 'forecastWeekdayChartFallback');
     }
 
@@ -206,20 +186,15 @@
 
         var params = new URLSearchParams(new FormData(form));
         var query = params.toString();
-
         if (button) {
             button.disabled = true;
         }
 
         try {
-            var response = await fetch('/api/forecasting-data?' + query, {
-                headers: { 'Accept': 'application/json' }
-            });
-
+            var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
             if (!response.ok) {
-                throw new Error('Не удалось пересчитать прогноз');
+                throw new Error('fetch failed');
             }
-
             var data = await response.json();
             applyForecastData(data);
             window.history.replaceState({}, '', query ? '/forecasting?' + query : '/forecasting');
@@ -242,9 +217,10 @@
             });
         }
 
-        var initialData = window.__FIRE_FORECAST_INITIAL__;
-        if (initialData) {
-            applyForecastData(initialData);
+        if (window.__FIRE_FORECAST_INITIAL__) {
+            applyForecastData(window.__FIRE_FORECAST_INITIAL__);
         }
     });
 })();
+
+

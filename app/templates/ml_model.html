@@ -1,0 +1,283 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML-модель пожаров</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/ml_model.css">
+</head>
+<body>
+{% set data = ml_model.initial_data %}
+{% set filters = data.filters %}
+{% set summary = data.summary %}
+{% set charts = data.charts %}
+
+<aside class="sidebar">
+    <div class="brand-block">
+        <span class="brand-kicker">Fire Monitor</span>
+        <h2>ML-модель</h2>
+        <p>Понятный ML-прогноз с фокусом на вероятность возникновения пожара по дням.</p>
+    </div>
+
+    <div class="sidebar-actions">
+        <button onclick="location.href='/'">Dashboard</button>
+        <button onclick="location.href='/forecasting'">Прогнозирование</button>
+        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/fire-map'">Карта пожаров</button>
+        <button onclick="location.href='/column-search'">Поиск колонок</button>
+        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/tables'">Открыть таблицы</button>
+    </div>
+
+    <div class="sidebar-status">
+        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Модель собрана{% else %}Нужно уточнить фильтры{% endif %}</span>
+        <div class="status-line">
+            <span>Алгоритм</span>
+            <strong>{{ summary.model_label }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Таблица</span>
+            <strong>{{ summary.selected_table_label }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Период</span>
+            <strong>{{ summary.history_period_label }}</strong>
+        </div>
+    </div>
+</aside>
+
+<main class="main dashboard-main ml-model-main">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">Machine Learning</span>
+            <h1>ML-модель прогноза пожаров</h1>
+            <p class="subtitle">{{ data.model_description }}</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
+                <span class="hero-tag">История: <strong>{{ summary.history_window_label }}</strong></span>
+                <span class="hero-tag">Топ-признак: <strong>{{ summary.top_feature_label }}</strong></span>
+            </div>
+        </div>
+        <div class="hero-side">
+            <article class="hero-stat-card">
+                <span class="hero-stat-label">Средняя вероятность</span>
+                <strong class="hero-stat-value">{{ summary.average_probability_display | default('0%') }}</strong>
+                <span class="hero-stat-foot">Ожидаемая вероятность пожара на выбранном горизонте.</span>
+            </article>
+            <article class="hero-stat-card hero-stat-card-soft">
+                <span class="hero-stat-label">Пиковый риск</span>
+                <strong class="hero-stat-value">{{ summary.peak_probability_display | default('0%') }}</strong>
+                <span class="hero-stat-foot">Максимальная вероятность: {{ summary.peak_probability_day_display | default('-') }}.</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Сценарий обучения</h2>
+            <span class="panel-meta">Можно обучать модель по одной таблице или по всем таблицам сразу и проверять влияние разных сценариев.</span>
+        </div>
+        <form class="filters-grid ml-form-grid" method="get" action="/ml-model">
+            <label class="filter-field">
+                <span>Таблица</span>
+                <select name="table_name">
+                    {% for option in filters.available_tables %}
+                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>История</span>
+                <select name="history_window">
+                    {% for option in filters.available_history_windows %}
+                    <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Причина</span>
+                <select name="cause">
+                    {% for option in filters.available_causes %}
+                    <option value="{{ option.value }}" {% if option.value == filters.cause %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Категория объекта</span>
+                <select name="object_category">
+                    {% for option in filters.available_object_categories %}
+                    <option value="{{ option.value }}" {% if option.value == filters.object_category %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Температура сценария</span>
+                <input name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берется историческая температура">
+            </label>
+            <label class="filter-field">
+                <span>Горизонт</span>
+                <select name="forecast_days">
+                    {% for option in filters.available_forecast_days %}
+                    <option value="{{ option.value }}" {% if option.value == filters.forecast_days %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="filter-field filter-actions ml-actions">
+                <span>Действие</span>
+                <button class="primary-action" type="submit">Обучить модель</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="stats-grid ml-stats-grid">
+        <article class="stat-card stat-card-accent">
+            <span class="stat-label">Пожаров в обучении</span>
+            <strong class="stat-value">{{ summary.fires_count_display }}</strong>
+            <span class="stat-foot">После выбранных фильтров.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Дней истории</span>
+            <strong class="stat-value">{{ summary.history_days_display }}</strong>
+            <span class="stat-foot">Сплошной дневной ряд для обучения.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Горизонт прогноза</span>
+            <strong class="stat-value">{{ summary.forecast_days_display }}</strong>
+            <span class="stat-foot">Будущих дней, рассчитанных моделью.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Дней с высоким риском</span>
+            <strong class="stat-value">{{ summary.high_risk_days_display | default('0') }}</strong>
+            <span class="stat-foot">Количество дней с вероятностью пожара от 50%.</span>
+        </article>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Качество модели</h2>
+            <span class="panel-meta">Технические метрики оставлены отдельно, чтобы не мешать чтению основного прогноза.</span>
+        </div>
+        <div class="stats-grid">
+            <article class="stat-card">
+                <span class="stat-label">MAE</span>
+                <strong class="stat-value">{{ summary.mae_display }}</strong>
+                <span class="stat-foot">Средняя абсолютная ошибка backtest.</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">RMSE</span>
+                <strong class="stat-value">{{ summary.rmse_display }}</strong>
+                <span class="stat-foot">Чувствительна к редким крупным промахам.</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="ml-layout">
+        <div class="ml-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2>{{ charts.forecast.title }}</h2>
+                    <span class="panel-meta">Показывает вероятность пожара в процентах: история, backtest и будущие дни.</span>
+                </div>
+                <div id="mlForecastChart" class="plotly-chart ml-plot"></div>
+                <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
+            </article>
+
+            <article class="panel ml-table-panel">
+                <div class="panel-head">
+                    <h2>Будущие даты</h2>
+                    <span class="panel-meta">По каждому дню: вероятность пожара, интервал и уровень риска.</span>
+                </div>
+                <div class="ml-table-shell">
+                    {% if data.forecast_rows %}
+                    <table class="forecast-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Вероятность пожара</th>
+                                <th>Диапазон вероятности</th>
+                                <th>Риск</th>
+                                <th>Температура</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in data.forecast_rows %}
+                            <tr>
+                                <td>{{ row.date_display }}</td>
+                                <td>{{ row.fire_probability_display }}</td>
+                                <td>{{ row.fire_probability_range_display }}</td>
+                                <td><span class="ml-risk-pill ml-risk-{{ row.risk_level_tone }}">{{ row.risk_level_label }}</span></td>
+                                <td>{{ row.temperature_display }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="mini-empty">После обучения здесь появится прогноз по будущим датам.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="dashboard-secondary ml-secondary">
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2>{{ charts.importance.title }}</h2>
+                    <span class="panel-meta">Показывает, какие признаки сильнее всего влияют на прогноз.</span>
+                </div>
+                <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small"></div>
+                <div id="mlImportanceChartFallback" class="chart-empty{% if charts.importance.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.importance.empty_message }}</div>
+            </article>
+
+            <article class="panel insight-panel">
+                <div class="panel-head">
+                    <h2>Используемые признаки</h2>
+                    <span class="panel-meta">Проверка, какие колонки реально найдены в выбранных таблицах.</span>
+                </div>
+                <div class="forecast-feature-list">
+                    {% if data.features %}
+                        {% for feature in data.features %}
+                        <article class="forecast-feature-card status-{{ feature.status }}">
+                            <div class="forecast-feature-head">
+                                <strong>{{ feature.label }}</strong>
+                                <span class="forecast-badge">{{ feature.status_label }}</span>
+                            </div>
+                            <div class="forecast-feature-source">Источник: {{ feature.source }}</div>
+                            <p>{{ feature.description }}</p>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">После выбора таблицы здесь появятся признаки модели.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel ranking-panel">
+                <div class="panel-head">
+                    <h2>Заметки модели</h2>
+                    <span class="panel-meta">Ограничения, предупреждения и пояснения по обучению.</span>
+                </div>
+                <ul class="notice-list forecast-note-list">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Замечаний пока нет.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>
+</main>
+
+<script>
+window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
+</script>
+{% if ml_model.plotly_js %}
+<script>{{ ml_model.plotly_js | safe }}</script>
+{% endif %}
+<script src="/static/js/ml_model.js"></script>
+<script src="/static/js/sidebar.js"></script>
+</body>
+</html>

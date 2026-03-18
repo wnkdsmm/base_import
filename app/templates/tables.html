@@ -1,22 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Tables in Database</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таблицы в базе</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="sidebar">
-        <h2>Menu</h2>
-        <button onclick="location.href='/'">Back to Main</button>
+<aside class="sidebar">
+    <div class="brand-block">
+        <span class="brand-kicker">Fire Monitor</span>
+        <h2>Таблицы</h2>
+        <p>Быстрый переход к исходным, clean- и modify-таблицам из базы данных.</p>
+    </div>
+
+    <div class="sidebar-actions">
+        <button onclick="location.href='/'">Dashboard</button>
         <button onclick="location.href='/forecasting'">Прогнозирование</button>
+        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/fire-map'">Карта пожаров</button>
+        <button onclick="location.href='/column-search'">Поиск колонок</button>
+        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
-    <div class="main">
-        <h1>Tables in Database</h1>
-        <ul>
-        {% for table in tables %}
-            <li><a href="/tables/{{ table }}">{{ table }}</a></li>
-        {% endfor %}
+
+    <div class="sidebar-status">
+        <span class="status-badge status-badge-live">База доступна</span>
+        <div class="status-line">
+            <span>Таблиц найдено</span>
+            <strong>{{ tables | length }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Навигация</span>
+            <strong>Просмотр 100 строк</strong>
+        </div>
+    </div>
+</aside>
+
+<main class="main dashboard-main simple-page-main">
+    <section class="hero-panel simple-page-intro">
+        <div class="hero-copy">
+            <span class="eyebrow">Database explorer</span>
+            <h1>Таблицы в базе данных</h1>
+            <p class="subtitle">Откройте любую таблицу, чтобы посмотреть первые 100 строк и быстро проверить структуру данных перед анализом, profiling или построением модели.</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Всего таблиц: <strong>{{ tables | length }}</strong></span>
+                <span class="hero-tag">Просмотр: <strong>100 строк</strong></span>
+            </div>
+        </div>
+        <div class="hero-side">
+            <article class="hero-stat-card hero-stat-card-soft">
+                <span class="hero-stat-label">Что внутри</span>
+                <strong class="hero-stat-value"><small>Исходные и производные наборы</small></strong>
+                <span class="hero-stat-foot">Сюда попадают загруженные таблицы, clean-версии после profiling и modify-таблицы после поиска колонок.</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Список таблиц</h2>
+            <span class="panel-meta">Карточки адаптивно перестраиваются по ширине экрана.</span>
+        </div>
+        {% if tables %}
+        <ul class="table-link-list">
+            {% for table in tables %}
+            <li><a class="table-link-card" href="/tables/{{ table }}">{{ table }}</a></li>
+            {% endfor %}
         </ul>
-    </div>
+        {% else %}
+        <div class="mini-empty">В базе пока нет таблиц.</div>
+        {% endif %}
+    </section>
+</main>
+<script src="/static/js/sidebar.js"></script>
 </body>
 </html>

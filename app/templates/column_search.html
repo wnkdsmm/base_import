@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -17,6 +17,7 @@
     <div class="sidebar-actions">
         <button onclick="location.href='/'">Dashboard</button>
         <button onclick="location.href='/forecasting'">Прогнозирование</button>
+        <button onclick="location.href='/ml-model'">ML-модель</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
@@ -25,11 +26,11 @@
 
 <main class="main column-search-main">
     <section class="column-search-toolbar">
-        <h1>Table: <span id="columnSearchTableTitle">{{ selected_table or 'Not selected' }}</span></h1>
+        <h1>Таблица: <span id="columnSearchTableTitle">{{ selected_table or 'Не выбрана' }}</span></h1>
         <p id="columnSearchRowsInfo">Здесь можно искать колонки по словам и собирать новую таблицу из найденных и тематических полей.</p>
         <form id="columnSearchPageForm" class="column-search-form-row" method="get" action="/column-search">
             <label class="column-search-control">
-                <span>Table</span>
+                <span>Таблица</span>
                 <select id="columnSearchTable" name="table_name">
                     {% if table_options %}
                         {% for option in table_options %}
@@ -41,7 +42,7 @@
                 </select>
             </label>
             <label class="column-search-control column-search-control-wide">
-                <span>Words</span>
+                <span>Слова</span>
                 <input id="columnSearchQuery" name="query" type="text" value="{{ initial_query }}" placeholder="дети эвакуация причина адрес дата">
             </label>
             <button id="columnSearchButton" class="primary-action column-search-submit" type="submit">Найти колонки</button>
@@ -70,7 +71,7 @@
                 <button id="columnSearchClearSelection" class="secondary-action column-inline-action" type="button">Снять выбор</button>
                 <button id="columnSearchCreateTable" class="primary-action column-inline-primary" type="button">Создать modify-таблицу</button>
             </div>
-            <div id="columnSearchSelectionSummary" class="column-search-selection-summary">Выбрано колонок: 0</div>
+            <div id="columnSearchSelectionSummary" class="column-search-selection-summary">Выбрано колонок: 0 | Выбрано групп: 0</div>
             <div id="columnSearchMatches" class="column-match-list">
                 <div class="mini-empty">После поиска здесь появятся найденные колонки.</div>
             </div>
@@ -80,7 +81,7 @@
     <section class="column-search-table-section">
         <div class="panel-head">
             <h2>Предпросмотр</h2>
-            <span class="panel-meta">Сначала показывается превью найденных колонок, затем после создания - уже новая <code>modify_...</code> таблица.</span>
+            <span class="panel-meta">Сначала показывается превью выбранных колонок, а после создания уже новая <code>modify_...</code> таблица.</span>
         </div>
         <div id="columnSearchPreview" class="column-search-table-shell">
             <div class="mini-empty">После поиска здесь появится таблица.</div>
@@ -94,7 +95,7 @@ window.__COLUMN_SEARCH_INITIAL__ = {
     query: {{ initial_query | tojson }}
 };
 </script>
-<script src="/static/js/column_search.js"></script>
+<script src="/static/js/column_search.js?v=7"></script>
+<script src="/static/js/sidebar.js"></script>
 </body>
 </html>
-

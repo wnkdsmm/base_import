@@ -1,12 +1,14 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
+from config.paths import UPLOADS_DIR
 
-UPLOAD_FOLDER = Path("uploads")
+
+UPLOAD_FOLDER = UPLOADS_DIR
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 
