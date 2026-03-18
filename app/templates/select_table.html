@@ -1,18 +1,18 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profiling таблиц</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/profiling.css">
+    <link rel="stylesheet" href="/static/profiling.css?v=compact-20260318-6">
 </head>
-<body>
+<body class="profiling-layout">
 <aside class="sidebar">
     <div class="brand-block">
         <span class="brand-kicker">Fire Monitor</span>
         <h2>Profiling</h2>
-        <p>Подготовка clean-таблицы с понятными порогами, кратким итогом очистки и живой лентой выполнения.</p>
+        <p>Подготовка clean-таблицы с понятными порогами и компактным итогом очистки без лишнего шума.</p>
     </div>
 
     <div class="sidebar-actions">
@@ -46,8 +46,8 @@
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Data preparation</span>
-            <h1>Profiling таблиц и создание clean-версии</h1>
-            <p class="subtitle">Страница помогает выбрать таблицу, задать свои пороги очистки и сразу увидеть, какие столбцы были убраны, почему это произошло и как называется новая clean-таблица.</p>
+            <h1>Profiling таблиц</h1>
+            <p class="subtitle">Выберите таблицу, задайте пороги очистки и сразу получите короткий итог: сколько столбцов убрано, какие причины сработали и как называется новая clean-таблица.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблиц в базе: <strong>{{ tables | length }}</strong></span>
                 <span class="hero-tag">Порог пропусков: <strong>90%</strong></span>
@@ -56,68 +56,40 @@
         </div>
         <div class="hero-side">
             <article class="hero-stat-card">
-                <span class="hero-stat-label">Что на выходе</span>
-                <strong class="hero-stat-value"><small>CSV, Excel и clean-таблица</small></strong>
-                <span class="hero-stat-foot">После запуска сохраняется profiling-отчёт и создаётся очищенная версия исходной таблицы.</span>
+                <span class="hero-stat-label">На выходе</span>
+                <strong class="hero-stat-value"><small>clean-таблица</small></strong>
+                <span class="hero-stat-foot">Плюс CSV и Excel отчёты по текущим порогам.</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Что видно пользователю</span>
-                <strong class="hero-stat-value"><small>Итог и лента шагов</small></strong>
-                <span class="hero-stat-foot">Справа отображаются короткий результат запуска и понятная лента событий вместо сырых консольных сообщений.</span>
+                <span class="hero-stat-label">Что видно сразу</span>
+                <strong class="hero-stat-value"><small>итог запуска</small></strong>
+                <span class="hero-stat-foot">Ключевые метрики и файлы результата без отдельной панели логов.</span>
             </article>
         </div>
-    </section>
-
-    <section class="info-grid page-section">
-        <article class="panel">
-            <div class="panel-head">
-                <h2>Что делает скрипт</h2>
-                <span class="panel-meta">Коротко по шагам, без технического шума</span>
-            </div>
-            <ul class="steps-list">
-                <li>Читает выбранную таблицу и анализирует каждую колонку отдельно.</li>
-                <li>Считает долю пропусков, количество уникальных значений, долю самого частого значения и разброс числовых колонок.</li>
-                <li>Сохраняет profiling-отчёт в CSV и Excel.</li>
-                <li>Создаёт таблицу <strong>clean_*</strong>, в которой остаются только колонки, не попавшие под ваши правила исключения.</li>
-            </ul>
-        </article>
-
-        <article class="panel">
-            <div class="panel-head">
-                <h2>Как работают пороги</h2>
-                <span class="panel-meta">Настройки применяются прямо к текущему запуску</span>
-            </div>
-            <ul class="rules-list">
-                <li><strong>Пропуски, %</strong>: если пустых значений больше этого процента, колонка помечается на исключение.</li>
-                <li><strong>Доминирующее значение, %</strong>: если одно значение занимает слишком большую часть колонки, она считается почти константной.</li>
-                <li><strong>Минимальная дисперсия</strong>: если разброс ниже этого уровня, числовая колонка считается малоинформативной.</li>
-                <li>В кратком итоге ниже сразу видно таблицу, число убранных столбцов и имя clean-таблицы.</li>
-            </ul>
-        </article>
     </section>
 
     <section class="profiling-main-grid page-section">
         <article class="panel selector-panel">
             <div class="panel-head">
                 <h2>1. Таблица и пороги</h2>
-                <span class="panel-meta">Выберите источник и при необходимости скорректируйте правила очистки перед запуском.</span>
+                <span class="panel-meta">Выберите таблицу, задайте пороги и сразу запускайте очистку.</span>
             </div>
 
             <div class="threshold-grid">
                 <div class="threshold-field">
                     <label for="nullThreshold">Пропуски, %</label>
                     <input id="nullThreshold" type="number" min="0" max="100" step="1" value="90">
-                    <small>По умолчанию колонка исключается, если пустых значений больше 90%.</small>
+                    <small>Исключить по пустым значениям.</small>
                 </div>
                 <div class="threshold-field">
                     <label for="dominantThreshold">Доминирующее значение, %</label>
                     <input id="dominantThreshold" type="number" min="0" max="100" step="1" value="85">
-                    <small>Если одно значение занимает больше этого процента, колонка считается почти константной.</small>
+                    <small>Убрать почти константные колонки.</small>
                 </div>
                 <div class="threshold-field">
                     <label for="varianceThreshold">Минимальная дисперсия</label>
                     <input id="varianceThreshold" type="number" min="0" step="0.0001" value="0.0001">
-                    <small>Для числовых колонок: чем меньше порог, тем мягче фильтр по разбросу.</small>
+                    <small>Порог для числовых колонок.</small>
                 </div>
             </div>
 
@@ -135,10 +107,35 @@
             {% endif %}
         </article>
 
+        <article class="panel profiling-info-panel">
+            <div class="panel-head">
+                <h2>Что за что отвечает</h2>
+                <span class="panel-meta">Короткая памятка по порогам и результатам profiling</span>
+            </div>
+            <div class="info-note-list">
+                <div class="info-note-card">
+                    <strong>Пропуски, %</strong>
+                    <p>Исключает колонки, где слишком много пустых значений.</p>
+                </div>
+                <div class="info-note-card">
+                    <strong>Доминирующее значение, %</strong>
+                    <p>Убирает почти постоянные колонки, где одно значение встречается слишком часто.</p>
+                </div>
+                <div class="info-note-card">
+                    <strong>Минимальная дисперсия</strong>
+                    <p>Помогает убрать числовые поля почти без разброса.</p>
+                </div>
+                <div class="info-note-card">
+                    <strong>Итог запуска</strong>
+                    <p>Ниже появляются метрики, файлы результата и удалённые столбцы.</p>
+                </div>
+            </div>
+        </article>
+
         <div class="profiling-side-stack">
             <article class="panel run-summary-panel">
                 <div class="panel-head">
-                    <h2>2. Ход и итог запуска</h2>
+                    <h2>2. Итог запуска</h2>
                     <span class="panel-meta">Короткая сводка по выбранной таблице и результату очистки</span>
                 </div>
 
@@ -161,324 +158,245 @@
                 </div>
             </article>
 
-            <article class="panel logs-feed-panel">
-                <div class="panel-head">
-                    <h2>3. Лента выполнения</h2>
-                    <span class="panel-meta">Пошаговые события profiling в понятном, не терминальном формате</span>
+            <section id="resultsSection" class="results-section-compact" hidden>
+                <div class="summary-grid">
+                    <article class="panel metric-card"><span class="metric-label">Всего колонок</span><div id="metricTotal" class="metric-value">0</div><div class="metric-hint">Колонки в исходной таблице.</div></article>
+                    <article class="panel metric-card"><span class="metric-label">Помечено на исключение</span><div id="metricRemoved" class="metric-value">0</div><div class="metric-hint">Исключено по текущим порогам.</div></article>
+                    <article class="panel metric-card"><span class="metric-label">Останется в clean</span><div id="metricKept" class="metric-value">0</div><div class="metric-hint">Колонки в итоговой таблице.</div></article>
+                    <article class="panel metric-card"><span class="metric-label">Размер clean-таблицы</span><div id="metricShape" class="metric-value">0 x 0</div><div class="metric-hint">Строки и колонки после очистки.</div></article>
                 </div>
 
-                <div class="logs-surface">
-                    <div id="logs" class="logbox">
-                        <div class="log-placeholder">После запуска здесь появятся этапы выполнения profiling и сохранения результатов.</div>
-                    </div>
+                <div class="results-grid">
+                    <article class="panel result-card">
+                        <div class="panel-head">
+                            <h2>Что исключено</h2>
+                            <span class="panel-meta">Причины и применённые пороги</span>
+                        </div>
+                        <p id="resultMessage" class="section-copy">Итог выполнения.</p>
+                        <div id="thresholdsSummary" class="chip-list"></div>
+                        <div id="reasonSummary" class="reason-list"></div>
+                    </article>
+                    <article class="panel result-card">
+                        <div class="panel-head">
+                            <h2>Что создано</h2>
+                            <span class="panel-meta">Файлы и итоговая clean-таблица</span>
+                        </div>
+                        <p id="outputSummary" class="section-copy">Здесь появится информация о clean-таблице и файлах отчёта.</p>
+                        <div id="filesList" class="file-list"></div>
+                    </article>
                 </div>
-            </article>
+
+                <details class="panel details-panel">
+                    <summary>Колонки-кандидаты на исключение</summary>
+                    <div class="details-panel-body">
+                        <div class="table-shell">
+                            <table class="details-table">
+                                <thead><tr><th>Колонка</th><th>Тип</th><th>Причины</th><th>Пропуски</th><th>Доминирующее значение</th></tr></thead>
+                                <tbody id="candidatesBody"><tr><td colspan="5">После запуска здесь появится список колонок.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="panel details-panel">
+                    <summary>Колонки, которые останутся в clean-таблице</summary>
+                    <div class="details-panel-body">
+                    </div>
+                </details>
+            </section>
         </div>
     </section>
 
-    <section id="resultsSection" class="page-section" hidden>
-        <div class="summary-grid">
-            <article class="panel metric-card"><span class="metric-label">Всего колонок</span><div id="metricTotal" class="metric-value">0</div><div class="metric-hint">Сколько колонок было в исходной таблице.</div></article>
-            <article class="panel metric-card"><span class="metric-label">Помечено на исключение</span><div id="metricRemoved" class="metric-value">0</div><div class="metric-hint">Сколько колонок удалено по выбранным порогам.</div></article>
-            <article class="panel metric-card"><span class="metric-label">Останется в clean-таблице</span><div id="metricKept" class="metric-value">0</div><div class="metric-hint">Колонки, которые сохранятся в новой таблице.</div></article>
-            <article class="panel metric-card"><span class="metric-label">Размер clean-таблицы</span><div id="metricShape" class="metric-value">0 × 0</div><div class="metric-hint">Строки и колонки после очистки.</div></article>
-        </div>
-
-        <div class="results-grid">
-            <article class="panel result-card">
-                <div class="panel-head">
-                    <h2>Что profiling пометил на исключение</h2>
-                    <span class="panel-meta">Какие причины чаще всего сработали при текущих порогах</span>
-                </div>
-                <p id="resultMessage" class="section-copy">Итог выполнения.</p>
-                <div id="thresholdsSummary" class="chip-list"></div>
-                <div id="reasonSummary" class="reason-list" style="margin-top: 10px;"></div>
-            </article>
-            <article class="panel result-card">
-                <div class="panel-head">
-                    <h2>Что создано на выходе</h2>
-                    <span class="panel-meta">Clean-таблица и файлы отчёта после завершения profiling</span>
-                </div>
-                <p id="outputSummary" class="section-copy">Здесь появится информация о clean-таблице и файлах отчёта.</p>
-                <div id="filesList" class="file-list"></div>
-            </article>
-        </div>
-
-        <article class="panel result-card">
+    <section id="columnPairsSection" class="column-pairs-grid page-section" hidden>
+        <section id="removedColumnsSection" class="panel removed-columns-section">
             <div class="panel-head">
-                <h2>Колонки-кандидаты на исключение</h2>
-                <span class="panel-meta">Ниже показано, какие колонки попали под выбранные пользователем пороги</span>
+                <h2>Удалённые столбцы</h2>
+                <span class="panel-meta">Полный список колонок, которые profiling исключил из clean-таблицы</span>
             </div>
-            <div class="table-shell">
-                <table class="details-table">
-                    <thead><tr><th>Колонка</th><th>Тип</th><th>Причины</th><th>Пропуски</th><th>Доминирующее значение</th></tr></thead>
-                    <tbody id="candidatesBody"><tr><td colspan="5">После запуска здесь появится список колонок.</td></tr></tbody>
-                </table>
-            </div>
-        </article>
-
-        <article class="panel result-card">
+            <div id="removedColumns" class="chip-list removed-columns-list"></div>
+        </section>
+        <section class="panel kept-columns-section">
             <div class="panel-head">
-                <h2>Колонки, которые останутся в clean-таблице</h2>
-                <span class="panel-meta">Краткий предпросмотр сохраняемых колонок</span>
+                <h2>Колонки в clean-таблице</h2>
+                <span class="panel-meta">Поля, которые останутся в итоговой очищенной таблице</span>
             </div>
-            <div id="keptColumns" class="chip-list"></div>
-        </article>
+            <div id="keptColumnsSecondary" class="chip-list removed-columns-list"></div>
+        </section>
     </section>
 </main>
 
-    <script>
-        let selectedTable = null;
-        let isRunning = false;
-        let logTimer = null;
+<script>
+    let selectedTable = null;
+    let isRunning = false;
 
-        function escapeHtml(value) {
-            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatPercent(value) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) return '0%';
+        return `${(Number(value) * 100).toFixed(1)}%`;
+    }
+
+    function setStatus(type, message) {
+        const banner = document.getElementById('statusBanner');
+        if (!banner) return;
+        banner.className = `status-banner status-${type}`;
+        banner.innerHTML = message;
+    }
+
+    function renderRunSummary(summary = {}) {
+        const tableEl = document.getElementById('runSummaryTable');
+        const removedEl = document.getElementById('runSummaryRemoved');
+        const cleanTableEl = document.getElementById('runSummaryCleanTable');
+        if (!tableEl || !removedEl || !cleanTableEl) return;
+        tableEl.textContent = summary.tableName || 'Не выбрана';
+        removedEl.textContent = summary.removedCount ?? '-';
+        cleanTableEl.textContent = summary.cleanTable || '-';
+    }
+
+    function readThresholds() {
+        const nullValue = Number(document.getElementById('nullThreshold')?.value ?? 90);
+        const dominantValue = Number(document.getElementById('dominantThreshold')?.value ?? 85);
+        const varianceValue = Number(document.getElementById('varianceThreshold')?.value ?? 0.0001);
+        if (Number.isNaN(nullValue) || nullValue < 0 || nullValue > 100) throw new Error('Порог пропусков должен быть от 0 до 100%.');
+        if (Number.isNaN(dominantValue) || dominantValue < 0 || dominantValue > 100) throw new Error('Порог доминирующего значения должен быть от 0 до 100%.');
+        if (Number.isNaN(varianceValue) || varianceValue < 0) throw new Error('Порог дисперсии должен быть неотрицательным числом.');
+        return {
+            null_threshold: nullValue / 100,
+            dominant_value_threshold: dominantValue / 100,
+            low_variance_threshold: varianceValue,
+        };
+    }
+
+    function selectTable(tableName, button) {
+        document.querySelectorAll('.table-list button').forEach((item) => item.classList.remove('selected'));
+        button.classList.add('selected');
+        selectedTable = tableName;
+        document.getElementById('selectionNote').textContent = `Выбрана таблица: ${tableName}`;
+        document.getElementById('runButton').disabled = false;
+        renderRunSummary({ tableName, removedCount: '-', cleanTable: `clean_${tableName}` });
+        setStatus('idle', `Выбрана таблица <strong>${escapeHtml(tableName)}</strong>. Можно запускать profiling с текущими порогами.`);
+    }
+
+    function renderThresholds(thresholds) {
+        const container = document.getElementById('thresholdsSummary');
+        if (!container || !thresholds) return;
+        container.innerHTML = [
+            `Порог пропусков: ${Math.round((thresholds.null_threshold ?? 0) * 100)}%`,
+            `Порог доминирующего значения: ${Math.round((thresholds.dominant_value_threshold ?? 0) * 100)}%`,
+            `Минимальная дисперсия: ${thresholds.low_variance_threshold ?? 0}`,
+        ].map((text) => `<div class="chip">${escapeHtml(text)}</div>`).join('');
+    }
+
+    function renderReasonSummary(reasonSummary) {
+        const container = document.getElementById('reasonSummary');
+        if (!container) return;
+        if (!Array.isArray(reasonSummary) || !reasonSummary.length) {
+            container.innerHTML = '<div class="reason-item"><div class="reason-title">Нет данных</div><div class="reason-meta">Сводка по причинам исключения пока недоступна.</div></div>';
+            return;
+        }
+        container.innerHTML = reasonSummary.filter((item) => Number(item.count) > 0).map((item) => `<div class="reason-item"><div class="reason-title">${escapeHtml(item.label)}: ${escapeHtml(item.count)}</div><div class="reason-meta">${escapeHtml(item.description)}</div></div>`).join('') || '<div class="reason-item"><div class="reason-title">Ничего не исключено</div><div class="reason-meta">При текущих порогах profiling не нашёл колонок на исключение.</div></div>';
+    }
+
+    function renderFiles(files) {
+        const container = document.getElementById('filesList');
+        if (!container) return;
+        const items = [
+            { label: 'CSV-отчёт profiling', path: files?.profile_csv || '' },
+            { label: 'Excel-отчёт profiling', path: files?.profile_xlsx || '' },
+            { label: 'Excel clean-таблицы', path: files?.clean_xlsx || '' },
+        ].filter((item) => item.path);
+        container.innerHTML = items.map((item) => `<div class="file-item"><div class="file-label">${escapeHtml(item.label)}</div><div class="file-path">${escapeHtml(item.path)}</div></div>`).join('');
+    }
+
+    function renderCandidates(candidateDetails) {
+        const body = document.getElementById('candidatesBody');
+        if (!body) return;
+        body.innerHTML = Array.isArray(candidateDetails) && candidateDetails.length ? candidateDetails.map((item) => `<tr><td>${escapeHtml(item.column)}</td><td>${escapeHtml(item.dtype)}</td><td>${escapeHtml((item.reasons || []).join(', '))}</td><td>${escapeHtml(formatPercent(item.null_ratio))}</td><td>${escapeHtml(formatPercent(item.dominant_ratio))}</td></tr>`).join('') : '<tr><td colspan="5">При текущих порогах profiling не нашёл колонок на исключение.</td></tr>';
+    }
+
+    function renderRemovedColumns(candidateDetails) {
+        const section = document.getElementById('columnPairsSection');
+        const container = document.getElementById('removedColumns');
+        if (!section || !container) return;
+        section.hidden = false;
+        if (!Array.isArray(candidateDetails) || !candidateDetails.length) {
+            container.innerHTML = '<div class="chip chip-success">Ничего не удалено</div>';
+            return;
+        }
+        container.innerHTML = candidateDetails
+            .map((item) => `<div class="chip chip-removed" title="${escapeHtml((item.reasons || []).join(', '))}">${escapeHtml(item.column)}</div>`)
+            .join('');
+    }
+
+    function renderKeptColumns(keptColumns, keptCount) {
+        const container = document.getElementById('keptColumnsSecondary');
+        if (!container) return;
+        if (!Array.isArray(keptColumns) || !keptColumns.length) {
+            container.innerHTML = '<div class="chip">Список пока недоступен</div>';
+            return;
+        }
+        const remainder = Number(keptCount) - keptColumns.length;
+        container.innerHTML = keptColumns.map((item) => `<div class="chip">${escapeHtml(item)}</div>`).join('') + (remainder > 0 ? `<div class="chip">ещё ${remainder}</div>` : '');
+    }
+
+    function renderSummary(result) {
+        const summary = result.summary || {};
+        document.getElementById('resultsSection').hidden = false;
+        document.getElementById('metricTotal').textContent = summary.total_columns ?? 0;
+        document.getElementById('metricRemoved').textContent = summary.candidate_count ?? 0;
+        document.getElementById('metricKept').textContent = summary.kept_count ?? 0;
+        document.getElementById('metricShape').textContent = `${summary.clean_rows ?? 0} x ${summary.clean_columns ?? 0}`;
+        document.getElementById('resultMessage').textContent = result.message || 'Profiling завершён.';
+        renderRunSummary({ tableName: result.table_name || selectedTable || 'Не выбрана', removedCount: summary.candidate_count ?? 0, cleanTable: result.clean_table || '-' });
+        document.getElementById('outputSummary').innerHTML = `Создана таблица <strong>${escapeHtml(result.clean_table || '')}</strong>. В ней осталось <strong>${escapeHtml(summary.kept_count ?? 0)}</strong> колонок и <strong>${escapeHtml(summary.clean_rows ?? 0)}</strong> строк. ${result.clean_table ? `<br><br>Открыть таблицу можно в разделе <a class="text-link" href="/tables/${encodeURIComponent(result.clean_table)}">Просмотр таблиц</a>.` : ''}`;
+        renderThresholds(summary.thresholds || {});
+        renderReasonSummary(summary.reason_summary || []);
+        renderFiles(result.files || {});
+        renderCandidates(summary.candidate_details || []);
+        renderRemovedColumns(summary.candidate_details || []);
+        renderKeptColumns(summary.kept_preview || [], summary.kept_count || 0);
+    }
+
+    async function runPipeline() {
+        if (!selectedTable || isRunning) return;
+        let thresholds;
+        try {
+            thresholds = readThresholds();
+        } catch (error) {
+            setStatus('error', escapeHtml(error.message));
+            return;
         }
 
-        function formatPercent(value) {
-            if (value === null || value === undefined || Number.isNaN(Number(value))) return '0%';
-            return `${(Number(value) * 100).toFixed(1)}%`;
+        isRunning = true;
+        document.getElementById('resultsSection').hidden = true;
+        document.getElementById('columnPairsSection').hidden = true;
+        const runButton = document.getElementById('runButton');
+        runButton.disabled = true;
+        runButton.textContent = 'Profiling выполняется...';
+        renderRunSummary({ tableName: selectedTable, removedCount: 'Считаем...', cleanTable: `clean_${selectedTable}` });
+        setStatus('running', `Выполняем profiling для таблицы <strong>${escapeHtml(selectedTable)}</strong> с пользовательскими порогами.`);
+
+        try {
+            const response = await fetch('/run_profiling', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ table: selectedTable, thresholds }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить profiling.');
+            renderSummary(result);
+            setStatus('success', `Готово. Таблица <strong>${escapeHtml(selectedTable)}</strong> обработана по выбранным порогам.`);
+        } catch (error) {
+            setStatus('error', `Ошибка выполнения: ${escapeHtml(error.message)}`);
+        } finally {
+            isRunning = false;
+            runButton.disabled = false;
+            runButton.textContent = 'Запустить profiling';
         }
-
-        function setStatus(type, message) {
-            const banner = document.getElementById('statusBanner');
-            if (!banner) return;
-            banner.className = `status-banner status-${type}`;
-            banner.innerHTML = message;
-        }
-
-        function renderRunSummary(summary = {}) {
-            const tableEl = document.getElementById('runSummaryTable');
-            const removedEl = document.getElementById('runSummaryRemoved');
-            const cleanTableEl = document.getElementById('runSummaryCleanTable');
-            if (!tableEl || !removedEl || !cleanTableEl) return;
-            tableEl.textContent = summary.tableName || 'Не выбрана';
-            removedEl.textContent = summary.removedCount ?? '-';
-            cleanTableEl.textContent = summary.cleanTable || '-';
-        }
-
-        function getLogEntryClass(line) {
-            const text = String(line || '').toLowerCase();
-            if (text.includes('ошибка') || text.includes('не удалось')) return 'log-entry-error';
-            if (text.includes('готово') || text.includes('заверш') || text.includes('создана таблица')) return 'log-entry-success';
-            if (text.includes('шаг') || text.includes('profiling для') || text.includes('таблица:')) return 'log-entry-step';
-            if (text.includes('порог') || text.includes('csv') || text.includes('excel')) return 'log-entry-note';
-            return '';
-        }
-
-        function getLogBadge(line) {
-            const text = String(line || '').toLowerCase();
-            if (text.includes('ошибка') || text.includes('не удалось')) return 'ошибка';
-            if (text.includes('готово') || text.includes('заверш') || text.includes('создана таблица')) return 'итог';
-            if (text.includes('шаг')) return 'этап';
-            if (text.includes('порог') || text.includes('csv') || text.includes('excel')) return 'детали';
-            return 'событие';
-        }
-
-        function parseLogLine(line) {
-            const text = String(line || '').trim();
-            const lower = text.toLowerCase();
-
-            if (text.startsWith('Запуск profiling для таблицы:')) {
-                return { title: 'Запуск profiling', meta: text.replace('Запуск profiling для таблицы:', '').trim() || text };
-            }
-            if (text.startsWith('Таблица:')) {
-                return { title: 'Выбрана таблица', meta: text.replace('Таблица:', '').trim() || text };
-            }
-            if (text.startsWith('Пороги пользователя:')) {
-                return { title: 'Используемые пороги', meta: text.replace('Пороги пользователя:', '').trim() || text };
-            }
-            if (text.startsWith('Папка результатов:')) {
-                return { title: 'Папка результатов', meta: text.replace('Папка результатов:', '').trim() || text };
-            }
-            if (text.startsWith('Шаг 1 из 2.')) {
-                return { title: 'Шаг 1', meta: text.replace('Шаг 1 из 2.', '').trim() || text };
-            }
-            if (text.startsWith('Шаг 2 из 2.')) {
-                return { title: 'Шаг 2', meta: text.replace('Шаг 2 из 2.', '').trim() || text };
-            }
-            if (text.startsWith('Создана таблица:')) {
-                return { title: 'Создана clean-таблица', meta: text.replace('Создана таблица:', '').trim() || text };
-            }
-            if (text.startsWith('Excel clean-таблицы:')) {
-                return { title: 'Excel-файл сохранён', meta: text.replace('Excel clean-таблицы:', '').trim() || text };
-            }
-            if (text.startsWith('Готово:')) {
-                return { title: 'Profiling завершён', meta: text.replace('Готово:', '').trim() || text };
-            }
-            if (text.startsWith('Отчёт CSV:')) {
-                return { title: 'Сохранён CSV-отчёт', meta: text.replace('Отчёт CSV:', '').trim() || text };
-            }
-            if (text.startsWith('Отчёт Excel:')) {
-                return { title: 'Сохранён Excel-отчёт', meta: text.replace('Отчёт Excel:', '').trim() || text };
-            }
-            if (lower.includes('ошибка') || lower.includes('не удалось')) {
-                return { title: 'Ошибка выполнения', meta: text };
-            }
-            return { title: 'Системное сообщение', meta: text };
-        }
-
-        function renderLogs(logs) {
-            const logBox = document.getElementById('logs');
-            if (!logBox) return;
-            if (!logs.length) {
-                logBox.innerHTML = '<div class="log-placeholder">Логи пока пусты. После запуска здесь будет показан ход выполнения.</div>';
-                return;
-            }
-            logBox.innerHTML = logs.map((line) => {
-                const extraClass = getLogEntryClass(line);
-                const parsed = parseLogLine(line);
-                const badge = getLogBadge(line);
-                return `<div class="log-entry ${extraClass}"><div class="log-entry-head"><div class="log-entry-badge">${escapeHtml(badge)}</div><div class="log-entry-title">${escapeHtml(parsed.title)}</div></div><div class="log-entry-body"><div class="log-entry-meta">${escapeHtml(parsed.meta)}</div></div></div>`;
-            }).join('');
-        }
-
-        function readThresholds() {
-            const nullValue = Number(document.getElementById('nullThreshold')?.value ?? 90);
-            const dominantValue = Number(document.getElementById('dominantThreshold')?.value ?? 85);
-            const varianceValue = Number(document.getElementById('varianceThreshold')?.value ?? 0.0001);
-            if (Number.isNaN(nullValue) || nullValue < 0 || nullValue > 100) throw new Error('Порог пропусков должен быть от 0 до 100%.');
-            if (Number.isNaN(dominantValue) || dominantValue < 0 || dominantValue > 100) throw new Error('Порог доминирующего значения должен быть от 0 до 100%.');
-            if (Number.isNaN(varianceValue) || varianceValue < 0) throw new Error('Порог дисперсии должен быть неотрицательным числом.');
-            return {
-                null_threshold: nullValue / 100,
-                dominant_value_threshold: dominantValue / 100,
-                low_variance_threshold: varianceValue,
-            };
-        }
-
-        function selectTable(tableName, button) {
-            document.querySelectorAll('.table-list button').forEach((item) => item.classList.remove('selected'));
-            button.classList.add('selected');
-            selectedTable = tableName;
-            document.getElementById('selectionNote').textContent = `Выбрана таблица: ${tableName}`;
-            document.getElementById('runButton').disabled = false;
-            renderRunSummary({ tableName, removedCount: '-', cleanTable: `clean_${tableName}` });
-            setStatus('idle', `Выбрана таблица <strong>${escapeHtml(tableName)}</strong>. Можно запускать profiling с текущими порогами.`);
-        }
-
-        async function refreshLogs() {
-            const logBox = document.getElementById('logs');
-            if (!logBox) return;
-            try {
-                const response = await fetch('/logs', { cache: 'no-store' });
-                const payload = await response.json();
-                const logs = Array.isArray(payload.logs) ? payload.logs : [];
-                renderLogs(logs);
-                const surface = logBox.parentElement;
-                if (surface) surface.scrollTop = surface.scrollHeight;
-            } catch (error) {
-                logBox.innerHTML = `<div class="log-entry log-entry-error"><div class="log-entry-head"><div class="log-entry-badge">ошибка</div><div class="log-entry-title">Не удалось обновить логи</div></div><div class="log-entry-body"><div class="log-entry-meta">${escapeHtml(error.message)}</div></div></div>`;
-            }
-        }
-
-        function startLogPolling() {
-            if (logTimer) clearInterval(logTimer);
-            logTimer = setInterval(refreshLogs, 1500);
-        }
-
-        function renderThresholds(thresholds) {
-            const container = document.getElementById('thresholdsSummary');
-            if (!container || !thresholds) return;
-            container.innerHTML = [
-                `Порог пропусков: ${Math.round((thresholds.null_threshold ?? 0) * 100)}%`,
-                `Порог доминирующего значения: ${Math.round((thresholds.dominant_value_threshold ?? 0) * 100)}%`,
-                `Минимальная дисперсия: ${thresholds.low_variance_threshold ?? 0}`,
-            ].map((text) => `<div class="chip">${escapeHtml(text)}</div>`).join('');
-        }
-
-        function renderReasonSummary(reasonSummary) {
-            const container = document.getElementById('reasonSummary');
-            if (!container) return;
-            if (!Array.isArray(reasonSummary) || !reasonSummary.length) {
-                container.innerHTML = '<div class="reason-item"><div class="reason-title">Нет данных</div><div class="reason-meta">Сводка по причинам исключения пока недоступна.</div></div>';
-                return;
-            }
-            container.innerHTML = reasonSummary.filter((item) => Number(item.count) > 0).map((item) => `<div class="reason-item"><div class="reason-title">${escapeHtml(item.label)}: ${escapeHtml(item.count)}</div><div class="reason-meta">${escapeHtml(item.description)}</div></div>`).join('') || '<div class="reason-item"><div class="reason-title">Ничего не исключено</div><div class="reason-meta">При текущих порогах profiling не нашёл колонок на исключение.</div></div>';
-        }
-
-        function renderFiles(files) {
-            const container = document.getElementById('filesList');
-            if (!container) return;
-            const items = [
-                { label: 'CSV-отчёт profiling', path: files?.profile_csv || '' },
-                { label: 'Excel-отчёт profiling', path: files?.profile_xlsx || '' },
-                { label: 'Excel clean-таблицы', path: files?.clean_xlsx || '' },
-            ].filter((item) => item.path);
-            container.innerHTML = items.map((item) => `<div class="file-item"><div class="file-label">${escapeHtml(item.label)}</div><div class="file-path">${escapeHtml(item.path)}</div></div>`).join('');
-        }
-
-        function renderCandidates(candidateDetails) {
-            const body = document.getElementById('candidatesBody');
-            if (!body) return;
-            body.innerHTML = Array.isArray(candidateDetails) && candidateDetails.length ? candidateDetails.map((item) => `<tr><td>${escapeHtml(item.column)}</td><td>${escapeHtml(item.dtype)}</td><td>${escapeHtml((item.reasons || []).join(', '))}</td><td>${escapeHtml(formatPercent(item.null_ratio))}</td><td>${escapeHtml(formatPercent(item.dominant_ratio))}</td></tr>`).join('') : '<tr><td colspan="5">При текущих порогах profiling не нашёл колонок на исключение.</td></tr>';
-        }
-
-        function renderKeptColumns(keptColumns, keptCount) {
-            const container = document.getElementById('keptColumns');
-            if (!container) return;
-            if (!Array.isArray(keptColumns) || !keptColumns.length) {
-                container.innerHTML = '<div class="chip">Список пока недоступен</div>';
-                return;
-            }
-            const remainder = Number(keptCount) - keptColumns.length;
-            container.innerHTML = keptColumns.map((item) => `<div class="chip">${escapeHtml(item)}</div>`).join('') + (remainder > 0 ? `<div class="chip">ещё ${remainder}</div>` : '');
-        }
-
-        function renderSummary(result) {
-            const summary = result.summary || {};
-            document.getElementById('resultsSection').hidden = false;
-            document.getElementById('metricTotal').textContent = summary.total_columns ?? 0;
-            document.getElementById('metricRemoved').textContent = summary.candidate_count ?? 0;
-            document.getElementById('metricKept').textContent = summary.kept_count ?? 0;
-            document.getElementById('metricShape').textContent = `${summary.clean_rows ?? 0} × ${summary.clean_columns ?? 0}`;
-            document.getElementById('resultMessage').textContent = result.message || 'Profiling завершён.';
-            renderRunSummary({ tableName: result.table_name || selectedTable || 'Не выбрана', removedCount: summary.candidate_count ?? 0, cleanTable: result.clean_table || '-' });
-            document.getElementById('outputSummary').innerHTML = `Создана таблица <strong>${escapeHtml(result.clean_table || '')}</strong>. В ней осталось <strong>${escapeHtml(summary.kept_count ?? 0)}</strong> колонок и <strong>${escapeHtml(summary.clean_rows ?? 0)}</strong> строк. ${result.clean_table ? `<br><br>Открыть таблицу можно в разделе <a class="text-link" href="/tables/${encodeURIComponent(result.clean_table)}">Просмотр таблиц</a>.` : ''}`;
-            renderThresholds(summary.thresholds || {});
-            renderReasonSummary(summary.reason_summary || []);
-            renderFiles(result.files || {});
-            renderCandidates(summary.candidate_details || []);
-            renderKeptColumns(summary.kept_preview || [], summary.kept_count || 0);
-        }
-
-        async function runPipeline() {
-            if (!selectedTable || isRunning) return;
-            let thresholds;
-            try {
-                thresholds = readThresholds();
-            } catch (error) {
-                setStatus('error', escapeHtml(error.message));
-                return;
-            }
-            isRunning = true;
-            document.getElementById('resultsSection').hidden = true;
-            const runButton = document.getElementById('runButton');
-            runButton.disabled = true;
-            runButton.textContent = 'Profiling выполняется...';
-            renderRunSummary({ tableName: selectedTable, removedCount: 'Считаем...', cleanTable: `clean_${selectedTable}` });
-            setStatus('running', `Выполняем profiling для таблицы <strong>${escapeHtml(selectedTable)}</strong> с пользовательскими порогами.`);
-            await refreshLogs();
-            try {
-                const response = await fetch('/run_profiling', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: selectedTable, thresholds }) });
-                const result = await response.json();
-                if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить profiling.');
-                renderSummary(result);
-                setStatus('success', `Готово. Таблица <strong>${escapeHtml(selectedTable)}</strong> обработана по выбранным порогам.`);
-            } catch (error) {
-                setStatus('error', `Ошибка выполнения: ${escapeHtml(error.message)}`);
-            } finally {
-                isRunning = false;
-                runButton.disabled = false;
-                runButton.textContent = 'Запустить profiling';
-                await refreshLogs();
-            }
-        }
-
-        startLogPolling();
-        refreshLogs();
-    </script>
+    }
+</script>
 <script src="/static/js/sidebar.js"></script>
 </body>
 </html>
