@@ -222,6 +222,51 @@ class MapCreator:
         """
         return template.format(**data)
 
+    def _calculate_initial_view(self, features: List[Dict]) -> Tuple[Tuple[float, float], int]:
+        """Estimate a robust стартовый центр и зум по координатам."""
+        coords = np.array([feature["geometry"]["coordinates"] for feature in features], dtype=float)
+        lons = coords[:, 0]
+        lats = coords[:, 1]
+
+        if len(coords) == 1:
+            return (float(lons[0]), float(lats[0])), 12
+
+        quantile_low = 0.1 if len(coords) >= 10 else 0.0
+        quantile_high = 0.9 if len(coords) >= 10 else 1.0
+        lon_low, lon_high = np.quantile(lons, [quantile_low, quantile_high])
+        lat_low, lat_high = np.quantile(lats, [quantile_low, quantile_high])
+
+        core_mask = (lons >= lon_low) & (lons <= lon_high) & (lats >= lat_low) & (lats <= lat_high)
+        if core_mask.any():
+            core_lons = lons[core_mask]
+            core_lats = lats[core_mask]
+        else:
+            core_lons = lons
+            core_lats = lats
+
+        center_lon = float(np.median(core_lons))
+        center_lat = float(np.median(core_lats))
+        lon_span = float(core_lons.max() - core_lons.min()) if len(core_lons) > 1 else 0.0
+        lat_span = float(core_lats.max() - core_lats.min()) if len(core_lats) > 1 else 0.0
+        span = max(lon_span, lat_span)
+
+        if span <= 0.03:
+            zoom = 12
+        elif span <= 0.08:
+            zoom = 11
+        elif span <= 0.18:
+            zoom = 10
+        elif span <= 0.35:
+            zoom = 9
+        elif span <= 0.75:
+            zoom = 8
+        elif span <= 1.5:
+            zoom = 7
+        else:
+            zoom = 6
+
+        return (center_lon, center_lat), zoom
+
     # =====================================================
     # PREPARE TABLE
     # =====================================================
@@ -299,12 +344,9 @@ class MapCreator:
             logger.warning(f"Таблица {table_name}: нет валидных точек")
             return None
         
-        # Расчет центра карты
-        lons = [f['geometry']['coordinates'][0] for f in features]
-        lats = [f['geometry']['coordinates'][1] for f in features]
-        center_lon = sum(lons) / len(lons)
-        center_lat = sum(lats) / len(lats)
-        
+        # Расчет стартового вида карты
+        center, initial_zoom = self._calculate_initial_view(features)
+
         return {
             'name': table_name,
             'geojson': {
@@ -312,10 +354,10 @@ class MapCreator:
                 "features": features
             },
             'counts': category_counts,
-            'center': (center_lon, center_lat),
+            'center': center,
+            'initial_zoom': initial_zoom,
             'feature_count': len(features)
         }
-
     # =====================================================
     # CREATE MAP
     # =====================================================
@@ -353,32 +395,47 @@ class MapCreator:
     # GENERATE HTML WITH FILTERS
     # =====================================================
     def _generate_html(self, tables: List[Dict], total_categories: Dict[str, int]) -> str:
-        """Генерирует полный HTML-код страницы"""
-        
-        # Создание вкладок
+        """Generate full page HTML."""
+        single_table = len(tables) == 1
         tabs_nav = []
         tabs_content = []
-        
+
         for idx, table in enumerate(tables):
-            active_class = "active" if idx == 0 else ""
-            show_class = "show active" if idx == 0 else ""
-            
-            tabs_nav.append(
-                f'<li class="nav-item">'
-                f'<button class="nav-link {active_class}" data-bs-toggle="tab" '
-                f'data-bs-target="#tab{idx}" type="button">{table["name"]}</button>'
-                f'</li>'
+            if not single_table:
+                active_class = "active" if idx == 0 else ""
+                tabs_nav.append(
+                    f'<li class="nav-item">'
+                    f'<button class="nav-link {active_class}" data-bs-toggle="tab" '
+                    f'data-bs-target="#tab{idx}" type="button">{table["name"]}</button>'
+                    f'</li>'
+                )
+
+            tabs_content.append(
+                self._generate_tab_content(idx, table, use_tab_wrapper=not single_table)
             )
-            
-            tabs_content.append(self._generate_tab_content(idx, table))
-        
-        # Финальный HTML
+
+        body_content = ''.join(tabs_content)
+        tab_resize_script = ""
+        if not single_table:
+            body_content = (
+                f'<ul class="nav nav-tabs">{"".join(tabs_nav)}</ul>'
+                f'<div class="tab-content">{body_content}</div>'
+            )
+            tab_resize_script = """
+        document.querySelectorAll('.nav-tabs button').forEach(btn => {
+            btn.addEventListener('shown.bs.tab', e => {
+                const idx = e.target.dataset.bsTarget?.replace('#tab', '');
+                setTimeout(() => window['map' + idx]?.updateSize(), 100);
+            });
+        });
+"""
+
         return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Карта пожаров</title>
+    <title>\u041a\u0430\u0440\u0442\u0430 \u043f\u043e\u0436\u0430\u0440\u043e\u0432</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
@@ -389,76 +446,78 @@ class MapCreator:
         .nav-tabs {{ flex-shrink: 0; background: white; padding-left: 10px; }}
         .tab-content {{ flex: 1; min-height: 0; }}
         .tab-pane {{ height: 100%; position: relative; }}
-        #filter-panel {{ 
+        .map-container {{ flex: 1; min-height: 0; position: relative; }}
+        [id^="filter-panel-"] {{
             position: absolute; top: 20px; left: 20px; z-index: 1000;
             background: white; padding: 15px; border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             max-width: 280px; max-height: calc(100% - 40px);
             overflow-y: auto;
         }}
-        .popup {{ background: white; border: 1px solid #ccc; padding: 10px; 
+        .popup {{ background: white; border: 1px solid #ccc; padding: 10px;
                  border-radius: 4px; max-width: 300px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }}
         .category-item {{ margin-bottom: 8px; padding: 5px; border-radius: 4px; background: #f8f9fa; }}
-        .category-item label {{ display: flex; align-items: center; margin: 0; cursor: pointer; }}
-        .category-item input[type="checkbox"] {{ margin-right: 10px; }}
-        .category-item span:first-of-type {{ width: 24px; }}
-        .category-item span:last-of-type {{ flex: 1; }}
-        .btn-sm {{ padding: 0.25rem 0.5rem; font-size: 0.875rem; }}
+        .category-item label {{ display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }}
+        .category-item input[type="checkbox"] {{ margin-right: 2px; }}
+        .category-icon {{ width: 24px; flex: 0 0 24px; text-align: center; }}
+        .category-label {{ flex: 1; min-width: 0; }}
+        .category-count {{ flex: 0 0 auto; }}
     </style>
 </head>
 <body>
-    <ul class="nav nav-tabs">{''.join(tabs_nav)}</ul>
-    <div class="tab-content">{''.join(tabs_content)}</div>
+    {body_content}
     <script>
-        // Обновление размера карты при переключении вкладок
-        document.querySelectorAll('.nav-tabs button').forEach(btn => {{
-            btn.addEventListener('shown.bs.tab', e => {{
-                const idx = e.target.dataset.bsTarget?.replace('#tab', '');
-                setTimeout(() => window['map' + idx]?.updateSize(), 100);
-            }});
-        }});
+        // Resize maps after tab switches
+        {tab_resize_script}
         window.addEventListener('resize', () => {{
             for (let i = 0; i < {len(tables)}; i++) window['map' + i]?.updateSize();
         }});
     </script>
 </body>
 </html>"""
-    
-    def _generate_tab_content(self, idx: int, table: Dict) -> str:
-        """Генерирует содержимое вкладки с картой"""
+
+    def _generate_tab_content(self, idx: int, table: Dict, use_tab_wrapper: bool = True) -> str:
+        """Generate one map panel."""
         geojson = json.dumps(table['geojson'], ensure_ascii=False)
         center_lon, center_lat = table['center']
         styles = {k: vars(v) for k, v in self.CATEGORY_STYLES.items()}
-        
-        # Панель фильтров
+        container_id = f"map-container-{idx}"
+        scope_selector = f"#tab{idx}" if use_tab_wrapper else f"#{container_id}"
+
         filter_items = []
+        initial_zoom = min(table.get('initial_zoom', 6) + 4, 13)
         for cat_id, style in self.CATEGORY_STYLES.items():
             count = table['counts'].get(cat_id, 0)
             filter_items.append(f'''
                 <div class="category-item">
                     <label>
                         <input type="checkbox" class="category-filter" data-category="{cat_id}" checked>
-                        <span>{style.icon}</span>
-                        <span>{style.label}</span>
-                        <span class="badge bg-secondary">{count}</span>
+                        <span class="category-icon">{style.icon}</span>
+                        <span class="category-label">{style.label}</span>
+                        <span class="badge bg-secondary category-count">{count}</span>
                     </label>
                 </div>
             ''')
-        
+
         filter_panel = f'''
-        <div id="filter-panel">
-            <h5 style="margin-bottom: 15px;">🔍 Фильтры</h5>
+        <div id="filter-panel-{idx}">
+            <h5 style="margin-bottom: 15px;">&#128269; \u0424\u0438\u043b\u044c\u0442\u0440\u044b</h5>
             <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-                <button id="select-all-{idx}" class="btn btn-primary btn-sm" style="flex:1;">Все</button>
-                <button id="deselect-all-{idx}" class="btn btn-secondary btn-sm" style="flex:1;">Сброс</button>
+                <button id="select-all-{idx}" class="btn btn-primary btn-sm" style="flex:1;">\u0412\u0441\u0435</button>
+                <button id="deselect-all-{idx}" class="btn btn-secondary btn-sm" style="flex:1;">\u0421\u0431\u0440\u043e\u0441</button>
             </div>
             {''.join(filter_items)}
-            
+
         </div>
         '''
-        
+
+        if use_tab_wrapper:
+            container_open = f'<div class="tab-pane fade show active" id="tab{idx}">'
+        else:
+            container_open = f'<div class="map-container" id="{container_id}">'
+
         return f'''
-        <div class="tab-pane fade show active" id="tab{idx}">
+        {container_open}
             {filter_panel}
             <div id="map{idx}" style="height:100%; width:100%;"></div>
         </div>
@@ -469,12 +528,12 @@ class MapCreator:
                     layers: [new ol.layer.Tile({{source: new ol.source.OSM()}})],
                     view: new ol.View({{
                         center: ol.proj.fromLonLat([{center_lon}, {center_lat}]),
-                        zoom: 6
+                        zoom: {initial_zoom}
                     }})
                 }});
-                
+
                 const styles = {json.dumps(styles)};
-                
+
                 function createStyle(category) {{
                     const s = styles[category] || styles['other'];
                     return new ol.style.Style({{
@@ -485,12 +544,19 @@ class MapCreator:
                         }})
                     }});
                 }}
-                
+
                 const features = new ol.format.GeoJSON().readFeatures({geojson}, {{
                     dataProjection: 'EPSG:4326',
                     featureProjection: 'EPSG:3857'
                 }});
-                
+
+                const restoreMapView = () => {{
+                    const targetCenter = ol.proj.fromLonLat([{center_lon}, {center_lat}]);
+                    const view = map.getView();
+                    view.setCenter(targetCenter);
+                    view.setZoom({initial_zoom});
+                }};
+
                 const categoryLayers = {{}};
                 {json.dumps(list(self.CATEGORY_STYLES.keys()))}.forEach(cat => {{
                     const catFeatures = features.filter(f => f.get('category') === cat);
@@ -504,52 +570,53 @@ class MapCreator:
                         map.addLayer(layer);
                     }}
                 }});
-                
-                // Всплывающие окна
+
                 const overlay = new ol.Overlay({{
                     element: document.createElement('div'),
                     positioning: 'bottom-center',
                     autoPan: true
                 }});
                 map.addOverlay(overlay);
-                
+
                 map.on('click', e => {{
                     const feature = map.forEachFeatureAtPixel(e.pixel, f => f);
                     if (feature) {{
                         overlay.setPosition(feature.getGeometry().getCoordinates());
-                        overlay.getElement().innerHTML = 
+                        overlay.getElement().innerHTML =
                             '<div class="popup">' + feature.get('popup') + '</div>';
                     }} else {{
                         overlay.setPosition(undefined);
                     }}
                 }});
-                
-                // Фильтры
-                const checkboxes = document.querySelectorAll('#tab{idx} .category-filter');
+
+                const checkboxes = document.querySelectorAll('{scope_selector} .category-filter');
                 const updateLayers = () => {{
                     checkboxes.forEach(cb => {{
                         const layer = categoryLayers[cb.dataset.category];
                         if (layer) layer.setVisible(cb.checked);
                     }});
                 }};
-                
+
                 checkboxes.forEach(cb => cb.addEventListener('change', updateLayers));
-                
+
                 document.getElementById('select-all-{idx}').addEventListener('click', () => {{
                     checkboxes.forEach(cb => cb.checked = true);
                     updateLayers();
                 }});
-                
+
                 document.getElementById('deselect-all-{idx}').addEventListener('click', () => {{
                     checkboxes.forEach(cb => cb.checked = false);
                     updateLayers();
                 }});
-                
+
                 map.addControl(new ol.control.FullScreen());
                 map.addControl(new ol.control.ScaleLine());
-                
+
                 window['map{idx}'] = map;
-                setTimeout(() => map.updateSize(), 200);
+                setTimeout(() => {{
+                    map.updateSize();
+                    restoreMapView();
+                }}, 200);
             }})();
         </script>
         '''
