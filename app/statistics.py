@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import re
@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from sqlalchemy import inspect, text
 
 from config.db import engine
+from core.processing.steps.keep_important_columns import get_column_matcher
 from app.statistics_constants import (
     APARTMENTS_DAMAGED_COLUMN,
     APARTMENTS_DESTROYED_COLUMN,
@@ -78,6 +79,8 @@ _CACHE_LOCK = Lock()
 _METADATA_CACHE: Dict[str, Any] = {"expires_at": 0.0, "value": None}
 _DASHBOARD_CACHE: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
 _PLOTLY_BUNDLE_CACHE: Optional[str] = None
+MATCHER_GROUP_OPTION_PREFIX = "__matcher_group__:"
+MATCHER_GROUP_OPTION_LABEL_PREFIX = "Группа: "
 
 DISTRICT_COLUMN_CANDIDATES = [
     "Район",
@@ -101,6 +104,7 @@ def build_dashboard_context(
         table_name=table_name,
         year=year,
         group_column=group_column or metadata["default_group_column"],
+
         metadata=metadata,
     )
 
@@ -110,6 +114,7 @@ def build_dashboard_context(
             "tables": metadata["table_options"],
             "years": initial_data["filters"]["available_years"],
             "group_columns": initial_data["filters"]["available_group_columns"],
+
         },
         "initial_data": initial_data,
         "errors": list(dict.fromkeys(metadata["errors"] + initial_data.get("notes", []))),
@@ -128,40 +133,47 @@ def get_dashboard_data(
         metadata = metadata or _collect_dashboard_metadata_cached()
         tables = metadata["tables"]
         normalized_group_column = group_column or metadata["default_group_column"]
+
         cache_key = (
             tuple(sorted(table["name"] for table in tables)),
             table_name,
-            year,
             normalized_group_column,
+
         )
         cached = _get_dashboard_cache(cache_key)
         if cached is not None:
             return cached
 
         selected_tables = _resolve_selected_tables(tables, table_name)
-        available_years = _collect_year_options(selected_tables)
-        selected_year = _parse_year(year)
-        available_year_values = [int(item["value"]) for item in available_years if item["value"] != "all"]
-        if selected_year is not None and selected_year not in available_year_values:
-            selected_year = None
+        available_years = []
+        selected_year = None
 
         available_group_columns = _collect_group_column_options(selected_tables)
+
         selected_group_column = _resolve_group_column(
             normalized_group_column,
             available_group_columns,
             metadata["default_group_column"],
         )
+
         selected_table_name = table_name if any(item["value"] == table_name for item in metadata["table_options"]) else "all"
 
         summary = _build_summary(selected_tables, selected_year)
         yearly_fires_series = _build_yearly_chart(selected_tables, metric="count")
         table_breakdown_series = _build_table_breakdown_chart(selected_tables, selected_year)
         cause_overview = _build_cause_chart(selected_tables, selected_year)
-        if _is_damage_group_selection(selected_group_column):
+        matcher_group_id = _extract_matcher_group_id(selected_group_column) if _is_matcher_group_selection(selected_group_column) else ""
+
+        if _is_damage_group_selection(selected_group_column) or _is_damage_matcher_group_selection(matcher_group_id):
             distribution = _build_damage_overview_chart(selected_tables, selected_year)
             yearly_area_chart = _build_damage_pairs_chart(selected_tables, selected_year)
             monthly_profile = _build_damage_standalone_chart(selected_tables, selected_year)
             area_buckets = _build_damage_share_chart(selected_tables, selected_year)
+        elif _is_matcher_group_selection(selected_group_column):
+            distribution = _build_matcher_group_overview_chart(selected_tables, selected_year, matcher_group_id)
+            yearly_area_chart = _build_matcher_group_yearly_chart(selected_tables, selected_year, matcher_group_id)
+            monthly_profile = _build_matcher_group_monthly_chart(selected_tables, selected_year, matcher_group_id)
+            area_buckets = _build_matcher_group_share_chart(selected_tables, selected_year, matcher_group_id)
         else:
             distribution = _build_distribution_chart(selected_tables, selected_year, selected_group_column)
             yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
@@ -202,11 +214,12 @@ def get_dashboard_data(
             },
             "filters": {
                 "table_name": selected_table_name,
-                "year": str(selected_year) if selected_year is not None else "all",
+                "year": str(selected_year) if selected_year is not None else "",
                 "group_column": selected_group_column,
                 "available_tables": metadata["table_options"],
                 "available_years": available_years,
                 "available_group_columns": available_group_columns,
+
             },
             "notes": notes,
         }
@@ -298,11 +311,12 @@ def _empty_dashboard_data(error_message: str = "") -> Dict[str, Any]:
         },
         "filters": {
             "table_name": "all",
-            "year": "all",
+            "year": "",
             "group_column": "",
             "available_tables": [{"value": "all", "label": "Все таблицы"}],
-            "available_years": [{"value": "all", "label": "Все годы"}],
+            "available_years": [],
             "available_group_columns": [],
+
         },
         "notes": [error_message] if error_message else [],
     }
@@ -431,7 +445,7 @@ def _resolve_selected_tables(tables: List[Dict[str, Any]], table_name: str) -> L
 
 def _collect_year_options(tables: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     years = sorted({year for table in tables for year in table["years"]}, reverse=True)
-    return [{"value": "all", "label": "Все годы"}] + [{"value": str(year), "label": str(year)} for year in years]
+    return [{"value": str(year), "label": str(year)} for year in years]
 
 
 def _collect_group_column_options(tables: List[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -452,6 +466,7 @@ def _collect_group_column_options(tables: List[Dict[str, Any]]) -> List[Dict[str
                 "label": COLUMN_LABELS.get(column_name, column_name),
                 "group": group_label,
             })
+    result.extend(_collect_matcher_group_options(tables))
     return result
 
 
@@ -468,7 +483,55 @@ def _is_damage_group_selection(group_column: str) -> bool:
     return group_column == DAMAGE_GROUP_OPTION_VALUE
 
 
-def _build_summary(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _is_damage_matcher_group_selection(group_id: str) -> bool:
+    return group_id == "damage"
+
+
+def _is_matcher_group_selection(group_column: str) -> bool:
+    return group_column.startswith(MATCHER_GROUP_OPTION_PREFIX)
+
+
+def _matcher_group_option_value(group_id: str) -> str:
+    return f"{MATCHER_GROUP_OPTION_PREFIX}{group_id}"
+
+
+def _extract_matcher_group_id(group_column: str) -> str:
+    if not _is_matcher_group_selection(group_column):
+        return ""
+    return group_column[len(MATCHER_GROUP_OPTION_PREFIX):]
+
+
+def _collect_matcher_group_options(tables: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
+    if not tables:
+        return []
+
+    try:
+        matcher = get_column_matcher()
+        all_columns = sorted({column_name for table in tables for column_name in table["column_set"]})
+        catalog = matcher.get_group_catalog(all_columns)
+    except Exception:
+        return []
+
+    options: List[Dict[str, str]] = []
+    for item in catalog:
+        group_id = str(item.get("id") or "").strip()
+        if not group_id or int(item.get("count") or 0) <= 0:
+            continue
+        label = str(item.get("label") or group_id)
+        options.append(
+            {
+                "value": _matcher_group_option_value(group_id),
+                "label": f"{MATCHER_GROUP_OPTION_LABEL_PREFIX}{label}",
+                "group": "Тематические группы",
+            }
+        )
+    return options
+
+
+def _build_summary(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+) -> Dict[str, Any]:
     fires_count = 0
     total_area = 0.0
     area_values_count = 0
@@ -513,6 +576,7 @@ def _build_summary(selected_tables: List[Dict[str, Any]], selected_year: Optiona
     evacuated_adults = impact_totals["evacuated"]
     rescued_adults = impact_totals["rescued_total"]
     children_total = impact_totals["evacuated_children"] + impact_totals["rescued_children"]
+
     return {
         "fires_count": fires_count,
         "fires_count_display": _format_number(fires_count, integer=True),
@@ -665,6 +729,265 @@ def _collect_positive_column_counts(
     return counts
 
 
+def _filled_expression_for_column(column_name: str) -> str:
+    column_sql = _quote_identifier(column_name)
+    return f"CASE WHEN NULLIF(TRIM(CAST({column_sql} AS TEXT)), '') IS NULL THEN 0 ELSE 1 END"
+
+
+def _resolve_matcher_group_columns(table: Dict[str, Any], group_id: str) -> List[str]:
+    if not group_id:
+        return []
+
+    try:
+        matcher = get_column_matcher()
+        return [item["name"] for item in matcher.find_columns_by_categories(sorted(table["column_set"]), [group_id])]
+    except Exception:
+        return []
+
+
+def _resolve_matcher_group_label(selected_tables: Sequence[Dict[str, Any]], group_id: str) -> str:
+    if not group_id:
+        return "Тематическая группа"
+
+    try:
+        matcher = get_column_matcher()
+        all_columns = sorted({column_name for table in selected_tables for column_name in table["column_set"]})
+        for item in matcher.get_group_catalog(all_columns):
+            if str(item.get("id")) == group_id:
+                return str(item.get("label") or group_id)
+    except Exception:
+        pass
+    return group_id
+
+
+def _collect_matcher_group_presence_counts(
+    selected_tables: Sequence[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> Dict[str, int]:
+    counts: Dict[str, int] = defaultdict(int)
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            group_columns = _resolve_matcher_group_columns(table, group_id)
+            if not group_columns:
+                continue
+
+            where_clause = _build_year_filter_clause(table, selected_year)
+            if where_clause is None:
+                continue
+
+            selects = []
+            alias_to_column: Dict[str, str] = {}
+            for index, column_name in enumerate(group_columns):
+                alias = f"group_column_{index}"
+                selects.append(f"SUM({_filled_expression_for_column(column_name)}) AS {alias}")
+                alias_to_column[alias] = column_name
+
+            query = text(
+                f"""
+                SELECT {', '.join(selects)}
+                FROM {_quote_identifier(table['name'])}
+                WHERE {where_clause}
+                """
+            )
+            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
+            row = conn.execute(query, params).mappings().one()
+            for alias, column_name in alias_to_column.items():
+                counts[column_name] += int(row[alias] or 0)
+
+    return dict(counts)
+
+
+def _build_matcher_group_items(
+    selected_tables: Sequence[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> List[Dict[str, Any]]:
+    counts = _collect_matcher_group_presence_counts(selected_tables, selected_year, group_id)
+    items = [
+        {
+            "label": COLUMN_LABELS.get(column_name, column_name),
+            "value": value,
+            "value_display": _format_number(value, integer=True),
+            "column_name": column_name,
+        }
+        for column_name, value in counts.items()
+        if value > 0
+    ]
+    items.sort(key=lambda item: (-int(item["value"]), item["label"]))
+    return items
+
+
+def _build_matcher_group_presence_yearly_items(
+    selected_tables: Sequence[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> List[Dict[str, Any]]:
+    grouped: Dict[int, int] = defaultdict(int)
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            group_columns = _resolve_matcher_group_columns(table, group_id)
+            if not group_columns:
+                continue
+
+            presence_expression = " OR ".join(
+                f"{_filled_expression_for_column(column_name)} > 0" for column_name in group_columns
+            )
+
+            if DATE_COLUMN in table["column_set"]:
+                year_expression = _year_expression(DATE_COLUMN)
+                conditions = [f"{year_expression} IS NOT NULL", f"({presence_expression})"]
+                if selected_year is not None:
+                    conditions.append(f"{year_expression} = :selected_year")
+                query = text(
+                    f"""
+                    SELECT
+                        {year_expression} AS year_value,
+                        COUNT(*) AS fire_count
+                    FROM {_quote_identifier(table['name'])}
+                    WHERE {' AND '.join(conditions)}
+                    GROUP BY year_value
+                    ORDER BY year_value
+                    """
+                )
+                params = {"selected_year": selected_year} if selected_year is not None else {}
+            elif table["table_year"] is not None:
+                if selected_year is not None and table["table_year"] != selected_year:
+                    continue
+                query = text(
+                    f"""
+                    SELECT
+                        {table['table_year']} AS year_value,
+                        COUNT(*) AS fire_count
+                    FROM {_quote_identifier(table['name'])}
+                    WHERE {presence_expression}
+                    """
+                )
+                params = {}
+            else:
+                continue
+
+            for row in conn.execute(query, params).mappings().all():
+                year_value = row["year_value"]
+                if year_value is None:
+                    continue
+                grouped[int(year_value)] += int(row["fire_count"] or 0)
+
+    return [
+        {
+            "label": str(year_value),
+            "value": value,
+            "value_display": _format_number(value, integer=True),
+        }
+        for year_value, value in sorted(grouped.items())
+        if value > 0
+    ]
+
+
+def _build_matcher_group_presence_monthly_items(
+    selected_tables: Sequence[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> List[Dict[str, Any]]:
+    grouped: Dict[int, int] = defaultdict(int)
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            if DATE_COLUMN not in table["column_set"]:
+                continue
+
+            group_columns = _resolve_matcher_group_columns(table, group_id)
+            if not group_columns:
+                continue
+
+            month_expression = _month_expression(DATE_COLUMN)
+            presence_expression = " OR ".join(
+                f"{_filled_expression_for_column(column_name)} > 0" for column_name in group_columns
+            )
+            conditions = [f"{month_expression} BETWEEN 1 AND 12", f"({presence_expression})"]
+            if selected_year is not None:
+                conditions.append(f"{_year_expression(DATE_COLUMN)} = :selected_year")
+            query = text(
+                f"""
+                SELECT
+                    {month_expression} AS month_value,
+                    COUNT(*) AS fire_count
+                FROM {_quote_identifier(table['name'])}
+                WHERE {' AND '.join(conditions)}
+                GROUP BY month_value
+                ORDER BY month_value
+                """
+            )
+            params = {"selected_year": selected_year} if selected_year is not None else {}
+            for row in conn.execute(query, params).mappings().all():
+                month_value = row["month_value"]
+                if month_value is None:
+                    continue
+                grouped[int(month_value)] += int(row["fire_count"] or 0)
+
+    return [
+        {
+            "label": MONTH_LABELS.get(month_value, str(month_value)),
+            "value": grouped[month_value],
+            "value_display": _format_number(grouped[month_value], integer=True),
+        }
+        for month_value in range(1, 13)
+        if month_value in grouped
+    ]
+
+
+def _build_matcher_group_overview_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> Dict[str, Any]:
+    group_label = _resolve_matcher_group_label(selected_tables, group_id)
+    items = _build_matcher_group_items(selected_tables, selected_year, group_id)[:12]
+    title = f"{group_label}: заполненность колонок"
+    empty_message = "Нет данных по выбранной тематической группе."
+    return _finalize_chart(title, items, empty_message, plotly=_build_damage_overview_plotly(title, items, empty_message))
+
+
+def _build_matcher_group_yearly_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> Dict[str, Any]:
+    group_label = _resolve_matcher_group_label(selected_tables, group_id)
+    items = _build_matcher_group_presence_yearly_items(selected_tables, selected_year, group_id)
+    title = f"{group_label}: динамика по годам"
+    empty_message = "Нет данных для годовой динамики по выбранной группе."
+    return _finalize_chart(title, items, empty_message, plotly=_build_yearly_plotly(title, items, "count", empty_message))
+
+
+def _build_matcher_group_monthly_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> Dict[str, Any]:
+    group_label = _resolve_matcher_group_label(selected_tables, group_id)
+    items = _build_matcher_group_presence_monthly_items(selected_tables, selected_year, group_id)
+    title = f"{group_label}: помесячный профиль"
+    empty_message = "Нет данных для помесячного профиля по выбранной группе."
+    return _finalize_chart(title, items, empty_message, plotly=_build_monthly_profile_plotly(title, items, empty_message))
+
+
+def _build_matcher_group_share_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_id: str,
+) -> Dict[str, Any]:
+    group_label = _resolve_matcher_group_label(selected_tables, group_id)
+    items = _build_matcher_group_items(selected_tables, selected_year, group_id)
+    pie_items = [
+        {"label": item["label"], "value": item["value"], "value_display": item["value_display"]}
+        for item in items[:10]
+    ]
+    title = f"{group_label}: структура группы"
+    empty_message = "Нет данных для структуры выбранной группы."
+    return _finalize_chart(title, pie_items, empty_message, plotly=_build_area_bucket_plotly(title, pie_items, empty_message))
 def _build_damage_category_items(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> List[Dict[str, Any]]:
     counts = _collect_positive_column_counts(selected_tables, selected_year, DISTRIBUTION_GROUPS[2][1])
     items: List[Dict[str, Any]] = []
@@ -719,39 +1042,105 @@ def _build_damage_category_items(selected_tables: List[Dict[str, Any]], selected
     return items
 
 
+def _build_damage_theme_items(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> List[Dict[str, Any]]:
+    theme_columns = {
+        "Недвижимость": [
+            BUILDINGS_DESTROYED_COLUMN,
+            BUILDINGS_DAMAGED_COLUMN,
+            APARTMENTS_DESTROYED_COLUMN,
+            APARTMENTS_DAMAGED_COLUMN,
+            APART_HOTEL_DESTROYED_COLUMN,
+            APART_HOTEL_DAMAGED_COLUMN,
+        ],
+        "Площадь пожара": [
+            AREA_DESTROYED_COLUMN,
+            AREA_DAMAGED_COLUMN,
+        ],
+        "Техника": [
+            VEHICLES_DESTROYED_COLUMN,
+            VEHICLES_DAMAGED_COLUMN,
+        ],
+        "Сельхозпотери": [
+            GRAIN_DESTROYED_COLUMN,
+            GRAIN_DAMAGED_COLUMN,
+            FEED_DESTROYED_COLUMN,
+            FEED_DAMAGED_COLUMN,
+            TECH_CROPS_DESTROYED_COLUMN,
+            TECH_CROPS_DAMAGED_COLUMN,
+        ],
+        "Животные и птица": [
+            LARGE_CATTLE_DESTROYED_COLUMN,
+            SMALL_CATTLE_DESTROYED_COLUMN,
+            BIRDS_DESTROYED_COLUMN,
+        ],
+        "Прямой ущерб": [
+            REGISTERED_DAMAGE_COLUMN,
+        ],
+    }
+    all_columns = [column_name for columns in theme_columns.values() for column_name in columns]
+    counts = _collect_positive_column_counts(selected_tables, selected_year, all_columns)
+    items: List[Dict[str, Any]] = []
+
+    for label, columns in theme_columns.items():
+        value = sum(int(counts.get(column_name, 0) or 0) for column_name in columns)
+        if value <= 0:
+            continue
+        items.append(
+            {
+                "label": label,
+                "value": value,
+                "value_display": _format_number(value, integer=True),
+            }
+        )
+
+    items.sort(key=lambda item: item["value"], reverse=True)
+    return items
+
+
 def _build_damage_overview_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
     items = _build_damage_category_items(selected_tables, selected_year)
-    title = "Ущерб: категории показателей"
-    empty_message = "Нет данных по показателям ущерба."
-    return _finalize_chart(title, items[:12], empty_message, plotly=_build_damage_overview_plotly(title, items[:12], empty_message))
+    title = "Ущерб: что страдает чаще всего"
+    empty_message = "Нет данных по категориям ущерба."
+    description = "Категории потерь по объектам и ресурсам: здания, квартиры, площадь пожара, техника, урожай и другие показатели."
+    return _finalize_chart(
+        title,
+        items[:12],
+        empty_message,
+        plotly=_build_damage_overview_plotly(title, items[:12], empty_message),
+        description=description,
+    )
 
 
 def _build_damage_pairs_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
     items = [item for item in _build_damage_category_items(selected_tables, selected_year) if "destroyed" in item or "damaged" in item]
     title = "Ущерб: уничтожено и повреждено"
     empty_message = "Нет данных по парам показателей ущерба."
-    return _finalize_chart(title, items, empty_message, plotly=_build_damage_pairs_plotly(title, items, empty_message))
+    description = "Сравнение по категориям ущерба: где чаще фиксируется уничтожение, а где повреждение имущества и ресурсов."
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_damage_pairs_plotly(title, items, empty_message),
+        description=description,
+    )
 
 
 def _build_damage_standalone_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    counts = _collect_positive_column_counts(selected_tables, selected_year, DAMAGE_STANDALONE_COLUMNS)
-    items = [
-        {
-            "label": DAMAGE_OVERVIEW_LABELS.get(column_name, column_name),
-            "value": value,
-            "value_display": _format_number(value, integer=True),
-        }
-        for column_name, value in counts.items()
-        if value > 0
-    ]
-    items.sort(key=lambda item: item["value"], reverse=True)
-    title = "Ущерб: отдельные показатели"
-    empty_message = "Нет данных по отдельным показателям ущерба."
-    return _finalize_chart(title, items, empty_message, plotly=_build_damage_standalone_plotly(title, items, empty_message))
+    items = _build_damage_theme_items(selected_tables, selected_year)
+    title = "Ущерб: направления потерь"
+    empty_message = "Нет данных по укрупненным направлениям ущерба."
+    description = "Крупные блоки потерь: недвижимость, площадь пожара, техника, сельхозресурсы, животные и прямой ущерб."
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_damage_standalone_plotly(title, items, empty_message),
+        description=description,
+    )
 
 
 def _build_damage_share_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    items = _build_damage_category_items(selected_tables, selected_year)
+    items = _build_damage_theme_items(selected_tables, selected_year)
     pie_items = [
         {
             "label": item["label"],
@@ -760,9 +1149,16 @@ def _build_damage_share_chart(selected_tables: List[Dict[str, Any]], selected_ye
         }
         for item in items
     ]
-    title = "Ущерб: структура категорий"
+    title = "Ущерб: структура потерь"
     empty_message = "Нет данных для структурного графика по ущербу."
-    return _finalize_chart(title, pie_items[:10], empty_message, plotly=_build_damage_share_plotly(title, pie_items[:10], empty_message))
+    description = "Доля основных направлений потерь в текущем фильтре: что доминирует в ущербе чаще всего."
+    return _finalize_chart(
+        title,
+        pie_items[:10],
+        empty_message,
+        plotly=_build_damage_share_plotly(title, pie_items[:10], empty_message),
+        description=description,
+    )
 
 
 def _build_table_breakdown_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
@@ -1457,6 +1853,7 @@ def _finalize_chart(
     items: List[Dict[str, Any]],
     empty_message: str,
     plotly: Optional[Dict[str, Any]] = None,
+    description: str = "",
 ) -> Dict[str, Any]:
     max_value = max([float(item["value"]) for item in items], default=0)
     normalized_items = []
@@ -1467,6 +1864,7 @@ def _finalize_chart(
         normalized_items.append(updated)
     return {
         "title": title,
+        "description": description,
         "items": normalized_items,
         "empty_message": empty_message,
         "plotly": plotly or _build_empty_plotly_chart(title, empty_message),
@@ -1480,7 +1878,7 @@ def _build_scope(
     selected_group_label: str,
     available_years: List[Dict[str, str]],
 ) -> Dict[str, Any]:
-    available_years_count = len([item for item in available_years if item["value"] != "all"])
+    available_years_count = len(available_years)
     database_tables_count = len(metadata["tables"])
     return {
         "table_label": selected_table_label,
@@ -1651,7 +2049,7 @@ def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: 
         data=[
             go.Bar(
                 x=[item["value"] for item in ordered_items],
-                y=[_wrap_plotly_label(item["label"], max_width=30, max_lines=3) for item in ordered_items],
+                y=[_wrap_plotly_label(item["label"], max_width=34, max_lines=2) for item in ordered_items],
                 orientation="h",
                 text=[item["value_display"] for item in ordered_items],
                 textposition="outside",
@@ -1665,9 +2063,12 @@ def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: 
         ]
     )
     layout = _plotly_layout("Количество пожаров", showlegend=False)
-    layout["height"] = max(360, 42 * len(items) + 90)
-    layout["margin"] = {"l": 260, "r": 36, "t": 20, "b": 40}
+    layout["height"] = min(620, max(360, 34 * len(items) + 90))
+    layout["margin"] = {"l": 320, "r": 72, "t": 20, "b": 36}
+    layout["bargap"] = 0.62
+    layout["xaxis"]["automargin"] = True
     layout["yaxis"]["automargin"] = True
+    layout["yaxis"]["tickfont"] = {"size": 11}
     figure.update_layout(**layout)
     return _figure_to_dict(figure)
 

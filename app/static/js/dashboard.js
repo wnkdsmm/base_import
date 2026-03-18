@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     function byId(id) {
         return document.getElementById(id);
     }
@@ -27,12 +27,11 @@
         }
 
         if (labels) {
-            summaryNode.textContent = 'Таблица: ' + labels.table + ' | Год: ' + labels.year + ' | Разрез: ' + labels.group;
+            summaryNode.textContent = 'Таблица: ' + labels.table + ' | Разрез: ' + labels.group;
             return;
         }
 
         summaryNode.textContent = 'Таблица: ' + getSelectedText(byId('tableFilter'), 'Все таблицы') +
-            ' | Год: ' + getSelectedText(byId('yearFilter'), 'Все годы') +
             ' | Разрез: ' + getSelectedText(byId('groupColumnFilter'), 'Категория риска');
     }
 
@@ -43,19 +42,15 @@
         }
     }
 
-    function setHtml(id, value) {
-        const node = byId(id);
-        if (node) {
-            node.innerHTML = value;
-        }
-    }
-
     function setSelectOptions(selectId, options, selectedValue, emptyLabel) {
         const selectNode = byId(selectId);
         if (!selectNode) {
             return;
         }
 
+        const selectedValues = Array.isArray(selectedValue)
+            ? new Set(selectedValue.map(function (value) { return String(value); }))
+            : new Set([String(selectedValue == null ? '' : selectedValue)]);
         const safeOptions = Array.isArray(options) && options.length ? options : [{ value: '', label: emptyLabel }];
         let currentGroup = '';
         let html = '';
@@ -72,7 +67,7 @@
                 currentGroup = optionGroup;
             }
 
-            const selected = String(option.value) === String(selectedValue) ? ' selected' : '';
+            const selected = selectedValues.has(String(option.value)) ? ' selected' : '';
             html += '<option value="' + escapeHtml(option.value) + '"' + selected + '>' + escapeHtml(option.label) + '</option>';
         });
 
@@ -83,7 +78,7 @@
         selectNode.innerHTML = html;
     }
 
-    function renderChartFallback(chart, container, containerId) {
+    function renderChartFallback(chart, container) {
         const message = chart && chart.empty_message
             ? chart.empty_message
             : 'Интерактивный график не загрузился.';
@@ -98,7 +93,7 @@
 
         const figure = chart && chart.plotly;
         if (!figure || !window.Plotly) {
-            renderChartFallback(chart, container, containerId);
+            renderChartFallback(chart, container);
             return;
         }
 
@@ -112,10 +107,9 @@
             );
         } catch (error) {
             console.error('Plotly render failed for', containerId, error);
-            renderChartFallback(chart, container, containerId);
+            renderChartFallback(chart, container);
         }
     }
-
     function renderRankingList(containerId, items, emptyMessage, accentClass) {
         const container = byId(containerId);
         if (!container) {
@@ -188,15 +182,12 @@
         const filters = data.filters || {};
 
         setSelectOptions('tableFilter', filters.available_tables, filters.table_name, 'Все таблицы');
-        setSelectOptions('yearFilter', filters.available_years, filters.year, 'Все годы');
         setSelectOptions('groupColumnFilter', filters.available_group_columns, filters.group_column, 'Нет доступных колонок');
 
         setText('heroTableLabel', scope.table_label || 'Все таблицы');
-        setText('heroYearLabel', scope.year_label || 'Все годы');
         setText('heroGroupLabel', scope.group_label || 'Нет данных');
         renderFilterSummary({
             table: scope.table_label || 'Все таблицы',
-            year: scope.year_label || 'Все годы',
             group: scope.group_label || 'Нет данных'
         });
 
@@ -217,7 +208,7 @@
         setText('coverageFillRate', summary.area_fill_rate_display || '0%');
 
         setText('firesCountValue', summary.fires_count_display || '0');
-        setText('firesCountFoot', summary.year_label || 'Все годы');
+        setText('firesCountFoot', scope.table_label || 'Все таблицы');
         setText('deathsValue', summary.deaths_display || '0');
         setText('injuriesValue', summary.injuries_display || '0');
         setText('evacuatedValue', summary.evacuated_display || '0');
@@ -234,6 +225,10 @@
         setText('tableBreakdownTitle', charts.table_breakdown ? charts.table_breakdown.title : 'Эвакуация и дети');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
+        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Распределение по категории риска');
+        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Последствия пожара, эвакуация и дети');
+        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Сезонная динамика пожаров по месяцам');
+        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Распределение по диапазонам площади пожара');
         setText('sqlCausesTitle', widgets.causes ? widgets.causes.title : 'SQL-виджет: причины');
         setText('sqlDistrictsTitle', widgets.districts ? widgets.districts.title : 'SQL-виджет: районы');
         setText('sqlSeasonsTitle', widgets.seasons ? widgets.seasons.title : 'SQL-виджет: сезоны');
@@ -296,10 +291,9 @@
     document.addEventListener('DOMContentLoaded', function () {
         const form = byId('filtersForm');
         const tableSelect = byId('tableFilter');
-        const yearSelect = byId('yearFilter');
         const groupColumnSelect = byId('groupColumnFilter');
 
-        [tableSelect, yearSelect, groupColumnSelect].forEach(function (selectNode) {
+        [tableSelect, groupColumnSelect].forEach(function (selectNode) {
             if (selectNode) {
                 selectNode.addEventListener('change', function () {
                     renderFilterSummary();
@@ -313,7 +307,6 @@
                 fetchDashboardData();
             });
         }
-
 
         const initialData = window.__FIRE_DASHBOARD_INITIAL_DATA__;
         if (initialData) {
@@ -330,14 +323,3 @@
         };
     });
 })();
-
-
-
-
-
-
-
-
-
-
-

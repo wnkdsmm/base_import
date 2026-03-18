@@ -1,16 +1,18 @@
-﻿async function selectAndImport() {
+async function selectAndImport() {
         const fileInput = document.getElementById("fileInput");
         
-        // РЎР»СѓС€Р°РµРј СЃРѕР±С‹С‚РёРµ РІС‹Р±РѕСЂР° С„Р°Р№Р»Р°
+        // Слушаем событие выбора файла
         fileInput.onchange = async () => {
             const file = fileInput.files[0];
             if (!file) return;
 
-            // РџРѕРєР°Р·С‹РІР°РµРј РёРЅРґРёРєР°С‚РѕСЂ Р·Р°РіСЂСѓР·РєРё (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)
+            // Показываем индикатор загрузки (опционально)
             const logBox = document.getElementById("logs");
-            logBox.innerHTML = `<div>вЏі Р—Р°РіСЂСѓР·РєР° С„Р°Р№Р»Р° ${file.name}...</div>`;
+            if (logBox) {
+                logBox.innerHTML = `<div>⏳ Загрузка файла ${file.name}...</div>`;
+            }
 
-            // 1пёЏвѓЈ Р—Р°РіСЂСѓР¶Р°РµРј С„Р°Р№Р» РЅР° СЃРµСЂРІРµСЂ
+            // 1️⃣ Загружаем файл на сервер
             const uploadData = new FormData();
             uploadData.append("file", file);
 
@@ -20,19 +22,25 @@
             });
             
             if (!uploadResponse.ok) {
-                logBox.innerHTML += `<div>вќЊ РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ С„Р°Р№Р»Р°</div>`;
+                if (logBox) {
+                    logBox.innerHTML += `<div>❌ Ошибка при загрузке файла</div>`;
+                }
                 return;
             }
             
             let uploadResult = await uploadResponse.json();
             if (uploadResult.status !== "uploaded") {
-                logBox.innerHTML += `<div>вќЊ РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ С„Р°Р№Р»Р°</div>`;
+                if (logBox) {
+                    logBox.innerHTML += `<div>❌ Ошибка при загрузке файла</div>`;
+                }
                 return;
             }
 
-            logBox.innerHTML += `<div>вњ… Р¤Р°Р№Р» Р·Р°РіСЂСѓР¶РµРЅ, РЅР°С‡РёРЅР°РµРј РёРјРїРѕСЂС‚...</div>`;
+            if (logBox) {
+                logBox.innerHTML += `<div>✅ Файл загружен, начинаем импорт...</div>`;
+            }
 
-            // 2пёЏвѓЈ Р—Р°РїСѓСЃРєР°РµРј РёРјРїРѕСЂС‚ (output_folder РЅРµ РѕР±СЏР·Р°С‚РµР»РµРЅ)
+            // 2️⃣ Запускаем импорт (output_folder не обязателен)
             const importForm = new FormData();
 
             let importResponse = await fetch("/import_data", {
@@ -41,28 +49,32 @@
             });
 
             if (!importResponse.ok) {
-                logBox.innerHTML += `<div>вќЊ РћС€РёР±РєР° РїСЂРё РёРјРїРѕСЂС‚Рµ РґР°РЅРЅС‹С…</div>`;
+                if (logBox) {
+                    logBox.innerHTML += `<div>❌ Ошибка при импорте данных</div>`;
+                }
                 return;
             }
 
             let importResult = await importResponse.json();
             
-            // РџРѕРєР°Р·С‹РІР°РµРј СЂРµР·СѓР»СЊС‚Р°С‚ РІ Р»РѕРіР°С… РІРјРµСЃС‚Рѕ alert
+            // Показываем результат в логах вместо alert
             let message = importResult.status;
             if (importResult.rows) {
-                message += ` (${importResult.rows} СЃС‚СЂРѕРє, ${importResult.columns} РєРѕР»РѕРЅРѕРє)`;
+                message += ` (${importResult.rows} строк, ${importResult.columns} колонок)`;
             }
             if (importResult.project_name) {
-                message += ` | РџСЂРѕРµРєС‚: ${importResult.project_name}`;
+                message += ` | Проект: ${importResult.project_name}`;
             }
             if (importResult.output_folder) {
-                message += ` | РџР°РїРєР°: ${importResult.output_folder}`;
+                message += ` | Папка: ${importResult.output_folder}`;
             }
             
-            logBox.innerHTML += `<div>${message}</div>`;
+            if (logBox) {
+                logBox.innerHTML += `<div>${message}</div>`;
+            }
             console.log(importResult);
             
-            // РћР±РЅРѕРІР»СЏРµРј Р»РѕРіРё СЃ СЃРµСЂРІРµСЂР°
+            // Обновляем логи с сервера
             await refreshLogs();
 
             if (window.fireDashboard && typeof window.fireDashboard.afterImport === "function") {
@@ -70,28 +82,30 @@
             }
         };
 
-        // РћС‚РєСЂС‹РІР°РµРј РґРёР°Р»РѕРі РІС‹Р±РѕСЂР° С„Р°Р№Р»Р°
+        // Открываем диалог выбора файла
         fileInput.click();
     }
 
-    // Р¤СѓРЅРєС†РёСЏ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ Р»РѕРіРѕРІ
+    // Функция для обновления логов
     async function refreshLogs() {
+        const logBox = document.getElementById("logs");
+        if (!logBox) {
+            return;
+        }
+
         try {
             let response = await fetch("/logs");
             let logs = await response.json();
-            const logBox = document.getElementById("logs");
-            if (logBox) {
-                logBox.innerHTML = logs.logs.map(log => `<div>${log}</div>`).join('');
-                // РђРІС‚РѕРїСЂРѕРєСЂСѓС‚РєР° РІРЅРёР·
-                logBox.scrollTop = logBox.scrollHeight;
-            }
+            logBox.innerHTML = logs.logs.map(log => `<div>${log}</div>`).join('');
+            // Автопрокрутка вниз
+            logBox.scrollTop = logBox.scrollHeight;
         } catch (error) {
             console.error("Error refreshing logs:", error);
         }
     }
 
-    // РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё РѕР±РЅРѕРІР»СЏРµРј Р»РѕРіРё РєР°Р¶РґС‹Рµ 2 СЃРµРєСѓРЅРґС‹
+    // Автоматически обновляем логи каждые 2 секунды
     setInterval(refreshLogs, 2000);
 
-    // РўР°РєР¶Рµ РѕР±РЅРѕРІР»СЏРµРј Р»РѕРіРё СЃСЂР°Р·Сѓ РїСЂРё Р·Р°РіСЂСѓР·РєРµ СЃС‚СЂР°РЅРёС†С‹
+    // Также обновляем логи сразу при загрузке страницы
     document.addEventListener('DOMContentLoaded', refreshLogs);

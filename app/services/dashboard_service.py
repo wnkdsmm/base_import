@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict
@@ -18,7 +18,7 @@ def get_dashboard_page_context(
             "generated_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
             "filters": {
                 "tables": [{"value": "all", "label": "Все таблицы"}],
-                "years": [{"value": "all", "label": "Все годы"}],
+                "years": [],
                 "group_columns": [],
             },
             "initial_data": get_dashboard_data(),

@@ -13,7 +13,6 @@
 {% set charts = data.charts %}
 {% set scope = data.scope %}
 {% set trend = data.trend %}
-
 {% macro render_plotly_chart(container_id) %}
 <div id="{{ container_id }}" class="plotly-chart"></div>
 {% endmacro %}
@@ -62,7 +61,6 @@
             <p class="subtitle">На этой вкладке оставлены только ключевые графики: причины возгораний, категория риска, последствия, сезонность и структура по площади пожара.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
-                <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
                 <span class="hero-tag">Разрез: <strong id="heroGroupLabel">{{ scope.group_label }}</strong></span>
             </div>
         </div>
@@ -81,42 +79,14 @@
         </div>
     </section>
 
-    <section class="panel filters-panel">
-        <div class="panel-head">
-            <h2>Фильтры</h2>
-            <span class="panel-meta">Можно менять таблицу и год. Распределение закреплено по категории риска.</span>
-        </div>
-        <form class="filters-grid" id="filtersForm" method="get" action="/">
-            <label class="filter-field">
-                <span>Таблица</span>
-                <select id="tableFilter" name="table_name">
-                    {% for option in filters.available_tables %}
-                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label class="filter-field">
-                <span>Год</span>
-                <select id="yearFilter" name="year">
-                    {% for option in filters.available_years %}
-                    <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <input type="hidden" name="group_column" value="Категория риска">
-            <div class="filter-field filter-actions">
-                <span>Действие</span>
-                <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить dashboard</button>
-            </div>
-        </form>
-        <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Год: {{ scope.year_label }} | Разрез: {{ scope.group_label }}</div>
-    </section>
-
+    <section class="dashboard-shell">
+        <aside class="dashboard-overview-column">
+            <div class="dashboard-overview-sticky">
     <section class="stats-grid dashboard-stats">
-        <article class="stat-card stat-card-accent">
+        <article class="stat-card stat-card-accent stat-card-wide">
             <span class="stat-label">Количество пожаров</span>
             <strong class="stat-value" id="firesCountValue">{{ summary.fires_count_display }}</strong>
-            <span class="stat-foot">По фильтру: <span id="firesCountFoot">{{ summary.year_label }}</span></span>
+            <span class="stat-foot">По фильтру: <span id="firesCountFoot">{{ scope.table_label }}</span></span>
         </article>
         <article class="stat-card">
             <span class="stat-label">Погибшие</span>
@@ -145,6 +115,37 @@
         </article>
     </section>
 
+    <section class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Фильтры</h2>
+            <span class="panel-meta">Можно менять таблицу и группу для построения графиков.</span>
+        </div>
+        <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
+            <label class="filter-field">
+                <span>Таблица</span>
+                <select id="tableFilter" name="table_name">
+                    {% for option in filters.available_tables %}
+                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Группа для графиков</span>
+                <select id="groupColumnFilter" name="group_column">
+                    {% for option in filters.available_group_columns %}
+                    <option value="{{ option.value }}" {% if option.value == filters.group_column %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <small class="filter-hint">Можно переключаться между обычными колонками и тематическими группами из поиска колонок.</small>
+            </label>
+            <div class="filter-field filter-actions">
+                <span>Действие</span>
+                <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить dashboard</button>
+            </div>
+        </form>
+        <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Разрез: {{ scope.group_label }}</div>
+    </section>
+
     <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
         <div class="panel-head">
             <h2>Замечания по данным</h2>
@@ -157,9 +158,13 @@
         </ul>
     </section>
 
+            </div>
+        </aside>
+
+        <section class="dashboard-content-column">
     <section class="dashboard-layout dashboard-layout-focused">
         <div class="dashboard-primary">
-            <article class="panel chart-panel chart-panel-large">
+            <article class="panel chart-panel chart-panel-large chart-panel-causes">
                 <div class="panel-head">
                     <h2 id="yearlyFiresTitle">{{ charts.yearly_fires.title }}</h2>
                     <span class="panel-meta">Основные причины возгораний в выбранном срезе</span>
@@ -171,7 +176,7 @@
                 <article class="panel chart-panel chart-panel-large">
                     <div class="panel-head">
                         <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
-                        <span class="panel-meta">Распределение по категории риска</span>
+                        <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Распределение по категории риска' }}</span>
                     </div>
                     {{ render_plotly_chart('distributionChart') }}
                 </article>
@@ -179,7 +184,7 @@
                 <article class="panel chart-panel chart-panel-large">
                     <div class="panel-head">
                         <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
-                        <span class="panel-meta">Последствия пожара, эвакуация и дети</span>
+                        <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Последствия пожара, эвакуация и дети' }}</span>
                     </div>
                     {{ render_plotly_chart('yearlyAreaChart') }}
                 </article>
@@ -189,7 +194,7 @@
                 <article class="panel chart-panel">
                     <div class="panel-head">
                         <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
-                        <span class="panel-meta">Сезонная динамика пожаров по месяцам</span>
+                        <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Сезонная динамика пожаров по месяцам' }}</span>
                     </div>
                     {{ render_plotly_chart('monthlyProfileChart') }}
                 </article>
@@ -197,7 +202,7 @@
                 <article class="panel chart-panel">
                     <div class="panel-head">
                         <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
-                        <span class="panel-meta">Распределение по диапазонам площади пожара</span>
+                        <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Распределение по диапазонам площади пожара' }}</span>
                     </div>
                     {{ render_plotly_chart('areaBucketsChart') }}
                 </article>
@@ -205,13 +210,14 @@
         </div>
     </section>
 
-    <section class="panel logs-panel">
-        <div class="panel-head">
+        </section>
+    </section>
+    <!--
             <h2>Логи</h2>
             <span class="panel-meta">Импорт, profiling и служебные сообщения приложения</span>
         </div>
         <div id="logs" class="logbox"></div>
-    </section>
+    -->
 </main>
 
 <input type="file" id="fileInput" style="display:none">
