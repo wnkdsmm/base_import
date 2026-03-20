@@ -1,0 +1,292 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Dict, List, Sequence
+
+from .analysis import (
+    _build_centroid_table,
+    _build_cluster_profiles,
+    _build_notes,
+    _build_representative_rows,
+    _cluster_labels,
+    _evaluate_cluster_counts,
+    _run_clustering,
+)
+from .charts import _build_diagnostics_chart, _build_distribution_chart, _build_scatter_chart, _empty_chart_bundle, _get_plotly_bundle
+from .constants import CLUSTER_COUNT_OPTIONS, MIN_ROWS_PER_CLUSTER, SAMPLE_LIMIT_OPTIONS, SAMPLING_STRATEGY_OPTIONS
+from .data import (
+    _build_feature_options,
+    _build_table_options,
+    _load_territory_dataset,
+    _parse_cluster_count,
+    _parse_sample_limit,
+    _parse_sampling_strategy,
+    _prepare_cluster_frame,
+    _resolve_selected_features,
+    _resolve_selected_table,
+)
+from .utils import _format_datetime, _format_integer, _format_number, _format_percent
+
+
+
+def get_clustering_page_context(
+    table_name: str = "",
+    cluster_count: str = "4",
+    sample_limit: str = "1000",
+    sampling_strategy: str = "stratified",
+    feature_columns: Sequence[str] | None = None,
+) -> Dict[str, Any]:
+    initial_data = get_clustering_data(
+        table_name=table_name,
+        cluster_count=cluster_count,
+        sample_limit=sample_limit,
+        sampling_strategy=sampling_strategy,
+        feature_columns=feature_columns,
+    )
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "initial_data": initial_data,
+        "plotly_js": _get_plotly_bundle(),
+        "has_data": bool(initial_data["filters"]["available_tables"]),
+    }
+
+
+
+def get_clustering_data(
+    table_name: str = "",
+    cluster_count: str = "4",
+    sample_limit: str = "1000",
+    sampling_strategy: str = "stratified",
+    feature_columns: Sequence[str] | None = None,
+) -> Dict[str, Any]:
+    table_options = _build_table_options()
+    selected_table = _resolve_selected_table(table_options, table_name)
+    requested_cluster_count = _parse_cluster_count(cluster_count)
+    requested_sample_limit = _parse_sample_limit(sample_limit)
+    selected_sampling_strategy = _parse_sampling_strategy(sampling_strategy)
+
+    base = _empty_clustering_data(
+        table_options=table_options,
+        selected_table=selected_table,
+        cluster_count=requested_cluster_count,
+        sample_limit=requested_sample_limit,
+        sampling_strategy=selected_sampling_strategy,
+    )
+    if not selected_table:
+        base["notes"].append("Выберите таблицу, чтобы сгруппировать территории по их пожарному профилю и типу риска.")
+        return base
+
+    try:
+        dataset = _load_territory_dataset(selected_table, requested_sample_limit, selected_sampling_strategy)
+    except Exception as exc:
+        base["notes"].append(str(exc))
+        return base
+
+    sampling_strategy_label = next(
+        (item["label"] for item in SAMPLING_STRATEGY_OPTIONS if item["value"] == selected_sampling_strategy),
+        SAMPLING_STRATEGY_OPTIONS[0]["label"],
+    )
+    summary = base["summary"]
+    summary["total_incidents_display"] = _format_integer(dataset["total_incidents"])
+    summary["total_entities_display"] = _format_integer(dataset["total_entities"])
+    summary["sampled_entities_display"] = _format_integer(dataset["sampled_entities"])
+    summary["sampling_strategy_label"] = sampling_strategy_label
+
+    candidate_features = dataset["candidate_features"]
+    feature_names = [item["name"] for item in candidate_features]
+    selected_features, selection_note = _resolve_selected_features(feature_names, feature_columns or [])
+    base["filters"]["feature_columns"] = selected_features
+    base["filters"]["available_features"] = _build_feature_options(candidate_features, selected_features)
+    summary["candidate_features_display"] = _format_integer(len(candidate_features))
+    summary["selected_features_display"] = _format_integer(len(selected_features))
+
+    base["notes"].extend(dataset["notes"])
+    if selection_note:
+        base["notes"].append(selection_note)
+    if dataset["sampling_note"]:
+        base["notes"].append(dataset["sampling_note"])
+
+    if len(candidate_features) < 2:
+        base["notes"].append("В таблице не хватило агрегированных признаков с вариативностью, чтобы стабильно кластеризовать территории.")
+        return base
+
+    if len(selected_features) < 2:
+        base["notes"].append("Для кластеризации нужно выбрать минимум два агрегированных признака территории.")
+        return base
+
+    cluster_frame, entity_frame, excluded_entities = _prepare_cluster_frame(
+        feature_frame=dataset["feature_frame"],
+        entity_frame=dataset["entity_frame"],
+        selected_features=selected_features,
+    )
+    summary["clustered_entities_display"] = _format_integer(len(cluster_frame))
+    summary["excluded_entities_display"] = _format_integer(excluded_entities)
+
+    if len(cluster_frame) < max(12, requested_cluster_count * MIN_ROWS_PER_CLUSTER):
+        base["notes"].append("После отбора и заполнения пропусков осталось слишком мало территорий для устойчивой кластеризации.")
+        return base
+
+    actual_cluster_count = min(max(CLUSTER_COUNT_OPTIONS[0], requested_cluster_count), len(cluster_frame) - 1)
+    if actual_cluster_count != requested_cluster_count:
+        base["notes"].append(
+            f"Количество кластеров автоматически скорректировано до {actual_cluster_count}, чтобы в каждом типе территорий было достаточно наблюдений."
+        )
+
+    diagnostics = _evaluate_cluster_counts(cluster_frame)
+    clustering = _run_clustering(cluster_frame, actual_cluster_count)
+    labels = clustering["labels"]
+    cluster_labels = _cluster_labels(actual_cluster_count)
+    profiles = _build_cluster_profiles(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        labels=labels,
+        raw_centers=clustering["raw_centers"],
+        cluster_labels=cluster_labels,
+    )
+    centroid_columns, centroid_rows = _build_centroid_table(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        labels=labels,
+        raw_centers=clustering["raw_centers"],
+        cluster_labels=cluster_labels,
+        cluster_profiles=profiles,
+    )
+    representative_columns, representative_rows = _build_representative_rows(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        labels=labels,
+        scaled_points=clustering["scaled_points"],
+        scaled_centers=clustering["scaled_centers"],
+        cluster_labels=cluster_labels,
+    )
+
+    summary["cluster_count_display"] = _format_integer(actual_cluster_count)
+    summary["cluster_count_requested_display"] = _format_integer(requested_cluster_count)
+    summary["suggested_cluster_count_display"] = (
+        _format_integer(diagnostics["best_silhouette_k"]) if diagnostics.get("best_silhouette_k") else "—"
+    )
+    summary["elbow_cluster_count_display"] = _format_integer(diagnostics["elbow_k"]) if diagnostics.get("elbow_k") else "—"
+    summary["silhouette_display"] = _format_number(clustering["silhouette"], 3) if clustering["silhouette"] is not None else "—"
+    summary["pca_variance_display"] = _format_percent(clustering["explained_variance"])
+    summary["inertia_display"] = _format_number(clustering["inertia"], 2)
+
+    payload = {
+        **base,
+        "has_data": True,
+        "model_description": (
+            "Кластеризация строится не по отдельным инцидентам, а по агрегированным территориям и населённым пунктам. "
+            "Для каждой территории собирается профиль риска: частота пожаров, площадь, ночные инциденты, прибытие, тяжёлые последствия и подтверждённость водоснабжения."
+        ),
+        "summary": summary,
+        "cluster_profiles": profiles,
+        "centroid_columns": centroid_columns,
+        "centroid_rows": centroid_rows,
+        "representative_columns": representative_columns,
+        "representative_rows": representative_rows,
+        "charts": {
+            "scatter": _build_scatter_chart(
+                pca_points=clustering["pca_points"],
+                labels=labels,
+                cluster_labels=cluster_labels,
+                cluster_frame=cluster_frame,
+                entity_frame=entity_frame,
+            ),
+            "distribution": _build_distribution_chart(
+                labels=labels,
+                cluster_labels=cluster_labels,
+                total_rows=len(cluster_frame),
+                entity_frame=entity_frame,
+            ),
+            "diagnostics": _build_diagnostics_chart(
+                rows=diagnostics["rows"],
+                requested_cluster_count=actual_cluster_count,
+                best_silhouette_k=diagnostics.get("best_silhouette_k"),
+                elbow_k=diagnostics.get("elbow_k"),
+            ),
+        },
+    }
+    payload["notes"].extend(
+        _build_notes(
+            cluster_profiles=profiles,
+            silhouette=clustering["silhouette"],
+            selected_features=selected_features,
+            diagnostics=diagnostics,
+            total_incidents=dataset["total_incidents"],
+            total_entities=dataset["total_entities"],
+            sampled_entities=dataset["sampled_entities"],
+        )
+    )
+    return payload
+
+
+
+def _empty_clustering_data(
+    table_options: List[Dict[str, str]],
+    selected_table: str,
+    cluster_count: int,
+    sample_limit: int,
+    sampling_strategy: str,
+) -> Dict[str, Any]:
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "has_data": False,
+        "model_description": "",
+        "summary": {
+            "selected_table_label": selected_table or "Нет таблицы",
+            "total_incidents_display": "0",
+            "total_entities_display": "0",
+            "sampled_entities_display": "0",
+            "clustered_entities_display": "0",
+            "excluded_entities_display": "0",
+            "candidate_features_display": "0",
+            "selected_features_display": "0",
+            "cluster_count_display": _format_integer(cluster_count),
+            "cluster_count_requested_display": _format_integer(cluster_count),
+            "suggested_cluster_count_display": "—",
+            "elbow_cluster_count_display": "—",
+            "silhouette_display": "—",
+            "pca_variance_display": "0%",
+            "inertia_display": "0",
+            "sampling_strategy_label": next(
+                (item["label"] for item in SAMPLING_STRATEGY_OPTIONS if item["value"] == sampling_strategy),
+                SAMPLING_STRATEGY_OPTIONS[0]["label"],
+            ),
+        },
+        "cluster_profiles": [],
+        "centroid_columns": [],
+        "centroid_rows": [],
+        "representative_columns": [],
+        "representative_rows": [],
+        "charts": {
+            "scatter": _empty_chart_bundle(
+                "Кластеры территорий на двумерной проекции",
+                "Недостаточно данных, чтобы показать типы территорий на PCA-проекции.",
+            ),
+            "distribution": _empty_chart_bundle(
+                "Размеры кластеров по числу территорий",
+                "Распределение территорий по типам появится после расчёта.",
+            ),
+            "diagnostics": _empty_chart_bundle(
+                "Подсказка по числу кластеров",
+                "Диагностика k появится, когда хватит территорий для сравнения нескольких вариантов.",
+            ),
+        },
+        "notes": [],
+        "filters": {
+            "table_name": selected_table,
+            "cluster_count": str(cluster_count),
+            "sample_limit": str(sample_limit),
+            "sampling_strategy": sampling_strategy,
+            "feature_columns": [],
+            "available_tables": table_options,
+            "available_cluster_counts": [
+                {"value": str(item), "label": f"{item} кластера" if item < 5 else f"{item} кластеров"}
+                for item in CLUSTER_COUNT_OPTIONS
+            ],
+            "available_sample_limits": [
+                {"value": str(item), "label": f"до {item} территорий"} for item in SAMPLE_LIMIT_OPTIONS
+            ],
+            "available_sampling_strategies": SAMPLING_STRATEGY_OPTIONS,
+            "available_features": [],
+        },
+    }

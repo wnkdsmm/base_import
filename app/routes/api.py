@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Body, File, UploadFile
+from fastapi import APIRouter, Body, File, Form, UploadFile
 from fastapi.responses import Response
 
 from app.db_views import create_modified_table, get_table_columns, get_table_preview
 from app.log_manager import clear_logs, get_logs
-from app.services.forecasting_service import get_forecasting_data
+from app.services.forecasting_service import get_forecasting_data, get_forecasting_page_context
 from app.services.pipeline_service import import_uploaded_data, run_profiling_for_table, save_uploaded_file
 from app.state import upload_state
 from app.statistics import get_dashboard_data
@@ -40,16 +40,26 @@ def forecasting_data_endpoint(
     forecast_days: str = "14",
     history_window: str = "all",
 ):
-    return get_forecasting_data(
-        table_name=table_name,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        temperature=temperature,
-        forecast_days=forecast_days,
-        history_window=history_window,
-    )
-
+    try:
+        return get_forecasting_data(
+            table_name=table_name,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+        )
+    except Exception:
+        return get_forecasting_page_context(
+            table_name=table_name,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+        )["initial_data"]
 
 @router.get("/api/column-search")
 def column_search_endpoint(table_name: str = "", query: str = ""):
@@ -242,6 +252,11 @@ def create_modify_table_endpoint(payload: dict = Body(...)):
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     return save_uploaded_file(file)
+
+
+@router.post("/import_data")
+def import_data_endpoint(output_folder: str | None = Form(None)):
+    return utf8_json(import_uploaded_data(output_folder=output_folder))
 
 
 @router.get("/logs")

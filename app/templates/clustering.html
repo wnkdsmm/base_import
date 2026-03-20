@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кластеризация территорий риска</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/clustering.css?v={{ clustering_css_version }}">
+</head>
+<body>
+{% set data = clustering.initial_data %}
+{% set filters = data.filters %}
+{% set summary = data.summary %}
+{% set charts = data.charts %}
+
+<aside class="sidebar">
+    <div class="brand-block">
+        <span class="brand-kicker">Fire Monitor</span>
+        <h2>Исследовательский модуль</h2>
+        <p>Этот режим группирует не отдельные карточки пожаров, а территории и населённые пункты с похожим пожарным профилем, чтобы выделять типы риска для управленческих решений.</p>
+    </div>
+
+    <div class="sidebar-actions">
+        <button onclick="location.href='/'">Dashboard</button>
+        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
+        <button onclick="location.href='/ml-model'">ML-прогноз</button>
+        <button onclick="location.href='/clustering'">Кластеризация</button>
+        <button onclick="location.href='/fire-map'">Карта пожаров</button>
+        <button onclick="location.href='/column-search'">Поиск колонок</button>
+        <button onclick="location.href='/select_table'">Очистка таблиц</button>
+        <button onclick="location.href='/tables'">Открыть таблицы</button>
+    </div>
+
+    <div class="sidebar-status">
+        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">
+            {% if data.has_data %}Типы территорий рассчитаны{% else %}Нужны агрегированные признаки{% endif %}
+        </span>
+        <div class="status-line">
+            <span>Таблица</span>
+            <strong>{{ summary.selected_table_label }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Территорий</span>
+            <strong>{{ summary.clustered_entities_display }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Silhouette</span>
+            <strong>{{ summary.silhouette_display }}</strong>
+        </div>
+    </div>
+</aside>
+
+<main class="main dashboard-main clustering-main">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">Кластеризация типов территорий риска</span>
+            <h1>Типы территорий, а не просто группы строк</h1>
+            <p class="subtitle">{{ data.model_description or 'Выберите таблицу, чтобы собрать агрегированный профиль территории и выделить группы с похожей частотой пожаров, тяжестью последствий, временем прибытия и контуром водоснабжения.' }}</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
+                <span class="hero-tag">Пожаров в истории: <strong>{{ summary.total_incidents_display }}</strong></span>
+                <span class="hero-tag">Территорий в модели: <strong>{{ summary.clustered_entities_display }}</strong></span>
+            </div>
+        </div>
+
+        <div class="hero-side">
+            <article class="hero-stat-card">
+                <span class="hero-stat-label">Лучший k по silhouette</span>
+                <strong class="hero-stat-value">{{ summary.suggested_cluster_count_display }}</strong>
+                <span class="hero-stat-foot">Подсказка по числу кластеров на основе качества разделения.</span>
+            </article>
+            <article class="hero-stat-card hero-stat-card-soft">
+                <span class="hero-stat-label">Elbow</span>
+                <strong class="hero-stat-value">{{ summary.elbow_cluster_count_display }}</strong>
+                <span class="hero-stat-foot">Где кривая inertia начинает заметно «ломаться».</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Параметры кластеризации</h2>
+            <span class="panel-meta">Сначала собираются агрегаты по территориям, а уже затем запускается k-means. Если территорий слишком много, используется случайная или стратифицированная выборка без смещения по первым строкам таблицы.</span>
+        </div>
+        <form class="filters-grid cluster-form-grid" method="get" action="/clustering">
+            <label class="filter-field">
+                <span>Таблица</span>
+                <select name="table_name">
+                    {% if filters.available_tables %}
+                        {% for option in filters.available_tables %}
+                        <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    {% else %}
+                    <option value="">Нет таблиц</option>
+                    {% endif %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Число кластеров</span>
+                <select name="cluster_count">
+                    {% for option in filters.available_cluster_counts %}
+                    <option value="{{ option.value }}" {% if option.value == filters.cluster_count %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Лимит территорий</span>
+                <select name="sample_limit">
+                    {% for option in filters.available_sample_limits %}
+                    <option value="{{ option.value }}" {% if option.value == filters.sample_limit %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Стратегия выборки</span>
+                <select name="sampling_strategy">
+                    {% for option in filters.available_sampling_strategies %}
+                    <option value="{{ option.value }}" {% if option.value == filters.sampling_strategy %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="filter-field filter-actions">
+                <span>Действие</span>
+                <button class="primary-action" type="submit">Пересчитать кластеры</button>
+            </div>
+
+            <div class="cluster-feature-picker filter-field-wide">
+                <span>Агрегированные признаки территории</span>
+                {% if filters.available_features %}
+                <div class="cluster-feature-grid">
+                    {% for feature in filters.available_features %}
+                    <label class="cluster-feature-option">
+                        <input type="checkbox" name="feature_columns" value="{{ feature.name }}" {% if feature.is_selected %}checked{% endif %}>
+                        <span class="cluster-feature-copy">
+                            <strong class="cluster-feature-name">{{ feature.name }}</strong>
+                            <span class="cluster-feature-meta">{{ feature.description }} Заполненность: {{ feature.coverage_display }} | Дисперсия: {{ feature.variance_display }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="mini-empty">После выбора таблицы здесь появятся агрегированные признаки для типологии территорий риска.</div>
+                {% endif %}
+                <span class="cluster-feature-help">Базовый набор уже ориентирован на территориальный риск: частота, площадь, ночные пожары, прибытие, последствия и подтверждённость водоснабжения.</span>
+            </div>
+        </form>
+        <div class="filter-summary">Пожаров в истории: {{ summary.total_incidents_display }} | Территорий после агрегации: {{ summary.total_entities_display }} | В выборке: {{ summary.sampled_entities_display }} | Стратегия: {{ summary.sampling_strategy_label }}</div>
+    </section>
+
+    <section class="stats-grid">
+        <article class="stat-card stat-card-accent">
+            <span class="stat-label">Пожаров в истории</span>
+            <strong class="stat-value">{{ summary.total_incidents_display }}</strong>
+            <span class="stat-foot">Все инциденты, которые вошли в территориальные агрегаты.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Территорий в расчёте</span>
+            <strong class="stat-value">{{ summary.clustered_entities_display }}</strong>
+            <span class="stat-foot">После отбора по заполненности выбранных признаков.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Число кластеров</span>
+            <strong class="stat-value">{{ summary.cluster_count_display }}</strong>
+            <span class="stat-foot">Запрошено: {{ summary.cluster_count_requested_display }}</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Inertia</span>
+            <strong class="stat-value">{{ summary.inertia_display }}</strong>
+            <span class="stat-foot">Внутрикластерная компактность после стандартизации агрегатов.</span>
+        </article>
+    </section>
+
+    <section class="clustering-layout">
+        <div class="clustering-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2>{{ charts.scatter.title }}</h2>
+                    <span class="panel-meta">Каждая точка — территория или населённый пункт. Цвет показывает тип территории риска, а положение вычислено по PCA из агрегированных признаков.</span>
+                </div>
+                <div id="clusterScatterChart" class="plotly-chart cluster-scatter-chart"></div>
+                <div id="clusterScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2>{{ charts.distribution.title }}</h2>
+                    <span class="panel-meta">Показывает, насколько равномерно разные типы территорий представлены в модели и сколько исторических пожаров скрыто за каждым типом.</span>
+                </div>
+                <div id="clusterDistributionChart" class="plotly-chart cluster-bar-chart"></div>
+                <div id="clusterDistributionChartFallback" class="chart-empty{% if charts.distribution.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.distribution.empty_message }}</div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2>{{ charts.diagnostics.title }}</h2>
+                    <span class="panel-meta">Silhouette помогает оценить отделимость кластеров, а elbow показывает, где добавление новых кластеров даёт всё меньший выигрыш по inertia.</span>
+                </div>
+                <div id="clusterDiagnosticsChart" class="plotly-chart cluster-bar-chart"></div>
+                <div id="clusterDiagnosticsChartFallback" class="chart-empty{% if charts.diagnostics.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.diagnostics.empty_message }}</div>
+            </article>
+
+            <article class="panel data-table-panel">
+                <div class="panel-head">
+                    <h2>Центры кластеров территорий</h2>
+                    <span class="panel-meta">Средние значения агрегированных признаков помогают быстро понять профиль каждого типа территории риска.</span>
+                </div>
+                <div class="data-table-shell">
+                    {% if data.centroid_rows %}
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                {% for column in data.centroid_columns %}
+                                <th>{{ column }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in data.centroid_rows %}
+                            <tr>
+                                {% for value in row %}
+                                <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="mini-empty">После расчёта здесь появятся средние профили кластеров.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="clustering-secondary">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Профили кластеров</h2>
+                    <span class="panel-meta">Короткая интерпретация типов территорий риска: размер группы, пожарная нагрузка и ключевые признаки относительно среднего.</span>
+                </div>
+                <div class="cluster-overview-grid">
+                    {% if data.cluster_profiles %}
+                        {% for item in data.cluster_profiles %}
+                        <article class="cluster-overview-card tone-{{ item.tone }}">
+                            <div class="cluster-overview-head">
+                                <strong>{{ item.cluster_label }}</strong>
+                                <span class="cluster-badge">{{ item.share_display }}</span>
+                            </div>
+                            <span class="cluster-overview-meta">{{ item.segment_title }}</span>
+                            <span class="cluster-overview-meta">Территорий: <span class="cluster-overview-value">{{ item.size_display }}</span> | Пожаров в истории: <span class="cluster-overview-value">{{ item.incidents_display }}</span></span>
+                            <span class="cluster-overview-foot">{{ item.summary }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Профили типов территорий появятся после расчёта.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel ranking-panel">
+                <div class="panel-head">
+                    <h2>Что важно помнить</h2>
+                    <span class="panel-meta">Подсказки по интерпретации кластеров и качеству сегментации.</span>
+                </div>
+                <ul class="notice-list">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>После расчёта здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>
+
+    <section class="panel data-table-panel">
+        <div class="panel-head">
+            <h2>Представители кластеров</h2>
+            <span class="panel-meta">Ближайшие к центру территории помогают увидеть, как выглядит «типичный» представитель каждого кластера в реальных данных.</span>
+        </div>
+        <div class="data-table-shell">
+            {% if data.representative_rows %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for column in data.representative_columns %}
+                        <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data.representative_rows %}
+                    <tr>
+                        {% for value in row %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="mini-empty">После расчёта здесь появятся территории, ближайшие к центрам кластеров.</div>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<script>
+window.__FIRE_CLUSTERING_INITIAL__ = {{ data | tojson }};
+</script>
+{% if clustering.plotly_js %}
+<script>{{ clustering.plotly_js | safe }}</script>
+{% endif %}
+<script src="/static/js/clustering.js?v={{ clustering_js_version }}"></script>
+<script src="/static/js/sidebar.js"></script>
+</body>
+</html>

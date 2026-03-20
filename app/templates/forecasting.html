@@ -3,35 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Прогнозирование пожаров</title>
+    <title>Heuristic / scenario forecast пожаров</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/forecasting.css?v=3">
+    <link rel="stylesheet" href="/static/forecasting.css?v={{ forecasting_css_version }}">
 </head>
 <body>
 {% set data = forecast.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
 {% set charts = data.charts %}
+{% set risk = data.risk_prediction %}
+{% set geo = risk.geo_summary %}
+{% set passport = risk.quality_passport %}
 
 <aside class="sidebar">
     <div class="brand-block">
         <span class="brand-kicker">Fire Monitor</span>
-        <h2>Прогноз</h2>
-        <p>Простая витрина прогноза: что происходило раньше, что ожидается в ближайшие дни и какие значения сейчас важнее всего.</p>
+        <h2>Сценарный прогноз</h2>
+        <p>Экран heuristic / scenario forecast показывает эвристическую сценарную оценку по истории. Ниже вынесен отдельный блок поддержки решений с экспертным risk score по территориям.</p>
     </div>
 
     <div class="sidebar-actions">
         <button onclick="location.href='/'">Dashboard</button>
-        <button onclick="location.href='/forecasting'">Прогнозирование</button>
-        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
+        <button onclick="location.href='/ml-model'">ML-прогноз</button>
+        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
     <div class="sidebar-status">
-        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Сценарий собран{% else %}Нужно уточнить фильтры{% endif %}</span>
+        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Сценарный прогноз собран{% else %}Нужно уточнить фильтры{% endif %}</span>
         <div class="status-line">
             <span>Таблица</span>
             <strong id="forecastSidebarTable">{{ summary.selected_table_label }}</strong>
@@ -50,8 +54,8 @@
 <main class="main dashboard-main forecasting-main">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Сценарное прогнозирование</span>
-            <h1>Прогноз количества пожаров</h1>
+            <span class="eyebrow">Heuristic / scenario forecast</span>
+            <h1>Сценарный прогноз пожарной нагрузки</h1>
             <p class="subtitle" id="forecastModelDescription">{{ data.model_description }}</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="forecastTableLabel">{{ summary.selected_table_label }}</strong></span>
@@ -75,10 +79,40 @@
         </div>
     </section>
 
+    <section class="panel orientation-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Быстрый маршрут</h2>
+                <span class="panel-meta">На этой странице собраны heuristic / scenario forecast и отдельный блок поддержки решений. ML-прогноз вынесен в самостоятельный экран.</span>
+            </div>
+        </div>
+        <div class="orientation-strip">
+            <a class="orientation-link is-primary" href="#forecastForm">
+                <span class="orientation-kicker">Шаг 1</span>
+                <strong>Настроить сценарий</strong>
+                <p>Выберите таблицу, историю, фильтры и горизонт расчета.</p>
+            </a>
+            <a class="orientation-link is-scenario" href="#forecastScenarioSection">
+                <span class="orientation-kicker">Шаг 2</span>
+                <strong>Посмотреть scenario forecast</strong>
+                <p>График, ближайшие даты и короткие сигналы по сценарной оценке.</p>
+            </a>
+            <a class="orientation-link is-decision" href="#decisionSupportPanel">
+                <span class="orientation-kicker">Шаг 3</span>
+                <strong>Сверить приоритет территорий</strong>
+                <p>Компонентный risk ranking и рекомендации для действий по территориям.</p>
+            </a>
+            <a class="orientation-link is-ml" href="/ml-model">
+                <span class="orientation-kicker">Отдельно</span>
+                <strong>Открыть ML-блок</strong>
+                <p>Переход к обучаемой модели, интервалам вероятности и backtesting.</p>
+            </a>
+        </div>
+    </section>
     <section class="panel filters-panel">
         <div class="panel-head">
-            <h2>Сценарий прогноза</h2>
-            <span class="panel-meta">Можно строить прогноз по одной таблице или сразу по всем, а также сузить историю по причине, категории объекта и температурному сценарию.</span>
+            <h2>Параметры scenario forecast</h2>
+            <span class="panel-meta">Здесь настраивается heuristic / scenario forecast по одной таблице или сразу по всем, а также сужается история по территории, причине, категории объекта и температурному сценарию.</span>
         </div>
         <form class="filters-grid forecast-form-grid" id="forecastForm" method="get" action="/forecasting">
             <label class="filter-field">
@@ -94,6 +128,14 @@
                 <select id="forecastHistoryWindowFilter" name="history_window">
                     {% for option in filters.available_history_windows %}
                     <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Территория</span>
+                <select id="forecastDistrictFilter" name="district">
+                    {% for option in filters.available_districts %}
+                    <option value="{{ option.value }}" {% if option.value == filters.district %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
                 </select>
             </label>
@@ -127,7 +169,7 @@
             </label>
             <div class="filter-field filter-actions forecast-actions">
                 <span>Действие</span>
-                <button id="forecastRefreshButton" class="primary-action" type="submit">Пересчитать прогноз</button>
+                <button id="forecastRefreshButton" class="primary-action" type="submit">Пересчитать scenario forecast</button>
             </div>
         </form>
         <div class="filter-summary" id="forecastSummaryLine">{{ summary.slice_label }} | Средняя вероятность: {{ summary.average_probability_display }} | Максимум: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | К последним 4 неделям: {{ summary.forecast_vs_recent_display }}</div>
@@ -156,7 +198,52 @@
         </article>
     </section>
 
-    <section class="forecast-layout">
+        <section class="panel workflow-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Какой блок использовать</h2>
+                <span class="panel-meta">Выберите экран по задаче: быстрая сценарная оценка, ML-прогноз или отдельное ранжирование территорий для поддержки решений.</span>
+            </div>
+            <button id="forecastExportBriefButton" class="primary-action" type="button">Скачать краткую справку</button>
+        </div>
+        <div class="workflow-grid">
+            <a class="workflow-card workflow-card-scenario" href="#forecastForm">
+                <span class="workflow-step">Scenario</span>
+                <strong>Сценарный прогноз</strong>
+                <span class="workflow-hint">Когда нужен быстрый ответ без обучения модели.</span>
+                <p>Heuristic / scenario forecast по истории, сезонности и выбранным фильтрам.</p>
+            </a>
+            <a class="workflow-card workflow-card-ml" href="/ml-model">
+                <span class="workflow-step">ML</span>
+                <strong>ML-предиктивный блок</strong>
+                <span class="workflow-hint">Когда нужен обучаемый прогноз и проверка качества.</span>
+                <p>Отдельная модель с вероятностью по датам, диапазонами и backtesting-метриками.</p>
+            </a>
+            <a class="workflow-card workflow-card-decision" href="#decisionSupportPanel">
+                <span class="workflow-step">Risk score</span>
+                <strong>Блок поддержки решений</strong>
+                <span class="workflow-hint">Когда нужно понять, какие территории проверять первыми.</span>
+                <p>Экспертное ранжирование территорий с приоритетами и практическими рекомендациями.</p>
+            </a>
+        </div>
+    </section>
+    <section class="panel verification-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Где смотреть ML-проверку</h2>
+                <span class="panel-meta">Если нужна обучаемая модель и backtesting, переходите в отдельный ML-предиктивный блок: он не совпадает со сценарным forecast и не заменяет decision-support score территорий.</span>
+            </div>
+        </div>
+        <div class="verification-grid">
+            <a class="verification-card" href="/ml-model">
+                <span class="verification-kicker">ML</span>
+                <strong>ML-предиктивный блок</strong>
+                <p>Показывает отдельный ML-прогноз по датам, интервалы вероятности и backtesting-метрики на истории.</p>
+            </a>
+        </div>
+    </section>
+
+    <section id="forecastScenarioSection" class="forecast-layout">
         <div class="forecast-primary">
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
@@ -167,14 +254,6 @@
                 <div id="forecastDailyChartFallback" class="chart-empty{% if charts.daily.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.daily.empty_message }}</div>
             </article>
 
-            <article class="panel chart-panel forecast-support-panel">
-                <div class="panel-head">
-                    <h2 id="forecastBreakdownChartTitle">{{ charts.breakdown.title }}</h2>
-                    <span class="panel-meta">Каждый столбец показывает вероятность пожара в конкретный день. Пунктиром отмечен обычный недавний уровень риска.</span>
-                </div>
-                <div id="forecastBreakdownChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
-                <div id="forecastBreakdownChartFallback" class="chart-empty{% if charts.breakdown.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.breakdown.empty_message }}</div>
-            </article>
 
             <article class="panel forecast-table-panel">
                 <div class="panel-head">
@@ -195,10 +274,10 @@
                         <tbody>
                             {% for row in data.forecast_rows %}
                             <tr>
-                                <td>{{ row.date_display }}</td>
-                                <td>{{ row.weekday_label }}</td>
-                                <td>{{ row.fire_probability_display }}</td>
-                                <td>
+                                <td data-label="Дата">{{ row.date_display }}</td>
+                                <td data-label="День недели">{{ row.weekday_label }}</td>
+                                <td data-label="Вероятность пожара">{{ row.fire_probability_display }}</td>
+                                <td data-label="Комментарий">
                                     <span class="forecast-scenario-pill tone-{{ row.scenario_tone }}">{{ row.scenario_label }}</span>
                                     <div class="forecast-cell-note">{{ row.scenario_hint }}</div>
                                 </td>
@@ -260,6 +339,351 @@
             </article>
         </aside>
     </section>
+
+    <section id="decisionSupportPanel" class="panel risk-overview-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Блок поддержки решений: какие территории требуют внимания</h2>
+                <span class="panel-meta" id="forecastRiskDescription">{{ risk.model_description }}</span>
+            </div>
+        </div>
+        <div class="risk-overview-grid">
+            <div id="forecastRiskCards" class="insight-grid risk-summary-grid">
+                {% if risk.summary_cards %}
+                    {% for item in risk.summary_cards %}
+                    <article class="insight-card tone-{{ item.tone }}">
+                        <span class="insight-label">{{ item.label }}</span>
+                        <strong class="insight-value">{{ item.value }}</strong>
+                        <span class="insight-meta">{{ item.meta }}</span>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                <div class="mini-empty">Карточки риска появятся после расчета.</div>
+                {% endif %}
+            </div>
+            <div class="risk-lead">
+                <span class="risk-lead-label">Первый приоритет</span>
+                <strong id="forecastRiskTopLabel">{{ risk.top_territory_label }}</strong>
+                <span id="forecastRiskTopExplanation">{{ risk.top_territory_explanation }}</span>
+            </div>
+        </div>
+        <div class="risk-guide-grid">
+            <article class="risk-guide-card tone-high">
+                <span class="risk-guide-level">Высокий риск</span>
+                <strong>Нужны меры сейчас</strong>
+                <p>Приоритет для территорий, где одновременно высоки повторяемость, последствия, логистика или дефицит воды.</p>
+            </article>
+            <article class="risk-guide-card tone-medium">
+                <span class="risk-guide-level">Средний риск</span>
+                <strong>Нужны точечные меры</strong>
+                <p>Нужно адресно закрывать один-два доминирующих компонента риска на конкретной территории.</p>
+            </article>
+            <article class="risk-guide-card tone-low">
+                <span class="risk-guide-level">Низкий риск</span>
+                <strong>Плановое наблюдение</strong>
+                <p>Достаточно планового контроля с периодической сверкой логистики и водоснабжения.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="risk-grid">
+        <article class="panel ranking-panel risk-ranking-panel">
+            <div class="panel-head">
+                <h2>Территории с приоритетом для решений</h2>
+                <span class="panel-meta">Это decision-support ранжирование: итоговый риск прозрачно разложен на четыре компонента, чтобы быстро видеть не только приоритетные территории, но и причину их положения в списке.</span>
+            </div>
+            <div id="forecastRiskTerritories" class="risk-territory-list">
+                {% if risk.territories %}
+                    {% for item in risk.territories %}
+                    <article class="risk-territory-card tone-{{ item.risk_tone }}">
+                        <div class="risk-territory-head">
+                            <div>
+                                <strong>{{ item.label }}</strong>
+                                <div class="risk-territory-tags">
+                                    <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
+                                    <span class="forecast-badge risk-badge tone-{{ item.priority_tone }}">{{ item.priority_label }}</span>
+                                </div>
+                            </div>
+                            <div class="risk-territory-score">{{ item.risk_display }}</div>
+                        </div>
+                        <div class="risk-score-bar"><span style="width: {{ item.bar_width }}"></span></div>
+                        <div class="risk-territory-callout">
+                            <span>Что сделать</span>
+                            <strong>{{ item.action_label }}</strong>
+                            <p>{{ item.action_hint }}</p>
+                        </div>
+                        <div class="risk-metrics-grid">
+                            <div><span>Риск пожара</span><strong>{{ item.fire_probability_display }}</strong></div>
+                            <div><span>Тяжёлые последствия</span><strong>{{ item.severe_probability_display }}</strong></div>
+                            <div><span>Долгое прибытие</span><strong>{{ item.arrival_probability_display }}</strong></div>
+                            <div><span>Пожаров в истории</span><strong>{{ item.history_count_display }}</strong></div>
+                        </div>
+                        <div class="risk-territory-meta">
+                            <span>Последний пожар: <strong>{{ item.last_fire_display }}</strong></span>
+                            <span>Среднее прибытие: <strong>{{ item.response_time_display }}</strong></span>
+                            <span>Удалённость от ПЧ: <strong>{{ item.distance_display }}</strong></span>
+                            <span>Вода: <strong>{{ item.water_supply_display }}</strong></span>
+                            <span>Территория: <strong>{{ item.dominant_settlement_type }}</strong></span>
+                            <span>Объекты: <strong>{{ item.dominant_object_category }}</strong></span>
+                        </div>
+                        <p class="risk-drivers"><strong>Почему территория наверху:</strong> {{ item.drivers_display }}</p>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                <div class="mini-empty">После расчета здесь появится ранжирование территорий.</div>
+                {% endif %}
+            </div>
+        </article>
+
+        <div class="risk-side-stack">
+            <article id="qualityPassportPanel" class="panel quality-passport-panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>{{ passport.title }}</h2>
+                        <span class="panel-meta">Показывает, насколько надёжно интерпретировать рекомендации блока поддержки решений и каких групп данных ему не хватает.</span>
+                    </div>
+                    <span id="forecastValidationBadge" class="forecast-badge risk-badge tone-{{ passport.confidence_tone | default('fire') }}">{{ passport.validation_label }}</span>
+                </div>
+                <div class="quality-passport-grid">
+                    <article id="forecastQualityScoreCard" class="quality-score-card tone-{{ passport.confidence_tone | default('fire') }}">
+                        <span class="quality-score-label">Надёжность вывода</span>
+                        <strong id="forecastQualityScore">{{ passport.confidence_score_display | default('0 / 100') }}</strong>
+                        <span id="forecastQualityLabel">{{ passport.confidence_label | default('Ограниченная') }}</span>
+                    </article>
+                    <div class="quality-summary-grid">
+                        <article class="quality-stat-card">
+                            <span>Таблиц</span>
+                            <strong id="forecastQualityTables">{{ passport.table_count_display | default('0') }}</strong>
+                        </article>
+                        <article class="quality-stat-card">
+                            <span>Найдено</span>
+                            <strong id="forecastQualityUsed">{{ passport.used_count_display | default('0') }}</strong>
+                        </article>
+                        <article class="quality-stat-card">
+                            <span>Частично</span>
+                            <strong id="forecastQualityPartial">{{ passport.partial_count_display | default('0') }}</strong>
+                        </article>
+                        <article class="quality-stat-card">
+                            <span>Отсутствует</span>
+                            <strong id="forecastQualityMissing">{{ passport.missing_count_display | default('0') }}</strong>
+                        </article>
+                    </div>
+                </div>
+                <p id="forecastQualitySummary" class="quality-summary-text">{{ passport.validation_summary | default('Паспорт качества появится после расчёта.') }}</p>
+                <ul id="forecastQualityNotes" class="notice-list forecast-note-list">
+                    {% if passport.reliability_notes %}
+                        {% for note in passport.reliability_notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Паспорт качества появится после расчёта.</li>
+                    {% endif %}
+                    {% if passport.critical_gaps %}
+                    <li>Нужно усилить: {{ passport.critical_gaps | join(', ') }}.</li>
+                    {% endif %}
+                </ul>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>Как считается риск</h2>
+                        <span class="panel-meta">Базовые веса и сельская поправка показывают, какие компоненты сильнее влияют на итоговый risk ranking.</span>
+                    </div>
+                    <span id="forecastWeightModeBadge" class="forecast-badge risk-badge tone-{{ risk.weight_profile.status_tone | default('forest') }}">{{ risk.weight_profile.status_label | default('Активный профиль') }}</span>
+                </div>
+                <p id="forecastWeightProfileDescription" class="quality-summary-text">{{ risk.weight_profile.description | default('После расчета здесь появится прозрачная схема компонентных весов.') }}</p>
+                <div id="forecastWeightProfileCards" class="risk-weight-grid">
+                    {% if risk.weight_profile.components %}
+                        {% for item in risk.weight_profile.components %}
+                        <article class="risk-weight-card">
+                            <div class="risk-weight-head">
+                                <strong>{{ item.label }}</strong>
+                                <span>{{ item.weight_display }}</span>
+                            </div>
+                            <p>{{ item.description }}</p>
+                            <div class="risk-weight-meta">
+                                <span>База: <strong>{{ item.weight_display }}</strong></span>
+                                <span>Село: <strong>{{ item.rural_weight_display }}</strong></span>
+                                <span>Сдвиг: <strong>{{ item.rural_shift_display }}</strong></span>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Компоненты и веса появятся после расчета.</div>
+                    {% endif %}
+                </div>
+                <ul id="forecastWeightProfileNotes" class="notice-list forecast-note-list">
+                    {% if risk.weight_profile.notes %}
+                        {% for note in risk.weight_profile.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>После расчета здесь появятся пояснения по профилю весов.</li>
+                    {% endif %}
+                    {% if risk.weight_profile.calibration_notes %}
+                        {% for note in risk.weight_profile.calibration_notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% endif %}
+                </ul>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>{{ risk.historical_validation.title | default('Черновая историческая проверка ranking') }}</h2>
+                        <span class="panel-meta">Проверяем, попадают ли верхние территории ranking в будущие очаги на исторических окнах.</span>
+                    </div>
+                    <span id="forecastHistoryValidationBadge" class="forecast-badge risk-badge tone-{{ risk.historical_validation.status_tone | default('fire') }}">{{ risk.historical_validation.status_label | default('Пока без проверки') }}</span>
+                </div>
+                <p id="forecastValidationSummary" class="quality-summary-text">{{ risk.historical_validation.summary | default('После расчета здесь появится заготовка под историческую проверку ranking.') }}</p>
+                <div id="forecastValidationCards" class="quality-summary-grid">
+                    {% if risk.historical_validation.metric_cards %}
+                        {% for item in risk.historical_validation.metric_cards %}
+                        <article class="quality-stat-card">
+                            <span>{{ item.label }}</span>
+                            <strong>{{ item.value }}</strong>
+                            <small>{{ item.meta }}</small>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Метрики проверки появятся после расчета.</div>
+                    {% endif %}
+                </div>
+                <div id="forecastValidationWindows" class="risk-mini-list risk-mini-list-tight">
+                    {% if risk.historical_validation.recent_windows %}
+                        {% for item in risk.historical_validation.recent_windows %}
+                        <article class="risk-mini-card">
+                            <div class="risk-mini-head">
+                                <strong>{{ item.label }}</strong>
+                                <span>{{ item.risk_display }}</span>
+                            </div>
+                            <p>{{ item.meta }}</p>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Исторические окна появятся после расчета.</div>
+                    {% endif %}
+                </div>
+                <ul id="forecastValidationNotes" class="notice-list forecast-note-list">
+                    {% if risk.historical_validation.notes %}
+                        {% for note in risk.historical_validation.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>После расчета здесь появятся примечания по исторической проверке ranking.</li>
+                    {% endif %}
+                </ul>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Какие группы данных участвуют в decision-support score</h2>
+                    <span class="panel-meta">Ниже видно, какие группы признаков реально нашлись в таблицах и влияют именно на компонентный risk score территорий.</span>
+                </div>
+                <div id="forecastFeatureCards" class="forecast-feature-list risk-feature-list">
+                    {% if risk.feature_cards %}
+                        {% for item in risk.feature_cards %}
+                        <article class="forecast-feature-card status-{{ item.status }}">
+                            <div class="forecast-feature-head">
+                                <strong>{{ item.label }}</strong>
+                                <span class="forecast-badge">{{ item.status_label }}</span>
+                            </div>
+                            <p>{{ item.description }}</p>
+                            <div class="forecast-feature-source">{{ item.source }}</div>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Список признаков появится после расчета.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article id="forecastGeoPanel" class="panel chart-panel risk-map-panel{% if geo.compact_message %} is-compact{% endif %}">
+                <div class="panel-head">
+                    <h2 id="forecastGeoChartTitle">{{ charts.geo.title }}</h2>
+                    <span class="panel-meta" id="forecastGeoDescription">{{ geo.model_description }}</span>
+                </div>
+                <div class="risk-meta-grid">
+                    <div class="risk-meta-item">
+                        <span>С координатами</span>
+                        <strong id="forecastGeoCoverage">{{ geo.coverage_display }}</strong>
+                    </div>
+                    <div class="risk-meta-item">
+                        <span>Зона внимания</span>
+                        <strong id="forecastGeoTopZone">{{ geo.top_zone_label }}</strong>
+                    </div>
+                    <div class="risk-meta-item">
+                        <span>Пик риска</span>
+                        <strong id="forecastGeoTopRisk">{{ geo.top_risk_display }}</strong>
+                    </div>
+                    <div class="risk-meta-item">
+                        <span>Выделено зон</span>
+                        <strong id="forecastGeoHotspotsCount">{{ geo.hotspots_count_display }}</strong>
+                    </div>
+                </div>
+                <div id="forecastGeoCompactHint" class="risk-compact-note{% if geo.compact_message %}{% else %} is-hidden{% endif %}">{{ geo.compact_message }}</div>
+                <div id="forecastGeoChart" class="plotly-chart forecast-plot"></div>
+                <div id="forecastGeoChartFallback" class="chart-empty{% if charts.geo.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.geo.empty_message }}</div>
+                <p class="risk-explanation" id="forecastGeoTopExplanation">{{ geo.top_explanation }}</p>
+                <div class="risk-mini-columns">
+                    <div>
+                        <h3>Зоны внимания</h3>
+                        <div id="forecastGeoHotspots" class="risk-mini-list">
+                            {% if geo.hotspots %}
+                                {% for item in geo.hotspots %}
+                                <article class="risk-mini-card">
+                                    <div class="risk-mini-head">
+                                        <strong>{{ item.label }}</strong>
+                                        <span>{{ item.risk_display }}</span>
+                                    </div>
+                                    <p>{{ item.meta }}</p>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Зоны появятся после расчета.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Районы на карте</h3>
+                        <div id="forecastGeoDistricts" class="risk-mini-list">
+                            {% if geo.districts %}
+                                {% for item in geo.districts %}
+                                <article class="risk-mini-card">
+                                    <div class="risk-mini-head">
+                                        <strong>{{ item.label }}</strong>
+                                        <span>{{ item.risk_display }}</span>
+                                    </div>
+                                    <p>{{ item.meta }}</p>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Сводка по районам появится после расчета.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel ranking-panel">
+                <div class="panel-head">
+                    <h2>Как читать decision-support score</h2>
+                    <span class="panel-meta">Короткие пояснения, чтобы не путать компонентный risk ranking со сценарным forecast или ML-прогнозом.</span>
+                </div>
+                <ul id="forecastRiskNotes" class="notice-list forecast-note-list">
+                    {% if risk.notes %}
+                        {% for note in risk.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>После расчета здесь появятся примечания по блоку поддержки решений.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </div>
+    </section>
 </main>
 
 <script>
@@ -268,9 +692,8 @@ window.__FIRE_FORECAST_INITIAL__ = {{ data | tojson }};
 {% if forecast.plotly_js %}
 <script>{{ forecast.plotly_js | safe }}</script>
 {% endif %}
-<script src="/static/js/forecasting.js?v=3"></script>
+<script src="/static/js/forecasting.js?v={{ forecasting_js_version }}"></script>
 <script src="/static/js/sidebar.js"></script>
 </body>
 </html>
-
 

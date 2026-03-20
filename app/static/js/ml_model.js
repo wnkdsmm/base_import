@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
     function byId(id) {
         return document.getElementById(id);
     }
@@ -77,6 +77,8 @@
         var yMax = Math.max.apply(null, values.concat([1]));
         if (isPercent) {
             yMax = Math.min(100, Math.max(25, Math.ceil((yMax + 5) / 5) * 5));
+        } else {
+            yMax = Math.max(1, Math.ceil((yMax + 0.5) * 2) / 2);
         }
         if (yMax <= yMin) {
             yMax = yMin + 1;
@@ -144,6 +146,9 @@
         if (history.length) {
             svg += '<path d="' + linePath(history) + '" class="ml-line-history"></path>';
         }
+        if (backtestActual.length) {
+            svg += '<path d="' + linePath(backtestActual) + '" class="ml-line-backtest-actual"></path>';
+        }
         if (backtestPredicted.length) {
             svg += '<path d="' + linePath(backtestPredicted) + '" class="ml-line-backtest"></path>';
         }
@@ -158,7 +163,7 @@
         var legend = '';
         if (Array.isArray(chart.legend) && chart.legend.length) {
             legend = '<div class="ml-chart-legend">' + chart.legend.map(function (item) {
-                return '<span class="ml-chart-legend-item"><i style="background:' + escapeHtml(item.color) + '"></i>' + escapeHtml(item.label) + '</span>';
+                return '<span class="ml-chart-legend-item"><i style="--legend-color:' + escapeHtml(item.color) + '"></i>' + escapeHtml(item.label) + '</span>';
             }).join('') + '</div>';
         }
 
@@ -186,7 +191,7 @@
             html += ''
                 + '<div class="ml-bar-row">'
                 + '<div class="ml-bar-meta"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(item.value_display) + '%</strong></div>'
-                + '<div class="ml-bar-track"><div class="ml-bar-fill" style="width:' + percent + '%"></div></div>'
+                + '<div class="ml-bar-track"><div class="ml-bar-fill" style="--ml-bar-width:' + percent + '%"></div></div>'
                 + '</div>';
         });
         html += '</div>';

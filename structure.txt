@@ -1,4 +1,4 @@
-
+﻿
 base_import/
 │
 ├─ config/
@@ -12,7 +12,7 @@ base_import/
 │  ├─ import_data.py
 │  ├─ fires_feature_profiling.py
 │  ├─ create_clean_table.py
-│  └─ feature_selection.py
+│  └─ keep_important_columns.py
 │
 ├─ main.py
 └─ pipeline.py

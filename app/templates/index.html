@@ -26,11 +26,12 @@
 
     <div class="sidebar-actions">
         <button onclick="selectAndImport()">Импортировать данные</button>
-        <button onclick="location.href='/forecasting'">Прогнозирование</button>
-        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
+        <button onclick="location.href='/ml-model'">ML-прогноз</button>
+        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
@@ -130,6 +131,16 @@
                 </select>
             </label>
             <label class="filter-field">
+                <span>Год</span>
+                <select id="yearFilter" name="year">
+                    <option value="all" {% if filters.year in ["", "all"] %}selected{% endif %}>Все годы</option>
+                    {% for option in filters.available_years %}
+                    <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <small class="filter-hint">Фильтр панели по конкретному году.</small>
+            </label>
+            <label class="filter-field">
                 <span>Группа для графиков</span>
                 <select id="groupColumnFilter" name="group_column">
                     {% for option in filters.available_group_columns %}
@@ -143,7 +154,7 @@
                 <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить dashboard</button>
             </div>
         </form>
-        <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Разрез: {{ scope.group_label }}</div>
+        <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Год: {{ scope.year_label }} | Разрез: {{ scope.group_label }}</div>
     </section>
 
     <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
@@ -214,13 +225,13 @@
     </section>
     <!--
             <h2>Логи</h2>
-            <span class="panel-meta">Импорт, profiling и служебные сообщения приложения</span>
+            <span class="panel-meta">Импорт, очистка и служебные сообщения приложения</span>
         </div>
         <div id="logs" class="logbox"></div>
     -->
 </main>
 
-<input type="file" id="fileInput" style="display:none">
+<input type="file" id="fileInput" class="hidden-file-input">
 
 <script>
 window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
@@ -229,7 +240,7 @@ window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
 <script>{{ dashboard.plotly_js | safe }}</script>
 {% endif %}
 <script src="/static/js/import.js"></script>
-<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/dashboard.js?v=plotly-safe-render-1"></script>
 <script src="/static/js/sidebar.js"></script>
 </body>
 </html>

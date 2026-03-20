@@ -1,4 +1,4 @@
-# import_data.py
+﻿# import_data.py
 import os
 
 import pandas as pd
@@ -23,7 +23,7 @@ class ImportDataStep(PipelineStep):
         project_name = settings.project_name
 
         if not os.path.exists(input_file):
-            raise FileNotFoundError(f"Р¤Р°Р№Р» РЅРµ РЅР°Р№РґРµРЅ: {input_file}")
+            raise FileNotFoundError(f"Файл не найден: {input_file}")
 
         ext = os.path.splitext(input_file)[1].lower()
         try:
@@ -33,9 +33,9 @@ class ImportDataStep(PipelineStep):
             elif ext == ".csv":
                 self.data = pd.read_csv(input_file, encoding="utf-8-sig")
             else:
-                raise ValueError("РџРѕРґРґРµСЂР¶РёРІР°СЋС‚СЃСЏ С‚РѕР»СЊРєРѕ XLS, XLSX Рё CSV")
+                raise ValueError("Поддерживаются только XLS, XLSX и CSV")
         except Exception as e:
-            print(f"РћС€РёР±РєР° С‡С‚РµРЅРёСЏ С„Р°Р№Р»Р°: {e}")
+            print(f"Ошибка чтения файла: {e}")
             raise
 
         os.makedirs(output_folder, exist_ok=True)
@@ -47,6 +47,6 @@ class ImportDataStep(PipelineStep):
 
         try:
             self.data.to_sql(project_name, engine, if_exists="replace", index=False)
-            print(f"Р”Р°РЅРЅС‹Рµ Р·Р°РіСЂСѓР¶РµРЅС‹ РІ PostgreSQL: {project_name}")
+            print(f"Данные загружены в PostgreSQL: {project_name}")
         finally:
             engine.dispose()

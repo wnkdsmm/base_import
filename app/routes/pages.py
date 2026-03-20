@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.db_views import get_all_tables, get_table_data
+from app.services.clustering_service import get_clustering_page_context
 from app.services.dashboard_service import get_dashboard_page_context
 from app.services.fire_map_service import build_fire_map_html
 from app.services.forecasting_service import get_forecasting_page_context
@@ -14,11 +15,19 @@ from app.services.table_options import (
     get_fire_map_table_options,
     resolve_selected_table,
 )
-from config.paths import TEMPLATES_DIR
+from config.paths import STATIC_DIR, TEMPLATES_DIR
+from core.processing.steps.keep_important_columns import get_mandatory_feature_catalog
 
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+def _static_version(filename: str) -> int:
+    try:
+        return int((STATIC_DIR / filename).stat().st_mtime_ns)
+    except OSError:
+        return 0
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -47,9 +56,10 @@ def forecasting_page(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    return templates.TemplateResponse("forecasting.html", {"request": request, "forecast": forecast})
+    return templates.TemplateResponse("forecasting.html", {"request": request, "forecast": forecast, "forecasting_css_version": _static_version("forecasting.css"), "forecasting_js_version": _static_version("js/forecasting.js")})
 
 
+@router.get("/backtesting", response_class=HTMLResponse)
 @router.get("/ml-model", response_class=HTMLResponse)
 def ml_model_page(
     request: Request,
@@ -69,6 +79,33 @@ def ml_model_page(
         history_window=history_window,
     )
     return templates.TemplateResponse("ml_model.html", {"request": request, "ml_model": ml_model})
+
+
+@router.get("/clustering", response_class=HTMLResponse)
+def clustering_page(
+    request: Request,
+    table_name: str = "",
+    cluster_count: str = "4",
+    sample_limit: str = "1000",
+    sampling_strategy: str = "stratified",
+    feature_columns: list[str] | None = Query(None),
+):
+    clustering = get_clustering_page_context(
+        table_name=table_name,
+        cluster_count=cluster_count,
+        sample_limit=sample_limit,
+        sampling_strategy=sampling_strategy,
+        feature_columns=feature_columns or [],
+    )
+    return templates.TemplateResponse(
+        "clustering.html",
+        {
+            "request": request,
+            "clustering": clustering,
+            "clustering_css_version": _static_version("clustering.css"),
+            "clustering_js_version": _static_version("js/clustering.js"),
+        },
+    )
 
 
 @router.get("/column-search", response_class=HTMLResponse)
@@ -111,7 +148,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
     if not table_name or table_name != selected_table:
         return templates.TemplateResponse(
             "fire_map_error.html",
-            {"request": request, "message": "Выберите существующую таблицу для построения карты."},
+            {"request": request, "message": "Р’С‹Р±РµСЂРёС‚Рµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰СѓСЋ С‚Р°Р±Р»РёС†Сѓ РґР»СЏ РїРѕСЃС‚СЂРѕРµРЅРёСЏ РєР°СЂС‚С‹."},
             status_code=400,
         )
 
@@ -122,7 +159,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
                 "fire_map_error.html",
                 {
                     "request": request,
-                    "message": "Для выбранной таблицы не удалось собрать карту. Проверьте координаты Широта и Долгота.",
+                    "message": "Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹ РЅРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР±СЂР°С‚СЊ РєР°СЂС‚Сѓ. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РЁРёСЂРѕС‚Р° Рё Р”РѕР»РіРѕС‚Р°.",
                 },
                 status_code=422,
             )
@@ -159,4 +196,12 @@ async def view_table(request: Request, table_name: str):
 @router.get("/select_table", response_class=HTMLResponse)
 def select_table(request: Request):
     tables = get_all_tables()
-    return templates.TemplateResponse("select_table.html", {"request": request, "tables": tables})
+    return templates.TemplateResponse(
+        "select_table.html",
+        {
+            "request": request,
+            "tables": tables,
+            "mandatory_feature_catalog": get_mandatory_feature_catalog(),
+            "profiling_css_version": _static_version("profiling.css"),
+        },
+    )

@@ -27,11 +27,12 @@
         }
 
         if (labels) {
-            summaryNode.textContent = 'Таблица: ' + labels.table + ' | Разрез: ' + labels.group;
+            summaryNode.textContent = 'Таблица: ' + labels.table + ' | Год: ' + labels.year + ' | Разрез: ' + labels.group;
             return;
         }
 
         summaryNode.textContent = 'Таблица: ' + getSelectedText(byId('tableFilter'), 'Все таблицы') +
+            ' | Год: ' + getSelectedText(byId('yearFilter'), 'Все годы') +
             ' | Разрез: ' + getSelectedText(byId('groupColumnFilter'), 'Категория риска');
     }
 
@@ -97,14 +98,24 @@
             return;
         }
 
+        const plotlyApi = window.Plotly;
+        const renderChart = typeof plotlyApi.newPlot === 'function' ? plotlyApi.newPlot.bind(plotlyApi) : plotlyApi.react.bind(plotlyApi);
+        const data = Array.isArray(figure.data) ? figure.data : [];
+        const layout = figure.layout || {};
+        const config = figure.config || { responsive: true };
+
         try {
+            if (typeof plotlyApi.purge === 'function') {
+                plotlyApi.purge(container);
+            }
             container.innerHTML = '';
-            window.Plotly.react(
-                container,
-                Array.isArray(figure.data) ? figure.data : [],
-                figure.layout || {},
-                figure.config || { responsive: true }
-            );
+            const renderPromise = renderChart(container, data, layout, config);
+            if (renderPromise && typeof renderPromise.catch === 'function') {
+                renderPromise.catch(function (error) {
+                    console.error('Plotly render failed for', containerId, error);
+                    renderChartFallback(chart, container);
+                });
+            }
         } catch (error) {
             console.error('Plotly render failed for', containerId, error);
             renderChartFallback(chart, container);
@@ -182,12 +193,14 @@
         const filters = data.filters || {};
 
         setSelectOptions('tableFilter', filters.available_tables, filters.table_name, 'Все таблицы');
+        setSelectOptions('yearFilter', [{ value: 'all', label: 'Все годы' }].concat(filters.available_years || []), filters.year || 'all', 'Все годы');
         setSelectOptions('groupColumnFilter', filters.available_group_columns, filters.group_column, 'Нет доступных колонок');
 
         setText('heroTableLabel', scope.table_label || 'Все таблицы');
         setText('heroGroupLabel', scope.group_label || 'Нет данных');
         renderFilterSummary({
             table: scope.table_label || 'Все таблицы',
+            year: scope.year_label || 'Все годы',
             group: scope.group_label || 'Нет данных'
         });
 
@@ -291,9 +304,10 @@
     document.addEventListener('DOMContentLoaded', function () {
         const form = byId('filtersForm');
         const tableSelect = byId('tableFilter');
+        const yearSelect = byId('yearFilter');
         const groupColumnSelect = byId('groupColumnFilter');
 
-        [tableSelect, groupColumnSelect].forEach(function (selectNode) {
+        [tableSelect, yearSelect, groupColumnSelect].forEach(function (selectNode) {
             if (selectNode) {
                 selectNode.addEventListener('change', function () {
                     renderFilterSummary();
@@ -323,3 +337,4 @@
         };
     });
 })();
+

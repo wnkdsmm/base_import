@@ -1,7 +1,15 @@
-.ml-layout {
+﻿.ml-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.9fr);
     gap: 20px;
+}
+
+.ml-model-main .chart-panel {
+    min-height: 360px;
+}
+
+.ml-model-main .chart-panel-large {
+    min-height: 420px;
 }
 
 .ml-plot,
@@ -45,6 +53,7 @@
 }
 
 .ml-line-history,
+.ml-line-backtest-actual,
 .ml-line-backtest,
 .ml-line-forecast {
     fill: none;
@@ -55,6 +64,11 @@
 .ml-line-history {
     stroke: #f97316;
     stroke-width: 2.5;
+}
+
+.ml-line-backtest-actual {
+    stroke: #94a3b8;
+    stroke-width: 2;
 }
 
 .ml-line-backtest {
@@ -92,6 +106,7 @@
     width: 12px;
     height: 12px;
     border-radius: 999px;
+    background: var(--legend-color, currentColor);
 }
 
 .ml-bars {
@@ -123,6 +138,7 @@
     height: 100%;
     border-radius: 999px;
     background: linear-gradient(90deg, #2563eb 0%, #0f766e 100%);
+    width: var(--ml-bar-width, 0%);
 }
 
 .ml-stats-grid .stat-card {
@@ -173,5 +189,15 @@
 
     .ml-bar-meta {
         font-size: 13px;
+    }
+}
+
+.ml-quality-panel .stats-grid {
+    margin-top: 18px;
+}
+
+@media (max-width: 1180px) {
+    .ml-layout {
+        grid-template-columns: minmax(0, 1fr);
     }
 }

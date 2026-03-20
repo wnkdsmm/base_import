@@ -16,11 +16,12 @@
 
     <div class="sidebar-actions">
         <button onclick="location.href='/'">Dashboard</button>
-        <button onclick="location.href='/forecasting'">Прогнозирование</button>
-        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
+        <button onclick="location.href='/ml-model'">ML-прогноз</button>
+        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
@@ -42,7 +43,7 @@
         <div class="hero-copy">
             <span class="eyebrow">Database explorer</span>
             <h1>Таблицы в базе данных</h1>
-            <p class="subtitle">Откройте любую таблицу, чтобы посмотреть первые 100 строк и быстро проверить структуру данных перед анализом, profiling или построением модели.</p>
+            <p class="subtitle">Откройте любую таблицу, чтобы посмотреть первые 100 строк и быстро проверить структуру данных перед анализом, очисткой или построением модели.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Всего таблиц: <strong>{{ tables | length }}</strong></span>
                 <span class="hero-tag">Просмотр: <strong>100 строк</strong></span>
@@ -52,7 +53,7 @@
             <article class="hero-stat-card hero-stat-card-soft">
                 <span class="hero-stat-label">Что внутри</span>
                 <strong class="hero-stat-value"><small>Исходные и производные наборы</small></strong>
-                <span class="hero-stat-foot">Сюда попадают загруженные таблицы, clean-версии после profiling и modify-таблицы после поиска колонок.</span>
+                <span class="hero-stat-foot">Сюда попадают загруженные таблицы, clean-версии после очистки и modify-таблицы после поиска колонок.</span>
             </article>
         </div>
     </section>
@@ -76,3 +77,4 @@
 <script src="/static/js/sidebar.js"></script>
 </body>
 </html>
+

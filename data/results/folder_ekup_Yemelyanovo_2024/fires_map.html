@@ -99,8 +99,8 @@
                     target: 'map0',
                     layers: [new ol.layer.Tile({source: new ol.source.OSM()})],
                     view: new ol.View({
-                        center: ol.proj.fromLonLat([79.91363578007139, 48.39283088157917]),
-                        zoom: 6
+                        center: ol.proj.fromLonLat([92.66140747070312, 56.06652069091797]),
+                        zoom: 10
                     })
                 });
 
@@ -121,6 +121,13 @@
                     dataProjection: 'EPSG:4326',
                     featureProjection: 'EPSG:3857'
                 });
+
+                const restoreMapView = () => {
+                    const targetCenter = ol.proj.fromLonLat([92.66140747070312, 56.06652069091797]);
+                    const view = map.getView();
+                    view.setCenter(targetCenter);
+                    view.setZoom(10);
+                };
 
                 const categoryLayers = {};
                 ["deaths", "injured", "children", "evacuated", "other"].forEach(cat => {
@@ -178,7 +185,10 @@
                 map.addControl(new ol.control.ScaleLine());
 
                 window['map0'] = map;
-                setTimeout(() => map.updateSize(), 200);
+                setTimeout(() => {
+                    map.updateSize();
+                    restoreMapView();
+                }, 200);
             })();
         </script>
         

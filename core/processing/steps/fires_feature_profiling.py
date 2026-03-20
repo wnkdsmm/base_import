@@ -156,6 +156,15 @@ class FiresFeatureProfilingStep(PipelineStep):
             lambda row: self._build_drop_reasons(row, reason_definitions),
             axis=1,
         )
+        profile_df["profiling_candidate_to_drop"] = profile_df["candidate_to_drop"]
+        profile_df["mandatory_feature_detected"] = False
+        profile_df["protected_feature_id"] = ""
+        profile_df["protected_feature_label"] = ""
+        profile_df["protection_scope"] = ""
+        profile_df["protection_rule"] = ""
+        profile_df["protection_match"] = ""
+        profile_df["protection_reason"] = ""
+        profile_df["protected_from_drop"] = False
 
         profile_df_sorted = profile_df.sort_values(
             by=["candidate_to_drop", "null_ratio", "dominant_ratio"],

@@ -24,6 +24,10 @@ class CreateCleanTableStep(PipelineStep):
         source_table = table_name
         new_table = f"clean_{table_name}"
         profile_csv = os.path.join(output_folder, f"{table_name}{PROFILING_CSV_SUFFIX}")
+        updated_profile_csv = os.path.join(output_folder, f"{table_name}_updated{PROFILING_CSV_SUFFIX}")
+
+        if os.path.exists(updated_profile_csv):
+            profile_csv = updated_profile_csv
 
         if not os.path.exists(profile_csv):
             raise FileNotFoundError(f"Не найден profiling report: {profile_csv}")
@@ -67,3 +71,4 @@ class CreateCleanTableStep(PipelineStep):
             "columns": int(len(df_export.columns)),
             "export_file": export_file,
         }
+

@@ -1,0 +1,153 @@
+.cluster-form-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: end;
+}
+
+.cluster-form-grid .filter-field-wide {
+    grid-column: 1 / -1;
+}
+
+.cluster-feature-picker {
+    display: grid;
+    gap: 14px;
+    margin-top: 4px;
+    padding: 18px;
+    border-radius: 22px;
+    border: 1px solid var(--line);
+    background: var(--surface-soft);
+}
+
+.cluster-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+    gap: 12px;
+}
+
+.cluster-feature-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface-panel);
+}
+
+.cluster-feature-option input {
+    margin-top: 4px;
+}
+
+.cluster-feature-copy {
+    display: block;
+    min-width: 0;
+}
+
+.cluster-feature-name {
+    display: block;
+    color: var(--ink);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.cluster-feature-meta {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.cluster-feature-help {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.clustering-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(min(320px, 100%), 0.9fr);
+    gap: var(--section-gap);
+}
+
+.clustering-primary,
+.clustering-secondary {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+}
+
+.cluster-scatter-chart {
+    min-height: clamp(340px, 54vh, 440px);
+}
+
+.cluster-bar-chart {
+    min-height: clamp(280px, 40vh, 340px);
+}
+
+.cluster-overview-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.cluster-overview-card {
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+}
+
+.cluster-overview-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+
+.cluster-overview-head strong {
+    color: var(--ink);
+}
+
+.cluster-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 76px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #f8fbff;
+    font-size: 12px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+}
+
+.cluster-overview-meta,
+.cluster-overview-foot {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.cluster-overview-value {
+    color: var(--ink);
+    font-weight: 700;
+}
+
+@media (max-width: 1280px) {
+    .cluster-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .clustering-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .cluster-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cluster-feature-grid {
+        grid-template-columns: 1fr;
+    }
+}

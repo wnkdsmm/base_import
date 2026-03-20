@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import io
+import os
 import shutil
 from contextlib import redirect_stdout
 from typing import Any, Dict
 
+import pandas as pd
 from fastapi import UploadFile
-
 from app.log_manager import add_log, clear_logs
 from app.state import UPLOAD_FOLDER, upload_state
-from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
+from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD, PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from config.paths import get_result_folder
 from config.settings import Settings
 from core.processing.steps.create_clean_table import CreateCleanTableStep
 from core.processing.steps.fires_feature_profiling import FiresFeatureProfilingStep
 from core.processing.steps.import_data import ImportDataStep
+from core.processing.steps.keep_important_columns import KeepImportantColumnsStep
 
 
 class _LiveLogStream(io.TextIOBase):
@@ -67,6 +69,139 @@ def _normalize_thresholds(raw_thresholds: dict[str, Any] | None) -> dict[str, fl
     }
 
 
+
+def _coerce_profile_bool(series: pd.Series) -> pd.Series:
+    normalized = series.astype(str).str.strip().str.lower()
+    return normalized.isin(["true", "1", "yes"])
+
+
+def _profile_report_paths(output_folder: str, table_name: str) -> tuple[str, str]:
+    updated_csv = os.path.join(output_folder, f"{table_name}_updated{PROFILING_CSV_SUFFIX}")
+    updated_xlsx = os.path.join(output_folder, f"{table_name}_updated{PROFILING_XLSX_SUFFIX}")
+    default_csv = os.path.join(output_folder, f"{table_name}{PROFILING_CSV_SUFFIX}")
+    default_xlsx = os.path.join(output_folder, f"{table_name}{PROFILING_XLSX_SUFFIX}")
+    if os.path.exists(updated_csv):
+        return updated_csv, updated_xlsx if os.path.exists(updated_xlsx) else default_xlsx
+    return default_csv, default_xlsx
+
+
+def _safe_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _load_profile_summary(
+    output_folder: str,
+    table_name: str,
+    thresholds: dict[str, float],
+    base_reason_summary: list[dict[str, Any]],
+) -> Dict[str, Any]:
+    report_csv, report_xlsx = _profile_report_paths(output_folder, table_name)
+    profile_df = pd.read_csv(report_csv)
+    profile_df = profile_df.copy()
+
+    reason_ids = [str(item.get("id") or "") for item in base_reason_summary if item.get("id")]
+    bool_columns = ["candidate_to_drop", "profiling_candidate_to_drop", "mandatory_feature_detected", "protected_from_drop", *reason_ids]
+    text_columns = [
+        "protected_feature_id",
+        "protected_feature_label",
+        "protection_scope",
+        "protection_rule",
+        "protection_match",
+        "protection_reason",
+    ]
+    for column_name in bool_columns:
+        if column_name in profile_df.columns:
+            profile_df[column_name] = _coerce_profile_bool(profile_df[column_name])
+    for column_name in text_columns:
+        if column_name in profile_df.columns:
+            profile_df[column_name] = profile_df[column_name].astype("string").fillna("").astype(object)
+
+    candidate_mask = profile_df["candidate_to_drop"] if "candidate_to_drop" in profile_df.columns else pd.Series(False, index=profile_df.index)
+    protected_mask = profile_df["protected_from_drop"] if "protected_from_drop" in profile_df.columns else pd.Series(False, index=profile_df.index)
+
+    candidates_df = profile_df.loc[candidate_mask].copy()
+    protected_df = profile_df.loc[protected_mask].copy()
+    kept_columns = profile_df.loc[~candidate_mask, "column"].dropna().tolist()
+
+    reason_labels = {str(item.get("id") or ""): str(item.get("label") or "") for item in base_reason_summary if item.get("id")}
+    reason_summary = []
+    for item in base_reason_summary:
+        reason_id = str(item.get("id") or "")
+        count = int(candidates_df[reason_id].sum()) if reason_id and reason_id in candidates_df.columns else 0
+        updated_item = dict(item)
+        updated_item["count"] = count
+        reason_summary.append(updated_item)
+
+    candidate_details = []
+    for _, row in candidates_df.iterrows():
+        reasons = [label for reason_id, label in reason_labels.items() if reason_id in candidates_df.columns and bool(row.get(reason_id))]
+        candidate_details.append(
+            {
+                "column": row.get("column", ""),
+                "dtype": row.get("dtype", ""),
+                "null_ratio": _safe_float(row.get("null_ratio")),
+                "dominant_ratio": _safe_float(row.get("dominant_ratio")),
+                "unique_count": _safe_int(row.get("unique_count")),
+                "variance": _safe_float(row.get("variance")),
+                "reasons": reasons,
+            }
+        )
+
+    protected_details = []
+    for _, row in protected_df.iterrows():
+        protected_details.append(
+            {
+                "column": row.get("column", ""),
+                "feature_id": row.get("protected_feature_id", ""),
+                "feature_label": row.get("protected_feature_label", ""),
+                "mandatory_feature_detected": bool(row.get("mandatory_feature_detected")),
+                "protection_scope": row.get("protection_scope", ""),
+                "protection_rule": row.get("protection_rule", ""),
+                "protection_match": row.get("protection_match", ""),
+                "protection_reason": row.get("protection_reason", ""),
+                "drop_reasons": row.get("drop_reasons", ""),
+            }
+        )
+
+    return {
+        "profile_df": profile_df,
+        "candidates": candidates_df["column"].dropna().tolist() if "column" in candidates_df.columns else [],
+        "table_name": table_name,
+        "total_columns": int(len(profile_df)),
+        "kept_columns": kept_columns,
+        "reason_summary": reason_summary,
+        "candidate_details": candidate_details,
+        "protected_details": protected_details,
+        "report_csv": report_csv,
+        "report_xlsx": report_xlsx,
+        "thresholds": thresholds,
+    }
+
+
+def _invalidate_runtime_caches() -> None:
+    try:
+        from app.statistics import _invalidate_dashboard_caches
+
+        _invalidate_dashboard_caches()
+    except Exception as exc:
+        add_log(f"Cache refresh warning (dashboard): {exc}")
+
+    try:
+        from app.services.ml_model_service import clear_ml_model_cache
+
+        clear_ml_model_cache()
+    except Exception as exc:
+        add_log(f"Cache refresh warning (ml): {exc}")
 def save_uploaded_file(file: UploadFile) -> Dict[str, Any]:
     original_filename = file.filename or "uploaded_file.xlsx"
     file_path = UPLOAD_FOLDER / original_filename
@@ -75,7 +210,7 @@ def save_uploaded_file(file: UploadFile) -> Dict[str, Any]:
         shutil.copyfileobj(file.file, buffer)
 
     upload_state.set_uploaded_file(file_path, original_filename)
-    add_log(f"Р¤Р°Р№Р» Р·Р°РіСЂСѓР¶РµРЅ: {original_filename}")
+    add_log(f"Файл загружен: {original_filename}")
 
     return {
         "status": "uploaded",
@@ -91,12 +226,12 @@ def run_profiling_for_table(
     if not table_name:
         return {
             "status": "error",
-            "message": "Не выбрана таблица для profiling.",
+            "message": "Не выбрана таблица для очистки.",
         }
 
     clear_logs()
     normalized_thresholds = _normalize_thresholds(thresholds)
-    add_log(f"Запуск profiling для таблицы: {table_name}")
+    add_log(f"Запуск очистки для таблицы: {table_name}")
 
     log_stream = _LiveLogStream()
 
@@ -118,10 +253,17 @@ def run_profiling_for_table(
             f"дисперсия < {normalized_thresholds['low_variance_threshold']}"
         )
         add_log(f"Папка результатов: {settings.output_folder}")
-        add_log("Шаг 1 из 2. Анализируем колонки и собираем profiling-отчёт.")
+        add_log("Шаг 1 из 2. Анализируем колонки и собираем отчёт по очистке.")
 
         with redirect_stdout(log_stream):
             profiling_result = FiresFeatureProfilingStep(settings).run(settings)
+            keep_result = KeepImportantColumnsStep().run(settings)
+            profiling_result = _load_profile_summary(
+                output_folder=settings.output_folder,
+                table_name=table_name,
+                thresholds=profiling_result["thresholds"],
+                base_reason_summary=profiling_result["reason_summary"],
+            )
             add_log("Шаг 2 из 2. Создаём clean-таблицу без колонок-кандидатов на исключение.")
             clean_result = CreateCleanTableStep().run(settings)
 
@@ -138,7 +280,7 @@ def run_profiling_for_table(
 
         return {
             "status": "success",
-            "message": f"Profiling и очистка завершены для таблицы {table_name}.",
+            "message": f"Очистка завершена для таблицы {table_name}.",
             "table_name": table_name,
             "output_folder": settings.output_folder,
             "clean_table": clean_result["clean_table"],
@@ -150,6 +292,10 @@ def run_profiling_for_table(
                 "clean_columns": clean_result["columns"],
                 "reason_summary": profiling_result["reason_summary"],
                 "candidate_details": profiling_result["candidate_details"],
+                "protected_count": len(profiling_result["protected_details"]),
+                "protected_details": profiling_result["protected_details"],
+                "mandatory_feature_catalog": keep_result.get("mandatory_feature_catalog", []),
+                "kept_columns": clean_result["kept_columns"],
                 "kept_preview": clean_result["kept_columns"][:24],
                 "removed_preview": clean_result["removed_columns"][:24],
                 "thresholds": profiling_result["thresholds"],
@@ -157,6 +303,8 @@ def run_profiling_for_table(
             "files": {
                 "profile_csv": profiling_result["report_csv"],
                 "profile_xlsx": profiling_result["report_xlsx"],
+                "protected_report_csv": keep_result.get("protected_report_csv", ""),
+                "protected_report_xlsx": keep_result.get("protected_report_xlsx", ""),
                 "clean_xlsx": clean_result["export_file"],
             },
         }
@@ -165,7 +313,7 @@ def run_profiling_for_table(
     except ValueError as exc:
         message = f"Ошибка данных: {exc}"
     except Exception as exc:
-        message = f"Ошибка выполнения profiling: {exc}"
+        message = f"Ошибка очистки: {exc}"
 
     log_stream.flush()
     add_log(message)
@@ -182,7 +330,7 @@ def import_uploaded_data(output_folder: str | None = None) -> Dict[str, Any]:
 
     clear_logs()
     uploaded_file_path = upload_state.current_file_path
-    add_log(f"Р—Р°РїСѓСЃРє ImportDataStep РґР»СЏ {uploaded_file_path}")
+    add_log(f"Запуск ImportDataStep для {uploaded_file_path}")
 
     settings = Settings(
         input_file=str(uploaded_file_path),
@@ -196,6 +344,7 @@ def import_uploaded_data(output_folder: str | None = None) -> Dict[str, Any]:
 
     try:
         step.run(settings)
+        _invalidate_runtime_caches()
         add_log(f"Import completed: {uploaded_file_path}")
         upload_state.clear_current_file()
 

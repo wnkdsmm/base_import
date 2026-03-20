@@ -1,4 +1,4 @@
-# feature_selection.py
+﻿# feature_selection.py
 import os
 
 import numpy as np
@@ -22,18 +22,18 @@ class FeatureSelectionStep(PipelineStep):
         source_table = f"clean_{table_name}"
         final_table = f"final_{table_name}"
 
-        print(f"рџ“¦ РџСЂРѕРµРєС‚: {table_name}")
-        print(f"рџ“Ґ РўР°Р±Р»РёС†Р°: {source_table}")
+        print(f"📦 Проект: {table_name}")
+        print(f"📥 Таблица: {source_table}")
 
         try:
             df = pd.read_sql(f'SELECT * FROM "{source_table}"', engine)
         except Exception as e:
-            raise RuntimeError(f"вќЊ РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё С‚Р°Р±Р»РёС†С‹ {source_table}: {e}")
+            raise RuntimeError(f"❌ Ошибка загрузки таблицы {source_table}: {e}")
 
         if df.empty:
-            raise ValueError(f"вќЊ РўР°Р±Р»РёС†Р° {source_table} РїСѓСЃС‚Р°")
+            raise ValueError(f"❌ Таблица {source_table} пуста")
 
-        print("рџ“Љ Р Р°Р·РјРµСЂ:", df.shape)
+        print("📊 Размер:", df.shape)
 
         numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
         corr_drop = []
@@ -44,7 +44,7 @@ class FeatureSelectionStep(PipelineStep):
             corr_drop = [col for col in upper.columns if any(upper[col] > CORR_THRESHOLD)]
 
         df.drop(columns=corr_drop, inplace=True, errors="ignore")
-        print("рџ”Ґ Correlated dropped:", corr_drop)
+        print("🔥 Correlated dropped:", corr_drop)
 
         numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
         vif_drop = []
@@ -64,14 +64,14 @@ class FeatureSelectionStep(PipelineStep):
                 X = X.drop(columns=[drop_feature])
 
         df.drop(columns=vif_drop, inplace=True, errors="ignore")
-        print("рџљЂ VIF dropped:", vif_drop)
+        print("🚀 VIF dropped:", vif_drop)
 
-        print("вњ… Р¤РёРЅР°Р»СЊРЅС‹С… РєРѕР»РѕРЅРѕРє:", len(df.columns))
+        print("✅ Финальных колонок:", len(df.columns))
         df.to_sql(final_table, engine, if_exists="replace", index=False)
-        print("рџ”Ґ РўР°Р±Р»РёС†Р° СЃРѕР·РґР°РЅР°:", final_table)
+        print("🔥 Таблица создана:", final_table)
 
         excel_path = os.path.join(output_folder, f"{final_table}.xlsx")
         df.to_excel(excel_path, index=False, engine="openpyxl")
-        print("рџ“Љ Excel СЃРѕС…СЂР°РЅС‘РЅ:", excel_path)
-        print("рџ“Љ РЎС‚СЂРѕРє:", len(df))
-        print("рџ“Љ РљРѕР»РѕРЅРѕРє:", len(df.columns))
+        print("📊 Excel сохранён:", excel_path)
+        print("📊 Строк:", len(df))
+        print("📊 Колонок:", len(df.columns))

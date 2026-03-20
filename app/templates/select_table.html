@@ -3,30 +3,31 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profiling таблиц</title>
+    <title>Очистка таблиц</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/profiling.css?v=compact-20260318-6">
+    <link rel="stylesheet" href="/static/profiling.css?v={{ profiling_css_version }}">
 </head>
 <body class="profiling-layout">
 <aside class="sidebar">
     <div class="brand-block">
         <span class="brand-kicker">Fire Monitor</span>
-        <h2>Profiling</h2>
+        <h2>Очистка</h2>
         <p>Подготовка clean-таблицы с понятными порогами и компактным итогом очистки без лишнего шума.</p>
     </div>
 
     <div class="sidebar-actions">
         <button onclick="location.href='/'">Dashboard</button>
-        <button onclick="location.href='/forecasting'">Прогнозирование</button>
-        <button onclick="location.href='/ml-model'">ML-модель</button>
+        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
+        <button onclick="location.href='/ml-model'">ML-прогноз</button>
+        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
         <button onclick="location.href='/fire-map'">Карта пожаров</button>
         <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Запустить profiling</button>
+        <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
     <div class="sidebar-status">
-        <span class="status-badge status-badge-live">Profiling готов к запуску</span>
+        <span class="status-badge status-badge-live">Очистка готова к запуску</span>
         <div class="status-line">
             <span>Таблиц в базе</span>
             <strong>{{ tables | length }}</strong>
@@ -45,8 +46,8 @@
 <main class="main column-search-main profiling-page">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Data preparation</span>
-            <h1>Profiling таблиц</h1>
+            <span class="eyebrow">Подготовка данных</span>
+            <h1>Очистка таблиц</h1>
             <p class="subtitle">Выберите таблицу, задайте пороги очистки и сразу получите короткий итог: сколько столбцов убрано, какие причины сработали и как называется новая clean-таблица.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблиц в базе: <strong>{{ tables | length }}</strong></span>
@@ -94,14 +95,18 @@
             </div>
 
             {% if tables %}
-                <ul class="table-list">
-                {% for table in tables %}
-                    <li><button type="button" data-table-name="{{ table }}" onclick="selectTable('{{ table }}', this)">{{ table }}</button></li>
-                {% endfor %}
-                </ul>
+                <div class="table-select-block">
+                    <label class="table-select-label" for="tableSelect">Таблица для очистки</label>
+                    <select id="tableSelect" class="table-select">
+                        <option value="">Выберите таблицу из списка</option>
+                        {% for table in tables %}
+                            <option value="{{ table }}">{{ table }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div id="selectionNote" class="selection-note">Таблица пока не выбрана.</div>
-                <div class="action-row"><button id="runButton" type="button" onclick="runPipeline()" disabled>Запустить profiling</button></div>
-                <div id="statusBanner" class="status-banner status-idle">Выберите таблицу, при необходимости измените пороги и запустите profiling.</div>
+                <div class="action-row"><button id="runButton" class="primary-action primary-action-success" type="button" disabled>Запустить очистку</button></div>
+                <div id="statusBanner" class="status-banner status-idle">Выберите таблицу, при необходимости измените пороги и запустите очистку.</div>
             {% else %}
                 <div class="empty-state">В базе данных пока нет таблиц. Сначала загрузите файл на главной странице.</div>
             {% endif %}
@@ -110,7 +115,7 @@
         <article class="panel profiling-info-panel">
             <div class="panel-head">
                 <h2>Что за что отвечает</h2>
-                <span class="panel-meta">Короткая памятка по порогам и результатам profiling</span>
+                <span class="panel-meta">Короткая памятка по порогам и результатам очистки</span>
             </div>
             <div class="info-note-list">
                 <div class="info-note-card">
@@ -143,7 +148,7 @@
                     <div class="log-run-card">
                         <span class="log-run-label">Таблица</span>
                         <span id="runSummaryTable" class="log-run-value">Не выбрана</span>
-                        <div class="log-run-note">Выберите исходную таблицу для profiling.</div>
+                        <div class="log-run-note">Выберите исходную таблицу для очистки.</div>
                     </div>
                     <div class="log-run-card">
                         <span class="log-run-label">Убрано столбцов</span>
@@ -207,11 +212,39 @@
         </div>
     </section>
 
+    {% if mandatory_feature_catalog %}
+    <section class="panel mandatory-catalog-panel page-section">
+        <div class="panel-head">
+            <h2>Канонический список обязательных признаков</h2>
+            <span class="panel-meta">{{ mandatory_feature_catalog | length }} признаков защищены от автоматического удаления даже при срабатывании profiling.</span>
+        </div>
+        <div class="mandatory-catalog-grid">
+            {% for feature in mandatory_feature_catalog %}
+            <article class="mandatory-card">
+                <div class="mandatory-card-head">
+                    <strong>{{ feature.label }}</strong>
+                    <span class="chip chip-success">Обязательный</span>
+                </div>
+                <p>{{ feature.description }}</p>
+                {% if feature.synonyms %}
+                <div class="mandatory-card-meta">Синонимы и варианты названий</div>
+                <div class="chip-list mandatory-synonyms">
+                    {% for synonym in feature.synonyms %}
+                    <span class="chip">{{ synonym }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
     <section id="columnPairsSection" class="column-pairs-grid page-section" hidden>
         <section id="removedColumnsSection" class="panel removed-columns-section">
             <div class="panel-head">
                 <h2>Удалённые столбцы</h2>
-                <span class="panel-meta">Полный список колонок, которые profiling исключил из clean-таблицы</span>
+                <span class="panel-meta">Полный список колонок, которые очистка исключила из clean-таблицы</span>
             </div>
             <div id="removedColumns" class="chip-list removed-columns-list"></div>
         </section>
@@ -269,14 +302,29 @@
         };
     }
 
-    function selectTable(tableName, button) {
-        document.querySelectorAll('.table-list button').forEach((item) => item.classList.remove('selected'));
-        button.classList.add('selected');
+    function selectTable(tableName) {
+        const selectionNote = document.getElementById('selectionNote');
+        const runButton = document.getElementById('runButton');
+        if (!tableName) {
+            selectedTable = null;
+            if (selectionNote) selectionNote.textContent = 'Таблица пока не выбрана.';
+            if (runButton) {
+                runButton.disabled = true;
+                runButton.classList.remove('is-loading');
+            }
+            renderRunSummary({ tableName: 'Не выбрана', removedCount: '-', cleanTable: '-' });
+            setStatus('idle', 'Выберите таблицу, при необходимости измените пороги и запустите очистку.');
+            return;
+        }
+
         selectedTable = tableName;
-        document.getElementById('selectionNote').textContent = `Выбрана таблица: ${tableName}`;
-        document.getElementById('runButton').disabled = false;
+        if (selectionNote) selectionNote.textContent = `Выбрана таблица: ${tableName}`;
+        if (runButton) {
+            runButton.disabled = false;
+            runButton.classList.remove('is-loading');
+        }
         renderRunSummary({ tableName, removedCount: '-', cleanTable: `clean_${tableName}` });
-        setStatus('idle', `Выбрана таблица <strong>${escapeHtml(tableName)}</strong>. Можно запускать profiling с текущими порогами.`);
+        setStatus('idle', `Выбрана таблица <strong>${escapeHtml(tableName)}</strong>. Можно запускать очистку с текущими порогами.`);
     }
 
     function renderThresholds(thresholds) {
@@ -296,15 +344,15 @@
             container.innerHTML = '<div class="reason-item"><div class="reason-title">Нет данных</div><div class="reason-meta">Сводка по причинам исключения пока недоступна.</div></div>';
             return;
         }
-        container.innerHTML = reasonSummary.filter((item) => Number(item.count) > 0).map((item) => `<div class="reason-item"><div class="reason-title">${escapeHtml(item.label)}: ${escapeHtml(item.count)}</div><div class="reason-meta">${escapeHtml(item.description)}</div></div>`).join('') || '<div class="reason-item"><div class="reason-title">Ничего не исключено</div><div class="reason-meta">При текущих порогах profiling не нашёл колонок на исключение.</div></div>';
+        container.innerHTML = reasonSummary.filter((item) => Number(item.count) > 0).map((item) => `<div class="reason-item"><div class="reason-title">${escapeHtml(item.label)}: ${escapeHtml(item.count)}</div><div class="reason-meta">${escapeHtml(item.description)}</div></div>`).join('') || '<div class="reason-item"><div class="reason-title">Ничего не исключено</div><div class="reason-meta">При текущих порогах очистка не нашла колонок на исключение.</div></div>';
     }
 
     function renderFiles(files) {
         const container = document.getElementById('filesList');
         if (!container) return;
         const items = [
-            { label: 'CSV-отчёт profiling', path: files?.profile_csv || '' },
-            { label: 'Excel-отчёт profiling', path: files?.profile_xlsx || '' },
+            { label: 'CSV-отчёт по очистке', path: files?.profile_csv || '' },
+            { label: 'Excel-отчёт по очистке', path: files?.profile_xlsx || '' },
             { label: 'Excel clean-таблицы', path: files?.clean_xlsx || '' },
         ].filter((item) => item.path);
         container.innerHTML = items.map((item) => `<div class="file-item"><div class="file-label">${escapeHtml(item.label)}</div><div class="file-path">${escapeHtml(item.path)}</div></div>`).join('');
@@ -313,7 +361,7 @@
     function renderCandidates(candidateDetails) {
         const body = document.getElementById('candidatesBody');
         if (!body) return;
-        body.innerHTML = Array.isArray(candidateDetails) && candidateDetails.length ? candidateDetails.map((item) => `<tr><td>${escapeHtml(item.column)}</td><td>${escapeHtml(item.dtype)}</td><td>${escapeHtml((item.reasons || []).join(', '))}</td><td>${escapeHtml(formatPercent(item.null_ratio))}</td><td>${escapeHtml(formatPercent(item.dominant_ratio))}</td></tr>`).join('') : '<tr><td colspan="5">При текущих порогах profiling не нашёл колонок на исключение.</td></tr>';
+        body.innerHTML = Array.isArray(candidateDetails) && candidateDetails.length ? candidateDetails.map((item) => `<tr><td>${escapeHtml(item.column)}</td><td>${escapeHtml(item.dtype)}</td><td>${escapeHtml((item.reasons || []).join(', '))}</td><td>${escapeHtml(formatPercent(item.null_ratio))}</td><td>${escapeHtml(formatPercent(item.dominant_ratio))}</td></tr>`).join('') : '<tr><td colspan="5">При текущих порогах очистка не нашла колонок на исключение.</td></tr>';
     }
 
     function renderRemovedColumns(candidateDetails) {
@@ -337,8 +385,7 @@
             container.innerHTML = '<div class="chip">Список пока недоступен</div>';
             return;
         }
-        const remainder = Number(keptCount) - keptColumns.length;
-        container.innerHTML = keptColumns.map((item) => `<div class="chip">${escapeHtml(item)}</div>`).join('') + (remainder > 0 ? `<div class="chip">ещё ${remainder}</div>` : '');
+        container.innerHTML = keptColumns.map((item) => `<div class="chip">${escapeHtml(item)}</div>`).join('');
     }
 
     function renderSummary(result) {
@@ -348,7 +395,7 @@
         document.getElementById('metricRemoved').textContent = summary.candidate_count ?? 0;
         document.getElementById('metricKept').textContent = summary.kept_count ?? 0;
         document.getElementById('metricShape').textContent = `${summary.clean_rows ?? 0} x ${summary.clean_columns ?? 0}`;
-        document.getElementById('resultMessage').textContent = result.message || 'Profiling завершён.';
+        document.getElementById('resultMessage').textContent = result.message || 'Очистка завершена.';
         renderRunSummary({ tableName: result.table_name || selectedTable || 'Не выбрана', removedCount: summary.candidate_count ?? 0, cleanTable: result.clean_table || '-' });
         document.getElementById('outputSummary').innerHTML = `Создана таблица <strong>${escapeHtml(result.clean_table || '')}</strong>. В ней осталось <strong>${escapeHtml(summary.kept_count ?? 0)}</strong> колонок и <strong>${escapeHtml(summary.clean_rows ?? 0)}</strong> строк. ${result.clean_table ? `<br><br>Открыть таблицу можно в разделе <a class="text-link" href="/tables/${encodeURIComponent(result.clean_table)}">Просмотр таблиц</a>.` : ''}`;
         renderThresholds(summary.thresholds || {});
@@ -356,7 +403,7 @@
         renderFiles(result.files || {});
         renderCandidates(summary.candidate_details || []);
         renderRemovedColumns(summary.candidate_details || []);
-        renderKeptColumns(summary.kept_preview || [], summary.kept_count || 0);
+        renderKeptColumns(summary.kept_columns || [], summary.kept_count || 0);
     }
 
     async function runPipeline() {
@@ -374,9 +421,10 @@
         document.getElementById('columnPairsSection').hidden = true;
         const runButton = document.getElementById('runButton');
         runButton.disabled = true;
-        runButton.textContent = 'Profiling выполняется...';
+        runButton.classList.add('is-loading');
+        runButton.textContent = 'Очистка выполняется...';
         renderRunSummary({ tableName: selectedTable, removedCount: 'Считаем...', cleanTable: `clean_${selectedTable}` });
-        setStatus('running', `Выполняем profiling для таблицы <strong>${escapeHtml(selectedTable)}</strong> с пользовательскими порогами.`);
+        setStatus('running', `Выполняем очистку для таблицы <strong>${escapeHtml(selectedTable)}</strong> с пользовательскими порогами.`);
 
         try {
             const response = await fetch('/run_profiling', {
@@ -385,7 +433,7 @@
                 body: JSON.stringify({ table: selectedTable, thresholds }),
             });
             const result = await response.json();
-            if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить profiling.');
+            if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить очистку.');
             renderSummary(result);
             setStatus('success', `Готово. Таблица <strong>${escapeHtml(selectedTable)}</strong> обработана по выбранным порогам.`);
         } catch (error) {
@@ -393,8 +441,35 @@
         } finally {
             isRunning = false;
             runButton.disabled = false;
-            runButton.textContent = 'Запустить profiling';
+            runButton.classList.remove('is-loading');
+            runButton.textContent = 'Запустить очистку';
         }
+    }
+
+    function initializeProfilingControls() {
+        const tableSelect = document.getElementById('tableSelect');
+        const runButton = document.getElementById('runButton');
+
+        if (tableSelect) {
+            tableSelect.addEventListener('change', (event) => {
+                selectTable(event.target.value);
+            });
+            selectTable(tableSelect.value || '');
+        }
+
+        if (runButton) {
+            runButton.addEventListener('click', () => {
+                if (!runButton.disabled) {
+                    runPipeline();
+                }
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeProfilingControls);
+    } else {
+        initializeProfilingControls();
     }
 </script>
 <script src="/static/js/sidebar.js"></script>

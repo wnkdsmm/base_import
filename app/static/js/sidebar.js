@@ -24,6 +24,29 @@
 
     const isMobile = () => window.innerWidth <= mobileBreakpoint;
 
+    const normalizePath = (value) => {
+        const trimmed = value.replace(/\/+$/, "");
+        return trimmed || "/";
+    };
+
+    const currentPath = normalizePath(window.location.pathname);
+    const navButtons = sidebar.querySelectorAll(".sidebar-actions button");
+
+    navButtons.forEach((button) => {
+        const rawHandler = button.getAttribute("onclick") || "";
+        const match = rawHandler.match(/location\.href=['"]([^'"]+)['"]/);
+
+        if (!match) {
+            return;
+        }
+
+        const targetPath = normalizePath(new URL(match[1], window.location.origin).pathname);
+
+        if (targetPath === currentPath) {
+            button.classList.add("is-active");
+            button.setAttribute("aria-current", "page");
+        }
+    });
     const syncState = (isOpen) => {
         toggle.textContent = isOpen ? closeLabel : openLabel;
         toggle.setAttribute("aria-expanded", String(isOpen));

@@ -1,2 +1,16 @@
 __pycache__/
 *.py[cod]
+
+# runtime outputs and generated artifacts
+*.log
+logs/
+results/
+data/results/
+data/uploads/
+
+# local tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/

@@ -134,16 +134,18 @@ def get_dashboard_data(
         cache_key = (
             tuple(sorted(table["name"] for table in tables)),
             table_name,
+            year,
             normalized_group_column,
-
         )
         cached = _get_dashboard_cache(cache_key)
         if cached is not None:
             return cached
 
         selected_tables = _resolve_selected_tables(tables, table_name)
-        available_years = []
-        selected_year = None
+        available_years = _collect_year_options(selected_tables)
+        requested_year = _parse_year(year)
+        available_year_values = {item['value'] for item in available_years}
+        selected_year = requested_year if requested_year is not None and str(requested_year) in available_year_values else None
 
         available_group_columns = _collect_group_column_options(selected_tables)
 
@@ -204,7 +206,7 @@ def get_dashboard_data(
             },
             "filters": {
                 "table_name": selected_table_name,
-                "year": str(selected_year) if selected_year is not None else "",
+                "year": str(selected_year) if selected_year is not None else "all",
                 "group_column": selected_group_column,
                 "available_tables": metadata["table_options"],
                 "available_years": available_years,
@@ -2455,87 +2457,3 @@ def _format_period_label(years: List[int]) -> str:
 
 def _format_datetime(value: datetime) -> str:
     return value.strftime("%d.%m.%Y %H:%M")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
