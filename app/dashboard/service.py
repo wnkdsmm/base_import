@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
+from app.services.executive_brief import compose_executive_brief_text
 
 from .aggregates import (
     _build_area_buckets_chart,
@@ -137,6 +138,16 @@ def get_dashboard_data(
             selected_group_label=_find_option_label(available_group_columns, selected_group_column, "Нет доступных колонок"),
             available_years=available_years,
         )
+
+        scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
+        export_text = compose_executive_brief_text(
+            management.get("brief"),
+            scope_label=scope_label,
+            generated_at=_format_datetime(datetime.now()),
+        )
+        management["export_text"] = export_text
+        if isinstance(management.get("brief"), dict):
+            management["brief"]["export_text"] = export_text
 
         notes = list(metadata["errors"][:5])
         if not PLOTLY_AVAILABLE:

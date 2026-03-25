@@ -7,15 +7,16 @@ from fastapi.templating import Jinja2Templates
 from app.db_views import get_all_tables, get_table_data
 from app.plotly_bundle import get_plotly_bundle
 from app.services.clustering_service import get_clustering_page_context
-from app.services.dashboard_service import get_dashboard_page_context
-from app.services.fire_map_service import build_fire_map_html
-from app.services.forecasting_service import get_forecasting_page_context
+from app.services.dashboard_service import get_dashboard_page_context, get_dashboard_shell_context
+from app.services.fire_map_service import build_fire_map_html, get_fire_map_page_context
+from app.services.forecasting_service import get_forecasting_page_context, get_forecasting_shell_context
 from app.services.ml_model_service import get_ml_model_page_context
 from app.services.table_options import (
     get_column_search_table_options,
     get_fire_map_table_options,
     resolve_selected_table,
 )
+from app.services.table_summary import build_table_summary
 from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
 from config.paths import STATIC_DIR, TEMPLATES_DIR
 from core.processing.steps.keep_important_columns import get_mandatory_feature_catalog
@@ -47,7 +48,6 @@ PROFILING_DEFAULTS = {
     "low_variance_threshold": LOW_VARIANCE_THRESHOLD,
 }
 
-
 @router.get("/assets/plotly.js")
 def plotly_bundle_asset() -> Response:
     return Response(
@@ -57,16 +57,76 @@ def plotly_bundle_asset() -> Response:
     )
 
 
+@router.get("/favicon.ico", include_in_schema=False)
+def favicon() -> Response:
+    return Response(status_code=204, headers={"Cache-Control": "public, max-age=86400"})
+
+
+def _download_text_response(text: str, filename: str) -> Response:
+    return Response(
+        content=text,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/brief/dashboard.txt")
+def dashboard_brief_download(table_name: str = "all", year: str = "all", group_column: str = "") -> Response:
+    data = get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)["initial_data"]
+    text = str((data.get("management") or {}).get("export_text") or "")
+    return _download_text_response(text or "Управленческий бриф пока недоступен.", "dashboard-brief.txt")
+
+
+@router.get("/brief/forecasting.txt")
+def forecasting_brief_download(
+    table_name: str = "all",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+    history_window: str = "all",
+) -> Response:
+    data = get_forecasting_page_context(
+        table_name=table_name,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        forecast_days=forecast_days,
+        history_window=history_window,
+    )["initial_data"]
+    text = str((data.get("executive_brief") or {}).get("export_text") or "")
+    return _download_text_response(text or "Управленческий бриф пока недоступен.", "forecasting-brief.txt")
+
+
+@router.get("/brief/fire-map.txt")
+def fire_map_brief_download(table_name: str = "") -> Response:
+    data = get_fire_map_page_context(table_name)
+    text = str((data.get("executive_brief") or {}).get("export_text") or "")
+    return _download_text_response(text or "Управленческий бриф по карте пока недоступен.", "fire-map-brief.txt")
+
+
 @router.get("/", response_class=HTMLResponse)
-def home(request: Request, table_name: str = "all", year: str = "all", group_column: str = ""):
-    dashboard = get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)
+def home(
+    request: Request,
+    table_name: str = "all",
+    year: str = "all",
+    group_column: str = "",
+    mode: str = "full",
+):
+    use_full_context = str(mode).strip().lower() != "deferred"
+    dashboard = (
+        get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)
+        if use_full_context
+        else get_dashboard_shell_context(table_name=table_name, year=year, group_column=group_column)
+    )
     return templates.TemplateResponse(
         "index.html",
         _base_template_context(
             request,
             dashboard=dashboard,
             dashboard_js_version=_static_version("js/dashboard.js"),
-            import_js_version=_static_version("js/import.js"),
         ),
     )
 
@@ -82,7 +142,7 @@ def forecasting_page(
     forecast_days: str = "14",
     history_window: str = "all",
 ):
-    forecast = get_forecasting_page_context(
+    forecast = get_forecasting_shell_context(
         table_name=table_name,
         district=district,
         cause=cause,
@@ -178,16 +238,13 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
 
 @router.get("/fire-map", response_class=HTMLResponse)
 def fire_map_page(request: Request, table_name: str = ""):
-    table_options = get_fire_map_table_options()
-    selected_table = resolve_selected_table(table_options, table_name)
+    fire_map = get_fire_map_page_context(table_name)
 
     return templates.TemplateResponse(
         "fire_map.html",
         _base_template_context(
             request,
-            table_options=table_options,
-            selected_table=selected_table,
-            tables_count=len(table_options),
+            fire_map=fire_map,
         ),
     )
 
@@ -232,18 +289,25 @@ async def list_tables(request: Request):
     tables = get_all_tables()
     return templates.TemplateResponse(
         "tables.html",
-        _base_template_context(request, tables=tables),
+        _base_template_context(
+            request,
+            tables=tables,
+            import_js_version=_static_version("js/import.js"),
+            tables_js_version=_static_version("js/tables.js"),
+        ),
     )
 
 
 @router.get("/tables/{table_name}", response_class=HTMLResponse)
 async def view_table(request: Request, table_name: str):
     try:
-        columns, rows = get_table_data(table_name)
+        columns, rows = get_table_data(table_name, limit=None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=404, detail="Table not found") from exc
+
+    table_summary = build_table_summary(table_name, columns, rows)
 
     return templates.TemplateResponse(
         "table_view.html",
@@ -252,6 +316,7 @@ async def view_table(request: Request, table_name: str):
             table_name=table_name,
             columns=columns,
             rows=rows,
+            table_summary=table_summary,
         ),
     )
 

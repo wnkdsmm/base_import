@@ -2,22 +2,34 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.services.executive_brief import (
+    build_executive_brief_from_risk_payload,
+    empty_executive_brief,
+)
 from app.services.forecast_risk.core import build_decision_support_payload
 
+
 def _empty_management_snapshot() -> Dict[str, Any]:
+    brief = empty_executive_brief()
     return {
-        "summary_line": "После загрузки данных здесь появится управленческая сводка: где риск, почему риск и что делать в первую очередь.",
-        "priority_territory_label": "-",
-        "priority_reason": "Недостаточно данных, чтобы выделить территорию первого приоритета.",
-        "priority_tone": "sky",
-        "confidence_label": "Ограниченная",
-        "confidence_score_display": "0 / 100",
-        "confidence_tone": "fire",
-        "confidence_summary": "После загрузки данных здесь появится уровень доверия к сводке.",
-        "brief_cards": [],
+        "summary_line": brief["lead"],
+        "priority_territory_label": brief["top_territory_label"],
+        "priority_reason": brief["priority_reason"],
+        "priority_tone": brief["priority_tone"],
+        "confidence_label": brief["confidence_label"],
+        "confidence_score_display": brief["confidence_score_display"],
+        "confidence_tone": brief["confidence_tone"],
+        "confidence_summary": brief["confidence_summary"],
+        "recommended_action_label": brief["action_label"],
+        "recommended_action_detail": brief["action_detail"],
+        "brief_cards": list(brief["cards"]),
+        "brief": brief,
         "territories": [],
         "actions": [],
         "notes": [],
+        "export_title": brief["export_title"],
+        "export_excerpt": brief["export_excerpt"],
+        "export_text": "",
     }
 
 
@@ -47,7 +59,9 @@ def _build_management_snapshot(
         fallback = _empty_management_snapshot()
         fallback["summary_line"] = "Управленческий бриф временно недоступен; ниже остаются базовые показатели и графики."
         fallback["notes"] = [f"Управленческий бриф временно недоступен: {exc}"]
+        fallback["brief"]["notes"] = list(fallback["notes"])
         return fallback
+
     passport = risk_payload.get("quality_passport") or {}
     risk_territories = risk_payload.get("territories") or []
     dominant_cause = cause_overview["items"][0] if cause_overview.get("items") else None
@@ -95,7 +109,7 @@ def _build_management_snapshot(
             actions.append(
                 {
                     "label": "Усилить контроль в лидирующей территории",
-                    "detail": f"{top_district['label']} остаётся лидером по числу пожаров: {top_district['value_display']}.",
+                    "detail": f"{top_district['label']} остается лидером по числу пожаров: {top_district['value_display']}.",
                 }
             )
         if trend.get("direction") == "up":
@@ -114,51 +128,8 @@ def _build_management_snapshot(
             }
         )
 
-    confidence_label = passport.get("confidence_label") or "Ограниченная"
-    confidence_score_display = passport.get("confidence_score_display") or "0 / 100"
-    confidence_tone = passport.get("confidence_tone") or "fire"
     confidence_summary = passport.get("validation_summary") or "После загрузки данных здесь появится уровень доверия к сводке."
-
-    priority_territory_label = (
-        top_territory.get("label")
-        if top_territory
-        else top_district.get("label")
-        if top_district
-        else "-"
-    )
-    priority_reason = risk_payload.get("top_territory_explanation") or ""
-    if not priority_reason and top_district:
-        priority_reason = f"{top_district['label']} лидирует по числу пожаров: {top_district['value_display']}."
-    if not priority_reason:
-        priority_reason = "Недостаточно данных, чтобы объяснить территорию первого приоритета."
-
-    lead_action = actions[0] if actions else {"label": "Плановое наблюдение", "detail": ""}
-    why_value = (
-        territories[0]["top_component_label"]
-        if territories
-        else dominant_cause["label"]
-        if dominant_cause
-        else "Недостаточно данных"
-    )
-    why_meta_parts = []
-    if territories:
-        why_meta_parts.append(territories[0]["drivers_display"])
-    if dominant_cause:
-        why_meta_parts.append(f"Главная причина в срезе: {dominant_cause['label']}.")
-    if not why_meta_parts:
-        why_meta_parts.append("Причины приоритета появятся после накопления данных.")
-
-    trend_value = trend.get("current_value_display") or "0"
-    if trend.get("current_year") and trend.get("current_year") != "-":
-        trend_value = f"{trend_value} в {trend['current_year']}"
-
-    summary_line = (
-        f"Первый приоритет: {priority_territory_label}. "
-        f"Что делать: {lead_action['label']}. "
-        f"Надёжность данных: {confidence_label} ({confidence_score_display})."
-    )
-
-    notes = []
+    notes: List[str] = []
     for note in (risk_payload.get("notes") or [])[:3]:
         text = str(note or "").strip()
         if text and text not in notes:
@@ -166,44 +137,29 @@ def _build_management_snapshot(
     if not notes:
         notes.append(confidence_summary)
 
+    brief = build_executive_brief_from_risk_payload(risk_payload, notes=notes)
+    brief["export_text"] = ""
+
     return {
-        "summary_line": summary_line,
-        "priority_territory_label": priority_territory_label,
-        "priority_reason": priority_reason,
-        "priority_tone": tone_map.get(top_territory.get("risk_tone") if top_territory else "low", "sky"),
-        "confidence_label": confidence_label,
-        "confidence_score_display": confidence_score_display,
-        "confidence_tone": confidence_tone,
-        "confidence_summary": confidence_summary,
-        "brief_cards": [
-            {
-                "label": "Где риск выше",
-                "value": priority_territory_label,
-                "meta": priority_reason,
-                "tone": tone_map.get(top_territory.get("risk_tone") if top_territory else "low", "sky"),
-            },
-            {
-                "label": "Почему нужен приоритет",
-                "value": why_value,
-                "meta": " ".join(why_meta_parts),
-                "tone": "sand",
-            },
-            {
-                "label": "Что сделать сегодня",
-                "value": lead_action["label"],
-                "meta": lead_action["detail"] or "Детализация действия появится после расчёта.",
-                "tone": "forest",
-            },
-            {
-                "label": "Как меняется обстановка",
-                "value": trend_value,
-                "meta": trend.get("description") or "Недостаточно данных для сравнения по годам.",
-                "tone": "fire" if trend.get("direction") == "up" else "sky",
-            },
-        ],
+        "summary_line": brief["lead"],
+        "priority_territory_label": brief["top_territory_label"],
+        "priority_reason": brief["priority_reason"],
+        "priority_tone": brief["priority_tone"],
+        "confidence_label": brief["confidence_label"],
+        "confidence_score_display": brief["confidence_score_display"],
+        "confidence_tone": brief["confidence_tone"],
+        "confidence_summary": brief["confidence_summary"],
+        "recommended_action_label": brief["action_label"],
+        "recommended_action_detail": brief["action_detail"],
+        "brief_cards": list(brief["cards"]),
+        "brief": brief,
         "territories": territories,
         "actions": actions[:3],
-        "notes": notes,
+        "notes": list(brief["notes"] or notes),
+        "export_title": brief["export_title"],
+        "export_excerpt": brief["export_excerpt"],
+        "export_text": "",
     }
+
 
 __all__ = ["_empty_management_snapshot", "_build_management_snapshot"]

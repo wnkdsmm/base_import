@@ -491,142 +491,78 @@
 
         renderNotes('forecastValidationNotes', safeValidation.notes || [], 'После расчёта здесь появятся примечания по исторической проверке ранжирования.');
     }
-    function renderCommandCards(risk, passport) {
+    function renderCommandCards(brief) {
         var container = byId('forecastCommandCards');
-        var territories = Array.isArray(risk && risk.territories) ? risk.territories : [];
-        var lead = territories[0] || {};
-        var components = Array.isArray(lead.component_scores) ? lead.component_scores : [];
-        var topComponent = components[0] || {};
-        var tone = normalizeTone(lead.risk_tone || 'low');
-        var rankingTone = normalizeTone((risk && risk.top_territory_confidence_tone) || lead.ranking_confidence_tone || passport.confidence_tone || 'fire');
+        var cards = brief && Array.isArray(brief.cards) ? brief.cards : [];
 
         if (!container) {
             return;
         }
 
-        if (!territories.length) {
+        if (!cards.length) {
             container.innerHTML = '<div class="mini-empty">Управленческий бриф появится после расчёта.</div>';
             return;
         }
 
-        var cards = [
-            {
-                label: 'Где риск выше',
-                value: risk.top_territory_label || lead.label || '-',
-                meta: risk.top_territory_explanation || lead.ranking_reason || 'Недостаточно данных для объяснения приоритета.',
-                tone: tone
-            },
-            {
-                label: 'Почему нужен приоритет',
-                value: topComponent.label || 'Нет доминирующего фактора',
-                meta: lead.ranking_reason || lead.drivers_display || 'Недостаточно данных для объяснения приоритета.',
-                tone: 'sand'
-            },
-            {
-                label: 'Что сделать первым',
-                value: lead.action_label || 'Плановое наблюдение',
-                meta: lead.action_hint || 'Детализация появится после расчёта.',
-                tone: 'forest'
-            },
-            {
-                label: 'Надёжность вывода',
-                value: (risk && risk.top_territory_confidence_label) || lead.ranking_confidence_label || passport.confidence_label || 'Ограниченная',
-                meta: (risk && risk.top_territory_confidence_note) || lead.ranking_confidence_note || passport.validation_summary || 'Оценка надёжности появится после расчёта.',
-                tone: rankingTone
-            }
-        ];
-
         container.innerHTML = cards.map(function (item) {
-            return '<article class="executive-brief-card tone-' + escapeHtml(item.tone) + '">' +
-                '<span class="stat-label">' + escapeHtml(item.label) + '</span>' +
-                '<strong class="stat-value executive-brief-value">' + escapeHtml(item.value) + '</strong>' +
-                '<span class="stat-foot">' + escapeHtml(item.meta) + '</span>' +
+            return '<article class="executive-brief-card tone-' + escapeHtml(item.tone || 'sky') + '">' +
+                '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>' +
+                '<strong class="stat-value executive-brief-value">' + escapeHtml(item.value || '-') + '</strong>' +
+                '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>' +
             '</article>';
         }).join('');
     }
 
-    function renderCommandTerritories(items) {
-        var container = byId('forecastCommandTerritories');
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">Top территорий появится после расчёта.</div>';
-            return;
-        }
-
-        container.innerHTML = items.slice(0, 3).map(function (item) {
-            var tone = normalizeTone(item.risk_tone || 'low');
-            var rankingTone = normalizeTone(item.ranking_confidence_tone || 'fire');
-            return '<article class="executive-territory-card tone-' + escapeHtml(tone) + '">' +
-                '<div class="executive-territory-head">' +
-                    '<strong>' + escapeHtml(item.label || 'Территория') + '</strong>' +
-                    '<span class="executive-territory-score">' + escapeHtml(item.risk_display || '0 / 100') + '</span>' +
-                '</div>' +
-                '<div class="executive-territory-tags">' +
-                    '<span class="forecast-badge risk-badge tone-' + escapeHtml(tone) + '">' + escapeHtml(item.risk_class_label || 'Нет оценки') + '</span>' +
-                    '<span class="forecast-badge risk-badge tone-sky">' + escapeHtml(item.priority_label || 'Плановое наблюдение') + '</span>' +
-                    '<span class="forecast-badge risk-badge tone-' + escapeHtml(rankingTone) + '">' + escapeHtml(item.ranking_confidence_label || 'Ограниченная') + '</span>' +
-                '</div>' +
-                '<p class="executive-territory-reason">' + escapeHtml(item.ranking_reason || item.drivers_display || 'Недостаточно данных для объяснения приоритета.') + '</p>' +
-                '<div class="executive-territory-action">' +
-                    '<strong>' + escapeHtml(item.action_label || 'Плановое наблюдение') + '</strong>' +
-                    '<span>' + escapeHtml(item.action_hint || '') + '</span>' +
-                '</div>' +
-                '<div class="executive-territory-meta">' +
-                    '<span>' + escapeHtml(item.settlement_context_label || 'Контекст не указан') + '</span>' +
-                    '<span>Travel-time: ' + escapeHtml(item.travel_time_display || 'н/д') + '</span>' +
-                    '<span>Зона: ' + escapeHtml(item.service_zone_label || 'не определена') + '</span>' +
-                    '<span>Последний пожар: ' + escapeHtml(item.last_fire_display || '-') + '</span>' +
-                '</div>' +
-            '</article>';
-        }).join('');
+    function renderCommandNotes(brief) {
+        var notes = brief && Array.isArray(brief.notes) ? brief.notes.slice(0, 3) : [];
+        renderNotes('forecastCommandNotes', notes, 'Ограничения и примечания появятся после расчёта.');
     }
 
-    function renderCommandActions(items) {
-        var container = byId('forecastCommandActions');
-        var lead = Array.isArray(items) && items.length ? items[0] : null;
-        var recommendations = lead && Array.isArray(lead.recommendations) && lead.recommendations.length
-            ? lead.recommendations.slice(0, 3)
-            : lead
-                ? [{ label: lead.action_label || 'Плановое наблюдение', detail: lead.action_hint || '' }]
-                : [];
+    function buildForecastBriefHref(filters) {
+        var params = new URLSearchParams();
+        var safeFilters = filters || {};
 
-        if (!container) {
-            return;
-        }
-
-        if (!recommendations.length) {
-            container.innerHTML = '<div class="mini-empty">Рекомендации появятся после расчёта.</div>';
-            return;
-        }
-
-        container.innerHTML = recommendations.map(function (item) {
-            return '<article class="executive-action-item">' +
-                '<strong>' + escapeHtml(item.label || 'Рекомендация') + '</strong>' +
-                '<span>' + escapeHtml(item.detail || '') + '</span>' +
-            '</article>';
-        }).join('');
-    }
-
-    function renderCommandNotes(passport, risk) {
-        var notes = [];
-        var territories = Array.isArray(risk && risk.territories) ? risk.territories : [];
-        var lead = territories[0] || null;
-        [].concat(
-            lead && lead.ranking_confidence_note ? [lead.ranking_confidence_note] : [],
-            passport && passport.reliability_notes ? passport.reliability_notes : [],
-            risk && risk.historical_validation && risk.historical_validation.notes ? risk.historical_validation.notes : [],
-            risk && risk.notes ? risk.notes : []
-        ).forEach(function (note) {
-            var text = String(note || '').trim();
-            if (text && notes.indexOf(text) === -1) {
-                notes.push(text);
+        [
+            'table_name',
+            'district',
+            'cause',
+            'object_category',
+            'temperature',
+            'forecast_days',
+            'history_window'
+        ].forEach(function (key) {
+            var value = safeFilters[key];
+            if (value != null && value !== '') {
+                params.set(key, value);
             }
         });
-        renderNotes('forecastCommandNotes', notes.slice(0, 3), 'Ограничения и примечания появятся после расчёта.');
+
+        var query = params.toString();
+        return '/brief/forecasting.txt' + (query ? '?' + query : '');
     }
+
+    function updateForecastBriefExport(filters) {
+        var href = buildForecastBriefHref(filters || {});
+        Array.prototype.forEach.call(
+            document.querySelectorAll('#decisionSupportPanel .executive-brief-download, #decisionSupportPanel .executive-brief-summary-action'),
+            function (link) {
+                link.setAttribute('href', href);
+            }
+        );
+    }
+
+    function collectForecastFiltersFromForm() {
+        return {
+            table_name: byId('forecastTableFilter') ? byId('forecastTableFilter').value : '',
+            district: byId('forecastDistrictFilter') ? byId('forecastDistrictFilter').value : 'all',
+            cause: byId('forecastCauseFilter') ? byId('forecastCauseFilter').value : 'all',
+            object_category: byId('forecastObjectCategoryFilter') ? byId('forecastObjectCategoryFilter').value : 'all',
+            temperature: byId('forecastTemperatureInput') ? byId('forecastTemperatureInput').value : '',
+            forecast_days: byId('forecastDaysFilter') ? byId('forecastDaysFilter').value : '',
+            history_window: byId('forecastHistoryWindowFilter') ? byId('forecastHistoryWindowFilter').value : ''
+        };
+    }
+
     function buildAnalyticalBrief(data) {
         var summary = data.summary || {};
         var quality = data.quality_assessment || {};
@@ -756,6 +692,7 @@
         var summary = data.summary || {};
         var charts = data.charts || {};
         var risk = data.risk_prediction || {};
+        var executiveBrief = data.executive_brief || {};
         var geo = risk.geo_summary || {};
         var passport = risk.quality_passport || {};
         var territories = Array.isArray(risk.territories) ? risk.territories : [];
@@ -772,21 +709,19 @@
         setValue('forecastTemperatureInput', filters.temperature || '');
 
         setText('forecastModelDescription', data.model_description || '');
-        setText('forecastLeadSummary', risk.top_territory_explanation || 'После расчёта здесь появится краткое управленческое объяснение.');
+        setText('forecastLeadSummary', executiveBrief.lead || risk.top_territory_explanation || 'После расчёта здесь появится краткое управленческое объяснение.');
         setText('forecastTableLabel', summary.selected_table_label || 'Нет таблицы');
         setText('forecastHistoryMode', summary.history_window_label || 'Все годы');
         setText('forecastSliceLabel', summary.slice_label || 'Все пожары');
         setText('forecastTemperatureMode', summary.temperature_scenario_display || 'Историческая сезонность');
         setText('forecastAverageValue', summary.average_probability_display || '0%');
-        setText('forecastDaysTotal', summary.forecast_days_display || '0');
-        setText('forecastHeroPriority', risk.top_territory_label || '-');
-        setText('forecastHeroPriorityMeta', risk.top_territory_explanation || 'Недостаточно данных для определения первого приоритета.');
-        setText('forecastHeroConfidence', risk.top_territory_confidence_label || leadTerritory.ranking_confidence_label || passport.confidence_label || 'Ограниченная');
-        setText('forecastHeroConfidenceScore', risk.top_territory_confidence_score_display || leadTerritory.ranking_confidence_display || passport.confidence_score_display || '0 / 100');
-        setText('forecastHeroConfidenceMeta', risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'Пояснение по надёжности вывода появится после расчёта.');
-        setText('forecastCommandConfidence', risk.top_territory_confidence_label || leadTerritory.ranking_confidence_label || passport.confidence_label || 'Ограниченная');
-        setText('forecastCommandConfidenceScore', risk.top_territory_confidence_score_display || leadTerritory.ranking_confidence_display || passport.confidence_score_display || '0 / 100');
-        setText('forecastCommandConfidenceSummary', risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'Пояснение по надёжности вывода появится после расчёта.');
+        setText('forecastDaysTotal', (summary.forecast_days_display || '0') + ' дней');
+        setText('forecastHeroPriority', executiveBrief.top_territory_label || risk.top_territory_label || '-');
+        setText('forecastHeroPriorityMeta', executiveBrief.priority_reason || risk.top_territory_explanation || 'Недостаточно данных для определения первого приоритета.');
+        setText('forecastHeroConfidence', executiveBrief.confidence_label || risk.top_territory_confidence_label || leadTerritory.ranking_confidence_label || passport.confidence_label || 'Ограниченная');
+        setText('forecastHeroConfidenceScore', executiveBrief.confidence_score_display || risk.top_territory_confidence_score_display || leadTerritory.ranking_confidence_display || passport.confidence_score_display || '0 / 100');
+        setText('forecastHeroConfidenceMeta', executiveBrief.confidence_summary || risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'Пояснение по надёжности вывода появится после расчёта.');
+        setText('forecastCommandExportExcerpt', executiveBrief.export_excerpt || 'Краткая экспортируемая справка появится после расчёта.');
         setText('forecastFiresCount', summary.fires_count_display || '0');
         setText('forecastHistoryDays', summary.history_days_display || '0');
         setText('forecastActiveDays', summary.active_days_display || '0');
@@ -800,9 +735,8 @@
         setText('forecastSidebarTable', summary.selected_table_label || 'Нет таблицы');
         setText('forecastSidebarHistory', summary.history_period_label || 'Нет данных');
         setText('forecastSidebarHorizon', (summary.forecast_days_display || '0') + ' дн.');
-        applyToneClass(byId('forecastHeroPriorityCard'), normalizeTone(leadTerritory.risk_tone || 'low'));
-        applyToneClass(byId('forecastHeroConfidenceCard'), normalizeTone(risk.top_territory_confidence_tone || leadTerritory.ranking_confidence_tone || passport.confidence_tone || 'fire'));
-        applyToneClass(byId('forecastCommandConfidence') ? byId('forecastCommandConfidence').parentElement : null, normalizeTone(risk.top_territory_confidence_tone || leadTerritory.ranking_confidence_tone || passport.confidence_tone || 'fire'));
+        applyToneClass(byId('forecastHeroPriorityCard'), normalizeTone(executiveBrief.priority_tone || leadTerritory.risk_tone || 'low'));
+        applyToneClass(byId('forecastHeroConfidenceCard'), normalizeTone(executiveBrief.confidence_tone || risk.top_territory_confidence_tone || leadTerritory.ranking_confidence_tone || passport.confidence_tone || 'fire'));
 
         setText('forecastDailyChartTitle', charts.daily ? charts.daily.title : 'Что было и что ожидается');
         setText('forecastWeekdayChartTitle', charts.weekday ? charts.weekday.title : 'В какие дни недели пожары случаются чаще');
@@ -830,12 +764,10 @@
 
         renderScenarioQuality(data.quality_assessment || {});
         renderInsights(data.insights || []);
-        renderCommandCards(risk, passport);
-        renderCommandTerritories(territories);
-        renderCommandActions(territories);
-        renderCommandNotes(passport, risk);
+        renderCommandCards(executiveBrief);
+        renderCommandNotes(executiveBrief);
         renderNotes('forecastNotesList', data.notes || [], 'Замечаний пока нет.');
-        renderNotes('forecastRiskNotes', risk.notes || [], 'После расчета здесь появятся примечания по блоку поддержки решений.');
+        renderNotes('forecastRiskNotes', risk.notes || [], 'После расчёта здесь появятся примечания по блоку поддержки решений.');
         renderQualityPassport(passport);
         renderWeightProfile(risk.weight_profile || {});
         renderHistoricalValidation(risk.historical_validation || {});
@@ -843,13 +775,23 @@
         renderRiskSummary(risk.summary_cards || []);
         renderRiskTerritories(risk.territories || []);
         renderFeatureCards(risk.feature_cards || data.features || []);
-        renderMiniCards('forecastGeoHotspots', geo.hotspots || [], 'Зоны появятся после расчета.');
-        renderMiniCards('forecastGeoDistricts', geo.districts || [], 'Сводка по районам появится после расчета.');
+        renderMiniCards('forecastGeoHotspots', geo.hotspots || [], 'Зоны появятся после расчёта.');
+        renderMiniCards('forecastGeoDistricts', geo.districts || [], 'Сводка по районам появится после расчёта.');
         renderChart(charts.daily, 'forecastDailyChart', 'forecastDailyChartFallback');
         renderChart(charts.weekday, 'forecastWeekdayChart', 'forecastWeekdayChartFallback');
         var geoRendered = renderChart(charts.geo, 'forecastGeoChart', 'forecastGeoChartFallback');
         syncGeoPanel(geo, geoRendered);
+        updateForecastBriefExport({
+            table_name: filters.table_name || '',
+            district: filters.district || 'all',
+            cause: filters.cause || 'all',
+            object_category: filters.object_category || 'all',
+            temperature: filters.temperature || '',
+            forecast_days: filters.forecast_days || '',
+            history_window: filters.history_window || ''
+        });
     }
+
     async function fetchForecastData() {
         var form = byId('forecastForm');
         var button = byId('forecastRefreshButton');
@@ -883,21 +825,31 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         var form = byId('forecastForm');
-        var exportButton = byId('forecastExportBriefButton');
+        var initialData = window.__FIRE_FORECAST_INITIAL__ || null;
+        var syncBriefLink = function () {
+            updateForecastBriefExport(collectForecastFiltersFromForm());
+        };
+
         applyProgressBars(document);
         if (form) {
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
                 fetchForecastData();
             });
+
+            Array.prototype.forEach.call(form.querySelectorAll('select, input'), function (field) {
+                field.addEventListener('change', syncBriefLink);
+                if (field.tagName === 'INPUT') {
+                    field.addEventListener('input', syncBriefLink);
+                }
+            });
         }
 
-        if (exportButton) {
-            exportButton.addEventListener('click', downloadAnalyticalBrief);
-        }
-
-        if (window.__FIRE_FORECAST_INITIAL__) {
-            applyForecastData(window.__FIRE_FORECAST_INITIAL__);
+        if (initialData && initialData.bootstrap_mode !== 'deferred') {
+            applyForecastData(initialData);
+        } else {
+            syncBriefLink();
+            fetchForecastData();
         }
     });
 })();

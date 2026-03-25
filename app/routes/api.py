@@ -5,10 +5,11 @@ import json
 from fastapi import APIRouter, Body, File, Form, Request, UploadFile
 from fastapi.responses import Response
 
-from app.db_views import create_modified_table, get_table_columns, get_table_preview
+from app.db_views import create_modified_table, delete_table, delete_tables, get_table_columns, get_table_preview
 from app.log_manager import clear_logs as clear_job_logs
 from app.log_manager import get_logs
 from app.services.clustering_service import get_clustering_data, get_clustering_shell_context
+from app.services.dashboard_service import get_dashboard_page_context
 from app.services.forecasting_service import get_forecasting_data, get_forecasting_page_context
 from app.services.pipeline_service import import_uploaded_data, invalidate_runtime_caches, run_profiling_for_table, save_uploaded_file
 from app.state import SESSION_COOKIE_NAME, job_store
@@ -42,7 +43,12 @@ def utf8_json(payload: dict, status_code: int = 200, session_id: str | None = No
 
 @router.get("/api/dashboard-data")
 def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_column: str = ""):
-    return get_dashboard_data(table_name=table_name, year=year, group_column=group_column)
+    try:
+        return utf8_json(get_dashboard_data(table_name=table_name, year=year, group_column=group_column))
+    except Exception:
+        return utf8_json(
+            get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)["initial_data"]
+        )
 
 
 @router.get("/api/forecasting-data")
@@ -101,6 +107,79 @@ def clustering_data_endpoint(
             sampling_strategy=sampling_strategy,
             feature_columns=feature_columns or [],
         )["initial_data"]
+
+
+@router.delete("/api/tables/{table_name}")
+def delete_table_endpoint(table_name: str):
+    try:
+        result = delete_table(table_name)
+    except ValueError as exc:
+        return utf8_json(
+            {
+                "ok": False,
+                "table_name": table_name,
+                "message": str(exc),
+            },
+            status_code=404,
+        )
+    except Exception as exc:
+        return utf8_json(
+            {
+                "ok": False,
+                "table_name": table_name,
+                "message": f"Не удалось удалить таблицу: {exc}",
+            },
+            status_code=500,
+        )
+
+    return utf8_json(
+        {
+            "ok": True,
+            "table_name": result["table_name"],
+            "remaining_tables": result["remaining_tables"],
+            "remaining_count": result["remaining_count"],
+            "message": f"Таблица {result['table_name']} удалена из базы данных.",
+        }
+    )
+
+
+@router.post("/api/tables/delete")
+def delete_tables_endpoint(payload: dict = Body(...)):
+    table_names = [str(item).strip() for item in (payload.get("table_names") or []) if str(item).strip()]
+
+    try:
+        result = delete_tables(table_names)
+    except ValueError as exc:
+        return utf8_json(
+            {
+                "ok": False,
+                "table_names": table_names,
+                "message": str(exc),
+            },
+            status_code=400,
+        )
+    except Exception as exc:
+        return utf8_json(
+            {
+                "ok": False,
+                "table_names": table_names,
+                "message": f"Не удалось удалить таблицы: {exc}",
+            },
+            status_code=500,
+        )
+
+    deleted_tables = result["deleted_tables"]
+    deleted_count = len(deleted_tables)
+    table_word = "таблица" if deleted_count == 1 else "таблицы" if 2 <= deleted_count <= 4 else "таблиц"
+    return utf8_json(
+        {
+            "ok": True,
+            "deleted_tables": deleted_tables,
+            "remaining_tables": result["remaining_tables"],
+            "remaining_count": result["remaining_count"],
+            "message": f"Удалено {deleted_count} {table_word} из базы данных.",
+        }
+    )
 
 @router.get("/api/column-search")
 def column_search_endpoint(table_name: str = "", query: str = ""):

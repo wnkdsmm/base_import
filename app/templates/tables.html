@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
+<a class="skip-link" href="#page-content">Перейти к содержимому</a>
 <a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
 <noscript>
     <style>
@@ -24,37 +25,28 @@
         <p>Быстрый переход к исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` из базы данных.</p>
     </div>
 
-    <div class="sidebar-actions sidebar-actions-primary">
-        <button onclick="location.href='/'">Панель</button>
-        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
-        <button onclick="location.href='/ml-model'">ML-прогноз</button>
-        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
-        <button onclick="location.href='/fire-map'">Карта пожаров</button>
-        <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Очистка таблиц</button>
-        <button onclick="location.href='/tables'">Открыть таблицы</button>
-    </div>
-
-    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
         <a class="sidebar-link" href="/">Панель</a>
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
         <a class="sidebar-link" href="/tables">Таблицы</a>
     </nav>
 
     <div class="sidebar-status">
-        <span class="status-badge status-badge-live">База доступна</span>
+        <span id="tableAvailabilityBadge" class="status-badge{% if tables %} status-badge-live{% endif %}">
+            {% if tables %}База доступна{% else %}Таблиц нет{% endif %}
+        </span>
         <div class="status-line">
             <span>Таблиц найдено</span>
-            <strong>{{ tables | length }}</strong>
+            <strong id="sidebarTablesCount">{{ tables | length }}</strong>
         </div>
         <div class="status-line">
             <span>Навигация</span>
-            <strong>Просмотр 100 строк</strong>
+            <strong>Полный просмотр</strong>
         </div>
     </div>
 </aside>
@@ -65,10 +57,10 @@
         <div class="hero-copy">
             <span class="eyebrow">Навигатор по таблицам</span>
             <h1>Таблицы в базе данных</h1>
-            <p class="subtitle">Откройте любую таблицу, чтобы посмотреть первые 100 строк и быстро проверить структуру данных перед анализом, очисткой или построением модели.</p>
+            <p class="subtitle">Откройте любую таблицу, чтобы посмотреть все строки и быстро проверить структуру данных перед анализом, очисткой или построением модели.</p>
             <div class="hero-tags">
-                <span class="hero-tag">Всего таблиц: <strong>{{ tables | length }}</strong></span>
-                <span class="hero-tag">Просмотр: <strong>100 строк</strong></span>
+                <span class="hero-tag">Всего таблиц: <strong id="heroTablesCount">{{ tables | length }}</strong></span>
+                <span class="hero-tag">Просмотр: <strong>все строки</strong></span>
             </div>
         </div>
         <div class="hero-side">
@@ -80,23 +72,75 @@
         </div>
     </section>
 
+    <section class="panel table-import-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Импорт данных</h2>
+                <span class="panel-meta">Импорт живёт в разделе таблиц, чтобы загрузка, просмотр и последующая обработка были в одном месте.</span>
+            </div>
+        </div>
+        <div class="table-management-layout">
+            <article class="table-action-card">
+                <div class="table-import-copy">
+                    <p class="table-import-lead">Загрузите новый файл, и после завершения импорта список таблиц обновится автоматически.</p>
+                    <div class="table-import-actions">
+                        <button type="button" class="primary-action" onclick="selectAndImport()" aria-controls="logs">Импортировать файл</button>
+                        <span class="table-import-note">Ход загрузки и обработки появится справа в журнале.</span>
+                    </div>
+                </div>
+            </article>
+            <div class="table-import-log-shell">
+                <div id="logs" class="import-log-box" aria-live="polite">
+                    <div>Выберите файл для импорта. Здесь появятся этапы загрузки и обработки.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="panel">
         <div class="panel-head">
-            <h2>Список таблиц</h2>
-            <span class="panel-meta">Карточки адаптивно перестраиваются по ширине экрана.</span>
+            <div>
+                <h2>Список таблиц</h2>
+                <span class="panel-meta">Отмечайте таблицы галочками и удаляйте выбранные одним действием.</span>
+            </div>
         </div>
-        {% if tables %}
-        <ul class="table-link-list">
+
+        <div class="table-selection-toolbar">
+            <div id="tablesSelectionMeta" class="table-selection-summary">
+                {% if tables %}Выбрано: 0{% else %}Таблиц нет{% endif %}
+            </div>
+            <div class="table-selection-actions">
+                <button id="selectAllTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>Выбрать все</button>
+                <button id="clearSelectedTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>Снять выбор</button>
+                <button id="deleteSelectedTablesButton" type="button" class="danger-action" {% if not tables %}disabled{% endif %}>Удалить выбранные</button>
+            </div>
+        </div>
+
+        <div id="tableActionStatus" class="table-action-status is-hidden" aria-live="polite"></div>
+
+        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="В базе пока нет таблиц.">
             {% for table in tables %}
-            <li><a class="table-link-card" href="/tables/{{ table }}">{{ table }}</a></li>
+            <li class="table-link-item" data-table-row data-table-name="{{ table }}">
+                <article class="table-link-card table-link-record">
+                    <div class="table-link-record-head">
+                        <label class="table-selection-check">
+                            <input class="table-selection-checkbox" type="checkbox" value="{{ table }}" aria-label="Выбрать таблицу {{ table }}">
+                        </label>
+                        <a class="table-link-title" href="/tables/{{ table }}">{{ table }}</a>
+                    </div>
+                    <div class="table-link-actions">
+                        <a class="table-link-inline-action" href="/tables/{{ table }}">Открыть</a>
+                    </div>
+                </article>
+            </li>
             {% endfor %}
         </ul>
-        {% else %}
-        <div class="mini-empty">В базе пока нет таблиц.</div>
-        {% endif %}
+        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}">В базе пока нет таблиц.</div>
     </section>
 </main>
+<input type="file" id="fileInput" class="hidden-file-input">
+<script src="/static/js/import.js?v={{ import_js_version }}"></script>
+<script src="/static/js/tables.js?v={{ tables_js_version }}"></script>
 <script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>
-

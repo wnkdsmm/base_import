@@ -374,10 +374,23 @@
         var initialData = window.__FIRE_CLUSTERING_INITIAL__;
 
         if (form) {
+            var tableFilter = byId('clusterTableFilter');
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
                 fetchClusteringData();
             });
+
+            if (tableFilter) {
+                tableFilter.addEventListener('change', function () {
+                    Array.prototype.forEach.call(
+                        form.querySelectorAll('input[name="feature_columns"]'),
+                        function (field) {
+                            field.checked = false;
+                        }
+                    );
+                    fetchClusteringData();
+                });
+            }
         }
 
         if (initialData) {

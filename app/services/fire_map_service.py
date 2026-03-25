@@ -1,18 +1,29 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 from app.runtime_cache import CopyingTtlCache
+from app.services.executive_brief import (
+    build_executive_brief_from_risk_payload,
+    compose_executive_brief_text,
+    empty_executive_brief,
+)
+from app.services.forecast_risk.core import build_decision_support_payload
+from app.services.table_options import get_fire_map_table_options, resolve_selected_table
 from config.paths import get_result_folder
 from config.settings import Settings
 from core.processing.steps.create_fire_map import CreateFireMapStep
 
 _FIRE_MAP_CACHE = CopyingTtlCache(ttl_seconds=120.0, copier=lambda value: value)
+_FIRE_MAP_BRIEF_CACHE = CopyingTtlCache(ttl_seconds=120.0)
 
 
 
 def clear_fire_map_cache() -> None:
     _FIRE_MAP_CACHE.clear()
+    _FIRE_MAP_BRIEF_CACHE.clear()
 
 
 
@@ -38,3 +49,63 @@ def build_fire_map_html(table_name: str) -> str:
     if not html:
         return ""
     return _FIRE_MAP_CACHE.set(normalized_table_name, html)
+
+
+
+def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
+    generated_at = datetime.now().strftime("%d.%m.%Y %H:%M")
+    table_options = get_fire_map_table_options()
+    selected_table = resolve_selected_table(table_options, table_name)
+    brief = empty_executive_brief()
+    risk_prediction: Dict[str, Any] = {
+        "territories": [],
+        "notes": [],
+    }
+
+    if selected_table:
+        cached = _FIRE_MAP_BRIEF_CACHE.get(selected_table)
+        if cached is not None:
+            brief = dict(cached.get("brief") or brief)
+            risk_prediction = dict(cached.get("risk_prediction") or risk_prediction)
+        else:
+            try:
+                risk_prediction = build_decision_support_payload(
+                    source_tables=[selected_table],
+                    selected_district="all",
+                    selected_cause="all",
+                    selected_object_category="all",
+                    history_window="all",
+                    planning_horizon_days=14,
+                )
+                brief = build_executive_brief_from_risk_payload(
+                    risk_prediction,
+                    notes=risk_prediction.get("notes"),
+                )
+            except Exception as exc:
+                brief = empty_executive_brief()
+                brief["notes"] = [f"Управленческий бриф по карте временно недоступен: {exc}"]
+                risk_prediction = {"territories": [], "notes": list(brief["notes"])}
+
+            _FIRE_MAP_BRIEF_CACHE.set(
+                selected_table,
+                {
+                    "brief": brief,
+                    "risk_prediction": risk_prediction,
+                },
+            )
+
+    brief["export_text"] = compose_executive_brief_text(
+        brief,
+        scope_label=f"Таблица: {selected_table or 'не выбрана'} | Режим: fire-map",
+        generated_at=generated_at,
+    )
+
+    return {
+        "generated_at": generated_at,
+        "table_options": table_options,
+        "tables_count": len(table_options),
+        "selected_table": selected_table,
+        "executive_brief": brief,
+        "risk_prediction": risk_prediction,
+        "has_data": bool(selected_table),
+    }

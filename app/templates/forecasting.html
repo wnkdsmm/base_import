@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/forecasting.css?v={{ forecasting_css_version }}">
 </head>
 <body>
+<a class="skip-link" href="#page-content">Перейти к содержимому</a>
 <a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
 <noscript>
     <style>
@@ -35,23 +36,12 @@
         <p>Сначала показывает приоритетные территории и рекомендуемые действия, затем даёт сценарный прогноз по дням и поясняющие графики.</p>
     </div>
 
-    <div class="sidebar-actions sidebar-actions-primary">
-        <button onclick="location.href='/'">Панель</button>
-        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
-        <button onclick="location.href='/ml-model'">ML-прогноз</button>
-        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
-        <button onclick="location.href='/fire-map'">Карта пожаров</button>
-        <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Очистка таблиц</button>
-        <button onclick="location.href='/tables'">Открыть таблицы</button>
-    </div>
-
-    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
         <a class="sidebar-link" href="/">Панель</a>
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
         <a class="sidebar-link" href="/tables">Таблицы</a>
@@ -103,127 +93,34 @@
         </div>
     </section>
 
-    <section id="decisionSupportPanel" class="panel executive-panel forecast-command-panel">
-        <div class="panel-head">
-            <div>
-                <h2>Управленческий бриф по территориям</h2>
-                <span class="panel-meta" id="forecastRiskDescription">{{ risk.model_description }}</span>
-            </div>
-            <button id="forecastExportBriefButton" class="primary-action" type="button">Скачать краткую справку</button>
-        </div>
-        <div id="forecastCommandCards" class="executive-brief-grid">
-            {% if lead_territory %}
-                <article class="executive-brief-card tone-{{ lead_territory.risk_tone }}">
-                    <span class="stat-label">Где риск выше</span>
-                    <strong class="stat-value executive-brief-value">{{ risk.top_territory_label }}</strong>
-                    <span class="stat-foot">{{ risk.top_territory_explanation }}</span>
-                </article>
-                <article class="executive-brief-card tone-sand">
-                    <span class="stat-label">Почему нужен приоритет</span>
-                    <strong class="stat-value executive-brief-value">{{ lead_territory.component_scores[0].label if lead_territory.component_scores else 'Нет доминирующего фактора' }}</strong>
-                    <span class="stat-foot">{{ lead_territory.ranking_reason | default(lead_territory.drivers_display) }}</span>
-                </article>
-                <article class="executive-brief-card tone-forest">
-                    <span class="stat-label">Что сделать первым</span>
-                    <strong class="stat-value executive-brief-value">{{ lead_territory.action_label }}</strong>
-                    <span class="stat-foot">{{ lead_territory.action_hint }}</span>
-                </article>
-                <article class="executive-brief-card tone-{{ risk.top_territory_confidence_tone or passport.confidence_tone or 'fire' }}">
-                    <span class="stat-label">Надёжность вывода</span>
-                    <strong class="stat-value executive-brief-value">{{ risk.top_territory_confidence_label or passport.confidence_label or 'Ограниченная' }}</strong>
-                    <span class="stat-foot">{{ risk.top_territory_confidence_note or passport.validation_summary or 'Паспорт качества появится после расчёта.' }}</span>
-                </article>
-            {% else %}
-            <div class="mini-empty">Управленческий бриф появится после расчёта.</div>
-            {% endif %}
-        </div>
-        <div class="executive-layout">
-            <div>
-                <div class="executive-section-head">
-                    <h3>Top территорий</h3>
-                    <span>Где нужно усиливать внимание в первую очередь</span>
-                </div>
-                <div id="forecastCommandTerritories" class="executive-territory-list">
-                    {% if risk.territories %}
-                        {% for item in risk.territories[:3] %}
-                        <article class="executive-territory-card tone-{{ item.risk_tone }}">
-                            <div class="executive-territory-head">
-                                <strong>{{ item.label }}</strong>
-                                <span class="executive-territory-score">{{ item.risk_display }}</span>
-                            </div>
-                            <div class="executive-territory-tags">
-                                <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
-                                <span class="forecast-badge risk-badge tone-sky">{{ item.priority_label }}</span>
-                                <span class="forecast-badge risk-badge tone-{{ item.ranking_confidence_tone | default('fire') }}">{{ item.ranking_confidence_label | default('Ограниченная') }}</span>
-                            </div>
-                            <p class="executive-territory-reason">{{ item.ranking_reason | default(item.drivers_display) }}</p>
-                            <div class="executive-territory-action">
-                                <strong>{{ item.action_label }}</strong>
-                                <span>{{ item.action_hint }}</span>
-                            </div>
-                            <div class="executive-territory-meta">
-                                <span>{{ item.settlement_context_label }}</span>
-                                <span>Последний пожар: {{ item.last_fire_display }}</span>
-                            </div>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Top территорий появится после расчёта.</div>
-                    {% endif %}
-                </div>
-            </div>
-            <aside class="executive-side-stack">
-                <article class="executive-side-card">
-                    <div class="executive-section-head">
-                        <h3>Рекомендуемые действия</h3>
-                        <span>Что можно сделать без чтения всей методики</span>
-                    </div>
-                    <div id="forecastCommandActions" class="executive-action-list">
-                        {% if lead_territory and lead_territory.recommendations %}
-                            {% for item in lead_territory.recommendations[:3] %}
-                            <article class="executive-action-item">
-                                <strong>{{ item.label }}</strong>
-                                <span>{{ item.detail }}</span>
-                            </article>
-                            {% endfor %}
-                        {% elif lead_territory %}
-                        <article class="executive-action-item">
-                            <strong>{{ lead_territory.action_label }}</strong>
-                            <span>{{ lead_territory.action_hint }}</span>
-                        </article>
-                        {% else %}
-                        <div class="mini-empty">Рекомендации появятся после расчёта.</div>
-                        {% endif %}
-                    </div>
-                </article>
-                <article class="executive-side-card">
-                    <div class="executive-section-head">
-                        <h3>Насколько доверять выводам</h3>
-                        <span>История ranking + качество данных</span>
-                    </div>
-                    <div class="executive-confidence-inline tone-{{ risk.top_territory_confidence_tone or passport.confidence_tone or 'fire' }}">
-                        <strong id="forecastCommandConfidence">{{ risk.top_territory_confidence_label or passport.confidence_label or 'Ограниченная' }}</strong>
-                        <span id="forecastCommandConfidenceScore">{{ risk.top_territory_confidence_score_display or passport.confidence_score_display or '0 / 100' }}</span>
-                    </div>
-                    <p id="forecastCommandConfidenceSummary" class="quality-summary-text">{{ risk.top_territory_confidence_note or passport.validation_summary or 'Паспорт качества появится после расчёта.' }}</p>
-                    <ul id="forecastCommandNotes" class="notice-list forecast-note-list">
-                        {% if passport.reliability_notes %}
-                            {% for note in passport.reliability_notes[:3] %}
-                            <li>{{ note }}</li>
-                            {% endfor %}
-                        {% elif risk.notes %}
-                            {% for note in risk.notes[:3] %}
-                            <li>{{ note }}</li>
-                            {% endfor %}
-                        {% else %}
-                        <li>Ограничения и примечания появятся после расчёта.</li>
-                        {% endif %}
-                    </ul>
-                </article>
-            </aside>
-        </div>
-    </section>
-    <section class="panel filters-panel">
+    <nav class="orientation-strip" aria-label="Быстрый маршрут по сценарию">
+        <a class="orientation-link is-primary" href="#decisionSupportPanel">
+            <span class="orientation-kicker">1</span>
+            <strong>Сначала бриф</strong>
+            <p>Где риск выше, почему именно там и какое действие первым.</p>
+        </a>
+        <a class="orientation-link is-scenario" href="#forecastFilters">
+            <span class="orientation-kicker">2</span>
+            <strong>Потом параметры</strong>
+            <p>Уточнить таблицу, историю и горизонт сценария.</p>
+        </a>
+        <a class="orientation-link is-decision" href="#forecastDetails">
+            <span class="orientation-kicker">3</span>
+            <strong>Затем детализация</strong>
+            <p>Проверить территории, карту и объясняющие сигналы.</p>
+        </a>
+    </nav>
+
+    {% set brief = data.executive_brief %}
+    {% set section_id = 'decisionSupportPanel' %}
+    {% set brief_heading = 'Управленческий бриф по территориям' %}
+    {% set export_href = '/brief/forecasting.txt?table_name=' ~ filters.table_name ~ '&district=' ~ filters.district ~ '&cause=' ~ filters.cause ~ '&object_category=' ~ filters.object_category ~ '&temperature=' ~ filters.temperature ~ '&forecast_days=' ~ filters.forecast_days ~ '&history_window=' ~ filters.history_window %}
+    {% set export_link_id = 'forecastExportBriefLink' %}
+    {% set cards_id = 'forecastCommandCards' %}
+    {% set excerpt_id = 'forecastCommandExportExcerpt' %}
+    {% set notes_id = 'forecastCommandNotes' %}
+    {% include 'includes/executive_brief.html' %}
+    <section id="forecastFilters" class="panel filters-panel">
         <div class="panel-head">
             <h2>Параметры сценарного прогноза</h2>
             <span class="panel-meta">Выберите таблицу, горизонт и нужный срез, чтобы пересобрать прогноз и приоритет территорий.</span>
@@ -312,13 +209,14 @@
         </article>
     </section>
 
-        <section id="scenarioQualityPanel" class="panel ml-quality-panel">
-        <div class="panel-head">
-            <div>
-                <h2 id="scenarioQualityTitle">{{ quality.title }}</h2>
-                <span id="scenarioQualitySubtitle" class="panel-meta">{{ quality.subtitle }}</span>
-            </div>
-        </div>
+        <details id="scenarioQualityPanel" class="panel ml-quality-panel quality-disclosure">
+            <summary class="panel-head quality-disclosure-summary">
+                <div>
+                    <h2 id="scenarioQualityTitle">{{ quality.title }}</h2>
+                    <span id="scenarioQualitySubtitle" class="panel-meta">{{ quality.subtitle }}</span>
+                </div>
+                <span class="quality-disclosure-toggle">Метрики модели</span>
+            </summary>
         <div id="scenarioQualityMetrics" class="stats-grid">
             {% if quality.metric_cards %}
                 {% for item in quality.metric_cards %}
@@ -392,7 +290,7 @@
                 {% endif %}
             </ul>
         </article>
-    </section>
+    </details>
 
     <section id="forecastScenarioSection" class="forecast-layout">
         <div class="forecast-primary">
@@ -491,7 +389,7 @@
         </aside>
     </section>
 
-    <section class="risk-grid">
+    <section id="forecastDetails" class="risk-grid">
         <article class="panel ranking-panel risk-ranking-panel">
             <div class="panel-head">
                 <h2>Территории с приоритетом для решений</h2>

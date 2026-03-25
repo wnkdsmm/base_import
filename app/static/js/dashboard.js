@@ -260,6 +260,63 @@
         }).join('');
     }
 
+    function buildDashboardBriefHref(filters) {
+        const params = new URLSearchParams();
+        const safeFilters = filters || {};
+
+        if (safeFilters.table_name) {
+            params.set('table_name', safeFilters.table_name);
+        }
+        if (safeFilters.year) {
+            params.set('year', safeFilters.year);
+        }
+        if (safeFilters.group_column) {
+            params.set('group_column', safeFilters.group_column);
+        }
+
+        const query = params.toString();
+        return '/brief/dashboard.txt' + (query ? '?' + query : '');
+    }
+
+    function updateDashboardBriefExport(filters) {
+        const href = buildDashboardBriefHref(filters || {});
+        Array.prototype.forEach.call(
+            document.querySelectorAll('#dashboardBrief .executive-brief-download, #dashboardBrief .executive-brief-summary-action'),
+            function (link) {
+                link.setAttribute('href', href);
+            }
+        );
+    }
+
+    function buildDashboardPageHref(filters, mode) {
+        const params = new URLSearchParams();
+        const safeFilters = filters || {};
+
+        if (safeFilters.table_name) {
+            params.set('table_name', safeFilters.table_name);
+        }
+        if (safeFilters.year) {
+            params.set('year', safeFilters.year);
+        }
+        if (safeFilters.group_column) {
+            params.set('group_column', safeFilters.group_column);
+        }
+        if (mode) {
+            params.set('mode', mode);
+        }
+
+        const query = params.toString();
+        return query ? '/?' + query : '/';
+    }
+
+    function collectDashboardFiltersFromForm() {
+        return {
+            table_name: byId('tableFilter') ? byId('tableFilter').value : '',
+            year: byId('yearFilter') ? byId('yearFilter').value : 'all',
+            group_column: byId('groupColumnFilter') ? byId('groupColumnFilter').value : ''
+        };
+    }
+
     function applyDashboardData(data) {
         if (!data) {
             return;
@@ -272,6 +329,7 @@
         const rankings = data.rankings || {};
         const filters = data.filters || {};
         const management = data.management || {};
+        const brief = management.brief || {};
 
         setSelectOptions('tableFilter', filters.available_tables, filters.table_name, 'Все таблицы');
         setSelectOptions('yearFilter', [{ value: 'all', label: 'Все годы' }].concat(filters.available_years || []), filters.year || 'all', 'Все годы');
@@ -280,24 +338,30 @@
         setText('heroTableLabel', scope.table_label || 'Все таблицы');
         setText('heroYearLabel', scope.year_label || 'Все годы');
         setText('heroGroupLabel', scope.group_label || 'Нет данных');
-        setText('dashboardLeadSummary', management.summary_line || 'После загрузки данных здесь появится управленческая сводка.');
-        setText('managementHeroPriority', management.priority_territory_label || '-');
-        setText('managementHeroPriorityMeta', management.priority_reason || 'Недостаточно данных для определения первого приоритета.');
-        setText('managementHeroConfidence', management.confidence_label || 'Ограниченная');
-        setText('managementHeroConfidenceScore', management.confidence_score_display || '0 / 100');
-        setText('managementHeroConfidenceMeta', management.confidence_summary || 'После загрузки данных здесь появится уровень доверия к сводке.');
+        setText('dashboardLeadSummary', brief.lead || management.summary_line || 'После загрузки данных здесь появится управленческая сводка.');
+        setText('managementHeroPriority', brief.top_territory_label || management.priority_territory_label || '-');
+        setText('managementHeroPriorityMeta', brief.priority_reason || management.priority_reason || 'Недостаточно данных для определения первого приоритета.');
+        setText('managementHeroConfidence', brief.confidence_label || management.confidence_label || 'Ограниченная');
+        setText('managementHeroConfidenceScore', brief.confidence_score_display || management.confidence_score_display || '0 / 100');
+        setText('managementHeroConfidenceMeta', brief.confidence_summary || management.confidence_summary || 'После загрузки данных здесь появится уровень доверия к сводке.');
+        setText('dashboardExportBriefExcerpt', brief.export_excerpt || management.export_excerpt || 'Краткая экспортируемая справка появится после загрузки данных.');
         renderFilterSummary({
             table: scope.table_label || 'Все таблицы',
             year: scope.year_label || 'Все годы',
             group: scope.group_label || 'Нет данных'
         });
 
-        applyToneClass(byId('dashboardPriorityCard'), management.priority_tone || 'sky');
-        applyToneClass(byId('dashboardConfidenceCard'), management.confidence_tone || 'fire');
-        renderManagementCards(management.brief_cards || []);
+        applyToneClass(byId('dashboardPriorityCard'), brief.priority_tone || management.priority_tone || 'sky');
+        applyToneClass(byId('dashboardConfidenceCard'), brief.confidence_tone || management.confidence_tone || 'fire');
+        renderManagementCards(brief.cards || management.brief_cards || []);
         renderManagementTerritories(management.territories || []);
         renderManagementActions(management.actions || []);
-        renderSimpleNotes('managementNotesList', management.notes || [], 'Ограничения и примечания появятся после загрузки данных.');
+        renderSimpleNotes('managementNotesList', brief.notes || management.notes || [], 'Ограничения и примечания появятся после загрузки данных.');
+        updateDashboardBriefExport({
+            table_name: filters.table_name || '',
+            year: filters.year || 'all',
+            group_column: filters.group_column || ''
+        });
 
         setText('trendTitle', trend.title || 'Динамика последнего года');
         setText('trendCurrentValue', trend.current_value_display || '0');
@@ -372,10 +436,10 @@
 
             const data = await response.json();
             applyDashboardData(data);
-            window.history.replaceState({}, '', query ? '/?' + query : '/');
+            window.history.replaceState({}, '', buildDashboardPageHref(collectDashboardFiltersFromForm()));
         } catch (error) {
             console.error(error);
-            form.submit();
+            window.location.assign(buildDashboardPageHref(collectDashboardFiltersFromForm(), 'full'));
         } finally {
             if (button) {
                 button.disabled = false;
@@ -388,11 +452,15 @@
         const tableSelect = byId('tableFilter');
         const yearSelect = byId('yearFilter');
         const groupColumnSelect = byId('groupColumnFilter');
+        const syncBriefLink = function () {
+            updateDashboardBriefExport(collectDashboardFiltersFromForm());
+        };
 
         [tableSelect, yearSelect, groupColumnSelect].forEach(function (selectNode) {
             if (selectNode) {
                 selectNode.addEventListener('change', function () {
                     renderFilterSummary();
+                    syncBriefLink();
                 });
             }
         });
@@ -405,11 +473,13 @@
         }
 
         const initialData = window.__FIRE_DASHBOARD_INITIAL_DATA__;
-        const shouldFetchOnLoad = !initialData || initialData.bootstrap_mode === 'deferred';
-        if (initialData) {
+        const isDeferredBootstrap = !!(initialData && initialData.bootstrap_mode === 'deferred');
+        const shouldFetchOnLoad = !initialData || isDeferredBootstrap;
+        if (initialData && !isDeferredBootstrap) {
             applyDashboardData(initialData);
         } else {
             renderFilterSummary();
+            syncBriefLink();
         }
 
         if (shouldFetchOnLoad) {

@@ -7,54 +7,42 @@
     <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
+<a class="skip-link" href="#page-content">Перейти к содержимому</a>
 <a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
+{% set data = fire_map %}
+{% set brief = data.executive_brief %}
+{% set risk = data.risk_prediction %}
+
 <aside class="sidebar" id="app-sidebar">
     <div class="sidebar-mobile-head">
         <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
     </div>
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Геоаналитика</h2>
-        <p>Интерактивная геоаналитическая карта пожаров по координатам из PostgreSQL: точечный слой, плотность, горячие зоны, кластеры и приоритетные территории.</p>
+        <h2>Fire-map</h2>
+        <p>Сначала показывает, где риск на карте выше, почему эта территория выходит в приоритет и что стоит проверить до просмотра всех слоев.</p>
     </div>
 
-    <div class="sidebar-actions sidebar-actions-primary">
-        <button onclick="location.href='/'">Панель</button>
-        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
-        <button onclick="location.href='/ml-model'">ML-прогноз</button>
-        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
-        <button onclick="location.href='/fire-map'">Карта пожаров</button>
-        <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Очистка таблиц</button>
-        <button onclick="location.href='/tables'">Открыть таблицы</button>
-    </div>
-
-    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
         <a class="sidebar-link" href="/">Панель</a>
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
         <a class="sidebar-link" href="/tables">Таблицы</a>
     </nav>
 
     <div class="sidebar-status">
-        <span class="status-badge status-badge-live">Карта готова к построению</span>
+        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Карта готова к просмотру{% else %}Нет таблиц для карты{% endif %}</span>
         <div class="status-line">
             <span>Таблиц для карты</span>
-            <strong>{{ tables_count }}</strong>
+            <strong>{{ data.tables_count }}</strong>
         </div>
         <div class="status-line">
             <span>Выбранная таблица</span>
-            <strong>{{ selected_table or 'Нет данных' }}</strong>
+            <strong>{{ data.selected_table or 'Нет данных' }}</strong>
         </div>
         <div class="status-line">
             <span>Источник</span>
@@ -68,36 +56,68 @@
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Геоаналитика</span>
-            <h1>Карта пожаров и пространственная аналитика</h1>
-            <p class="subtitle">Страница использует шаг из `create_fire_map.py`, генерирует HTML-карту и добавляет поверх точечной карты аналитические слои для выявления горячих зон, кластеров, зон риска и приоритетных сельских территорий.</p>
+            <h1>Карта пожаров: где риск и что проверять на местности</h1>
+            <p class="subtitle">{{ brief.lead }}</p>
             <div class="hero-tags">
-                <span class="hero-tag">Таблица: <strong>{{ selected_table or 'Не выбрана' }}</strong></span>
+                <span class="hero-tag">Таблица: <strong>{{ data.selected_table or 'не выбрана' }}</strong></span>
                 <span class="hero-tag">Формат: <strong>веб-карта</strong></span>
-                <span class="hero-tag">Источник: <strong>Широта / Долгота</strong></span>
+                <span class="hero-tag">Источник: <strong>широта / долгота</strong></span>
             </div>
         </div>
 
         <div class="hero-side">
+            <article class="hero-stat-card">
+                <span class="hero-stat-label">Территория первого приоритета</span>
+                <strong class="hero-stat-value">{{ brief.top_territory_label }}</strong>
+                <span class="hero-stat-foot">{{ brief.priority_reason }}</span>
+            </article>
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Как работает карта</span>
-                <strong class="hero-stat-value"><small>тепловая карта, горячие зоны, DBSCAN, зоны риска</small></strong>
-                <span class="hero-stat-foot">Если координат или дат мало, интерфейс автоматически переключится в резервный режим и сохранит рабочую точечную карту с аналитическим ранжированием территорий.</span>
+                <span class="hero-stat-label">Что проверить первым</span>
+                <strong class="hero-stat-value">{{ brief.action_label }}</strong>
+                <span class="hero-stat-foot">{{ brief.action_detail }}</span>
             </article>
         </div>
     </section>
 
-    <section class="panel filters-panel">
+    <nav class="orientation-strip" aria-label="Быстрый маршрут по карте">
+        <a class="orientation-link is-primary" href="#mapBrief">
+            <span class="orientation-kicker">1</span>
+            <strong>Сначала бриф</strong>
+            <p>Понять приоритетную территорию и проверочное действие.</p>
+        </a>
+        <a class="orientation-link is-scenario" href="#mapCanvas">
+            <span class="orientation-kicker">2</span>
+            <strong>Потом карта</strong>
+            <p>Открыть слой с точками, плотностью и горячими зонами.</p>
+        </a>
+        <a class="orientation-link is-decision" href="#mapDetails">
+            <span class="orientation-kicker">3</span>
+            <strong>Затем детали</strong>
+            <p>Сверить лидеров и примечания к данным.</p>
+        </a>
+    </nav>
+
+    {% set section_id = 'mapBrief' %}
+    {% set brief_heading = 'Управленческий бриф по карте' %}
+    {% set export_href = '/brief/fire-map.txt?table_name=' ~ data.selected_table %}
+    {% set export_link_id = 'fireMapExportBriefLink' %}
+    {% set cards_id = 'fireMapBriefCards' %}
+    {% set excerpt_id = 'fireMapExportBriefExcerpt' %}
+    {% set notes_id = 'fireMapBriefNotes' %}
+    {% include 'includes/executive_brief.html' %}
+
+    <section id="mapFilters" class="panel filters-panel">
         <div class="panel-head">
             <h2>Выбор таблицы</h2>
-            <span class="panel-meta">Можно быстро переключать карту между доступными таблицами из базы.</span>
+            <span class="panel-meta">Сначала берём нужную таблицу, затем открываем карту и сверяем приоритет с пространственными слоями.</span>
         </div>
         <form class="filters-grid map-toolbar" method="get" action="/fire-map">
             <label class="filter-field filter-field-wide">
                 <span>Таблица для карты</span>
                 <select id="mapTableFilter" name="table_name">
-                    {% if table_options %}
-                        {% for option in table_options %}
-                        <option value="{{ option.value }}" {% if option.value == selected_table %}selected{% endif %}>{{ option.label }}</option>
+                    {% if data.table_options %}
+                        {% for option in data.table_options %}
+                        <option value="{{ option.value }}" {% if option.value == data.selected_table %}selected{% endif %}>{{ option.label }}</option>
                         {% endfor %}
                     {% else %}
                     <option value="">Нет доступных таблиц</option>
@@ -109,9 +129,9 @@
                 <button class="primary-action" type="submit">Показать карту</button>
             </div>
             <div class="filter-field filter-actions map-actions">
-                <span>Отдельно</span>
-                {% if selected_table %}
-                <a class="secondary-action" href="/fire-map/embed?table_name={{ selected_table }}" target="_blank" rel="noopener">Открыть отдельно</a>
+                <span>Отдельное окно</span>
+                {% if data.selected_table %}
+                <a class="secondary-action" href="/fire-map/embed?table_name={{ data.selected_table }}" target="_blank" rel="noopener">Открыть отдельно</a>
                 {% else %}
                 <span class="secondary-action is-disabled">Нет таблицы</span>
                 {% endif %}
@@ -119,22 +139,79 @@
         </form>
     </section>
 
-    <section class="panel map-frame-panel">
+    <section id="mapCanvas" class="panel map-frame-panel">
         <div class="panel-head">
-            <h2>Интерактивная карта и слой поддержки решений</h2>
-            <span class="panel-meta">Всплывающие карточки и панели показывают дату, адрес, последствия, причины пожара, а также плотность, структуру горячих зон и DBSCAN, зоны риска и логистические приоритеты.</span>
+            <h2>Интерактивная карта и слой поддержки решения</h2>
+            <span class="panel-meta">Ищем приоритетную территорию, затем проверяем горячие зоны, плотность точек и соседние очаги на карте.</span>
         </div>
         <div class="map-frame-shell">
-            {% if selected_table %}
+            {% if data.selected_table %}
             <iframe
                 title="Карта пожаров"
                 class="map-frame"
-                src="/fire-map/embed?table_name={{ selected_table }}"
+                src="/fire-map/embed?table_name={{ data.selected_table }}"
                 loading="lazy">
             </iframe>
             {% else %}
             <div class="chart-empty">Нет доступных таблиц для построения карты.</div>
             {% endif %}
+        </div>
+    </section>
+
+    <section id="mapDetails" class="panel executive-detail-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Детали приоритета на карте</h2>
+                <span class="panel-meta">Это уже второй уровень: здесь остаются территории-лидеры и примечания к данным, если нужно проверить решение глубже.</span>
+            </div>
+        </div>
+        <div class="executive-layout">
+            <div>
+                <div class="executive-section-head">
+                    <h3>Территории первого внимания</h3>
+                    <span>Top-3 по риску</span>
+                </div>
+                <div class="executive-territory-list">
+                    {% if risk.territories %}
+                        {% for item in risk.territories[:3] %}
+                        <article class="executive-territory-card tone-{{ item.risk_tone }}">
+                            <div class="executive-territory-head">
+                                <strong>{{ item.label }}</strong>
+                                <span class="executive-territory-score">{{ item.risk_display }}</span>
+                            </div>
+                            <div class="executive-territory-tags">
+                                <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
+                                <span class="forecast-badge risk-badge tone-sky">{{ item.priority_label }}</span>
+                            </div>
+                            <p class="executive-territory-reason">{{ item.ranking_reason | default(item.drivers_display) }}</p>
+                            <div class="executive-territory-action">
+                                <strong>{{ item.action_label }}</strong>
+                                <span>{{ item.action_hint }}</span>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">После расчета здесь появятся лидирующие территории для проверки на карте.</div>
+                    {% endif %}
+                </div>
+            </div>
+            <aside class="executive-side-stack">
+                <article class="executive-side-card">
+                    <div class="executive-section-head">
+                        <h3>Ограничения данных</h3>
+                        <span>Что держать в голове перед решением</span>
+                    </div>
+                    <ul class="notice-list forecast-note-list">
+                        {% if brief.notes %}
+                            {% for note in brief.notes %}
+                            <li>{{ note }}</li>
+                            {% endfor %}
+                        {% else %}
+                        <li>Примечания к данным появятся после расчета.</li>
+                        {% endif %}
+                    </ul>
+                </article>
+            </aside>
         </div>
     </section>
 </main>

@@ -1,0 +1,43 @@
+<section id="{{ section_id | default('pageBrief') }}" class="panel executive-panel executive-brief-panel">
+    <div class="panel-head executive-panel-head">
+        <div>
+            <h2>{{ brief_heading | default('Управленческий бриф') }}</h2>
+            <span class="panel-meta">{{ brief.lead }}</span>
+        </div>
+        {% if export_href %}
+        <a id="{{ export_link_id | default('executiveBriefExportLink') }}" class="primary-action executive-brief-download" href="{{ export_href }}">Скачать краткую справку</a>
+        {% endif %}
+    </div>
+    <div id="{{ cards_id | default('executiveBriefCards') }}" class="executive-brief-grid">
+        {% if brief.cards %}
+            {% for item in brief.cards %}
+            <article class="executive-brief-card tone-{{ item.tone }}">
+                <span class="stat-label">{{ item.label }}</span>
+                <strong class="stat-value executive-brief-value">{{ item.value }}</strong>
+                <span class="stat-foot">{{ item.meta }}</span>
+            </article>
+            {% endfor %}
+        {% else %}
+        <div class="mini-empty">Краткий бриф появится после расчета.</div>
+        {% endif %}
+    </div>
+    <article class="executive-brief-summary tone-{{ brief.confidence_tone | default('sky') }}">
+        <div class="executive-brief-summary-copy">
+            <span class="stat-label">{{ brief.export_title }}</span>
+            <strong class="executive-brief-summary-title">1 абзац для передачи дальше</strong>
+            <p id="{{ excerpt_id | default('executiveBriefExportExcerpt') }}" class="executive-brief-summary-text">{{ brief.export_excerpt }}</p>
+        </div>
+        {% if export_href %}
+        <a class="secondary-action executive-brief-summary-action" href="{{ export_href }}">Открыть .txt</a>
+        {% endif %}
+    </article>
+    <ul id="{{ notes_id | default('executiveBriefNotes') }}" class="notice-list forecast-note-list executive-brief-notes">
+        {% if brief.notes %}
+            {% for note in brief.notes %}
+            <li>{{ note }}</li>
+            {% endfor %}
+        {% else %}
+        <li>Примечания и ограничения появятся после расчета.</li>
+        {% endif %}
+    </ul>
+</section>

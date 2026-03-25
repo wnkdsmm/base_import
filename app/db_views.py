@@ -65,7 +65,7 @@ def get_table_preview(table_name, selected_columns, limit=100):
 
 
 
-def get_table_data(table_name, limit=100):
+def get_table_data(table_name, limit=None):
     """Получить данные из таблицы с ограничением по строкам"""
     if not table_name or not isinstance(table_name, str):
         raise ValueError("Invalid table name")
@@ -73,10 +73,15 @@ def get_table_data(table_name, limit=100):
     try:
         columns = get_table_columns_cached(table_name)
         quoted_columns = ", ".join(_quote_identifier(column) for column in columns)
-        query = text(f"SELECT {quoted_columns} FROM {_quote_identifier(table_name)} LIMIT :limit")
+        has_limit = limit is not None
+        safe_limit = max(1, int(limit)) if has_limit else None
+        query = text(
+            f"SELECT {quoted_columns} FROM {_quote_identifier(table_name)}"
+            + (" LIMIT :limit" if has_limit else "")
+        )
 
         with engine.connect() as conn:
-            result = conn.execute(query, {"limit": limit})
+            result = conn.execute(query, {"limit": safe_limit} if has_limit else {})
             rows = [list(row) for row in result]
 
         return columns, rows
@@ -118,4 +123,57 @@ def create_modified_table(source_table: str, selected_columns, target_table: str
         "table_name": target_table_name,
         "selected_columns": ordered_columns,
         "replaced_existing": replaced_existing,
+    }
+
+
+def delete_tables(table_names):
+    normalized_names = []
+    seen_names = set()
+
+    for table_name in table_names or []:
+        if not table_name or not isinstance(table_name, str):
+            continue
+
+        normalized_name = str(table_name).strip()
+        if not normalized_name or normalized_name in seen_names:
+            continue
+
+        normalized_names.append(normalized_name)
+        seen_names.add(normalized_name)
+
+    if not normalized_names:
+        raise ValueError("Не выбрана ни одна таблица для удаления")
+
+    available_tables = set(get_table_names_cached())
+    missing_tables = [table_name for table_name in normalized_names if table_name not in available_tables]
+    if missing_tables:
+        raise ValueError("Таблицы не найдены: " + ", ".join(missing_tables))
+
+    with engine.begin() as conn:
+        for table_name in normalized_names:
+            conn.execute(text(f"DROP TABLE IF EXISTS {_quote_identifier(table_name)}"))
+
+    invalidate_db_metadata_cache()
+    try:
+        from app.services.pipeline_service import invalidate_runtime_caches
+
+        invalidate_runtime_caches()
+    except Exception:
+        pass
+
+    remaining_tables = get_table_names_cached()
+    return {
+        "deleted_tables": normalized_names,
+        "remaining_tables": remaining_tables,
+        "remaining_count": len(remaining_tables),
+    }
+
+
+def delete_table(table_name: str):
+    result = delete_tables([table_name])
+    deleted_name = result["deleted_tables"][0]
+    return {
+        "table_name": deleted_name,
+        "remaining_tables": result["remaining_tables"],
+        "remaining_count": result["remaining_count"],
     }

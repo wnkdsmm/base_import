@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
+<a class="skip-link" href="#page-content">Перейти к содержимому</a>
 <a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
 <noscript>
     <style>
@@ -36,23 +37,12 @@
         <p>Быстрый управленческий обзор: где риск выше, почему ситуация требует внимания и какие территории стоит брать в работу первыми.</p>
     </div>
 
-    <div class="sidebar-actions sidebar-actions-primary">
-        <button type="button" onclick="selectAndImport()">Импортировать данные</button>
-        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
-        <button onclick="location.href='/ml-model'">ML-прогноз</button>
-        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
-        <button onclick="location.href='/fire-map'">Карта пожаров</button>
-        <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Очистка таблиц</button>
-        <button onclick="location.href='/tables'">Открыть таблицы</button>
-    </div>
-
-    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
         <a class="sidebar-link" href="/">Панель</a>
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
         <a class="sidebar-link" href="/tables">Таблицы</a>
@@ -105,97 +95,33 @@
         </div>
     </section>
 
-    <section class="panel executive-panel">
-        <div class="panel-head">
-            <div>
-                <h2>Оперативный бриф</h2>
-                <span class="panel-meta">Сначала смотрим приоритетные территории и рекомендуемые действия, затем используем графики ниже как подтверждение решения.</span>
-            </div>
-        </div>
-        <div id="managementBriefCards" class="executive-brief-grid">
-            {% if management.brief_cards %}
-                {% for item in management.brief_cards %}
-                <article class="executive-brief-card tone-{{ item.tone }}">
-                    <span class="stat-label">{{ item.label }}</span>
-                    <strong class="stat-value executive-brief-value">{{ item.value }}</strong>
-                    <span class="stat-foot">{{ item.meta }}</span>
-                </article>
-                {% endfor %}
-            {% else %}
-            <div class="mini-empty">Сводка появится после загрузки данных.</div>
-            {% endif %}
-        </div>
-        <div class="executive-layout">
-            <div>
-                <div class="executive-section-head">
-                    <h3>Территории первого внимания</h3>
-                    <span>Top-3 по управленческому приоритету</span>
-                </div>
-                <div id="managementTerritories" class="executive-territory-list">
-                    {% if management.territories %}
-                        {% for item in management.territories %}
-                        <article class="executive-territory-card tone-{{ item.risk_tone }}">
-                            <div class="executive-territory-head">
-                                <strong>{{ item.label }}</strong>
-                                <span class="executive-territory-score">{{ item.risk_display }}</span>
-                            </div>
-                            <div class="executive-territory-tags">
-                                <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
-                                <span class="forecast-badge risk-badge tone-sky">{{ item.priority_label }}</span>
-                            </div>
-                            <p class="executive-territory-reason">{{ item.drivers_display }}</p>
-                            <div class="executive-territory-action">
-                                <strong>{{ item.action_label }}</strong>
-                                <span>{{ item.action_hint }}</span>
-                            </div>
-                            <div class="executive-territory-meta">
-                                <span>{{ item.context_label }}</span>
-                                <span>Последний пожар: {{ item.last_fire_display }}</span>
-                            </div>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Территории первого внимания появятся после расчёта.</div>
-                    {% endif %}
-                </div>
-            </div>
-            <aside class="executive-side-stack">
-                <article class="executive-side-card">
-                    <div class="executive-section-head">
-                        <h3>Рекомендуемые действия</h3>
-                        <span>Что сделать в первую очередь</span>
-                    </div>
-                    <div id="managementActionList" class="executive-action-list">
-                        {% if management.actions %}
-                            {% for item in management.actions %}
-                            <article class="executive-action-item">
-                                <strong>{{ item.label }}</strong>
-                                <span>{{ item.detail }}</span>
-                            </article>
-                            {% endfor %}
-                        {% else %}
-                        <div class="mini-empty">Рекомендации появятся после расчёта.</div>
-                        {% endif %}
-                    </div>
-                </article>
-                <article class="executive-side-card">
-                    <div class="executive-section-head">
-                        <h3>Ограничения данных</h3>
-                        <span>Что важно учитывать перед решением</span>
-                    </div>
-                    <ul id="managementNotesList" class="notice-list forecast-note-list">
-                        {% if management.notes %}
-                            {% for note in management.notes %}
-                            <li>{{ note }}</li>
-                            {% endfor %}
-                        {% else %}
-                        <li>Ограничения и примечания появятся после загрузки данных.</li>
-                        {% endif %}
-                    </ul>
-                </article>
-            </aside>
-        </div>
-    </section>
+    <nav class="orientation-strip" aria-label="Быстрый маршрут по dashboard">
+        <a class="orientation-link is-primary" href="#dashboardBrief">
+            <span class="orientation-kicker">1</span>
+            <strong>Сначала бриф</strong>
+            <p>За 10 секунд понять, где риск и что делать первым.</p>
+        </a>
+        <a class="orientation-link is-scenario" href="#dashboardFilters">
+            <span class="orientation-kicker">2</span>
+            <strong>Потом уточнение</strong>
+            <p>Сузить картину по таблице, году и аналитическому разрезу.</p>
+        </a>
+        <a class="orientation-link is-decision" href="#dashboardDetails">
+            <span class="orientation-kicker">3</span>
+            <strong>Затем детали</strong>
+            <p>Проверить лидирующие территории и адресные действия.</p>
+        </a>
+    </nav>
+
+    {% set brief = management.brief %}
+    {% set section_id = 'dashboardBrief' %}
+    {% set brief_heading = 'Оперативный бриф' %}
+    {% set export_href = '/brief/dashboard.txt?table_name=' ~ filters.table_name ~ '&year=' ~ filters.year ~ '&group_column=' ~ filters.group_column %}
+    {% set export_link_id = 'dashboardExportBriefLink' %}
+    {% set cards_id = 'managementBriefCards' %}
+    {% set excerpt_id = 'dashboardExportBriefExcerpt' %}
+    {% set notes_id = 'managementNotesList' %}
+    {% include 'includes/executive_brief.html' %}
 
     <section class="dashboard-shell">
         <aside class="dashboard-overview-column">
@@ -223,7 +149,7 @@
                     </article>
                 </section>
 
-                <section class="panel filters-panel">
+                <section id="dashboardFilters" class="panel filters-panel">
                     <div class="panel-head">
                         <h2>Фильтры</h2>
                         <span class="panel-meta">Измените таблицу, год и аналитический разрез, чтобы пересобрать сводку и графики.</span>
@@ -279,6 +205,69 @@
         </aside>
 
         <section class="dashboard-content-column">
+            <section id="dashboardDetails" class="panel executive-detail-panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>Детали приоритета</h2>
+                        <span class="panel-meta">Ниже остаются территории и действия для проверки решения, но уже после короткого брифа.</span>
+                    </div>
+                </div>
+                <div class="executive-layout">
+                    <div>
+                        <div class="executive-section-head">
+                            <h3>Территории первого внимания</h3>
+                            <span>Top-3 по управленческому приоритету</span>
+                        </div>
+                        <div id="managementTerritories" class="executive-territory-list">
+                            {% if management.territories %}
+                                {% for item in management.territories %}
+                                <article class="executive-territory-card tone-{{ item.risk_tone }}">
+                                    <div class="executive-territory-head">
+                                        <strong>{{ item.label }}</strong>
+                                        <span class="executive-territory-score">{{ item.risk_display }}</span>
+                                    </div>
+                                    <div class="executive-territory-tags">
+                                        <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
+                                        <span class="forecast-badge risk-badge tone-sky">{{ item.priority_label }}</span>
+                                    </div>
+                                    <p class="executive-territory-reason">{{ item.drivers_display }}</p>
+                                    <div class="executive-territory-action">
+                                        <strong>{{ item.action_label }}</strong>
+                                        <span>{{ item.action_hint }}</span>
+                                    </div>
+                                    <div class="executive-territory-meta">
+                                        <span>{{ item.context_label }}</span>
+                                        <span>Последний пожар: {{ item.last_fire_display }}</span>
+                                    </div>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Территории первого внимания появятся после расчета.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <aside class="executive-side-stack">
+                        <article class="executive-side-card">
+                            <div class="executive-section-head">
+                                <h3>Рекомендуемые действия</h3>
+                                <span>Что сделать в первую очередь</span>
+                            </div>
+                            <div id="managementActionList" class="executive-action-list">
+                                {% if management.actions %}
+                                    {% for item in management.actions %}
+                                    <article class="executive-action-item">
+                                        <strong>{{ item.label }}</strong>
+                                        <span>{{ item.detail }}</span>
+                                    </article>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Рекомендации появятся после расчета.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+                    </aside>
+                </div>
+            </section>
             <section class="dashboard-layout dashboard-layout-focused">
                 <div class="dashboard-primary">
                     <div class="dashboard-grid dashboard-grid-three">
@@ -389,14 +378,11 @@
     </section>
 </main>
 
-<input type="file" id="fileInput" class="hidden-file-input">
-
 <script>
 window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
 </script>
 <script src="/assets/plotly.js"></script>
 
-<script src="/static/js/import.js?v={{ import_js_version }}"></script>
 <script src="/static/js/dashboard.js?v={{ dashboard_js_version }}"></script>
 <script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>

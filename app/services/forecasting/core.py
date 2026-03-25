@@ -4,6 +4,11 @@ from datetime import datetime
 from statistics import mean
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.services.executive_brief import (
+    build_executive_brief_from_risk_payload,
+    compose_executive_brief_text,
+    empty_executive_brief,
+)
 from app.services.forecast_risk.core import build_decision_support_payload
 from app.services.model_quality import compute_count_metrics
 from app.plotly_bundle import get_plotly_bundle
@@ -252,15 +257,31 @@ def get_forecasting_data(
         forecast_rows=forecast_rows,
         history_window=selected_history_window,
     )
+    generated_at = _format_datetime(datetime.now())
+    executive_brief = build_executive_brief_from_risk_payload(
+        risk_prediction,
+        notes=risk_prediction.get("notes"),
+    )
+    executive_brief["export_text"] = compose_executive_brief_text(
+        executive_brief,
+        scope_label=(
+            f"Таблица: {summary['selected_table_label']} | "
+            f"История: {summary['history_window_label']} | "
+            f"Срез: {summary['slice_label']} | "
+            f"Горизонт: {summary['forecast_days_display']} дней"
+        ),
+        generated_at=generated_at,
+    )
 
     payload = {
-        "generated_at": _format_datetime(datetime.now()),
+        "generated_at": generated_at,
         "has_data": bool(filtered_records),
         "model_description": SCENARIO_FORECAST_DESCRIPTION,
         "summary": summary,
         "quality_assessment": quality_assessment,
         "features": features,
         "risk_prediction": risk_prediction,
+        "executive_brief": executive_brief,
         "insights": insights,
         "charts": charts,
         "forecast_rows": forecast_rows,
@@ -540,6 +561,7 @@ def _empty_forecasting_data(
                 "districts": [],
             },
         },
+        "executive_brief": empty_executive_brief(),
         "insights": [],
         "charts": {
             "daily": _empty_chart_bundle("История и сценарный прогноз", "Недостаточно данных для построения прогноза."),

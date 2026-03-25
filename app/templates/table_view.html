@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
+<a class="skip-link" href="#page-content">Перейти к содержимому</a>
 <a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
 <noscript>
     <style>
@@ -24,23 +25,12 @@
         <p>Предпросмотр выбранной таблицы с фиксированной шапкой и горизонтальной прокруткой только внутри таблицы.</p>
     </div>
 
-    <div class="sidebar-actions sidebar-actions-primary">
-        <button onclick="location.href='/'">Панель</button>
-        <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
-        <button onclick="location.href='/ml-model'">ML-прогноз</button>
-        <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
-        <button onclick="location.href='/fire-map'">Карта пожаров</button>
-        <button onclick="location.href='/column-search'">Поиск колонок</button>
-        <button onclick="location.href='/select_table'">Очистка таблиц</button>
-        <button onclick="location.href='/tables'">Открыть таблицы</button>
-    </div>
-
-    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
         <a class="sidebar-link" href="/">Панель</a>
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
         <a class="sidebar-link" href="/tables">Таблицы</a>
@@ -69,10 +59,13 @@
         <div class="hero-copy">
             <span class="eyebrow">Предпросмотр таблицы</span>
             <h1>{{ table_name }}</h1>
-            <p class="subtitle">Ниже показаны первые 100 строк таблицы. Для широких наборов данных используется внутренний скролл контейнера, поэтому вся страница остаётся в пределах экрана.</p>
+            <p class="subtitle">Ниже показаны все строки таблицы. Для широких наборов данных используется внутренний скролл контейнера, поэтому вся страница остаётся в пределах экрана.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Колонок: <strong>{{ columns | length }}</strong></span>
                 <span class="hero-tag">Строк показано: <strong>{{ rows | length }}</strong></span>
+            </div>
+            <div class="simple-page-actions">
+                <a class="primary-action" href="/tables">Вернуться к таблицам</a>
             </div>
         </div>
         <div class="hero-side">
@@ -84,9 +77,41 @@
         </div>
     </section>
 
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Краткая статистика по таблице</h2>
+            <span class="panel-meta">{{ table_summary.lead }}</span>
+        </div>
+        <div class="stats-grid">
+            {% for card in table_summary.cards %}
+            <article class="stat-card">
+                <span class="stat-label">{{ card.label }}</span>
+                <strong class="stat-value">{{ card.value }}</strong>
+                <span class="stat-foot">{{ card.meta }}</span>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Ключевые критерии перед просмотром</h2>
+            <span class="panel-meta">{{ table_summary.criteria_lead }}</span>
+        </div>
+        <div class="stats-grid">
+            {% for group in table_summary.groups %}
+            <article class="stat-card">
+                <span class="stat-label">{{ group.label }}</span>
+                <strong class="stat-value">{{ group.value }}</strong>
+                <span class="stat-foot">{{ group.meta }}</span>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+
     <section class="panel data-table-panel">
         <div class="panel-head">
-            <h2>Первые 100 строк</h2>
+            <h2>Все строки</h2>
             <span class="panel-meta">Шапка таблицы закреплена, длинные значения переносятся внутри ячеек.</span>
         </div>
         <div class="data-table-shell">
@@ -114,4 +139,3 @@
 <script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>
-

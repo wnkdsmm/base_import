@@ -83,6 +83,31 @@ function initializeImportLogs() {
     }
 }
 
+function notifyImportComplete(importResult) {
+    try {
+        document.dispatchEvent(new CustomEvent("fire-monitor:import-complete", {
+            detail: importResult || {},
+        }));
+    } catch (error) {
+        console.error("Error dispatching import completion event:", error);
+    }
+
+    const hooks = [
+        window.fireDashboard && window.fireDashboard.afterImport,
+        window.fireTables && window.fireTables.afterImport,
+    ];
+
+    hooks.forEach((hook) => {
+        if (typeof hook === "function") {
+            try {
+                hook(importResult || {});
+            } catch (error) {
+                console.error("Error in afterImport hook:", error);
+            }
+        }
+    });
+}
+
 async function selectAndImport() {
     const fileInput = document.getElementById("fileInput");
     if (!fileInput) {
@@ -170,9 +195,7 @@ async function selectAndImport() {
 
         await refreshLogs(resolvedJobId);
 
-        if (window.fireDashboard && typeof window.fireDashboard.afterImport === "function") {
-            window.fireDashboard.afterImport();
-        }
+        notifyImportComplete(importResult);
     };
 
     fileInput.click();
