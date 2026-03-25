@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Sequence
+
+from app.plotly_bundle import get_plotly_bundle
+from app.runtime_cache import CopyingTtlCache
+from typing import Any, Dict, List, Sequence, Tuple
 
 from .analysis import (
     _build_centroid_table,
     _build_cluster_profiles,
     _build_notes,
     _build_representative_rows,
+    _compare_clustering_methods,
     _cluster_labels,
     _evaluate_cluster_counts,
     _run_clustering,
 )
-from .charts import _build_diagnostics_chart, _build_distribution_chart, _build_scatter_chart, _empty_chart_bundle, _get_plotly_bundle
+from .charts import _build_diagnostics_chart, _build_distribution_chart, _build_scatter_chart, _empty_chart_bundle
 from .constants import CLUSTER_COUNT_OPTIONS, MIN_ROWS_PER_CLUSTER, SAMPLE_LIMIT_OPTIONS, SAMPLING_STRATEGY_OPTIONS
 from .data import (
     _build_feature_options,
@@ -26,6 +30,35 @@ from .data import (
     _resolve_selected_table,
 )
 from .utils import _format_datetime, _format_integer, _format_number, _format_percent
+
+_CLUSTERING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
+
+
+
+def clear_clustering_cache() -> None:
+    _CLUSTERING_CACHE.clear()
+
+
+
+def _normalize_clustering_cache_value(value: str) -> str:
+    return str(value or "").strip()
+
+
+
+def _build_clustering_cache_key(
+    selected_table: str,
+    cluster_count: int,
+    sample_limit: int,
+    sampling_strategy: str,
+    feature_columns: Sequence[str] | None,
+) -> Tuple[str, ...]:
+    return (
+        selected_table,
+        str(cluster_count),
+        str(sample_limit),
+        _normalize_clustering_cache_value(sampling_strategy),
+        *tuple(str(item).strip() for item in (feature_columns or []) if str(item).strip()),
+    )
 
 
 
@@ -46,12 +79,41 @@ def get_clustering_page_context(
     return {
         "generated_at": _format_datetime(datetime.now()),
         "initial_data": initial_data,
-        "plotly_js": _get_plotly_bundle(),
+        "plotly_js": get_plotly_bundle(),
         "has_data": bool(initial_data["filters"]["available_tables"]),
     }
 
 
 
+
+def get_clustering_shell_context(
+    table_name: str = "",
+    cluster_count: str = "4",
+    sample_limit: str = "1000",
+    sampling_strategy: str = "stratified",
+    feature_columns: Sequence[str] | None = None,
+) -> Dict[str, Any]:
+    table_options = _build_table_options()
+    selected_table = _resolve_selected_table(table_options, table_name)
+    requested_cluster_count = _parse_cluster_count(cluster_count)
+    requested_sample_limit = _parse_sample_limit(sample_limit)
+    selected_sampling_strategy = _parse_sampling_strategy(sampling_strategy)
+    initial_data = _empty_clustering_data(
+        table_options=table_options,
+        selected_table=selected_table,
+        cluster_count=requested_cluster_count,
+        sample_limit=requested_sample_limit,
+        sampling_strategy=selected_sampling_strategy,
+    )
+    initial_data["bootstrap_mode"] = "deferred"
+    if feature_columns:
+        initial_data["filters"]["feature_columns"] = [str(item).strip() for item in feature_columns if str(item).strip()]
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "initial_data": initial_data,
+        "plotly_js": "",
+        "has_data": bool(initial_data["filters"]["available_tables"]),
+    }
 def get_clustering_data(
     table_name: str = "",
     cluster_count: str = "4",
@@ -64,6 +126,16 @@ def get_clustering_data(
     requested_cluster_count = _parse_cluster_count(cluster_count)
     requested_sample_limit = _parse_sample_limit(sample_limit)
     selected_sampling_strategy = _parse_sampling_strategy(sampling_strategy)
+    cache_key = _build_clustering_cache_key(
+        selected_table=selected_table,
+        cluster_count=requested_cluster_count,
+        sample_limit=requested_sample_limit,
+        sampling_strategy=selected_sampling_strategy,
+        feature_columns=feature_columns,
+    )
+    cached_payload = _CLUSTERING_CACHE.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
 
     base = _empty_clustering_data(
         table_options=table_options,
@@ -74,13 +146,13 @@ def get_clustering_data(
     )
     if not selected_table:
         base["notes"].append("Выберите таблицу, чтобы сгруппировать территории по их пожарному профилю и типу риска.")
-        return base
+        return _CLUSTERING_CACHE.set(cache_key, base)
 
     try:
         dataset = _load_territory_dataset(selected_table, requested_sample_limit, selected_sampling_strategy)
     except Exception as exc:
         base["notes"].append(str(exc))
-        return base
+        return _CLUSTERING_CACHE.set(cache_key, base)
 
     sampling_strategy_label = next(
         (item["label"] for item in SAMPLING_STRATEGY_OPTIONS if item["value"] == selected_sampling_strategy),
@@ -108,11 +180,11 @@ def get_clustering_data(
 
     if len(candidate_features) < 2:
         base["notes"].append("В таблице не хватило агрегированных признаков с вариативностью, чтобы стабильно кластеризовать территории.")
-        return base
+        return _CLUSTERING_CACHE.set(cache_key, base)
 
     if len(selected_features) < 2:
         base["notes"].append("Для кластеризации нужно выбрать минимум два агрегированных признака территории.")
-        return base
+        return _CLUSTERING_CACHE.set(cache_key, base)
 
     cluster_frame, entity_frame, excluded_entities = _prepare_cluster_frame(
         feature_frame=dataset["feature_frame"],
@@ -124,7 +196,7 @@ def get_clustering_data(
 
     if len(cluster_frame) < max(12, requested_cluster_count * MIN_ROWS_PER_CLUSTER):
         base["notes"].append("После отбора и заполнения пропусков осталось слишком мало территорий для устойчивой кластеризации.")
-        return base
+        return _CLUSTERING_CACHE.set(cache_key, base)
 
     actual_cluster_count = min(max(CLUSTER_COUNT_OPTIONS[0], requested_cluster_count), len(cluster_frame) - 1)
     if actual_cluster_count != requested_cluster_count:
@@ -134,6 +206,7 @@ def get_clustering_data(
 
     diagnostics = _evaluate_cluster_counts(cluster_frame)
     clustering = _run_clustering(cluster_frame, actual_cluster_count)
+    method_comparison = _compare_clustering_methods(cluster_frame, actual_cluster_count)
     labels = clustering["labels"]
     cluster_labels = _cluster_labels(actual_cluster_count)
     profiles = _build_cluster_profiles(
@@ -178,6 +251,7 @@ def get_clustering_data(
             "Для каждой территории собирается профиль риска: частота пожаров, площадь, ночные инциденты, прибытие, тяжёлые последствия и подтверждённость водоснабжения."
         ),
         "summary": summary,
+        "quality_assessment": _build_clustering_quality_assessment(clustering, method_comparison, actual_cluster_count, selected_features),
         "cluster_profiles": profiles,
         "centroid_columns": centroid_columns,
         "centroid_rows": centroid_rows,
@@ -216,9 +290,71 @@ def get_clustering_data(
             sampled_entities=dataset["sampled_entities"],
         )
     )
-    return payload
+    return _CLUSTERING_CACHE.set(cache_key, payload)
 
 
+def _empty_clustering_quality_assessment() -> Dict[str, Any]:
+    return {
+        "ready": False,
+        "title": "Оценка качества кластеризации",
+        "subtitle": "После расчета здесь появятся внутренние метрики качества и сравнение алгоритмов.",
+        "metric_cards": [],
+        "methodology_items": [],
+        "comparison_rows": [],
+        "dissertation_points": ["Пока недостаточно данных для расчета метрик качества кластеризации."],
+    }
+
+
+def _build_clustering_quality_assessment(
+    clustering: Dict[str, Any],
+    method_comparison: Sequence[Dict[str, Any]],
+    cluster_count: int,
+    selected_features: Sequence[str],
+) -> Dict[str, Any]:
+    if clustering.get("silhouette") is None:
+        payload = _empty_clustering_quality_assessment()
+        payload["dissertation_points"] = ["В текущем срезе кластеризация построена, но внутренних метрик пока недостаточно для устойчивой интерпретации качества."]
+        return payload
+
+    comparison_rows = [
+        {
+            "method_label": row.get("method_label", "Метод"),
+            "selection_label": "Основной метод" if row.get("is_selected") else "Сравнение",
+            "silhouette_display": _format_number(row.get("silhouette"), 3),
+            "davies_display": _format_number(row.get("davies_bouldin"), 3),
+            "calinski_display": _format_number(row.get("calinski_harabasz"), 1),
+            "balance_display": _format_percent(row.get("cluster_balance_ratio") or 0.0),
+        }
+        for row in method_comparison
+    ]
+
+    dissertation_points = [
+        f"Основной алгоритм кластеризации — KMeans при k={_format_integer(cluster_count)}.",
+        f"Для итоговой модели получены silhouette {_format_number(clustering.get('silhouette'), 3)}, Индекс Дэвиса-Болдина {_format_number(clustering.get('davies_bouldin'), 3)} и Индекс Калински-Харабаза {_format_number(clustering.get('calinski_harabasz'), 1)}.",
+        f"Баланс кластеров составляет {_format_percent(clustering.get('cluster_balance_ratio') or 0.0)}, а устойчивость KMeans при нескольких инициализациях оценивается через ARI = {_format_number(clustering.get('stability_ari'), 3)}.",
+        f"Сравнение с альтернативными алгоритмами выполнено на том же наборе признаков: {', '.join(selected_features)}.",
+    ]
+
+    return {
+        "ready": True,
+        "title": "Оценка качества кластеризации",
+        "subtitle": "В блоке ниже собраны внутренние метрики качества и сравнительная таблица нескольких алгоритмов на одном наборе агрегированных признаков.",
+        "metric_cards": [
+            {"label": "Коэффициент силуэта", "value": _format_number(clustering.get("silhouette"), 3), "meta": "выше — лучше"},
+            {"label": "Индекс Дэвиса-Болдина", "value": _format_number(clustering.get("davies_bouldin"), 3), "meta": "ниже — лучше"},
+            {"label": "Индекс Калински-Харабаза", "value": _format_number(clustering.get("calinski_harabasz"), 1), "meta": "выше — лучше"},
+            {"label": "Баланс кластеров", "value": _format_percent(clustering.get("cluster_balance_ratio") or 0.0), "meta": "отношение min/max размера кластера"},
+            {"label": "Устойчивость ARI", "value": _format_number(clustering.get("stability_ari"), 3), "meta": "устойчивость KMeans к random_state"},
+        ],
+        "methodology_items": [
+            {"label": "Основной алгоритм", "value": "KMeans", "meta": "текущая рабочая сегментация"},
+            {"label": "Число кластеров", "value": _format_integer(cluster_count), "meta": "используется для всех сравниваемых методов"},
+            {"label": "Признаков", "value": _format_integer(len(selected_features)), "meta": ", ".join(selected_features[:4]) if selected_features else "—"},
+            {"label": "Покрытие PCA", "value": _format_percent(clustering.get("explained_variance") or 0.0), "meta": "доля дисперсии на 2D-проекции"},
+        ],
+        "comparison_rows": comparison_rows,
+        "dissertation_points": dissertation_points,
+    }
 
 def _empty_clustering_data(
     table_options: List[Dict[str, str]],
@@ -252,6 +388,7 @@ def _empty_clustering_data(
                 SAMPLING_STRATEGY_OPTIONS[0]["label"],
             ),
         },
+        "quality_assessment": _empty_clustering_quality_assessment(),
         "cluster_profiles": [],
         "centroid_columns": [],
         "centroid_rows": [],
@@ -260,7 +397,7 @@ def _empty_clustering_data(
         "charts": {
             "scatter": _empty_chart_bundle(
                 "Кластеры территорий на двумерной проекции",
-                "Недостаточно данных, чтобы показать типы территорий на PCA-проекции.",
+                "Недостаточно данных, чтобы показать типы территорий на проекции главных компонент.",
             ),
             "distribution": _empty_chart_bundle(
                 "Размеры кластеров по числу территорий",

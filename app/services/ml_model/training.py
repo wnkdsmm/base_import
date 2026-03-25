@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 from collections import defaultdict
@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
+from sklearn.metrics import log_loss, roc_auc_score
 
 try:
     from sklearn.inspection import permutation_importance
@@ -22,7 +22,9 @@ except Exception:  # pragma: no cover - graceful fallback for older sklearn
 
     PoissonRegressor = None
 
+from app.services.forecasting.data import _build_forecast_rows as _build_scenario_forecast_rows
 from app.services.forecasting.utils import _format_number, _format_percent
+from app.services.model_quality import compute_classification_metrics, compute_count_metrics
 
 from .constants import (
     COUNT_MODEL_LABELS,
@@ -42,7 +44,13 @@ from .constants import (
 
 FEATURE_COLUMNS = ['temp_value', 'weekday', 'month', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
 COUNT_MODEL_KEYS = ['poisson', 'random_forest']
+EXPLAINABLE_COUNT_MODEL_KEY = 'poisson'
 MIN_POSITIVE_PREDICTION = 1e-6
+CLASSIFICATION_THRESHOLD = 0.5
+COUNT_SELECTION_RULE = (
+    'Минимум девиации Пуассона, затем MAE; при близком качестве приоритет у более объяснимой регрессии Пуассона, '
+    'а сценарный прогноз показывается как внешний бенчмарк.'
+)
 
 
 def _apply_history_window(records: List[Dict[str, Any]], history_window: str) -> List[Dict[str, Any]]:
@@ -53,10 +61,11 @@ def _apply_history_window(records: List[Dict[str, Any]], history_window: str) ->
     return [item for item in records if item['date'].year >= min_year]
 
 
+
 def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, scenario_temperature: Optional[float]) -> Dict[str, Any]:
     if len(daily_history) < MIN_DAILY_HISTORY or forecast_days <= 0:
         return _empty_ml_result(
-            f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить backtesting и обучить модель.'
+            f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить rolling-origin backtesting и обучить модель.'
         )
 
     history_tail = daily_history[-MAX_HISTORY_POINTS:]
@@ -76,19 +85,19 @@ def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, sce
     dataset['event'] = (dataset['count'] > 0).astype(int)
     if len(dataset) < MIN_FEATURE_ROWS:
         return _empty_ml_result(
-            f'После формирования лагов и rolling-признаков осталось только {len(dataset)} наблюдений: этого мало для корректного backtesting.'
+            f'После формирования лагов и скользящих признаков осталось только {len(dataset)} наблюдений: этого мало для корректного rolling-origin backtesting.'
         )
 
-    backtest = _run_backtest(dataset)
+    backtest = _run_backtest(frame.copy(), dataset)
     if not backtest['is_ready']:
         return _empty_ml_result(backtest['message'])
 
     selected_count_model_key = backtest['selected_count_model_key']
     final_count_model = _fit_count_model(selected_count_model_key, dataset)
     if final_count_model is None:
-        return _empty_ml_result('Не удалось обучить финальную count-модель на полной выборке.')
+        return _empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
 
-    classifier_validated = backtest['event_metrics']['available'] and _can_train_event_model(dataset['event'])
+    classifier_validated = backtest['event_metrics'].get('logistic_available', False) and _can_train_event_model(dataset['event'])
     final_event_model = _fit_event_model(dataset) if classifier_validated else None
 
     dispersion = _estimate_dispersion(dataset['count'].to_numpy(dtype=float), backtest['selected_metrics']['rmse'])
@@ -108,12 +117,16 @@ def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, sce
             'actual_count': round(float(row['actual_count']), 3),
             'predicted_count': round(float(row['predicted_count']), 3),
             'baseline_count': round(float(row['baseline_count']), 3),
+            'heuristic_count': round(float(row['heuristic_count']), 3),
             'actual_event': int(row['actual_event']),
             'predicted_event_probability': round(float(row['predicted_event_probability']), 4)
             if row['predicted_event_probability'] is not None
             else None,
             'baseline_event_probability': round(float(row['baseline_event_probability']), 4)
             if row['baseline_event_probability'] is not None
+            else None,
+            'heuristic_event_probability': round(float(row['heuristic_event_probability']), 4)
+            if row['heuristic_event_probability'] is not None
             else None,
         }
         for row in backtest['rows']
@@ -126,22 +139,40 @@ def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, sce
         'backtest_rows': backtest_rows,
         'count_mae': backtest['selected_metrics']['mae'],
         'count_rmse': backtest['selected_metrics']['rmse'],
+        'count_smape': backtest['selected_metrics']['smape'],
         'count_poisson_deviance': backtest['selected_metrics']['poisson_deviance'],
         'baseline_count_mae': backtest['baseline_metrics']['mae'],
         'baseline_count_rmse': backtest['baseline_metrics']['rmse'],
+        'baseline_count_smape': backtest['baseline_metrics']['smape'],
+        'heuristic_count_mae': backtest['heuristic_metrics']['mae'],
+        'heuristic_count_rmse': backtest['heuristic_metrics']['rmse'],
+        'heuristic_count_smape': backtest['heuristic_metrics']['smape'],
+        'heuristic_count_poisson_deviance': backtest['heuristic_metrics']['poisson_deviance'],
         'count_vs_baseline_delta': backtest['selected_metrics']['mae_delta_vs_baseline'],
         'brier_score': backtest['event_metrics']['brier_score'],
         'baseline_brier_score': backtest['event_metrics']['baseline_brier_score'],
+        'heuristic_brier_score': backtest['event_metrics'].get('heuristic_brier_score'),
         'roc_auc': backtest['event_metrics']['roc_auc'],
+        'baseline_roc_auc': backtest['event_metrics'].get('baseline_roc_auc'),
+        'heuristic_roc_auc': backtest['event_metrics'].get('heuristic_roc_auc'),
+        'f1_score': backtest['event_metrics']['f1'],
+        'baseline_f1_score': backtest['event_metrics']['baseline_f1'],
+        'heuristic_f1_score': backtest['event_metrics'].get('heuristic_f1'),
         'log_loss': backtest['event_metrics']['log_loss'],
+        'count_comparison_rows': backtest['count_comparison_rows'],
+        'event_comparison_rows': backtest['event_metrics'].get('comparison_rows', []),
+        'backtest_overview': backtest['backtest_overview'],
+        'selected_count_model_key': selected_count_model_key,
+        'selected_event_model_key': backtest['event_metrics'].get('selected_model_key'),
+        'selected_event_model_label': backtest['event_metrics'].get('selected_model_label'),
         'top_feature_label': feature_importance[0]['label'] if feature_importance else '-',
         'count_model_label': COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key),
         'event_model_label': EVENT_MODEL_LABEL if final_event_model is not None else None,
-        'backtest_method_label': f"Rolling-origin backtesting, {len(backtest_rows)} one-step folds",
+        'event_backtest_available': backtest['event_metrics'].get('available', False),
+        'backtest_method_label': f"Скользящая проверка на истории (rolling-origin): {len(backtest_rows)} одношаговых окон",
         'classifier_ready': final_event_model is not None,
         'message': '',
     }
-
 
 def _empty_ml_result(message: str) -> Dict[str, Any]:
     return {
@@ -151,21 +182,47 @@ def _empty_ml_result(message: str) -> Dict[str, Any]:
         'backtest_rows': [],
         'count_mae': None,
         'count_rmse': None,
+        'count_smape': None,
         'count_poisson_deviance': None,
         'baseline_count_mae': None,
         'baseline_count_rmse': None,
+        'baseline_count_smape': None,
+        'heuristic_count_mae': None,
+        'heuristic_count_rmse': None,
+        'heuristic_count_smape': None,
+        'heuristic_count_poisson_deviance': None,
         'count_vs_baseline_delta': None,
         'brier_score': None,
         'baseline_brier_score': None,
+        'heuristic_brier_score': None,
         'roc_auc': None,
+        'baseline_roc_auc': None,
+        'heuristic_roc_auc': None,
+        'f1_score': None,
+        'baseline_f1_score': None,
+        'heuristic_f1_score': None,
         'log_loss': None,
+        'count_comparison_rows': [],
+        'event_comparison_rows': [],
+        'backtest_overview': {
+            'folds': 0,
+            'min_train_rows': 0,
+            'validation_horizon_days': 1,
+            'selection_rule': COUNT_SELECTION_RULE,
+            'classification_threshold': CLASSIFICATION_THRESHOLD,
+        },
+        'selected_count_model_key': EXPLAINABLE_COUNT_MODEL_KEY,
+        'selected_event_model_key': 'heuristic_probability',
+        'selected_event_model_label': 'Сценарная эвристическая вероятность',
         'top_feature_label': '-',
-        'count_model_label': COUNT_MODEL_LABELS.get('poisson', 'Poisson Regressor'),
+        'count_model_label': COUNT_MODEL_LABELS.get(EXPLAINABLE_COUNT_MODEL_KEY, 'Регрессия Пуассона'),
         'event_model_label': None,
-        'backtest_method_label': 'Backtesting не выполнен',
+        'event_backtest_available': False,
+        'backtest_method_label': 'Проверка на истории не выполнена',
         'classifier_ready': False,
         'message': message,
     }
+
 
 
 def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
@@ -180,6 +237,7 @@ def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+
 def _build_design_matrix(frame: pd.DataFrame, expected_columns: Optional[List[str]] = None) -> pd.DataFrame:
     design = frame[FEATURE_COLUMNS].copy()
     design['weekday'] = design['weekday'].astype(int).astype(str)
@@ -190,6 +248,7 @@ def _build_design_matrix(frame: pd.DataFrame, expected_columns: Optional[List[st
     return design.astype(float)
 
 
+
 def _build_count_model(model_key: str):
     if model_key == 'poisson':
         if PoissonRegressor is None:
@@ -198,6 +257,7 @@ def _build_count_model(model_key: str):
     if model_key == 'random_forest':
         return RandomForestRegressor(**_RF_PARAMS)
     raise ValueError(f'Unsupported count model: {model_key}')
+
 
 
 def _fit_count_model(model_key: str, frame: pd.DataFrame) -> Optional[Dict[str, Any]]:
@@ -217,16 +277,19 @@ def _fit_count_model(model_key: str, frame: pd.DataFrame) -> Optional[Dict[str, 
     }
 
 
+
 def _predict_count_model(model_bundle: Dict[str, Any], frame: pd.DataFrame) -> np.ndarray:
     X = _build_design_matrix(frame, model_bundle['columns'])
     predictions = np.asarray(model_bundle['model'].predict(X), dtype=float)
     return np.clip(predictions, 0.0, None)
 
 
+
 def _can_train_event_model(event_series: pd.Series) -> bool:
     positives = int(event_series.sum())
     negatives = int(len(event_series) - positives)
     return positives >= MIN_EVENT_CLASS_COUNT and negatives >= MIN_EVENT_CLASS_COUNT
+
 
 
 def _fit_event_model(frame: pd.DataFrame) -> Optional[Dict[str, Any]]:
@@ -245,10 +308,24 @@ def _fit_event_model(frame: pd.DataFrame) -> Optional[Dict[str, Any]]:
     }
 
 
+
 def _predict_event_probability(model_bundle: Dict[str, Any], frame: pd.DataFrame) -> np.ndarray:
     X = _build_design_matrix(frame, model_bundle['columns'])
     probabilities = np.asarray(model_bundle['model'].predict_proba(X)[:, 1], dtype=float)
     return np.clip(probabilities, 0.001, 0.999)
+
+
+
+def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    reference = frame.copy().sort_values('date').reset_index(drop=True)
+    if 'weekday' not in reference.columns:
+        reference['weekday'] = reference['date'].dt.weekday.astype(int)
+    if 'event' not in reference.columns:
+        reference['event'] = (reference['count'] > 0).astype(int)
+    if 'avg_temperature' not in reference.columns:
+        reference['avg_temperature'] = np.nan
+    return reference
+
 
 
 def _baseline_expected_count(train: pd.DataFrame, target_date: pd.Timestamp) -> float:
@@ -257,6 +334,7 @@ def _baseline_expected_count(train: pd.DataFrame, target_date: pd.Timestamp) -> 
     if len(same_weekday) >= 3:
         return max(0.0, float(0.6 * same_weekday.mean() + 0.4 * recent_mean))
     return max(0.0, recent_mean)
+
 
 
 def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) -> Optional[float]:
@@ -271,7 +349,37 @@ def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) 
     return _clip_probability(probability)
 
 
-def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
+
+def _scenario_reference_forecast(train: pd.DataFrame, test: pd.DataFrame) -> Tuple[float, Optional[float]]:
+    if train.empty:
+        return 0.0, None
+
+    temperature_value = None
+    if 'temp_value' in test.columns:
+        candidate = test['temp_value'].iloc[0]
+        if not pd.isna(candidate):
+            temperature_value = float(candidate)
+
+    train_history = [
+        {
+            'date': pd.Timestamp(row.date),
+            'count': float(row.count),
+            'avg_temperature': None if pd.isna(row.avg_temperature) else float(row.avg_temperature),
+        }
+        for row in train[['date', 'count', 'avg_temperature']].itertuples(index=False)
+    ]
+    forecast_rows = _build_scenario_forecast_rows(train_history, 1, temperature_value)
+    if not forecast_rows:
+        target_date = pd.Timestamp(test['date'].iloc[0])
+        fallback_count = _baseline_expected_count(train, target_date)
+        return fallback_count, _clip_probability(1.0 - math.exp(-max(0.0, fallback_count)))
+
+    row = forecast_rows[0]
+    probability = row.get('fire_probability')
+    return max(0.0, float(row.get('forecast_value', 0.0))), _clip_probability(probability if probability is not None else 0.0)
+
+def _run_backtest(history_frame: pd.DataFrame, dataset: pd.DataFrame) -> Dict[str, Any]:
+    history_frame = history_frame.sort_values('date').reset_index(drop=True)
     dataset = dataset.reset_index(drop=True)
     min_train_rows = min(28, max(14, len(dataset) // 2))
     available_backtest_points = len(dataset) - min_train_rows
@@ -279,7 +387,7 @@ def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
         return {
             'is_ready': False,
             'message': (
-                f'Для rolling backtesting нужно хотя бы {MIN_BACKTEST_POINTS} одношаговых проверок, '
+                f'Для rolling-origin backtesting нужно хотя бы {MIN_BACKTEST_POINTS} одношаговых проверок, '
                 f'а сейчас после лагов доступно только {available_backtest_points}.'
             ),
         }
@@ -288,27 +396,33 @@ def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
     rows: List[Dict[str, Any]] = []
 
     for index in range(start_index, len(dataset)):
-        train = dataset.iloc[:index].copy()
+        model_train = dataset.iloc[:index].copy()
         test = dataset.iloc[index:index + 1].copy()
-        if train.empty or test.empty:
+        if model_train.empty or test.empty:
             continue
 
         test_date = pd.Timestamp(test['date'].iloc[0])
+        history_train = history_frame.loc[history_frame['date'] < test_date].copy()
+        reference_train = _prepare_reference_frame(history_train)
+        if reference_train.empty:
+            continue
+
         actual_count = float(test['count'].iloc[0])
         actual_event = int(test['event'].iloc[0])
-        baseline_count = _baseline_expected_count(train, test_date)
-        baseline_event_probability = _baseline_event_probability(train, test_date)
+        baseline_count = _baseline_expected_count(reference_train, test_date)
+        baseline_event_probability = _baseline_event_probability(reference_train, test_date)
+        heuristic_count, heuristic_event_probability = _scenario_reference_forecast(reference_train, test)
 
         model_predictions: Dict[str, Optional[float]] = {key: None for key in COUNT_MODEL_KEYS}
         for model_key in COUNT_MODEL_KEYS:
-            model_bundle = _fit_count_model(model_key, train)
+            model_bundle = _fit_count_model(model_key, model_train)
             if model_bundle is None:
                 continue
             prediction = float(_predict_count_model(model_bundle, test)[0])
             model_predictions[model_key] = prediction
 
         event_prediction = None
-        event_bundle = _fit_event_model(train)
+        event_bundle = _fit_event_model(model_train)
         if event_bundle is not None:
             event_prediction = float(_predict_event_probability(event_bundle, test)[0])
 
@@ -317,8 +431,10 @@ def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
                 'date': test_date.date().isoformat(),
                 'actual_count': actual_count,
                 'baseline_count': baseline_count,
+                'heuristic_count': heuristic_count,
                 'actual_event': actual_event,
                 'baseline_event_probability': baseline_event_probability,
+                'heuristic_event_probability': heuristic_event_probability,
                 'predictions': model_predictions,
                 'predicted_event_probability': event_prediction,
             }
@@ -328,12 +444,14 @@ def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
     if len(valid_rows) < MIN_BACKTEST_POINTS:
         return {
             'is_ready': False,
-            'message': 'Не удалось собрать достаточное количество валидных fold-ов для rolling backtesting.',
+            'message': 'Не удалось собрать достаточное количество валидных окон для проверки на истории.',
         }
 
     actuals = np.asarray([row['actual_count'] for row in valid_rows], dtype=float)
     baseline_predictions = np.asarray([row['baseline_count'] for row in valid_rows], dtype=float)
-    baseline_metrics = _compute_count_metrics(actuals, baseline_predictions, None)
+    heuristic_predictions = np.asarray([row['heuristic_count'] for row in valid_rows], dtype=float)
+    baseline_metrics = compute_count_metrics(actuals, baseline_predictions)
+    heuristic_metrics = compute_count_metrics(actuals, heuristic_predictions, baseline_metrics)
 
     count_metrics: Dict[str, Dict[str, Optional[float]]] = {}
     for model_key in COUNT_MODEL_KEYS:
@@ -341,21 +459,15 @@ def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
         if any(prediction is None for prediction in model_predictions):
             continue
         predictions = np.asarray([float(prediction) for prediction in model_predictions], dtype=float)
-        count_metrics[model_key] = _compute_count_metrics(actuals, predictions, baseline_metrics['mae'])
+        count_metrics[model_key] = compute_count_metrics(actuals, predictions, baseline_metrics)
 
     if not count_metrics:
         return {
             'is_ready': False,
-            'message': 'Не удалось обучить ни одной count-модели для rolling backtesting.',
+            'message': 'Не удалось обучить ни одной модели по числу пожаров для проверки на истории.',
         }
 
-    selected_count_model_key, selected_metrics = min(
-        count_metrics.items(),
-        key=lambda item: (
-            item[1]['poisson_deviance'] if item[1]['poisson_deviance'] is not None else float('inf'),
-            item[1]['mae'] if item[1]['mae'] is not None else float('inf'),
-        ),
-    )
+    selected_count_model_key, selected_metrics = _select_count_model(count_metrics)
 
     backtest_rows = []
     for row in valid_rows:
@@ -365,86 +477,240 @@ def _run_backtest(dataset: pd.DataFrame) -> Dict[str, Any]:
                 'actual_count': row['actual_count'],
                 'predicted_count': row['predictions'][selected_count_model_key],
                 'baseline_count': row['baseline_count'],
+                'heuristic_count': row['heuristic_count'],
                 'actual_event': row['actual_event'],
                 'predicted_event_probability': row['predicted_event_probability'],
                 'baseline_event_probability': row['baseline_event_probability'],
+                'heuristic_event_probability': row['heuristic_event_probability'],
             }
         )
 
-    event_rows = [
-        row for row in backtest_rows
-        if row['predicted_event_probability'] is not None and row['baseline_event_probability'] is not None
-    ]
-    event_metrics = _compute_event_metrics(event_rows)
+    event_metrics = _compute_event_metrics(backtest_rows)
 
     return {
         'is_ready': True,
         'message': '',
         'rows': backtest_rows,
         'baseline_metrics': baseline_metrics,
+        'heuristic_metrics': heuristic_metrics,
         'count_metrics': count_metrics,
+        'count_comparison_rows': _build_count_comparison_rows(
+            baseline_metrics=baseline_metrics,
+            heuristic_metrics=heuristic_metrics,
+            count_metrics=count_metrics,
+            selected_count_model_key=selected_count_model_key,
+        ),
         'selected_count_model_key': selected_count_model_key,
         'selected_metrics': selected_metrics,
         'event_metrics': event_metrics,
+        'backtest_overview': {
+            'folds': len(backtest_rows),
+            'min_train_rows': min_train_rows,
+            'validation_horizon_days': 1,
+            'selection_rule': COUNT_SELECTION_RULE,
+            'classification_threshold': CLASSIFICATION_THRESHOLD,
+        },
     }
 
 
-def _compute_count_metrics(
-    actuals: np.ndarray,
-    predictions: np.ndarray,
-    baseline_mae: Optional[float],
-) -> Dict[str, Optional[float]]:
-    residuals = np.asarray(predictions, dtype=float) - np.asarray(actuals, dtype=float)
-    mae = float(np.mean(np.abs(residuals)))
-    rmse = float(math.sqrt(np.mean(residuals ** 2)))
-    safe_predictions = np.clip(np.asarray(predictions, dtype=float), MIN_POSITIVE_PREDICTION, None)
-    poisson_deviance = _mean_poisson_deviance(np.asarray(actuals, dtype=float), safe_predictions)
-    mae_delta_vs_baseline = None
-    if baseline_mae is not None and baseline_mae > 0:
-        mae_delta_vs_baseline = float((mae - baseline_mae) / baseline_mae)
-    return {
-        'mae': mae,
-        'rmse': rmse,
-        'poisson_deviance': poisson_deviance,
-        'mae_delta_vs_baseline': mae_delta_vs_baseline,
-    }
+
+def _select_count_model(count_metrics: Dict[str, Dict[str, Optional[float]]]) -> Tuple[str, Dict[str, Optional[float]]]:
+    best_key, best_metrics = min(count_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
+    explainable_metrics = count_metrics.get(EXPLAINABLE_COUNT_MODEL_KEY)
+    if explainable_metrics and best_key != EXPLAINABLE_COUNT_MODEL_KEY:
+        if _within_relative_margin(explainable_metrics.get('poisson_deviance'), best_metrics.get('poisson_deviance'), 0.05) and _within_relative_margin(
+            explainable_metrics.get('mae'), best_metrics.get('mae'), 0.05
+        ):
+            return EXPLAINABLE_COUNT_MODEL_KEY, explainable_metrics
+    return best_key, best_metrics
 
 
-def _mean_poisson_deviance(actuals: np.ndarray, predictions: np.ndarray) -> float:
-    actuals = np.asarray(actuals, dtype=float)
-    predictions = np.clip(np.asarray(predictions, dtype=float), MIN_POSITIVE_PREDICTION, None)
-    ratio_term = np.zeros_like(actuals, dtype=float)
-    positive_mask = actuals > 0.0
-    ratio_term[positive_mask] = actuals[positive_mask] * np.log(actuals[positive_mask] / predictions[positive_mask])
-    deviance = 2.0 * np.mean(ratio_term - (actuals - predictions))
-    return float(max(0.0, deviance))
 
+def _metric_sort_key(metrics: Dict[str, Optional[float]]) -> Tuple[float, float, float]:
+    return (
+        metrics.get('poisson_deviance') if metrics.get('poisson_deviance') is not None else float('inf'),
+        metrics.get('mae') if metrics.get('mae') is not None else float('inf'),
+        metrics.get('rmse') if metrics.get('rmse') is not None else float('inf'),
+    )
+
+
+
+def _within_relative_margin(candidate: Optional[float], reference: Optional[float], tolerance: float) -> bool:
+    if candidate is None or reference is None:
+        return False
+    if reference <= MIN_POSITIVE_PREDICTION:
+        return candidate <= reference + tolerance
+    return candidate <= reference * (1.0 + tolerance)
+
+
+
+def _build_count_comparison_rows(
+    baseline_metrics: Dict[str, Optional[float]],
+    heuristic_metrics: Dict[str, Optional[float]],
+    count_metrics: Dict[str, Dict[str, Optional[float]]],
+    selected_count_model_key: str,
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = [
+        {
+            'method_key': 'seasonal_baseline',
+            'method_label': COUNT_MODEL_LABELS.get('seasonal_baseline', 'Сезонная базовая модель'),
+            'role_label': 'Базовая модель',
+            'is_selected': False,
+            **baseline_metrics,
+        },
+        {
+            'method_key': 'heuristic_forecast',
+            'method_label': COUNT_MODEL_LABELS.get('heuristic_forecast', 'Сценарный эвристический прогноз'),
+            'role_label': 'Сценарный прогноз',
+            'is_selected': False,
+            **heuristic_metrics,
+        },
+    ]
+    for model_key in COUNT_MODEL_KEYS:
+        metrics = count_metrics.get(model_key)
+        if not metrics:
+            continue
+        rows.append(
+            {
+                'method_key': model_key,
+                'method_label': COUNT_MODEL_LABELS.get(model_key, model_key),
+                'role_label': 'Обучаемая модель',
+                'is_selected': model_key == selected_count_model_key,
+                **metrics,
+            }
+        )
+    return rows
 
 def _compute_event_metrics(rows: List[Dict[str, Any]]) -> Dict[str, Optional[float]]:
-    if len(rows) < MIN_BACKTEST_POINTS:
+    common_rows = [
+        row
+        for row in rows
+        if row['baseline_event_probability'] is not None and row['heuristic_event_probability'] is not None
+    ]
+    if len(common_rows) < MIN_BACKTEST_POINTS:
         return {
             'available': False,
+            'logistic_available': False,
+            'selected_model_key': 'heuristic_probability',
+            'selected_model_label': 'Сценарная эвристическая вероятность',
             'brier_score': None,
             'baseline_brier_score': None,
+            'heuristic_brier_score': None,
             'roc_auc': None,
+            'baseline_roc_auc': None,
+            'heuristic_roc_auc': None,
+            'f1': None,
+            'baseline_f1': None,
+            'heuristic_f1': None,
             'log_loss': None,
+            'comparison_rows': [],
+            'rows_used': 0,
         }
 
-    actuals = np.asarray([int(row['actual_event']) for row in rows], dtype=int)
-    probabilities = np.asarray([float(row['predicted_event_probability']) for row in rows], dtype=float)
-    baseline_probabilities = np.asarray([float(row['baseline_event_probability']) for row in rows], dtype=float)
+    classifier_rows = [row for row in common_rows if row['predicted_event_probability'] is not None]
+    logistic_available = len(classifier_rows) >= MIN_BACKTEST_POINTS
+    evaluation_rows = classifier_rows if logistic_available else common_rows
 
-    roc_auc = None
-    if len(np.unique(actuals)) > 1:
-        roc_auc = float(roc_auc_score(actuals, probabilities))
+    actuals = np.asarray([int(row['actual_event']) for row in evaluation_rows], dtype=int)
+    baseline_probabilities = np.asarray([float(row['baseline_event_probability']) for row in evaluation_rows], dtype=float)
+    heuristic_probabilities = np.asarray([float(row['heuristic_event_probability']) for row in evaluation_rows], dtype=float)
+
+    heuristic_metrics = compute_classification_metrics(
+        actuals,
+        heuristic_probabilities,
+        baseline_probabilities,
+        threshold=CLASSIFICATION_THRESHOLD,
+    )
+    baseline_roc_auc = _safe_roc_auc(actuals, baseline_probabilities)
+    heuristic_roc_auc = _safe_roc_auc(actuals, heuristic_probabilities)
+
+    comparison_rows = [
+        {
+            'method_key': 'event_baseline',
+            'method_label': 'Сезонная событийная базовая модель',
+            'role_label': 'Базовая модель',
+            'brier_score': heuristic_metrics.get('baseline_brier_score'),
+            'roc_auc': baseline_roc_auc,
+            'f1': heuristic_metrics.get('baseline_f1'),
+            'is_selected': False,
+        },
+        {
+            'method_key': 'heuristic_probability',
+            'method_label': 'Сценарная эвристическая вероятность',
+            'role_label': 'Сценарный прогноз',
+            'brier_score': heuristic_metrics.get('brier_score'),
+            'roc_auc': heuristic_roc_auc,
+            'f1': heuristic_metrics.get('f1'),
+            'is_selected': not logistic_available,
+        },
+    ]
+
+    selected_model_key = 'heuristic_probability'
+    selected_model_label = 'Сценарная эвристическая вероятность'
+    selected_metrics = heuristic_metrics
+    selected_roc_auc = heuristic_roc_auc
+    selected_log_loss = _safe_log_loss(actuals, heuristic_probabilities)
+
+    if logistic_available:
+        classifier_probabilities = np.asarray([float(row['predicted_event_probability']) for row in evaluation_rows], dtype=float)
+        classifier_metrics = compute_classification_metrics(
+            actuals,
+            classifier_probabilities,
+            baseline_probabilities,
+            threshold=CLASSIFICATION_THRESHOLD,
+        )
+        classifier_roc_auc = _safe_roc_auc(actuals, classifier_probabilities)
+        comparison_rows.append(
+            {
+                'method_key': 'logistic_regression',
+                'method_label': EVENT_MODEL_LABEL,
+                'role_label': 'Классификатор',
+                'brier_score': classifier_metrics.get('brier_score'),
+                'roc_auc': classifier_roc_auc,
+                'f1': classifier_metrics.get('f1'),
+                'is_selected': True,
+            }
+        )
+        selected_model_key = 'logistic_regression'
+        selected_model_label = EVENT_MODEL_LABEL
+        selected_metrics = classifier_metrics
+        selected_roc_auc = classifier_roc_auc
+        selected_log_loss = _safe_log_loss(actuals, classifier_probabilities)
 
     return {
         'available': True,
-        'brier_score': float(brier_score_loss(actuals, probabilities)),
-        'baseline_brier_score': float(brier_score_loss(actuals, baseline_probabilities)),
-        'roc_auc': roc_auc,
-        'log_loss': float(log_loss(actuals, probabilities, labels=[0, 1])),
+        'logistic_available': logistic_available,
+        'selected_model_key': selected_model_key,
+        'selected_model_label': selected_model_label,
+        'brier_score': selected_metrics.get('brier_score'),
+        'baseline_brier_score': heuristic_metrics.get('baseline_brier_score'),
+        'heuristic_brier_score': heuristic_metrics.get('brier_score'),
+        'roc_auc': selected_roc_auc,
+        'baseline_roc_auc': baseline_roc_auc,
+        'heuristic_roc_auc': heuristic_roc_auc,
+        'f1': selected_metrics.get('f1'),
+        'baseline_f1': heuristic_metrics.get('baseline_f1'),
+        'heuristic_f1': heuristic_metrics.get('f1'),
+        'log_loss': selected_log_loss,
+        'comparison_rows': comparison_rows,
+        'rows_used': len(evaluation_rows),
     }
+
+
+
+def _safe_roc_auc(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[float]:
+    if len(np.unique(actuals)) <= 1:
+        return None
+    return float(roc_auc_score(actuals, probabilities))
+
+
+
+def _safe_log_loss(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[float]:
+    if actuals.size == 0:
+        return None
+    clipped = np.clip(np.asarray(probabilities, dtype=float), 0.001, 0.999)
+    return float(log_loss(actuals, clipped, labels=[0, 1]))
+
 
 
 def _build_future_forecast_rows(
@@ -501,6 +767,7 @@ def _build_future_forecast_rows(
     return forecast_rows
 
 
+
 def _future_feature_row(history_counts: List[float], target_date: date, temp_value: float) -> Dict[str, float]:
     def lag_value(offset: int) -> float:
         if len(history_counts) >= offset:
@@ -521,7 +788,6 @@ def _future_feature_row(history_counts: List[float], target_date: date, temp_val
         'trend_gap': rolling_7 - rolling_28,
     }
 
-
 def _estimate_dispersion(counts: np.ndarray, rmse: Optional[float]) -> float:
     counts = np.asarray(counts, dtype=float)
     if counts.size == 0:
@@ -534,6 +800,7 @@ def _estimate_dispersion(counts: np.ndarray, rmse: Optional[float]) -> float:
     return min(raw_dispersion, 12.0)
 
 
+
 def _count_interval(prediction: float, dispersion: float) -> Tuple[float, float]:
     std = math.sqrt(max(prediction, 0.2) * max(dispersion, 1.0))
     margin = 1.64 * std
@@ -542,11 +809,13 @@ def _count_interval(prediction: float, dispersion: float) -> Tuple[float, float]
     return lower, upper
 
 
+
 def _risk_index(prediction: float, sorted_history_counts: np.ndarray) -> float:
     if sorted_history_counts.size == 0:
         return 0.0
     rank = float(np.searchsorted(sorted_history_counts, prediction, side='right'))
     return min(100.0, max(0.0, rank / float(sorted_history_counts.size) * 100.0))
+
 
 
 def _risk_band_from_index(risk_index: float) -> Tuple[str, str]:
@@ -559,6 +828,7 @@ def _risk_band_from_index(risk_index: float) -> Tuple[str, str]:
     if risk_index >= 25.0:
         return 'Ниже среднего', 'low'
     return 'Низкий', 'minimal'
+
 
 
 def _build_feature_importance(model_bundle: Dict[str, Any], dataset: pd.DataFrame) -> List[Dict[str, Any]]:
@@ -607,6 +877,7 @@ def _build_feature_importance(model_bundle: Dict[str, Any], dataset: pd.DataFram
     return items
 
 
+
 def _fallback_feature_importance(model_bundle: Dict[str, Any]) -> Dict[str, float]:
     model = model_bundle['model']
     columns = model_bundle['columns']
@@ -619,6 +890,7 @@ def _fallback_feature_importance(model_bundle: Dict[str, Any]) -> Dict[str, floa
     return {column_name: 0.0 for column_name in columns}
 
 
+
 def _aggregate_feature_name(column_name: str) -> str:
     if column_name.startswith('weekday_'):
         return 'weekday'
@@ -627,19 +899,13 @@ def _aggregate_feature_name(column_name: str) -> str:
     return column_name
 
 
+
 def _clip_probability(value: float) -> float:
     return min(0.999, max(0.001, float(value)))
+
 
 
 def _format_probability(value: Optional[float]) -> str:
     if value is None:
         return '—'
     return _format_percent(float(value) * 100.0)
-
-
-
-
-
-
-
-

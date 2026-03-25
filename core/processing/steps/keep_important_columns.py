@@ -671,7 +671,7 @@ class KeepImportantColumnsStep(PipelineStep):
         protected_xlsx = os.path.join(output_folder, f"{table_name}_protected_columns_report.xlsx")
 
         if not os.path.exists(profile_csv):
-            raise FileNotFoundError(f"Не найден profiling report: {profile_csv}")
+            raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
 
         profile_df = pd.read_csv(profile_csv)
         profile_df = self._ensure_report_columns(profile_df.copy())

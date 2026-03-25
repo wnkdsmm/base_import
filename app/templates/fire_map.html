@@ -3,19 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fire Map</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Карта пожаров</title>
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
-<aside class="sidebar">
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
-        <h2>Карта</h2>
-        <p>Интерактивная карта пожаров по координатам из PostgreSQL. Для каждой точки показываются последствия, причины и адрес.</p>
+        <span class="brand-kicker">Монитор пожаров</span>
+        <h2>Геоаналитика</h2>
+        <p>Интерактивная геоаналитическая карта пожаров по координатам из PostgreSQL: точечный слой, плотность, горячие зоны, кластеры и приоритетные территории.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="location.href='/'">Dashboard</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button onclick="location.href='/'">Панель</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-прогноз</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -24,6 +34,17 @@
         <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
+
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
 
     <div class="sidebar-status">
         <span class="status-badge status-badge-live">Карта готова к построению</span>
@@ -41,16 +62,17 @@
         </div>
     </div>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main dashboard-main map-main">
+<main class="main dashboard-main map-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Геоаналитика</span>
-            <h1>Карта пожаров</h1>
-            <p class="subtitle">Страница использует ваш шаг из `create_fire_map.py`, генерирует HTML-карту и встраивает ее прямо в интерфейс проекта через боковое меню.</p>
+            <h1>Карта пожаров и пространственная аналитика</h1>
+            <p class="subtitle">Страница использует шаг из `create_fire_map.py`, генерирует HTML-карту и добавляет поверх точечной карты аналитические слои для выявления горячих зон, кластеров, зон риска и приоритетных сельских территорий.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong>{{ selected_table or 'Не выбрана' }}</strong></span>
-                <span class="hero-tag">Формат: <strong>OpenLayers</strong></span>
+                <span class="hero-tag">Формат: <strong>веб-карта</strong></span>
                 <span class="hero-tag">Источник: <strong>Широта / Долгота</strong></span>
             </div>
         </div>
@@ -58,8 +80,8 @@
         <div class="hero-side">
             <article class="hero-stat-card hero-stat-card-soft">
                 <span class="hero-stat-label">Как работает карта</span>
-                <strong class="hero-stat-value"><small>точки, категории и popup</small></strong>
-                <span class="hero-stat-foot">Если у таблицы нет координат, встроенная область покажет понятное сообщение вместо пустого экрана.</span>
+                <strong class="hero-stat-value"><small>тепловая карта, горячие зоны, DBSCAN, зоны риска</small></strong>
+                <span class="hero-stat-foot">Если координат или дат мало, интерфейс автоматически переключится в резервный режим и сохранит рабочую точечную карту с аналитическим ранжированием территорий.</span>
             </article>
         </div>
     </section>
@@ -99,8 +121,8 @@
 
     <section class="panel map-frame-panel">
         <div class="panel-head">
-            <h2>Интерактивная карта</h2>
-            <span class="panel-meta">Popup содержит дату, адрес, последствия и причины пожара для выбранной записи.</span>
+            <h2>Интерактивная карта и слой поддержки решений</h2>
+            <span class="panel-meta">Всплывающие карточки и панели показывают дату, адрес, последствия, причины пожара, а также плотность, структуру горячих зон и DBSCAN, зоны риска и логистические приоритеты.</span>
         </div>
         <div class="map-frame-shell">
             {% if selected_table %}
@@ -116,8 +138,6 @@
         </div>
     </section>
 </main>
-<script src="/static/js/sidebar.js"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>
-
-

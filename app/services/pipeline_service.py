@@ -4,13 +4,21 @@ import io
 import os
 import shutil
 from contextlib import redirect_stdout
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Callable, Dict
 
 import pandas as pd
 from fastapi import UploadFile
-from app.log_manager import add_log, clear_logs
-from app.state import UPLOAD_FOLDER, upload_state
-from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD, PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
+
+from app.log_manager import add_log
+from app.state import UPLOAD_FOLDER, job_store
+from config.constants import (
+    DOMINANT_VALUE_THRESHOLD,
+    LOW_VARIANCE_THRESHOLD,
+    NULL_THRESHOLD,
+    PROFILING_CSV_SUFFIX,
+    PROFILING_XLSX_SUFFIX,
+)
 from config.paths import get_result_folder
 from config.settings import Settings
 from core.processing.steps.create_clean_table import CreateCleanTableStep
@@ -20,7 +28,9 @@ from core.processing.steps.keep_important_columns import KeepImportantColumnsSte
 
 
 class _LiveLogStream(io.TextIOBase):
-    def __init__(self) -> None:
+    def __init__(self, session_id: str, job_id: str) -> None:
+        self._session_id = session_id
+        self._job_id = job_id
         self._buffer = ""
 
     def write(self, text: str) -> int:
@@ -31,13 +41,13 @@ class _LiveLogStream(io.TextIOBase):
             line, self._buffer = self._buffer.split("\n", 1)
             line = line.strip()
             if line:
-                add_log(line)
+                add_log(self._session_id, self._job_id, line)
         return len(text)
 
     def flush(self) -> None:
         line = self._buffer.strip()
         if line:
-            add_log(line)
+            add_log(self._session_id, self._job_id, line)
         self._buffer = ""
 
 
@@ -188,52 +198,111 @@ def _load_profile_summary(
     }
 
 
-def _invalidate_runtime_caches() -> None:
+def invalidate_runtime_caches(on_warning: Callable[[str], None] | None = None) -> None:
+    def warn(message: str) -> None:
+        if on_warning is not None:
+            on_warning(message)
+
+    try:
+        from app.db_metadata import invalidate_db_metadata_cache
+
+        invalidate_db_metadata_cache()
+    except Exception as exc:
+        warn(f"Предупреждение при обновлении кэша метаданных БД: {exc}")
+
     try:
         from app.statistics import _invalidate_dashboard_caches
 
         _invalidate_dashboard_caches()
     except Exception as exc:
-        add_log(f"Cache refresh warning (dashboard): {exc}")
+        warn(f"Предупреждение при обновлении кэша панели: {exc}")
 
     try:
-        from app.services.ml_model_service import clear_ml_model_cache
+        from app.services.ml_model.core import clear_ml_model_cache
 
         clear_ml_model_cache()
     except Exception as exc:
-        add_log(f"Cache refresh warning (ml): {exc}")
-def save_uploaded_file(file: UploadFile) -> Dict[str, Any]:
-    original_filename = file.filename or "uploaded_file.xlsx"
-    file_path = UPLOAD_FOLDER / original_filename
+        warn(f"Предупреждение при обновлении кэша ML-блока: {exc}")
+
+    try:
+        from app.services.forecasting.core import clear_forecasting_cache
+
+        clear_forecasting_cache()
+    except Exception as exc:
+        warn(f"Предупреждение при обновлении кэша прогнозирования: {exc}")
+
+    try:
+        from app.services.clustering.core import clear_clustering_cache
+
+        clear_clustering_cache()
+    except Exception as exc:
+        warn(f"Предупреждение при обновлении кэша кластеризации: {exc}")
+
+    try:
+        from app.services.fire_map_service import clear_fire_map_cache
+
+        clear_fire_map_cache()
+    except Exception as exc:
+        warn(f"Предупреждение при обновлении кэша карты пожаров: {exc}")
+
+def _invalidate_runtime_caches(session_id: str, job_id: str) -> None:
+    invalidate_runtime_caches(on_warning=lambda message: add_log(session_id, job_id, message))
+
+def _build_upload_file_path(session_id: str, job_id: str, original_filename: str) -> Path:
+    safe_name = Path(original_filename).name or "uploaded_file.xlsx"
+    job_folder = UPLOAD_FOLDER / session_id / job_id
+    job_folder.mkdir(parents=True, exist_ok=True)
+    return job_folder / safe_name
+
+
+def save_uploaded_file(
+    file: UploadFile,
+    session_id: str,
+    job_id: str | None = None,
+) -> Dict[str, Any]:
+    job = job_store.create_or_reset_job(session_id=session_id, kind="import", job_id=job_id)
+    original_filename = Path(file.filename or "uploaded_file.xlsx").name or "uploaded_file.xlsx"
+    file_path = _build_upload_file_path(session_id=session_id, job_id=job.job_id, original_filename=original_filename)
 
     with file_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    upload_state.set_uploaded_file(file_path, original_filename)
-    add_log(f"Файл загружен: {original_filename}")
+    job_store.set_uploaded_file(session_id, job.job_id, file_path, original_filename)
+    add_log(session_id, job.job_id, f"Файл загружен: {original_filename}")
 
     return {
         "status": "uploaded",
         "filename": original_filename,
         "path": str(file_path),
+        "job_id": job.job_id,
     }
 
 
 def run_profiling_for_table(
+    session_id: str,
     table_name: str,
     thresholds: dict[str, Any] | None = None,
+    job_id: str | None = None,
 ) -> Dict[str, Any]:
+    job = job_store.create_or_reset_job(session_id=session_id, kind="profiling", job_id=job_id)
+    resolved_job_id = job.job_id
+
     if not table_name:
+        message = "Не выбрана таблица для очистки."
+        add_log(session_id, resolved_job_id, message)
+        job_store.mark_job_status(session_id, resolved_job_id, "failed")
         return {
             "status": "error",
-            "message": "Не выбрана таблица для очистки.",
+            "message": message,
+            "job_id": resolved_job_id,
         }
 
-    clear_logs()
     normalized_thresholds = _normalize_thresholds(thresholds)
-    add_log(f"Запуск очистки для таблицы: {table_name}")
+    add_log(session_id, resolved_job_id, f"Запуск очистки для таблицы: {table_name}")
+    job_store.mark_job_status(session_id, resolved_job_id, "running")
 
-    log_stream = _LiveLogStream()
+    log_stream = _LiveLogStream(session_id=session_id, job_id=resolved_job_id)
+    final_status = "failed"
 
     try:
         settings = Settings(
@@ -245,15 +314,21 @@ def run_profiling_for_table(
         settings.dominant_value_threshold = normalized_thresholds["dominant_value_threshold"]
         settings.low_variance_threshold = normalized_thresholds["low_variance_threshold"]
 
-        add_log(f"Таблица: {table_name}")
+        add_log(session_id, resolved_job_id, f"Таблица: {table_name}")
         add_log(
+            session_id,
+            resolved_job_id,
             "Пороги пользователя: "
             f"пропуски > {normalized_thresholds['null_threshold'] * 100:.0f}%, "
             f"доминирующее значение > {normalized_thresholds['dominant_value_threshold'] * 100:.0f}%, "
-            f"дисперсия < {normalized_thresholds['low_variance_threshold']}"
+            f"дисперсия < {normalized_thresholds['low_variance_threshold']}",
         )
-        add_log(f"Папка результатов: {settings.output_folder}")
-        add_log("Шаг 1 из 2. Анализируем колонки и собираем отчёт по очистке.")
+        add_log(session_id, resolved_job_id, f"Папка результатов: {settings.output_folder}")
+        add_log(
+            session_id,
+            resolved_job_id,
+            "Шаг 1 из 2. Анализируем колонки и собираем отчет по очистке.",
+        )
 
         with redirect_stdout(log_stream):
             profiling_result = FiresFeatureProfilingStep(settings).run(settings)
@@ -264,23 +339,30 @@ def run_profiling_for_table(
                 thresholds=profiling_result["thresholds"],
                 base_reason_summary=profiling_result["reason_summary"],
             )
-            add_log("Шаг 2 из 2. Создаём clean-таблицу без колонок-кандидатов на исключение.")
+            add_log(
+                session_id,
+                resolved_job_id,
+                "Шаг 2 из 2. Создаём очищенную таблицу без колонок-кандидатов на исключение.",
+            )
             clean_result = CreateCleanTableStep().run(settings)
 
-        log_stream.flush()
-
         add_log(
+            session_id,
+            resolved_job_id,
             "Готово: "
             f"всего колонок {profiling_result['total_columns']}, "
             f"исключено {len(profiling_result['candidates'])}, "
-            f"оставлено {len(clean_result['kept_columns'])}."
+            f"оставлено {len(clean_result['kept_columns'])}.",
         )
-        add_log(f"Создана таблица: {clean_result['clean_table']}")
-        add_log(f"Excel clean-таблицы: {clean_result['export_file']}")
+        add_log(session_id, resolved_job_id, f"Создана таблица: {clean_result['clean_table']}")
+        add_log(session_id, resolved_job_id, f"Excel-файл очищенной таблицы: {clean_result['export_file']}")
+        _invalidate_runtime_caches(session_id, resolved_job_id)
+        final_status = "completed"
 
         return {
             "status": "success",
             "message": f"Очистка завершена для таблицы {table_name}.",
+            "job_id": resolved_job_id,
             "table_name": table_name,
             "output_folder": settings.output_folder,
             "clean_table": clean_result["clean_table"],
@@ -309,61 +391,86 @@ def run_profiling_for_table(
             },
         }
     except FileNotFoundError as exc:
-        message = f"Не найден файл отчёта: {exc}"
+        message = f"Не найден файл отчета: {exc}"
     except ValueError as exc:
         message = f"Ошибка данных: {exc}"
     except Exception as exc:
         message = f"Ошибка очистки: {exc}"
+    finally:
+        log_stream.flush()
+        job_store.mark_job_status(session_id, resolved_job_id, final_status)
 
-    log_stream.flush()
-    add_log(message)
+    add_log(session_id, resolved_job_id, message)
     return {
         "status": "error",
         "message": message,
+        "job_id": resolved_job_id,
         "table_name": table_name,
     }
 
 
-def import_uploaded_data(output_folder: str | None = None) -> Dict[str, Any]:
-    if not upload_state.has_uploaded_file():
-        return {"status": "No file uploaded", "rows": 0, "columns": 0}
+def import_uploaded_data(
+    session_id: str,
+    output_folder: str | None = None,
+    job_id: str | None = None,
+) -> Dict[str, Any]:
+    job = job_store.resolve_job(session_id=session_id, job_id=job_id, kind="import")
+    if job is None or job.current_file_path is None or not job.current_file_path.exists():
+        return {
+            "status": "Файл не загружен",
+            "rows": 0,
+            "columns": 0,
+            "job_id": job_id or "",
+        }
 
-    clear_logs()
-    uploaded_file_path = upload_state.current_file_path
-    add_log(f"Запуск ImportDataStep для {uploaded_file_path}")
+    resolved_job_id = job.job_id
+    uploaded_file_path = job.current_file_path
+    job_store.mark_job_status(session_id, resolved_job_id, "running")
+    add_log(session_id, resolved_job_id, f"Запуск шага импорта для {uploaded_file_path}")
 
     settings = Settings(
         input_file=str(uploaded_file_path),
         output_folder=output_folder or None,
     )
 
-    add_log(f"Project name: {settings.project_name}")
-    add_log(f"Output folder: {settings.output_folder}")
+    add_log(session_id, resolved_job_id, f"Имя проекта: {settings.project_name}")
+    add_log(session_id, resolved_job_id, f"Папка результатов: {settings.output_folder}")
 
     step = ImportDataStep()
+    final_status = "failed"
 
     try:
         step.run(settings)
-        _invalidate_runtime_caches()
-        add_log(f"Import completed: {uploaded_file_path}")
-        upload_state.clear_current_file()
+        _invalidate_runtime_caches(session_id, resolved_job_id)
+        add_log(session_id, resolved_job_id, f"Импорт завершён: {uploaded_file_path}")
+        final_status = "completed"
 
         if step.data is not None:
             return {
-                "status": "Import successful",
+                "status": "Импорт выполнен успешно",
                 "rows": step.data.shape[0],
                 "columns": step.data.shape[1],
                 "project_name": settings.project_name,
                 "output_folder": settings.output_folder,
+                "job_id": resolved_job_id,
             }
 
         return {
-            "status": "Import completed but no data available",
+            "status": "Импорт завершён, но данные недоступны",
             "rows": 0,
             "columns": 0,
             "project_name": settings.project_name,
+            "job_id": resolved_job_id,
         }
     except Exception as exc:
-        error_msg = f"Import failed: {exc}"
-        add_log(error_msg)
-        return {"status": error_msg, "rows": 0, "columns": 0}
+        error_msg = f"Ошибка импорта: {exc}"
+        add_log(session_id, resolved_job_id, error_msg)
+        return {
+            "status": error_msg,
+            "rows": 0,
+            "columns": 0,
+            "job_id": resolved_job_id,
+        }
+    finally:
+        job_store.clear_current_file(session_id, resolved_job_id)
+        job_store.mark_job_status(session_id, resolved_job_id, final_status)

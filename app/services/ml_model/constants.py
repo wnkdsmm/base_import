@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import OrderedDict
 from typing import Any, Dict, Tuple
 
-MODEL_NAME = 'Count-first ML pipeline'
+MODEL_NAME = 'ML-прогноз по числу пожаров'
 
 FORECAST_DAY_OPTIONS = [7, 14, 30]
 HISTORY_WINDOW_OPTIONS = [
@@ -25,11 +25,12 @@ FEATURE_LABELS = {
 }
 
 COUNT_MODEL_LABELS = {
-    'poisson': 'Poisson Regressor',
-    'random_forest': 'Random Forest Regressor',
-    'seasonal_baseline': 'Seasonal baseline',
+    'poisson': 'Регрессия Пуассона',
+    'random_forest': 'Случайный лес',
+    'heuristic_forecast': 'Сценарный эвристический прогноз',
+    'seasonal_baseline': 'Сезонная базовая модель',
 }
-EVENT_MODEL_LABEL = 'Logistic Regression'
+EVENT_MODEL_LABEL = 'Логистическая регрессия'
 
 MIN_DAILY_HISTORY = 60
 MIN_FEATURE_ROWS = 24

@@ -3,29 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fire Data Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css?v=dashboard-focused-layout-1">
+    <title>Панель статистики по пожарам</title>
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
 {% set data = dashboard.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
 {% set charts = data.charts %}
 {% set scope = data.scope %}
 {% set trend = data.trend %}
+{% set management = data.management %}
+{% set rankings = data.rankings %}
 {% macro render_plotly_chart(container_id) %}
 <div id="{{ container_id }}" class="plotly-chart"></div>
 {% endmacro %}
 
-<aside class="sidebar">
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
-        <h2>Dashboard</h2>
-        <p>Статистика по пожарам из PostgreSQL с фокусом на причины возгораний, риск, последствия и сезонность.</p>
+        <span class="brand-kicker">Монитор пожаров</span>
+        <h2>Панель</h2>
+        <p>Быстрый управленческий обзор: где риск выше, почему ситуация требует внимания и какие территории стоит брать в работу первыми.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="selectAndImport()">Импортировать данные</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button type="button" onclick="selectAndImport()">Импортировать данные</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-прогноз</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -34,6 +46,17 @@
         <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
+
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
 
     <div class="sidebar-status">
         <span class="status-badge{% if dashboard.has_data %} status-badge-live{% endif %}">
@@ -53,182 +76,317 @@
         </div>
     </div>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main dashboard-main">
+<main class="main dashboard-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Аналитическая панель</span>
-            <h1>Dashboard статистики по пожарам</h1>
-            <p class="subtitle">На этой вкладке оставлены только ключевые графики: причины возгораний, категория риска, последствия, сезонность и структура по площади пожара.</p>
+            <span class="eyebrow">Управленческая сводка</span>
+            <h1>Где риск и что делать</h1>
+            <p class="subtitle" id="dashboardLeadSummary">{{ management.summary_line }}</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
+                <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
                 <span class="hero-tag">Разрез: <strong id="heroGroupLabel">{{ scope.group_label }}</strong></span>
             </div>
         </div>
 
         <div class="hero-side">
-            <article class="hero-stat-card trend-{{ trend.direction }}" id="trendCard">
-                <span class="hero-stat-label" id="trendTitle">{{ trend.title }}</span>
-                <strong class="hero-stat-value"><span id="trendCurrentValue">{{ trend.current_value_display }}</span> <small id="trendCurrentYear">{{ trend.current_year }}</small></strong>
-                <span class="hero-stat-foot"><span id="trendDeltaValue">{{ trend.delta_display }}</span> · <span id="trendDescription">{{ trend.description }}</span></span>
+            <article class="hero-stat-card" id="dashboardPriorityCard">
+                <span class="hero-stat-label">Территория первого приоритета</span>
+                <strong class="hero-stat-value" id="managementHeroPriority">{{ management.priority_territory_label }}</strong>
+                <span class="hero-stat-foot" id="managementHeroPriorityMeta">{{ management.priority_reason }}</span>
             </article>
-            <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Охват данных</span>
-                <strong class="hero-stat-value"><span id="coverageYearsValue">{{ summary.years_covered_display }}</span> <small>лет</small></strong>
-                <span class="hero-stat-foot"><span id="coveragePeriodValue">{{ summary.period_label }}</span> · <span id="coverageFillRate">{{ summary.area_fill_rate_display }}</span> площади распознано</span>
+            <article class="hero-stat-card hero-stat-card-soft" id="dashboardConfidenceCard">
+                <span class="hero-stat-label">Доверие к данным</span>
+                <strong class="hero-stat-value"><span id="managementHeroConfidence">{{ management.confidence_label }}</span> <small id="managementHeroConfidenceScore">{{ management.confidence_score_display }}</small></strong>
+                <span class="hero-stat-foot" id="managementHeroConfidenceMeta">{{ management.confidence_summary }}</span>
             </article>
+        </div>
+    </section>
+
+    <section class="panel executive-panel">
+        <div class="panel-head">
+            <div>
+                <h2>Оперативный бриф</h2>
+                <span class="panel-meta">Сначала смотрим приоритетные территории и рекомендуемые действия, затем используем графики ниже как подтверждение решения.</span>
+            </div>
+        </div>
+        <div id="managementBriefCards" class="executive-brief-grid">
+            {% if management.brief_cards %}
+                {% for item in management.brief_cards %}
+                <article class="executive-brief-card tone-{{ item.tone }}">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value executive-brief-value">{{ item.value }}</strong>
+                    <span class="stat-foot">{{ item.meta }}</span>
+                </article>
+                {% endfor %}
+            {% else %}
+            <div class="mini-empty">Сводка появится после загрузки данных.</div>
+            {% endif %}
+        </div>
+        <div class="executive-layout">
+            <div>
+                <div class="executive-section-head">
+                    <h3>Территории первого внимания</h3>
+                    <span>Top-3 по управленческому приоритету</span>
+                </div>
+                <div id="managementTerritories" class="executive-territory-list">
+                    {% if management.territories %}
+                        {% for item in management.territories %}
+                        <article class="executive-territory-card tone-{{ item.risk_tone }}">
+                            <div class="executive-territory-head">
+                                <strong>{{ item.label }}</strong>
+                                <span class="executive-territory-score">{{ item.risk_display }}</span>
+                            </div>
+                            <div class="executive-territory-tags">
+                                <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
+                                <span class="forecast-badge risk-badge tone-sky">{{ item.priority_label }}</span>
+                            </div>
+                            <p class="executive-territory-reason">{{ item.drivers_display }}</p>
+                            <div class="executive-territory-action">
+                                <strong>{{ item.action_label }}</strong>
+                                <span>{{ item.action_hint }}</span>
+                            </div>
+                            <div class="executive-territory-meta">
+                                <span>{{ item.context_label }}</span>
+                                <span>Последний пожар: {{ item.last_fire_display }}</span>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Территории первого внимания появятся после расчёта.</div>
+                    {% endif %}
+                </div>
+            </div>
+            <aside class="executive-side-stack">
+                <article class="executive-side-card">
+                    <div class="executive-section-head">
+                        <h3>Рекомендуемые действия</h3>
+                        <span>Что сделать в первую очередь</span>
+                    </div>
+                    <div id="managementActionList" class="executive-action-list">
+                        {% if management.actions %}
+                            {% for item in management.actions %}
+                            <article class="executive-action-item">
+                                <strong>{{ item.label }}</strong>
+                                <span>{{ item.detail }}</span>
+                            </article>
+                            {% endfor %}
+                        {% else %}
+                        <div class="mini-empty">Рекомендации появятся после расчёта.</div>
+                        {% endif %}
+                    </div>
+                </article>
+                <article class="executive-side-card">
+                    <div class="executive-section-head">
+                        <h3>Ограничения данных</h3>
+                        <span>Что важно учитывать перед решением</span>
+                    </div>
+                    <ul id="managementNotesList" class="notice-list forecast-note-list">
+                        {% if management.notes %}
+                            {% for note in management.notes %}
+                            <li>{{ note }}</li>
+                            {% endfor %}
+                        {% else %}
+                        <li>Ограничения и примечания появятся после загрузки данных.</li>
+                        {% endif %}
+                    </ul>
+                </article>
+            </aside>
         </div>
     </section>
 
     <section class="dashboard-shell">
         <aside class="dashboard-overview-column">
             <div class="dashboard-overview-sticky">
-    <section class="stats-grid dashboard-stats">
-        <article class="stat-card stat-card-accent stat-card-wide">
-            <span class="stat-label">Количество пожаров</span>
-            <strong class="stat-value" id="firesCountValue">{{ summary.fires_count_display }}</strong>
-            <span class="stat-foot">По фильтру: <span id="firesCountFoot">{{ scope.table_label }}</span></span>
-        </article>
-        <article class="stat-card">
-            <span class="stat-label">Погибшие</span>
-            <strong class="stat-value" id="deathsValue">{{ summary.deaths_display }}</strong>
-            <span class="stat-foot">По выбранному срезу</span>
-        </article>
-        <article class="stat-card">
-            <span class="stat-label">Травмированные</span>
-            <strong class="stat-value" id="injuriesValue">{{ summary.injuries_display }}</strong>
-            <span class="stat-foot">По выбранному срезу</span>
-        </article>
-        <article class="stat-card">
-            <span class="stat-label">Эвакуировано</span>
-            <strong class="stat-value" id="evacuatedValue">{{ summary.evacuated_display }}</strong>
-            <span class="stat-foot">По выбранному срезу</span>
-        </article>
-        <article class="stat-card">
-            <span class="stat-label">Эвакуировано детей</span>
-            <strong class="stat-value" id="childrenValue">{{ summary.evacuated_children_display }}</strong>
-            <span class="stat-foot">По выбранному срезу</span>
-        </article>
-        <article class="stat-card">
-            <span class="stat-label">Спасено детей</span>
-            <strong class="stat-value" id="rescuedValue">{{ summary.rescued_children_display }}</strong>
-            <span class="stat-foot">По выбранному срезу</span>
-        </article>
-    </section>
+                <section class="stats-grid dashboard-stats">
+                    <article class="stat-card stat-card-accent stat-card-wide">
+                        <span class="stat-label">Количество пожаров</span>
+                        <strong class="stat-value" id="firesCountValue">{{ summary.fires_count_display }}</strong>
+                        <span class="stat-foot">По фильтру: <span id="firesCountFoot">{{ scope.table_label }}</span></span>
+                    </article>
+                    <article class="stat-card">
+                        <span class="stat-label">Тяжёлые последствия</span>
+                        <strong class="stat-value" id="deathsValue">{{ summary.deaths_display }}</strong>
+                        <span class="stat-foot">Погибшие; травмировано: <span id="injuriesValue">{{ summary.injuries_display }}</span></span>
+                    </article>
+                    <article class="stat-card">
+                        <span class="stat-label">Эвакуация и спасение</span>
+                        <strong class="stat-value" id="evacuatedValue">{{ summary.evacuated_display }}</strong>
+                        <span class="stat-foot">Дети: <span id="childrenValue">{{ summary.evacuated_children_display }}</span> | Спасено детей: <span id="rescuedValue">{{ summary.rescued_children_display }}</span></span>
+                    </article>
+                    <article class="stat-card" id="trendCard">
+                        <span class="stat-label" id="trendTitle">{{ trend.title }}</span>
+                        <strong class="stat-value"><span id="trendCurrentValue">{{ trend.current_value_display }}</span> <small id="trendCurrentYear">{{ trend.current_year }}</small></strong>
+                        <span class="stat-foot"><span id="trendDeltaValue">{{ trend.delta_display }}</span> · <span id="trendDescription">{{ trend.description }}</span></span>
+                    </article>
+                </section>
 
-    <section class="panel filters-panel">
-        <div class="panel-head">
-            <h2>Фильтры</h2>
-            <span class="panel-meta">Можно менять таблицу и группу для построения графиков.</span>
-        </div>
-        <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
-            <label class="filter-field">
-                <span>Таблица</span>
-                <select id="tableFilter" name="table_name">
-                    {% for option in filters.available_tables %}
-                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label class="filter-field">
-                <span>Год</span>
-                <select id="yearFilter" name="year">
-                    <option value="all" {% if filters.year in ["", "all"] %}selected{% endif %}>Все годы</option>
-                    {% for option in filters.available_years %}
-                    <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
-                <small class="filter-hint">Фильтр панели по конкретному году.</small>
-            </label>
-            <label class="filter-field">
-                <span>Группа для графиков</span>
-                <select id="groupColumnFilter" name="group_column">
-                    {% for option in filters.available_group_columns %}
-                    <option value="{{ option.value }}" {% if option.value == filters.group_column %}selected{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
-                <small class="filter-hint">Можно переключаться между обычными колонками и тематическими группами из поиска колонок.</small>
-            </label>
-            <div class="filter-field filter-actions">
-                <span>Действие</span>
-                <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить dashboard</button>
-            </div>
-        </form>
-        <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Год: {{ scope.year_label }} | Разрез: {{ scope.group_label }}</div>
-    </section>
+                <section class="panel filters-panel">
+                    <div class="panel-head">
+                        <h2>Фильтры</h2>
+                        <span class="panel-meta">Измените таблицу, год и аналитический разрез, чтобы пересобрать сводку и графики.</span>
+                    </div>
+                    <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
+                        <label class="filter-field">
+                            <span>Таблица</span>
+                            <select id="tableFilter" name="table_name">
+                                {% for option in filters.available_tables %}
+                                <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label class="filter-field">
+                            <span>Год</span>
+                            <select id="yearFilter" name="year">
+                                <option value="all" {% if filters.year in ["", "all"] %}selected{% endif %}>Все годы</option>
+                                {% for option in filters.available_years %}
+                                <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="filter-hint">Для просмотра отдельных периодов или общего горизонта.</small>
+                        </label>
+                        <label class="filter-field">
+                            <span>Разрез</span>
+                            <select id="groupColumnFilter" name="group_column">
+                                {% for option in filters.available_group_columns %}
+                                <option value="{{ option.value }}" {% if option.value == filters.group_column %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="filter-hint">Нужен для сравнительных графиков и ranking-блоков ниже.</small>
+                        </label>
+                        <div class="filter-field filter-actions">
+                            <span>Действие</span>
+                            <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить сводку</button>
+                        </div>
+                    </form>
+                    <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Год: {{ scope.year_label }} | Разрез: {{ scope.group_label }}</div>
+                </section>
 
-    <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
-        <div class="panel-head">
-            <h2>Замечания по данным</h2>
-            <span class="panel-meta">Системные подсказки и проблемы чтения отдельных таблиц</span>
-        </div>
-        <ul class="notice-list" id="dashboardNotesList">
-            {% for error in dashboard.errors %}
-            <li>{{ error }}</li>
-            {% endfor %}
-        </ul>
-    </section>
-
+                <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
+                    <div class="panel-head">
+                        <h2>Замечания по данным</h2>
+                        <span class="panel-meta">Системные подсказки и проблемы чтения отдельных таблиц.</span>
+                    </div>
+                    <ul class="notice-list" id="dashboardNotesList">
+                        {% for error in dashboard.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </section>
             </div>
         </aside>
 
         <section class="dashboard-content-column">
-    <section class="dashboard-layout dashboard-layout-focused">
-        <div class="dashboard-primary">
-            <article class="panel chart-panel chart-panel-large chart-panel-causes">
-                <div class="panel-head">
-                    <h2 id="yearlyFiresTitle">{{ charts.yearly_fires.title }}</h2>
-                    <span class="panel-meta">Основные причины возгораний в выбранном срезе</span>
+            <section class="dashboard-layout dashboard-layout-focused">
+                <div class="dashboard-primary">
+                    <div class="dashboard-grid dashboard-grid-three">
+                        <article class="panel ranking-panel">
+                            <div class="panel-head">
+                                <h2>Ключевые категории</h2>
+                                <span class="panel-meta">На какие категории и типы приходится основной объём текущего среза.</span>
+                            </div>
+                            <div id="topDistributionList" class="ranking-list">
+                                {% if rankings.top_distribution %}
+                                    {% for item in rankings.top_distribution %}
+                                    <div class="ranking-row ranking-row-fire" title="{{ item.label }}: {{ item.value_display }}">
+                                        <div class="ranking-label">{{ item.label }}</div>
+                                        <div class="ranking-meta">{{ item.value_display }}</div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Нет данных по распределению.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+
+                        <article class="panel ranking-panel">
+                            <div class="panel-head">
+                                <h2>Последние годы</h2>
+                                <span class="panel-meta">Краткая динамика по годам для текущего фильтра.</span>
+                            </div>
+                            <div id="recentYearsList" class="ranking-list">
+                                {% if rankings.recent_years %}
+                                    {% for item in rankings.recent_years %}
+                                    <div class="ranking-row ranking-row-year" title="{{ item.label }}: {{ item.value_display }}">
+                                        <div class="ranking-label">{{ item.label }}</div>
+                                        <div class="ranking-meta">{{ item.value_display }}</div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Недостаточно годовых данных.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+
+                        <article class="panel ranking-panel">
+                            <div class="panel-head">
+                                <h2>Источники сводки</h2>
+                                <span class="panel-meta">Какие таблицы сейчас формируют обзор сильнее всего.</span>
+                            </div>
+                            <div id="topTablesList" class="ranking-list">
+                                {% if rankings.top_tables %}
+                                    {% for item in rankings.top_tables %}
+                                    <div class="ranking-row ranking-row-table" title="{{ item.label }}: {{ item.value_display }}">
+                                        <div class="ranking-label">{{ item.label }}</div>
+                                        <div class="ranking-meta">{{ item.value_display }}</div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Нет таблиц в текущем фильтре.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+                    </div>
+
+                    <article class="panel chart-panel chart-panel-large chart-panel-causes">
+                        <div class="panel-head">
+                            <h2 id="yearlyFiresTitle">{{ charts.yearly_fires.title }}</h2>
+                            <span class="panel-meta">Основные причины возгораний в выбранном срезе.</span>
+                        </div>
+                        {{ render_plotly_chart('yearlyFiresChart') }}
+                    </article>
+
+                    <div class="dashboard-grid dashboard-grid-two">
+                        <article class="panel chart-panel chart-panel-large">
+                            <div class="panel-head">
+                                <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
+                                <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Распределение по выбранному разрезу.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('distributionChart') }}
+                        </article>
+
+                        <article class="panel chart-panel chart-panel-large">
+                            <div class="panel-head">
+                                <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
+                                <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Последствия пожара, эвакуация и влияние на население.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('yearlyAreaChart') }}
+                        </article>
+                    </div>
+
+                    <div class="dashboard-grid dashboard-grid-two">
+                        <article class="panel chart-panel">
+                            <div class="panel-head">
+                                <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
+                                <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Сезонная динамика пожаров по месяцам.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('monthlyProfileChart') }}
+                        </article>
+
+                        <article class="panel chart-panel">
+                            <div class="panel-head">
+                                <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
+                                <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Распределение по диапазонам площади пожара.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('areaBucketsChart') }}
+                        </article>
+                    </div>
                 </div>
-                {{ render_plotly_chart('yearlyFiresChart') }}
-            </article>
-
-            <div class="dashboard-grid dashboard-grid-two">
-                <article class="panel chart-panel chart-panel-large">
-                    <div class="panel-head">
-                        <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
-                        <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Распределение по категории риска' }}</span>
-                    </div>
-                    {{ render_plotly_chart('distributionChart') }}
-                </article>
-
-                <article class="panel chart-panel chart-panel-large">
-                    <div class="panel-head">
-                        <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
-                        <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Последствия пожара, эвакуация и дети' }}</span>
-                    </div>
-                    {{ render_plotly_chart('yearlyAreaChart') }}
-                </article>
-            </div>
-
-            <div class="dashboard-grid dashboard-grid-two">
-                <article class="panel chart-panel">
-                    <div class="panel-head">
-                        <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
-                        <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Сезонная динамика пожаров по месяцам' }}</span>
-                    </div>
-                    {{ render_plotly_chart('monthlyProfileChart') }}
-                </article>
-
-                <article class="panel chart-panel">
-                    <div class="panel-head">
-                        <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
-                        <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Распределение по диапазонам площади пожара' }}</span>
-                    </div>
-                    {{ render_plotly_chart('areaBucketsChart') }}
-                </article>
-            </div>
-        </div>
-    </section>
-
+            </section>
         </section>
     </section>
-    <!--
-            <h2>Логи</h2>
-            <span class="panel-meta">Импорт, очистка и служебные сообщения приложения</span>
-        </div>
-        <div id="logs" class="logbox"></div>
-    -->
 </main>
 
 <input type="file" id="fileInput" class="hidden-file-input">
@@ -236,11 +394,10 @@
 <script>
 window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
 </script>
-{% if dashboard.plotly_js %}
-<script>{{ dashboard.plotly_js | safe }}</script>
-{% endif %}
-<script src="/static/js/import.js"></script>
-<script src="/static/js/dashboard.js?v=plotly-safe-render-1"></script>
-<script src="/static/js/sidebar.js"></script>
+<script src="/assets/plotly.js"></script>
+
+<script src="/static/js/import.js?v={{ import_js_version }}"></script>
+<script src="/static/js/dashboard.js?v={{ dashboard_js_version }}"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>

@@ -4,18 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таблицы в базе</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
-<aside class="sidebar">
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
+        <span class="brand-kicker">Монитор пожаров</span>
         <h2>Таблицы</h2>
-        <p>Быстрый переход к исходным, clean- и modify-таблицам из базы данных.</p>
+        <p>Быстрый переход к исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` из базы данных.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="location.href='/'">Dashboard</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button onclick="location.href='/'">Панель</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-прогноз</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -24,6 +34,17 @@
         <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
+
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
 
     <div class="sidebar-status">
         <span class="status-badge status-badge-live">База доступна</span>
@@ -37,11 +58,12 @@
         </div>
     </div>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main dashboard-main simple-page-main">
+<main class="main dashboard-main simple-page-main" id="page-content">
     <section class="hero-panel simple-page-intro">
         <div class="hero-copy">
-            <span class="eyebrow">Database explorer</span>
+            <span class="eyebrow">Навигатор по таблицам</span>
             <h1>Таблицы в базе данных</h1>
             <p class="subtitle">Откройте любую таблицу, чтобы посмотреть первые 100 строк и быстро проверить структуру данных перед анализом, очисткой или построением модели.</p>
             <div class="hero-tags">
@@ -53,7 +75,7 @@
             <article class="hero-stat-card hero-stat-card-soft">
                 <span class="hero-stat-label">Что внутри</span>
                 <strong class="hero-stat-value"><small>Исходные и производные наборы</small></strong>
-                <span class="hero-stat-foot">Сюда попадают загруженные таблицы, clean-версии после очистки и modify-таблицы после поиска колонок.</span>
+                <span class="hero-stat-foot">Сюда попадают загруженные таблицы, очищенные версии `clean_*` после очистки и таблицы `modify_*` после поиска колонок.</span>
             </article>
         </div>
     </section>
@@ -74,7 +96,7 @@
         {% endif %}
     </section>
 </main>
-<script src="/static/js/sidebar.js"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>
 

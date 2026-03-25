@@ -4,19 +4,29 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Очистка таблиц</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
     <link rel="stylesheet" href="/static/profiling.css?v={{ profiling_css_version }}">
 </head>
 <body class="profiling-layout">
-<aside class="sidebar">
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
+        <span class="brand-kicker">Монитор пожаров</span>
         <h2>Очистка</h2>
-        <p>Подготовка clean-таблицы с понятными порогами и компактным итогом очистки без лишнего шума.</p>
+        <p>Подготовка очищенной таблицы `clean_*` с понятными порогами и компактным итогом очистки без лишнего шума.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="location.href='/'">Dashboard</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button onclick="location.href='/'">Панель</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-прогноз</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -26,6 +36,17 @@
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
+
     <div class="sidebar-status">
         <span class="status-badge status-badge-live">Очистка готова к запуску</span>
         <div class="status-line">
@@ -34,7 +55,7 @@
         </div>
         <div class="status-line">
             <span>Порог пропусков</span>
-            <strong>90%</strong>
+            <strong>{{ profiling_defaults.null_threshold_percent }}%</strong>
         </div>
         <div class="status-line">
             <span>Результат</span>
@@ -42,23 +63,24 @@
         </div>
     </div>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main column-search-main profiling-page">
+<main class="main column-search-main profiling-page" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Подготовка данных</span>
             <h1>Очистка таблиц</h1>
-            <p class="subtitle">Выберите таблицу, задайте пороги очистки и сразу получите короткий итог: сколько столбцов убрано, какие причины сработали и как называется новая clean-таблица.</p>
+            <p class="subtitle">Выберите таблицу, задайте пороги очистки и сразу получите короткий итог: сколько столбцов убрано, какие причины сработали и как называется новая очищенная таблица `clean_*`.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблиц в базе: <strong>{{ tables | length }}</strong></span>
-                <span class="hero-tag">Порог пропусков: <strong>90%</strong></span>
+                <span class="hero-tag">Порог пропусков: <strong>{{ profiling_defaults.null_threshold_percent }}%</strong></span>
                 <span class="hero-tag">Результат: <strong>clean_*</strong></span>
             </div>
         </div>
         <div class="hero-side">
             <article class="hero-stat-card">
                 <span class="hero-stat-label">На выходе</span>
-                <strong class="hero-stat-value"><small>clean-таблица</small></strong>
+                <strong class="hero-stat-value"><small>очищенная таблица</small></strong>
                 <span class="hero-stat-foot">Плюс CSV и Excel отчёты по текущим порогам.</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
@@ -79,17 +101,17 @@
             <div class="threshold-grid">
                 <div class="threshold-field">
                     <label for="nullThreshold">Пропуски, %</label>
-                    <input id="nullThreshold" type="number" min="0" max="100" step="1" value="90">
+                    <input id="nullThreshold" type="number" min="0" max="100" step="1" value="{{ profiling_defaults.null_threshold_percent }}">
                     <small>Исключить по пустым значениям.</small>
                 </div>
                 <div class="threshold-field">
                     <label for="dominantThreshold">Доминирующее значение, %</label>
-                    <input id="dominantThreshold" type="number" min="0" max="100" step="1" value="85">
+                    <input id="dominantThreshold" type="number" min="0" max="100" step="1" value="{{ profiling_defaults.dominant_value_threshold_percent }}">
                     <small>Убрать почти константные колонки.</small>
                 </div>
                 <div class="threshold-field">
                     <label for="varianceThreshold">Минимальная дисперсия</label>
-                    <input id="varianceThreshold" type="number" min="0" step="0.0001" value="0.0001">
+                    <input id="varianceThreshold" type="number" min="0" step="0.0001" value="{{ profiling_defaults.low_variance_threshold }}">
                     <small>Порог для числовых колонок.</small>
                 </div>
             </div>
@@ -158,7 +180,7 @@
                     <div class="log-run-card">
                         <span class="log-run-label">Новая таблица</span>
                         <span id="runSummaryCleanTable" class="log-run-value">-</span>
-                        <div class="log-run-note">Будет создана clean-таблица с очищенным набором полей.</div>
+                        <div class="log-run-note">Будет создана очищенная таблица с префиксом `clean_` и обновлённым набором полей.</div>
                     </div>
                 </div>
             </article>
@@ -167,8 +189,8 @@
                 <div class="summary-grid">
                     <article class="panel metric-card"><span class="metric-label">Всего колонок</span><div id="metricTotal" class="metric-value">0</div><div class="metric-hint">Колонки в исходной таблице.</div></article>
                     <article class="panel metric-card"><span class="metric-label">Помечено на исключение</span><div id="metricRemoved" class="metric-value">0</div><div class="metric-hint">Исключено по текущим порогам.</div></article>
-                    <article class="panel metric-card"><span class="metric-label">Останется в clean</span><div id="metricKept" class="metric-value">0</div><div class="metric-hint">Колонки в итоговой таблице.</div></article>
-                    <article class="panel metric-card"><span class="metric-label">Размер clean-таблицы</span><div id="metricShape" class="metric-value">0 x 0</div><div class="metric-hint">Строки и колонки после очистки.</div></article>
+                    <article class="panel metric-card"><span class="metric-label">Останется после очистки</span><div id="metricKept" class="metric-value">0</div><div class="metric-hint">Колонки в итоговой таблице.</div></article>
+                    <article class="panel metric-card"><span class="metric-label">Размер очищенной таблицы</span><div id="metricShape" class="metric-value">0 x 0</div><div class="metric-hint">Строки и колонки после очистки.</div></article>
                 </div>
 
                 <div class="results-grid">
@@ -184,9 +206,9 @@
                     <article class="panel result-card">
                         <div class="panel-head">
                             <h2>Что создано</h2>
-                            <span class="panel-meta">Файлы и итоговая clean-таблица</span>
+                            <span class="panel-meta">Файлы и итоговая очищенная таблица</span>
                         </div>
-                        <p id="outputSummary" class="section-copy">Здесь появится информация о clean-таблице и файлах отчёта.</p>
+                        <p id="outputSummary" class="section-copy">Здесь появится информация об очищенной таблице и файлах отчёта.</p>
                         <div id="filesList" class="file-list"></div>
                     </article>
                 </div>
@@ -195,7 +217,7 @@
                     <summary>Колонки-кандидаты на исключение</summary>
                     <div class="details-panel-body">
                         <div class="table-shell">
-                            <table class="details-table">
+                            <table class="details-table table-stack-mobile">
                                 <thead><tr><th>Колонка</th><th>Тип</th><th>Причины</th><th>Пропуски</th><th>Доминирующее значение</th></tr></thead>
                                 <tbody id="candidatesBody"><tr><td colspan="5">После запуска здесь появится список колонок.</td></tr></tbody>
                             </table>
@@ -204,7 +226,7 @@
                 </details>
 
                 <details class="panel details-panel">
-                    <summary>Колонки, которые останутся в clean-таблице</summary>
+                    <summary>Колонки, которые останутся после очистки</summary>
                     <div class="details-panel-body">
                     </div>
                 </details>
@@ -216,7 +238,7 @@
     <section class="panel mandatory-catalog-panel page-section">
         <div class="panel-head">
             <h2>Канонический список обязательных признаков</h2>
-            <span class="panel-meta">{{ mandatory_feature_catalog | length }} признаков защищены от автоматического удаления даже при срабатывании profiling.</span>
+            <span class="panel-meta">{{ mandatory_feature_catalog | length }} признаков защищены от автоматического удаления даже при автоматическом анализе колонок.</span>
         </div>
         <div class="mandatory-catalog-grid">
             {% for feature in mandatory_feature_catalog %}
@@ -244,13 +266,13 @@
         <section id="removedColumnsSection" class="panel removed-columns-section">
             <div class="panel-head">
                 <h2>Удалённые столбцы</h2>
-                <span class="panel-meta">Полный список колонок, которые очистка исключила из clean-таблицы</span>
+                <span class="panel-meta">Полный список колонок, которые очистка исключила из итоговой очищенной таблицы</span>
             </div>
             <div id="removedColumns" class="chip-list removed-columns-list"></div>
         </section>
         <section class="panel kept-columns-section">
             <div class="panel-head">
-                <h2>Колонки в clean-таблице</h2>
+                <h2>Колонки после очистки</h2>
                 <span class="panel-meta">Поля, которые останутся в итоговой очищенной таблице</span>
             </div>
             <div id="keptColumnsSecondary" class="chip-list removed-columns-list"></div>
@@ -261,6 +283,7 @@
 <script>
     let selectedTable = null;
     let isRunning = false;
+    const profilingDefaults = {{ profiling_defaults | tojson }};
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -269,6 +292,13 @@
     function formatPercent(value) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) return '0%';
         return `${(Number(value) * 100).toFixed(1)}%`;
+    }
+
+    function createJobId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
     function setStatus(type, message) {
@@ -289,9 +319,9 @@
     }
 
     function readThresholds() {
-        const nullValue = Number(document.getElementById('nullThreshold')?.value ?? 90);
-        const dominantValue = Number(document.getElementById('dominantThreshold')?.value ?? 85);
-        const varianceValue = Number(document.getElementById('varianceThreshold')?.value ?? 0.0001);
+        const nullValue = Number(document.getElementById('nullThreshold')?.value ?? profilingDefaults.null_threshold_percent);
+        const dominantValue = Number(document.getElementById('dominantThreshold')?.value ?? profilingDefaults.dominant_value_threshold_percent);
+        const varianceValue = Number(document.getElementById('varianceThreshold')?.value ?? profilingDefaults.low_variance_threshold);
         if (Number.isNaN(nullValue) || nullValue < 0 || nullValue > 100) throw new Error('Порог пропусков должен быть от 0 до 100%.');
         if (Number.isNaN(dominantValue) || dominantValue < 0 || dominantValue > 100) throw new Error('Порог доминирующего значения должен быть от 0 до 100%.');
         if (Number.isNaN(varianceValue) || varianceValue < 0) throw new Error('Порог дисперсии должен быть неотрицательным числом.');
@@ -353,7 +383,7 @@
         const items = [
             { label: 'CSV-отчёт по очистке', path: files?.profile_csv || '' },
             { label: 'Excel-отчёт по очистке', path: files?.profile_xlsx || '' },
-            { label: 'Excel clean-таблицы', path: files?.clean_xlsx || '' },
+            { label: 'Excel-файл очищенной таблицы', path: files?.clean_xlsx || '' },
         ].filter((item) => item.path);
         container.innerHTML = items.map((item) => `<div class="file-item"><div class="file-label">${escapeHtml(item.label)}</div><div class="file-path">${escapeHtml(item.path)}</div></div>`).join('');
     }
@@ -361,7 +391,7 @@
     function renderCandidates(candidateDetails) {
         const body = document.getElementById('candidatesBody');
         if (!body) return;
-        body.innerHTML = Array.isArray(candidateDetails) && candidateDetails.length ? candidateDetails.map((item) => `<tr><td>${escapeHtml(item.column)}</td><td>${escapeHtml(item.dtype)}</td><td>${escapeHtml((item.reasons || []).join(', '))}</td><td>${escapeHtml(formatPercent(item.null_ratio))}</td><td>${escapeHtml(formatPercent(item.dominant_ratio))}</td></tr>`).join('') : '<tr><td colspan="5">При текущих порогах очистка не нашла колонок на исключение.</td></tr>';
+        body.innerHTML = Array.isArray(candidateDetails) && candidateDetails.length ? candidateDetails.map((item) => `<tr><td data-label="Колонка">${escapeHtml(item.column)}</td><td data-label="Тип">${escapeHtml(item.dtype)}</td><td data-label="Причины">${escapeHtml((item.reasons || []).join(', '))}</td><td data-label="Пропуски">${escapeHtml(formatPercent(item.null_ratio))}</td><td data-label="Доминирующее значение">${escapeHtml(formatPercent(item.dominant_ratio))}</td></tr>`).join('') : '<tr><td colspan="5">При текущих порогах очистка не нашла колонок на исключение.</td></tr>';
     }
 
     function renderRemovedColumns(candidateDetails) {
@@ -427,10 +457,11 @@
         setStatus('running', `Выполняем очистку для таблицы <strong>${escapeHtml(selectedTable)}</strong> с пользовательскими порогами.`);
 
         try {
+            const jobId = createJobId();
             const response = await fetch('/run_profiling', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ table: selectedTable, thresholds }),
+                body: JSON.stringify({ table: selectedTable, thresholds, job_id: jobId }),
             });
             const result = await response.json();
             if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить очистку.');
@@ -472,6 +503,6 @@
         initializeProfilingControls();
     }
 </script>
-<script src="/static/js/sidebar.js"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>

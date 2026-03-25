@@ -4,18 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Поиск колонок</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
-<aside class="sidebar">
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
+        <span class="brand-kicker">Монитор пожаров</span>
         <h2>Колонки</h2>
-        <p>Natasha ищет похожие названия колонок, а ниже можно собрать из них новую таблицу <code>modify_...</code> и сразу выбрать тематические группы.</p>
+        <p>Natasha ищет похожие названия колонок, а ниже можно собрать из них таблицу <code>modify_...</code> и сразу выбрать тематические группы.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="location.href='/'">Dashboard</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button onclick="location.href='/'">Панель</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-прогноз</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -23,9 +33,19 @@
         <button onclick="location.href='/column-search'">Поиск колонок</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main column-search-main">
+<main class="main column-search-main" id="page-content">
     <section class="column-search-toolbar">
         <h1>Таблица: <span id="columnSearchTableTitle">{{ selected_table or 'Не выбрана' }}</span></h1>
         <p id="columnSearchRowsInfo">Здесь можно искать колонки по словам и собирать новую таблицу из найденных и тематических полей.</p>
@@ -70,7 +90,7 @@
             <div class="column-builder-actions">
                 <button id="columnSearchSelectAll" class="secondary-action column-inline-action" type="button">Выбрать все найденные</button>
                 <button id="columnSearchClearSelection" class="secondary-action column-inline-action" type="button">Снять выбор</button>
-                <button id="columnSearchCreateTable" class="primary-action column-inline-primary" type="button">Создать modify-таблицу</button>
+                <button id="columnSearchCreateTable" class="primary-action column-inline-primary" type="button">Создать таблицу modify_*</button>
             </div>
             <div id="columnSearchSelectionSummary" class="column-search-selection-summary">Выбрано колонок: 0 | Выбрано групп: 0</div>
             <div id="columnSearchMatches" class="column-match-list">
@@ -82,7 +102,7 @@
     <section class="column-search-table-section">
         <div class="panel-head">
             <h2>Предпросмотр</h2>
-            <span class="panel-meta">Сначала показывается превью выбранных колонок, а после создания уже новая <code>modify_...</code> таблица.</span>
+            <span class="panel-meta">Сначала показывается предпросмотр выбранных колонок, а после создания уже новая таблица <code>modify_...</code>.</span>
         </div>
         <div id="columnSearchPreview" class="column-search-table-shell">
             <div class="mini-empty">После поиска здесь появится таблица.</div>
@@ -96,8 +116,8 @@ window.__COLUMN_SEARCH_INITIAL__ = {
     query: {{ initial_query | tojson }}
 };
 </script>
-<script src="/static/js/column_search.js?v=7"></script>
-<script src="/static/js/sidebar.js"></script>
+<script src="/static/js/column_search.js?v={{ column_search_js_version }}"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>
 

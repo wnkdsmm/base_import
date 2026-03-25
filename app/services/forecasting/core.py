@@ -1,12 +1,15 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from statistics import mean
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.forecast_risk.core import build_decision_support_payload
+from app.services.model_quality import compute_count_metrics
+from app.plotly_bundle import get_plotly_bundle
+from app.runtime_cache import CopyingTtlCache
 
-from .charts import _build_forecast_breakdown_chart, _build_forecast_chart, _build_geo_chart, _build_weekday_chart, _empty_chart_bundle, _get_plotly_bundle
+from .charts import _build_forecast_breakdown_chart, _build_forecast_chart, _build_geo_chart, _build_weekday_chart, _empty_chart_bundle
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS
 from .data import _build_daily_history, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog, _build_weekday_profile, _collect_forecasting_inputs, _resolve_forecasting_selection, _selected_source_tables, _table_selection_label
 from .geo import _build_geo_prediction
@@ -30,9 +33,45 @@ from .utils import (
 )
 
 SCENARIO_FORECAST_DESCRIPTION = (
-    "Это heuristic / scenario forecast: эвристическая сценарная оценка по исторической частоте, сезонности и повторяющимся паттернам. "
+    "Это эвристический сценарный прогноз: оценка по исторической частоте, сезонности и повторяющимся паттернам. "
     "Блок не обучается как ML-модель и нужен для ориентира по нагрузке, а не для точного обещания числа пожаров по дням."
 )
+
+_FORECASTING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
+
+
+def clear_forecasting_cache() -> None:
+    _FORECASTING_CACHE.clear()
+
+
+
+def _normalize_forecasting_cache_value(value: str) -> str:
+    return str(value or "").strip()
+
+
+
+def _build_forecasting_cache_key(
+    selected_table: str,
+    source_tables: List[str],
+    district: str,
+    cause: str,
+    object_category: str,
+    temperature: str,
+    days_ahead: int,
+    history_window: str,
+) -> Tuple[str, ...]:
+    return (
+        selected_table,
+        *tuple(source_tables),
+        _normalize_forecasting_cache_value(district),
+        _normalize_forecasting_cache_value(cause),
+        _normalize_forecasting_cache_value(object_category),
+        _normalize_forecasting_cache_value(temperature),
+        str(days_ahead),
+        history_window,
+    )
+
+
 def get_forecasting_page_context(
     table_name: str = "all",
     district: str = "all",
@@ -69,16 +108,44 @@ def get_forecasting_page_context(
         )
         initial_data["notes"].append(f"Техническая причина: {exc}")
         initial_data["model_description"] = (
-            "Heuristic / scenario forecast временно открыт без полного набора расчетов, чтобы интерфейс оставался доступен даже при внутренней ошибке."
+            "Эвристический сценарный прогноз временно открыт без полного набора расчётов, чтобы интерфейс оставался доступен даже при внутренней ошибке."
         )
     return {
         "generated_at": _format_datetime(datetime.now()),
         "initial_data": initial_data,
-        "plotly_js": _get_plotly_bundle(),
+        "plotly_js": get_plotly_bundle(),
         "has_data": bool(initial_data["filters"]["available_tables"]),
     }
 
 
+
+def get_forecasting_shell_context(
+    table_name: str = "all",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+    history_window: str = "all",
+) -> Dict[str, Any]:
+    table_options = _build_forecasting_table_options()
+    selected_table = _resolve_forecasting_selection(table_options, table_name)
+    days_ahead = _parse_forecast_days(forecast_days)
+    selected_history_window = _parse_history_window(history_window)
+    initial_data = _empty_forecasting_data(
+        table_options,
+        selected_table,
+        days_ahead,
+        temperature,
+        selected_history_window,
+    )
+    initial_data["bootstrap_mode"] = "deferred"
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "initial_data": initial_data,
+        "plotly_js": "",
+        "has_data": bool(initial_data["filters"]["available_tables"]),
+    }
 def get_forecasting_data(
     table_name: str = "all",
     district: str = "all",
@@ -94,11 +161,24 @@ def get_forecasting_data(
     days_ahead = _parse_forecast_days(forecast_days)
     selected_history_window = _parse_history_window(history_window)
     temperature_value = _parse_float(temperature)
+    cache_key = _build_forecasting_cache_key(
+        selected_table=selected_table,
+        source_tables=source_tables,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        days_ahead=days_ahead,
+        history_window=selected_history_window,
+    )
+    cached_payload = _FORECASTING_CACHE.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
 
     base_data = _empty_forecasting_data(table_options, selected_table, days_ahead, temperature, selected_history_window)
     if not source_tables:
         base_data["notes"].append("Нет доступных таблиц для прогнозирования.")
-        return base_data
+        return _FORECASTING_CACHE.set(cache_key, base_data)
 
     records, metadata_items, preload_notes = _collect_forecasting_inputs(source_tables)
     scoped_records = _apply_history_window(records, selected_history_window)
@@ -116,6 +196,8 @@ def get_forecasting_data(
     ]
 
     daily_history = _build_daily_history(filtered_records)
+    scenario_backtest = _run_scenario_backtesting(daily_history)
+    quality_assessment = _build_scenario_quality_assessment(scenario_backtest)
     forecast_rows = _build_forecast_rows(daily_history, days_ahead, temperature_value)
     weekday_profile = _build_weekday_profile(daily_history)
     history_counts = [float(item["count"]) for item in daily_history]
@@ -148,7 +230,7 @@ def get_forecasting_data(
         )["risk_prediction"]
         risk_prediction["feature_cards"] = _build_feature_cards(metadata_items)
         risk_prediction["notes"] = [
-            "Блок поддержки решений по территориям временно недоступен, поэтому страница показывает только heuristic / scenario forecast.",
+            "Блок поддержки решений по территориям временно недоступен, поэтому страница показывает только эвристический сценарный прогноз.",
             f"Техническая причина: {exc}",
         ]
     notes = preload_notes + _build_notes(
@@ -171,11 +253,12 @@ def get_forecasting_data(
         history_window=selected_history_window,
     )
 
-    return {
+    payload = {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": bool(filtered_records),
         "model_description": SCENARIO_FORECAST_DESCRIPTION,
         "summary": summary,
+        "quality_assessment": quality_assessment,
         "features": features,
         "risk_prediction": risk_prediction,
         "insights": insights,
@@ -197,6 +280,155 @@ def get_forecasting_data(
             "available_forecast_days": [{"value": str(option), "label": f"{option} дней"} for option in FORECAST_DAY_OPTIONS],
             "available_history_windows": HISTORY_WINDOW_OPTIONS,
         },
+    }
+    return _FORECASTING_CACHE.set(cache_key, payload)
+
+def _scenario_baseline_expected_count(history: List[Dict[str, Any]], target_date: Any) -> float:
+    if not history:
+        return 0.0
+    history_counts = [float(item["count"]) for item in history]
+    recent_mean = mean(history_counts[-28:]) if history_counts else 0.0
+    same_weekday = [float(item["count"]) for item in history if item["date"].weekday() == target_date.weekday()]
+    if len(same_weekday) >= 3:
+        return max(0.0, 0.6 * mean(same_weekday[-8:]) + 0.4 * recent_mean)
+    return max(0.0, recent_mean)
+
+
+def _run_scenario_backtesting(daily_history: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if len(daily_history) < 30:
+        return {
+            "is_ready": False,
+            "message": "Для сценарного прогноза пока мало непрерывной дневной истории: проверка на истории включается примерно от 30 дней ряда.",
+            "rows": [],
+            "model_metrics": {},
+            "baseline_metrics": {},
+            "overview": {"folds": 0, "min_train_days": 0, "validation_horizon_days": 1},
+        }
+
+    min_train_days = min(28, max(14, len(daily_history) // 2))
+    available_points = len(daily_history) - min_train_days
+    if available_points < 8:
+        return {
+            "is_ready": False,
+            "message": "Для сценарного прогноза пока недостаточно одношаговых исторических окон: нужно хотя бы 8 окон для проверки на истории.",
+            "rows": [],
+            "model_metrics": {},
+            "baseline_metrics": {},
+            "overview": {"folds": 0, "min_train_days": min_train_days, "validation_horizon_days": 1},
+        }
+
+    start_index = len(daily_history) - min(45, available_points)
+    rows: List[Dict[str, Any]] = []
+    for index in range(start_index, len(daily_history)):
+        train_history = daily_history[:index]
+        actual_row = daily_history[index]
+        if not train_history:
+            continue
+        forecast_row = _build_forecast_rows(train_history, 1, None)
+        if not forecast_row:
+            continue
+        point_forecast = forecast_row[0]
+        baseline_count = _scenario_baseline_expected_count(train_history, actual_row["date"])
+        rows.append(
+            {
+                "date": actual_row["date"].isoformat(),
+                "actual_count": float(actual_row["count"]),
+                "predicted_count": float(point_forecast.get("forecast_value", 0.0)),
+                "baseline_count": float(baseline_count),
+            }
+        )
+
+    if len(rows) < 8:
+        return {
+            "is_ready": False,
+            "message": "Не удалось собрать достаточно исторических проверок для сценарного прогноза.",
+            "rows": rows,
+            "model_metrics": {},
+            "baseline_metrics": {},
+            "overview": {"folds": len(rows), "min_train_days": min_train_days, "validation_horizon_days": 1},
+        }
+
+    actuals = [row["actual_count"] for row in rows]
+    predictions = [row["predicted_count"] for row in rows]
+    baseline_predictions = [row["baseline_count"] for row in rows]
+    baseline_metrics = compute_count_metrics(actuals, baseline_predictions)
+    model_metrics = compute_count_metrics(actuals, predictions, baseline_metrics)
+    return {
+        "is_ready": True,
+        "message": "",
+        "rows": rows,
+        "model_metrics": model_metrics,
+        "baseline_metrics": baseline_metrics,
+        "overview": {"folds": len(rows), "min_train_days": min_train_days, "validation_horizon_days": 1},
+    }
+
+
+def _empty_forecast_quality_assessment() -> Dict[str, Any]:
+    return {
+        "ready": False,
+        "title": "Оценка качества сценарного прогноза",
+        "subtitle": "После накопления истории здесь появится проверка на истории и сравнение с базовой моделью.",
+        "metric_cards": [],
+        "methodology_items": [],
+        "comparison_rows": [],
+        "dissertation_points": ["Истории пока недостаточно, чтобы подтвердить качество эвристического сценарного прогноза через проверку на истории."],
+    }
+
+
+def _build_scenario_quality_assessment(backtest: Dict[str, Any]) -> Dict[str, Any]:
+    if not backtest.get("is_ready"):
+        payload = _empty_forecast_quality_assessment()
+        message = backtest.get("message")
+        if message:
+            payload["dissertation_points"] = [message]
+        return payload
+
+    model_metrics = backtest.get("model_metrics", {})
+    baseline_metrics = backtest.get("baseline_metrics", {})
+    overview = backtest.get("overview", {})
+    comparison_rows = [
+        {
+            "method_label": "Сезонная базовая модель",
+            "role_label": "Базовая модель",
+            "mae_display": _format_number(baseline_metrics.get("mae")),
+            "rmse_display": _format_number(baseline_metrics.get("rmse")),
+            "smape_display": f"{_format_number(baseline_metrics.get('smape'))}%",
+            "selection_label": "Опорная линия",
+            "mae_delta_display": "0%",
+        },
+        {
+            "method_label": "Сценарный прогноз",
+            "role_label": "Эвристическая модель",
+            "mae_display": _format_number(model_metrics.get("mae")),
+            "rmse_display": _format_number(model_metrics.get("rmse")),
+            "smape_display": f"{_format_number(model_metrics.get('smape'))}%",
+            "selection_label": "Рабочая модель",
+            "mae_delta_display": _format_signed_percent(model_metrics.get("mae_delta_vs_baseline")) if model_metrics.get("mae_delta_vs_baseline") is not None else "—",
+        },
+    ]
+    return {
+        "ready": True,
+        "title": "Оценка качества сценарного прогноза",
+        "subtitle": "Эвристический сценарный прогноз проверяется через скользящую одношаговую проверку на истории без использования будущих наблюдений.",
+        "metric_cards": [
+            {"label": "MAE", "value": _format_number(model_metrics.get("mae")), "meta": f"базовая модель: {_format_number(baseline_metrics.get('mae'))}"},
+            {"label": "RMSE", "value": _format_number(model_metrics.get("rmse")), "meta": f"базовая модель: {_format_number(baseline_metrics.get('rmse'))}"},
+            {"label": "SMAPE", "value": f"{_format_number(model_metrics.get('smape'))}%", "meta": f"базовая модель: {_format_number(baseline_metrics.get('smape'))}%"},
+            {"label": "MAE к базовой модели", "value": _format_signed_percent(model_metrics.get("mae_delta_vs_baseline")) if model_metrics.get("mae_delta_vs_baseline") is not None else "—", "meta": "отрицательное значение лучше базовой модели"},
+        ],
+        "methodology_items": [
+            {"label": "Схема валидации", "value": "Скользящая одношаговая проверка на истории", "meta": "каждое окно использует только прошлую историю"},
+            {"label": "Окон проверки", "value": _format_integer(overview.get("folds") or 0), "meta": "одношаговые окна"},
+            {"label": "Минимум обучающего окна", "value": _format_integer(overview.get("min_train_days") or 0), "meta": "дней истории на окно"},
+            {"label": "Горизонт", "value": _format_integer(overview.get("validation_horizon_days") or 1), "meta": "день вперёд"},
+        ],
+        "comparison_rows": comparison_rows,
+        "dissertation_points": [
+            f"Качество эвристического сценарного прогноза оценено через скользящую одношаговую проверку на истории на {_format_integer(overview.get('folds') or 0)} исторических окнах.",
+            f"Сценарный прогноз показал MAE {_format_number(model_metrics.get('mae'))}, RMSE {_format_number(model_metrics.get('rmse'))} и SMAPE {_format_number(model_metrics.get('smape'))}%.",
+            f"Сезонная базовая модель на тех же окнах дала MAE {_format_number(baseline_metrics.get('mae'))}, RMSE {_format_number(baseline_metrics.get('rmse'))} и SMAPE {_format_number(baseline_metrics.get('smape'))}%.",
+            f"Изменение MAE относительно базовой модели составило {_format_signed_percent(model_metrics.get('mae_delta_vs_baseline')) if model_metrics.get('mae_delta_vs_baseline') is not None else '—'}, что позволяет количественно сравнивать сценарный блок с опорной сезонной моделью.",
+        ],
     }
 
 def _empty_forecasting_data(
@@ -233,11 +465,12 @@ def _empty_forecasting_data(
             "peak_forecast_probability_display": "0%",
             "temperature_scenario_display": temperature.strip() or "Историческая сезонность",
         },
+        "quality_assessment": _empty_forecast_quality_assessment(),
         "features": [],
         "risk_prediction": {
             "has_data": False,
             "title": "Блок поддержки решений: ранжирование территорий",
-            "model_description": "Это отдельный блок поддержки решений: он прозрачно раскладывает риск территории на частоту пожаров, тяжесть последствий, долгое прибытие и дефицит водоснабжения.",
+            "model_description": "Это отдельный блок поддержки решений: он прозрачно раскладывает риск территории на частоту пожаров, тяжесть последствий, долгое прибытие и дефицит водоснабжения, а логистический блок объясняет travel-time, покрытие ПЧ и сервисную зону.",
             "coverage_display": "0 из 0",
             "quality_passport": {
                 "title": "Паспорт качества данных",
@@ -276,17 +509,18 @@ def _empty_forecasting_data(
                 "calibration_notes": ["После расчета здесь появится заготовка под калибровку весов."],
             },
             "historical_validation": {
-                "title": "Черновая историческая проверка ranking",
+                "title": "Черновая историческая проверка ранжирования",
                 "mode_label": "Экспертные веса",
                 "has_metrics": False,
                 "status_label": "Пока без проверки",
                 "status_tone": "fire",
-                "summary": "После расчета здесь появится заготовка под историческую проверку ranking.",
+                "summary": "После расчёта здесь появится заготовка под историческую проверку ранжирования.",
                 "metric_cards": [
                     {"label": "Окон оценено", "value": "0", "meta": "Нет данных"},
                     {"label": "Top-1 hit", "value": "0%", "meta": "Нет данных"},
                     {"label": "Top-3 capture", "value": "0%", "meta": "Нет данных"},
-                    {"label": "Precision high risk", "value": "0%", "meta": "Нет данных"},
+                    {"label": "Precision@3", "value": "0%", "meta": "Нет данных"},
+                    {"label": "NDCG@3", "value": "0", "meta": "Нет данных"},
                 ],
                 "notes": ["Метрики появятся автоматически, когда истории станет достаточно."],
                 "recent_windows": [],
@@ -308,7 +542,7 @@ def _empty_forecasting_data(
         },
         "insights": [],
         "charts": {
-            "daily": _empty_chart_bundle("История и heuristic / scenario forecast", "Недостаточно данных для построения прогноза."),
+            "daily": _empty_chart_bundle("История и сценарный прогноз", "Недостаточно данных для построения прогноза."),
             "breakdown": _empty_chart_bundle("Сценарная вероятность пожара по ближайшим дням", "Нет данных для ближайших дней."),
             "weekday": _empty_chart_bundle("В какие дни недели пожары случаются чаще", "Нет данных по дням недели."),
             "geo": _empty_chart_bundle("Карта блока поддержки решений", "В выбранном срезе нет координат, поэтому карта не построена."),
@@ -514,10 +748,6 @@ def _build_notes(
     if any(not item["resolved_columns"].get("object_category") for item in metadata_items):
         notes.append("Не во всех таблицах найдена категория объекта, поэтому этот фильтр работает частично.")
 
-    notes.append("Heuristic / scenario forecast лучше читать как сценарный ориентир по уровню нагрузки и приоритетам, а не как точное обещание числа пожаров в каждый день.")
+    notes.append("Сценарный прогноз лучше читать как ориентир по уровню нагрузки и приоритетам, а не как точное обещание числа пожаров в каждый день.")
 
     return notes
-
-
-
-

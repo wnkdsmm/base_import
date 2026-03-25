@@ -28,18 +28,18 @@ class Pipeline:
         self.steps.append(step)
 
     def run(self):
-        print(f"\n📌 START PIPELINE: {self.settings.project_name}\n")
+        print(f"\nЗапуск конвейера: {self.settings.project_name}\n")
         for step in self.steps:
-            print(f"\n🚀 Step: {step.name}")
+            print(f"\nШаг: {step.name}")
             start_time = time.time()
             try:
                 # Передаем весь объект settings шагу
                 step.run(self.settings)
             except Exception:
-                print(f"❌ Ошибка на шаге {step.name}")
+                print(f"Ошибка на шаге {step.name}")
                 traceback.print_exc()
                 break
             elapsed = time.time() - start_time
-            print(f"✅ Finished: {step.name} ({elapsed:.2f}s)")
+            print(f"Шаг завершён: {step.name} ({elapsed:.2f} с)")
 
-        print(f"\n🎉 PIPELINE COMPLETED: {self.settings.project_name}")
+        print(f"\nКонвейер завершён: {self.settings.project_name}")

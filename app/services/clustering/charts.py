@@ -1,26 +1,16 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, Sequence
 
 import numpy as np
 import pandas as pd
 
+from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go, serialize_plotly_figure
 from app.statistics_constants import PLOTLY_PALETTE
 
 from .utils import _format_integer, _format_number, _format_percent
 
-try:
-    import plotly.graph_objects as go
-    from plotly.offline import get_plotlyjs
-    from plotly.utils import PlotlyJSONEncoder
 
-    PLOTLY_AVAILABLE = True
-except Exception:
-    go = None
-    get_plotlyjs = None
-    PlotlyJSONEncoder = None
-    PLOTLY_AVAILABLE = False
 
 
 
@@ -83,8 +73,8 @@ def _build_scatter_chart(
     base_yaxis = dict(layout.pop("yaxis", {}))
     figure.update_layout(
         **layout,
-        xaxis={**base_xaxis, "title": "PCA 1", "showgrid": False, "zeroline": False},
-        yaxis={**base_yaxis, "title": "PCA 2", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
+        xaxis={**base_xaxis, "title": "Компонента 1 (PCA)", "showgrid": False, "zeroline": False},
+        yaxis={**base_yaxis, "title": "Компонента 2 (PCA)", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
         legend={"orientation": "h", "y": 1.1, "x": 0},
     )
     return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
@@ -144,7 +134,7 @@ def _build_diagnostics_chart(
 ) -> Dict[str, Any]:
     title = "Подсказка по числу кластеров"
     if not rows:
-        return _empty_chart_bundle(title, "Недостаточно территорий, чтобы сравнить silhouette и elbow по нескольким значениям k.")
+        return _empty_chart_bundle(title, "Недостаточно территорий, чтобы сравнить коэффициент силуэта и метод локтя по нескольким значениям k.")
     if not PLOTLY_AVAILABLE:
         return _empty_chart_bundle(title, "Plotly недоступен, поэтому диагностический график не построен.")
 
@@ -158,10 +148,10 @@ def _build_diagnostics_chart(
             x=x,
             y=silhouette_values,
             mode="lines+markers",
-            name="Silhouette",
+            name="Коэффициент силуэта",
             marker={"size": 8, "color": PLOTLY_PALETTE["forest"]},
             line={"width": 2, "color": PLOTLY_PALETTE["forest"]},
-            hovertemplate="k=%{x}<br>Silhouette=%{y:.3f}<extra></extra>",
+            hovertemplate="k=%{x}<br>Коэффициент силуэта=%{y:.3f}<extra></extra>",
         )
     )
     figure.add_trace(
@@ -169,20 +159,20 @@ def _build_diagnostics_chart(
             x=x,
             y=inertia_values,
             mode="lines+markers",
-            name="Inertia",
+            name="Инерция",
             yaxis="y2",
             marker={"size": 8, "color": PLOTLY_PALETTE["fire"]},
             line={"width": 2, "color": PLOTLY_PALETTE["fire"]},
-            hovertemplate="k=%{x}<br>Inertia=%{y:.2f}<extra></extra>",
+            hovertemplate="k=%{x}<br>Инерция=%{y:.2f}<extra></extra>",
         )
     )
 
-    layout = _plotly_layout("Silhouette", height=340)
+    layout = _plotly_layout("Коэффициент силуэта", height=340)
     layout.update(
         {
             "xaxis": {"title": "Число кластеров", "tickmode": "array", "tickvals": x},
-            "yaxis": {"title": "Silhouette", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
-            "yaxis2": {"title": "Inertia", "overlaying": "y", "side": "right", "showgrid": False},
+            "yaxis": {"title": "Коэффициент силуэта", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
+            "yaxis2": {"title": "Инерция", "overlaying": "y", "side": "right", "showgrid": False},
             "legend": {"orientation": "h", "y": 1.12, "x": 0},
             "shapes": _diagnostic_shapes(x, requested_cluster_count, best_silhouette_k, elbow_k),
             "annotations": _diagnostic_annotations(rows, requested_cluster_count, best_silhouette_k, elbow_k),
@@ -204,7 +194,7 @@ def _empty_chart_bundle(title: str, message: str) -> Dict[str, Any]:
 
 def _build_empty_plotly(message: str) -> Dict[str, Any]:
     if not PLOTLY_AVAILABLE:
-        return {"data": [], "layout": {}, "config": {"responsive": True}, "empty_message": message}
+        return empty_plotly_payload(message)
 
     figure = go.Figure()
     figure.update_layout(
@@ -248,26 +238,7 @@ def _plotly_layout(yaxis_title: str, height: int = 340) -> Dict[str, Any]:
 
 
 def _figure_to_dict(figure: Any) -> Dict[str, Any]:
-    if not PLOTLY_AVAILABLE or PlotlyJSONEncoder is None:
-        return {"data": [], "layout": {}, "config": {"responsive": True}}
-
-    payload = json.loads(json.dumps(figure, cls=PlotlyJSONEncoder))
-    if isinstance(payload.get("layout"), dict):
-        payload["layout"].pop("template", None)
-    payload["config"] = {
-        "responsive": True,
-        "displaylogo": False,
-        "modeBarButtonsToRemove": ["lasso2d", "select2d", "autoScale2d", "toggleSpikelines"],
-    }
-    return payload
-
-
-
-def _get_plotly_bundle() -> str:
-    if not PLOTLY_AVAILABLE or get_plotlyjs is None:
-        return ""
-    return get_plotlyjs()
-
+    return serialize_plotly_figure(figure)
 
 
 def _diagnostic_shapes(
@@ -318,7 +289,7 @@ def _diagnostic_annotations(
     for value, text, color in [
         (requested_cluster_count, "Текущий k", PLOTLY_PALETTE["sky"]),
         (best_silhouette_k, "Лучший silhouette", PLOTLY_PALETTE["forest"]),
-        (elbow_k, "Elbow", PLOTLY_PALETTE["fire"]),
+        (elbow_k, "Локоть", PLOTLY_PALETTE["fire"]),
     ]:
         if value is None:
             continue

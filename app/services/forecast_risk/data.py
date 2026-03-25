@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 
+from app.db_metadata import get_table_columns_cached
 from config.db import engine
 
 from .constants import *
@@ -42,11 +43,10 @@ def _collect_risk_inputs(source_tables: Sequence[str]) -> tuple[List[Dict[str, A
 
 
 def _load_table_metadata(table_name: str) -> Dict[str, Any]:
-    inspector = inspect(engine)
-    table_names = inspector.get_table_names()
-    if table_name not in table_names:
-        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.")
-    columns = [column["name"] for column in inspector.get_columns(table_name)]
+    try:
+        columns = get_table_columns_cached(table_name)
+    except ValueError as exc:
+        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.") from exc
     resolved_columns = {
         "date": _resolve_column_name(columns, [DATE_COLUMN]),
         "district": _resolve_column_name(columns, DISTRICT_COLUMN_CANDIDATES),

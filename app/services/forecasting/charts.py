@@ -3,6 +3,8 @@ from __future__ import annotations
 from statistics import mean
 from typing import Any, Dict, List
 
+from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go, serialize_plotly_figure
+
 from .constants import PLOTLY_PALETTE
 from .utils import (
     _probability_from_expected_count,
@@ -10,22 +12,9 @@ from .utils import (
     _scenario_color,
 )
 
-try:
-    import json
 
-    import plotly.graph_objects as go
-    from plotly.offline import get_plotlyjs
-    from plotly.utils import PlotlyJSONEncoder
-
-    PLOTLY_AVAILABLE = True
-except Exception:
-    go = None
-    get_plotlyjs = None
-    PlotlyJSONEncoder = None
-    json = None
-    PLOTLY_AVAILABLE = False
 def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    title = "История и heuristic / scenario forecast"
+    title = "История и сценарный прогноз"
     if not daily_history:
         return {
             "title": title,
@@ -36,8 +25,8 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
     if not PLOTLY_AVAILABLE:
         return {
             "title": title,
-            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
-            "empty_message": "Plotly не найден в окружении. Таблица прогноза ниже остается доступной.",
+            "plotly": empty_plotly_payload(),
+            "empty_message": "Библиотека Plotly не найдена в окружении. Таблица прогноза ниже остаётся доступной.",
         }
 
     visible_history = daily_history[-90:] if len(daily_history) > 90 else daily_history
@@ -99,7 +88,7 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
                 x=forecast_x,
                 y=forecast_y,
                 mode="lines+markers",
-                name="Scenario forecast",
+                name="Сценарный прогноз",
                 line=dict(color=PLOTLY_PALETTE["sky"], width=3, dash="dash"),
                 marker=dict(size=7, color=PLOTLY_PALETTE["sky_soft"]),
                 hovertemplate="<b>%{x}</b><br>Ожидаемо: %{y:.1f} пожара<extra></extra>",
@@ -203,7 +192,7 @@ def _build_weekly_chart(weekly_outlook: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     figure = go.Figure()
     figure.add_trace(go.Bar(x=labels, y=actual_values, name="Последние фактические недели", marker=dict(color=PLOTLY_PALETTE["sand"]), hovertemplate="<b>%{x}</b><br>Факт: %{y:.1f} пожара<extra></extra>"))
-    figure.add_trace(go.Bar(x=labels, y=forecast_values, name="Ближайшие недели scenario forecast", marker=dict(color=PLOTLY_PALETTE["sky"]), hovertemplate="<b>%{x}</b><br>Scenario forecast: %{y:.1f} пожара<extra></extra>"))
+    figure.add_trace(go.Bar(x=labels, y=forecast_values, name="Ближайшие недели сценарного прогноза", marker=dict(color=PLOTLY_PALETTE["sky"]), hovertemplate="<b>%{x}</b><br>Сценарный прогноз: %{y:.1f} пожара<extra></extra>"))
     figure.update_layout(**_plotly_layout("Пожаров за неделю", height=340))
     figure.update_layout(barmode="group", legend={"orientation": "h", "y": 1.12, "x": 0})
     return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
@@ -215,7 +204,7 @@ def _build_monthly_chart(monthly_outlook: List[Dict[str, Any]]) -> Dict[str, Any
         return _empty_chart_bundle(title, "График недоступен без Plotly.", use_plotly=False)
 
     figure = go.Figure()
-    figure.add_trace(go.Bar(x=[item["label"] for item in monthly_outlook], y=[item["forecast"] for item in monthly_outlook], name="Scenario forecast", text=[item["delta_percent_display"] for item in monthly_outlook], textposition="outside", marker=dict(color=PLOTLY_PALETTE["forest"]), customdata=[[item["baseline_display"], item["delta_percent_display"], item["level_label"]] for item in monthly_outlook], hovertemplate="<b>%{x}</b><br>Scenario forecast: %{y:.1f} пожара<br>Обычный уровень: %{customdata[0]}<br>Изменение: %{customdata[1]}<br>%{customdata[2]}<extra></extra>"))
+    figure.add_trace(go.Bar(x=[item["label"] for item in monthly_outlook], y=[item["forecast"] for item in monthly_outlook], name="Сценарный прогноз", text=[item["delta_percent_display"] for item in monthly_outlook], textposition="outside", marker=dict(color=PLOTLY_PALETTE["forest"]), customdata=[[item["baseline_display"], item["delta_percent_display"], item["level_label"]] for item in monthly_outlook], hovertemplate="<b>%{x}</b><br>Сценарный прогноз: %{y:.1f} пожара<br>Обычный уровень: %{customdata[0]}<br>Изменение: %{customdata[1]}<br>%{customdata[2]}<extra></extra>"))
     figure.add_trace(go.Scatter(x=[item["label"] for item in monthly_outlook], y=[item["baseline"] for item in monthly_outlook], name="Обычный уровень", mode="lines+markers", line=dict(color=PLOTLY_PALETTE["fire"], width=3), marker=dict(size=7, color=PLOTLY_PALETTE["fire_soft"]), hovertemplate="<b>%{x}</b><br>Обычный уровень: %{y:.1f} пожара<extra></extra>"))
     figure.update_layout(**_plotly_layout("Пожаров за месяц", height=340))
     figure.update_layout(legend={"orientation": "h", "y": 1.12, "x": 0})
@@ -319,7 +308,7 @@ def _build_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
     return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
 
 def _empty_chart_bundle(title: str, message: str, use_plotly: bool = True) -> Dict[str, Any]:
-    plotly_payload = _build_empty_plotly(message) if use_plotly else {"data": [], "layout": {}, "config": {"responsive": True}}
+    plotly_payload = _build_empty_plotly(message) if use_plotly else empty_plotly_payload()
     return {"title": title, "plotly": plotly_payload, "empty_message": message}
 
 
@@ -339,7 +328,7 @@ def _plotly_layout(yaxis_title: str, height: int = 340) -> Dict[str, Any]:
 
 def _build_empty_plotly(message: str) -> Dict[str, Any]:
     if not PLOTLY_AVAILABLE:
-        return {"data": [], "layout": {}, "config": {"responsive": True}, "empty_message": message}
+        return empty_plotly_payload(message)
 
     figure = go.Figure()
     figure.update_layout(
@@ -367,28 +356,5 @@ def _build_empty_plotly(message: str) -> Dict[str, Any]:
 
 
 def _figure_to_dict(figure: Any) -> Dict[str, Any]:
-    if not PLOTLY_AVAILABLE or json is None or PlotlyJSONEncoder is None:
-        return {"data": [], "layout": {}, "config": {"responsive": True}}
-
-    payload = json.loads(json.dumps(figure, cls=PlotlyJSONEncoder))
-    if isinstance(payload.get("layout"), dict):
-        payload["layout"].pop("template", None)
-    payload["config"] = {
-        "responsive": True,
-        "displaylogo": False,
-        "modeBarButtonsToRemove": [
-            "lasso2d",
-            "select2d",
-            "autoScale2d",
-            "toggleSpikelines",
-        ],
-    }
-    return payload
-
-
-def _get_plotly_bundle() -> str:
-    if not PLOTLY_AVAILABLE or get_plotlyjs is None:
-        return ""
-    return get_plotlyjs()
-
+    return serialize_plotly_figure(figure)
 

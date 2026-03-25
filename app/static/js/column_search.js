@@ -88,6 +88,11 @@
             return;
         }
 
+        const useCards = columns.length <= 5;
+        const tableClassName = useCards
+            ? 'preview-table table-stack-mobile'
+            : 'preview-table table-sticky-first';
+
         const header = '<tr>' + columns.map(function (column) {
             return '<th>' + escapeHtml(column) + '</th>';
         }).join('') + '</tr>';
@@ -95,13 +100,14 @@
         const body = rows.length
             ? rows.map(function (row) {
                 const cells = Array.isArray(row) ? row : [row];
-                return '<tr>' + cells.map(function (cell) {
-                    return '<td>' + escapeHtml(cell == null ? '' : String(cell)) + '</td>';
+                return '<tr>' + cells.map(function (cell, index) {
+                    const label = useCards ? ' data-label="' + escapeHtml(columns[index] || '') + '"' : '';
+                    return '<td' + label + '>' + escapeHtml(cell == null ? '' : String(cell)) + '</td>';
                 }).join('') + '</tr>';
             }).join('')
             : '<tr><td colspan="' + columns.length + '">Нет строк для предпросмотра.</td></tr>';
 
-        previewNode.innerHTML = '<div class="table-scroll"><table class="preview-table"><thead>' + header + '</thead><tbody>' + body + '</tbody></table></div>';
+        previewNode.innerHTML = '<div class="table-scroll"><table class="' + tableClassName + '"><thead>' + header + '</thead><tbody>' + body + '</tbody></table></div>';
         enableDragScroll(previewNode.querySelector('.table-scroll'));
     }
 
@@ -493,7 +499,7 @@
             });
             const payload = await response.json();
             if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Не удалось создать modify-таблицу.');
+                throw new Error(payload.message || 'Не удалось создать таблицу с префиксом modify_.');
             }
 
             renderPreviewTable(payload);
@@ -503,7 +509,7 @@
             );
         } catch (error) {
             console.error(error);
-            setStatus(error.message || 'Не удалось создать modify-таблицу.', true);
+            setStatus(error.message || 'Не удалось создать таблицу с префиксом modify_.', true);
         } finally {
             if (createButton) {
                 createButton.disabled = false;

@@ -1,14 +1,16 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any, Dict, List
 
-DEFAULT_RISK_WEIGHT_MODE = "expert"
+from .utils import _format_integer
+
+DEFAULT_RISK_WEIGHT_MODE = "adaptive"
 
 EXPERT_RISK_WEIGHT_PROFILE: Dict[str, Any] = {
     "mode": "expert",
     "mode_label": "Экспертные веса",
-    "status_label": "Активный профиль",
+    "status_label": "Экспертный профиль",
     "status_tone": "forest",
     "description": (
         "Базовый профиль для сельских территорий. Итоговый риск складывается из четырех компонентов: "
@@ -57,13 +59,14 @@ EXPERT_RISK_WEIGHT_PROFILE: Dict[str, Any] = {
         },
         "long_arrival_risk": {
             "label": "Риск долгого прибытия",
-            "description": "Логистический риск: фактическое время прибытия, удалённость и сельский контекст.",
+            "description": "Логистический риск: фактическое прибытие, explainable travel-time, покрытие ПЧ и сервисная зона территории.",
             "signals": [
-                {"key": "long_arrival_rate", "label": "Доля долгих прибытий", "weight": 0.36},
-                {"key": "avg_response_pressure", "label": "Среднее время прибытия", "weight": 0.28},
-                {"key": "distance_pressure", "label": "Удалённость до ПЧ", "weight": 0.20},
-                {"key": "night_pressure", "label": "Ночные вызовы", "weight": 0.08},
-                {"key": "rural_context", "label": "Сельский контекст", "weight": 0.08},
+                {"key": "long_arrival_rate", "label": "Доля долгих прибытий", "weight": 0.24},
+                {"key": "avg_response_pressure", "label": "Среднее время прибытия", "weight": 0.18},
+                {"key": "travel_time_pressure", "label": "Travel-time доезда", "weight": 0.22},
+                {"key": "service_coverage_gap", "label": "Дефицит покрытия ПЧ", "weight": 0.20},
+                {"key": "service_zone_pressure", "label": "Сервисная зона", "weight": 0.10},
+                {"key": "distance_pressure", "label": "Удалённость до ПЧ", "weight": 0.06},
             ],
         },
         "water_supply_deficit": {
@@ -90,50 +93,84 @@ EXPERT_RISK_WEIGHT_PROFILE: Dict[str, Any] = {
     },
     "notes": [
         "Для сельских территорий вес логистики и водоснабжения автоматически повышается.",
-        "Веса компонентов и сигналов вынесены в отдельную структуру и готовы к пересмотру без переписывания формулы.",
+        "Веса компонентов и сигналов вынесены в отдельную структуру и могут меняться без переписывания формулы.",
         "Итоговый балл интерпретируется как управленческий приоритет территории, а не как прямой прогноз числа пожаров.",
     ],
     "calibration": {
-        "ready": True,
+        "ready": False,
         "targets": [
             "top1_hit_rate",
             "top3_capture_rate",
-            "high_risk_precision",
+            "precision_at_3",
+            "ndcg_at_3",
         ],
         "notes": [
-            "Те же компоненты можно калибровать на исторических окнах без смены структуры признаков.",
-            "При переходе к калибровке можно оптимизировать веса по метрикам захвата очагов в top-k.",
+            "Экспертный профиль остается резервным режимом, если истории недостаточно для устойчивой калибровки.",
         ],
     },
 }
 
-CALIBRATABLE_RISK_WEIGHT_PROFILE: Dict[str, Any] = deepcopy(EXPERT_RISK_WEIGHT_PROFILE)
+ADAPTIVE_RISK_WEIGHT_PROFILE: Dict[str, Any] = deepcopy(EXPERT_RISK_WEIGHT_PROFILE)
+ADAPTIVE_RISK_WEIGHT_PROFILE.update(
+    {
+        "mode": "adaptive",
+        "mode_label": "Адаптивные веса",
+        "status_label": "Ожидает калибровку",
+        "status_tone": "sand",
+        "description": (
+            "Сервис старается подобрать веса компонентов по историческим окнам ranking-качества, а если данных мало, "
+            "автоматически возвращается к экспертному профилю без потери объяснимости."
+        ),
+        "notes": [
+            "Подстраиваются только веса четырех понятных компонентов, а сами сигналы внутри компонентов остаются прозрачными и доступны для расшифровки.",
+            "Если историческая проверка не дает устойчивого выигрыша, сервис удерживает экспертные веса как fallback.",
+        ],
+        "calibration": {
+            "ready": True,
+            "targets": [
+                "top1_hit_rate",
+                "top3_capture_rate",
+                "precision_at_3",
+                "ndcg_at_3",
+            ],
+            "notes": [
+                "Калибровка идет по историческим окнам без использования будущих наблюдений внутри каждого окна.",
+                "Подбор оптимизирует ranking-метрики, а не скрытую черную коробку по территориям.",
+            ],
+        },
+    }
+)
+
+CALIBRATABLE_RISK_WEIGHT_PROFILE: Dict[str, Any] = deepcopy(ADAPTIVE_RISK_WEIGHT_PROFILE)
 CALIBRATABLE_RISK_WEIGHT_PROFILE.update(
     {
         "mode": "calibratable",
-        "mode_label": "Калибруемые веса",
-        "status_label": "Шаблон для настройки",
-        "status_tone": "sand",
+        "mode_label": "Шаблон для настройки",
+        "status_label": "Ручная настройка",
+        "status_tone": "sky",
         "description": (
-            "Структура совпадает с экспертным профилем, но веса предназначены для последующей настройки "
-            "по историческим данным и метрикам качества ranking."
+            "Режим с той же прозрачной структурой компонентов, предназначенный для ручной настройки или экспериментального "
+            "подбора весов по историческим окнам."
         ),
         "notes": [
-            "Сейчас используется стартовый seed, совместимый с будущей калибровкой.",
-            "После накопления исторических окон веса можно обучать без перестройки UI и explainability.",
+            "Использует ту же компонентную формулу, что и экспертный профиль.",
+            "Подходит для ручного сравнения альтернативных наборов весов без смены интерфейса.",
         ],
     }
 )
 
 RISK_WEIGHT_PROFILES: Dict[str, Dict[str, Any]] = {
-    DEFAULT_RISK_WEIGHT_MODE: EXPERT_RISK_WEIGHT_PROFILE,
+    DEFAULT_RISK_WEIGHT_MODE: ADAPTIVE_RISK_WEIGHT_PROFILE,
+    "expert": EXPERT_RISK_WEIGHT_PROFILE,
     "calibratable": CALIBRATABLE_RISK_WEIGHT_PROFILE,
 }
+
 
 
 def get_risk_weight_profile(mode: str = DEFAULT_RISK_WEIGHT_MODE) -> Dict[str, Any]:
     resolved_mode = mode if mode in RISK_WEIGHT_PROFILES else DEFAULT_RISK_WEIGHT_MODE
     return deepcopy(RISK_WEIGHT_PROFILES[resolved_mode])
+
 
 
 def resolve_component_weights(profile: Dict[str, Any], is_rural: bool) -> List[Dict[str, Any]]:
@@ -165,16 +202,28 @@ def resolve_component_weights(profile: Dict[str, Any], is_rural: bool) -> List[D
     return rows
 
 
+
 def build_weight_profile_snapshot(profile: Dict[str, Any]) -> Dict[str, Any]:
     base_components = resolve_component_weights(profile, is_rural=False)
     rural_components = {item["key"]: item for item in resolve_component_weights(profile, is_rural=True)}
+    expert_component_weights = {
+        key: float(value)
+        for key, value in (profile.get("expert_component_weights") or profile.get("component_weights") or {}).items()
+    }
 
     components: List[Dict[str, Any]] = []
     for item in base_components:
         rural_item = rural_components.get(item["key"], item)
+        expert_weight = float(expert_component_weights.get(item["key"], item["weight"]))
+        calibration_shift = item["weight"] - expert_weight
         components.append(
             {
                 **item,
+                "expert_weight": expert_weight,
+                "expert_weight_display": _format_weight(expert_weight),
+                "current_weight_display": item["weight_display"],
+                "calibration_shift": calibration_shift,
+                "calibration_shift_display": _format_shift(calibration_shift),
                 "rural_weight": rural_item.get("weight", item["weight"]),
                 "rural_weight_display": rural_item.get("weight_display", item["weight_display"]),
             }
@@ -193,9 +242,60 @@ def build_weight_profile_snapshot(profile: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     calibration = profile.get("calibration") or {}
+    selected_metrics = calibration.get("selected_metrics") or {}
+    expert_metrics = calibration.get("expert_metrics") or {}
+    comparison = calibration.get("comparison") or {}
+    calibration_notes = list(calibration.get("notes") or [])
+    summary = str(calibration.get("summary") or "").strip()
+    if summary and summary not in calibration_notes:
+        calibration_notes.insert(0, summary)
+    comparison_summary = str(comparison.get("summary") or "").strip()
+    if comparison_summary and comparison_summary not in calibration_notes:
+        calibration_notes.insert(1 if calibration_notes else 0, comparison_summary)
+
+    metric_cards: List[Dict[str, str]] = []
+    k_value = int(selected_metrics.get("k_value") or 3)
+    if selected_metrics:
+        metric_cards.append(
+            {
+                "label": "Top-1 hit",
+                "value": _format_probability(float(selected_metrics.get("top1_hit_rate") or 0.0)),
+                "meta": "Доля окон, где территория-лидер действительно горела в следующем интервале.",
+            }
+        )
+        metric_cards.append(
+            {
+                "label": f"Top-{k_value} capture",
+                "value": _format_probability(float(selected_metrics.get("topk_capture_rate") or 0.0)),
+                "meta": "Доля будущих пожаров, попавших в верхние территории рейтинга.",
+            }
+        )
+        metric_cards.append(
+            {
+                "label": f"Precision@{k_value}",
+                "value": _format_probability(float(selected_metrics.get("precision_at_k") or 0.0)),
+                "meta": (
+                    f"Экспертный профиль: {_format_probability(float(expert_metrics.get('precision_at_k') or 0.0))}; Δ { _format_shift_probability(float(comparison.get('precision_at_k_delta') or 0.0)) }"
+                    if expert_metrics
+                    else "Сколько территорий в top-k действительно подтвердились пожаром."
+                ),
+            }
+        )
+        metric_cards.append(
+            {
+                "label": f"NDCG@{k_value}",
+                "value": _format_decimal(float(selected_metrics.get("ndcg_at_k") or 0.0)),
+                "meta": (
+                    f"Экспертный профиль: {_format_decimal(float(expert_metrics.get('ndcg_at_k') or 0.0))}; Δ { _format_signed_decimal(float(comparison.get('ndcg_at_k_delta') or 0.0)) }"
+                    if expert_metrics
+                    else "Сравнение с экспертным профилем недоступно."
+                ),
+            }
+        )
+
     return {
         "mode": profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
-        "mode_label": profile.get("mode_label") or "Экспертные веса",
+        "mode_label": profile.get("mode_label") or "Адаптивные веса",
         "status_label": profile.get("status_label") or "Активный профиль",
         "status_tone": profile.get("status_tone") or "forest",
         "description": profile.get("description") or "",
@@ -204,8 +304,15 @@ def build_weight_profile_snapshot(profile: Dict[str, Any]) -> Dict[str, Any]:
         "notes": list(profile.get("notes") or []),
         "calibration_ready": bool(calibration.get("ready")),
         "calibration_targets": list(calibration.get("targets") or []),
-        "calibration_notes": list(calibration.get("notes") or []),
+        "calibration_notes": calibration_notes,
+        "calibration_summary": summary,
+        "calibration_windows_display": _format_integer(calibration.get("windows_used") or 0),
+        "calibration_candidate_count_display": _format_integer(calibration.get("candidate_count") or 0),
+        "uses_fallback": bool(calibration.get("used_fallback")),
+        "calibration_comparison": comparison,
+        "metric_cards": metric_cards,
     }
+
 
 
 def _format_weight(value: float) -> str:
@@ -213,7 +320,40 @@ def _format_weight(value: float) -> str:
     return f"{int(percent)}%"
 
 
+
 def _format_shift(value: float) -> str:
     points = round(float(value) * 100.0)
     sign = "+" if points > 0 else ""
     return f"{sign}{int(points)} п.п."
+
+
+
+def _format_probability(value: float) -> str:
+    rounded = round(float(value) * 100.0, 1)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return f"{int(round(rounded))}%"
+    return f"{str(rounded).replace('.', ',')}%"
+
+
+
+def _format_shift_probability(value: float) -> str:
+    numeric = round(float(value) * 100.0, 1)
+    sign = "+" if numeric > 0 else ""
+    if abs(numeric - round(numeric)) < 1e-9:
+        return f"{sign}{int(round(numeric))} п.п."
+    return f"{sign}{str(numeric).replace('.', ',')} п.п."
+
+
+def _format_signed_decimal(value: float) -> str:
+    numeric = round(float(value), 3)
+    sign = "+" if numeric > 0 else ""
+    if abs(numeric - round(numeric)) < 1e-9:
+        return f"{sign}{int(round(numeric))}"
+    return sign + str(numeric).replace('.', ',')
+
+
+def _format_decimal(value: float) -> str:
+    rounded = round(float(value), 3)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return str(int(round(rounded)))
+    return str(rounded).replace('.', ',')

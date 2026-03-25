@@ -178,7 +178,7 @@ def _build_geo_prediction(
         "has_coordinates": True,
         "model_description": (
             "Карта относится к блоку поддержки решений и использует пространственную историю очагов, чтобы подсветить зоны повторяемого риска. "
-            "Это не ML-прогноз и не дневной heuristic / scenario forecast, а отдельная пространственная оценка для приоритизации территорий."
+            "Это не ML-прогноз и не дневной сценарный прогноз, а отдельная пространственная оценка для приоритизации территорий."
         ),
         "coverage_display": f"{_format_integer(len(geo_records))} с координатами из {_format_integer(len(records))}",
         "cell_size_display": f"{_format_number(cell_size)}°",

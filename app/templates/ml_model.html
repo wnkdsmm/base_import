@@ -1,27 +1,38 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ML-блок прогноза пожаров</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/ml_model.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
+    <link rel="stylesheet" href="/static/ml_model.css?v={{ ml_model_css_version }}">
 </head>
 <body>
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
 {% set data = ml_model.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
 {% set charts = data.charts %}
+{% set quality = data.quality_assessment %}
 
-<aside class="sidebar">
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
+        <span class="brand-kicker">Монитор пожаров</span>
         <h2>ML-блок</h2>
-        <p>Count-first прогноз: модель оценивает ожидаемое число пожаров по дням, а не превращает count в псевдовероятность.</p>
+        <p>Прогноз по ожидаемому числу пожаров: модель оценивает дневное число пожаров и не превращает его в псевдовероятность.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="location.href='/'">Dashboard</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button onclick="location.href='/'">Панель</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-блок</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -31,18 +42,29 @@
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
 
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
+
     <div class="sidebar-status">
         <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}ML-блок собран{% else %}Нужно уточнить фильтры{% endif %}</span>
         <div class="status-line">
-            <span>Count-модель</span>
+            <span>Модель по числу пожаров</span>
             <strong>{{ summary.count_model_label }}</strong>
         </div>
         <div class="status-line">
-            <span>Fire/no-fire</span>
+            <span>Событие пожара</span>
             <strong>{{ summary.event_model_label }}</strong>
         </div>
         <div class="status-line">
-            <span>Backtesting</span>
+            <span>Проверка на истории</span>
             <strong>{{ summary.backtest_method_label }}</strong>
         </div>
         <div class="status-line">
@@ -51,8 +73,9 @@
         </div>
     </div>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main dashboard-main ml-model-main">
+<main class="main dashboard-main ml-model-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Отдельный предиктивный ML-блок</span>
@@ -63,7 +86,7 @@
                 <span class="hero-tag">История: <strong>{{ summary.history_window_label }}</strong></span>
                 <span class="hero-tag">Топ-признак: <strong>{{ summary.top_feature_label }}</strong></span>
                 <span class="hero-tag">Температура: <strong>{{ summary.temperature_scenario_display }}</strong></span>
-                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя P(>=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Fire/no-fire: <strong>не показан</strong>{% endif %}</span>
+                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя вероятность P(>=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Событие пожара: <strong>не показано</strong>{% endif %}</span>
             </div>
         </div>
         <div class="hero-side">
@@ -84,14 +107,14 @@
         <div class="panel-head">
             <div>
                 <h2>Быстрый маршрут</h2>
-                <span class="panel-meta">Сначала смотрим backtesting, потом интерпретируем count-прогноз и риск-индекс. Вероятность события fire/no-fire показывается только если для неё есть отдельный классификатор.</span>
+                <span class="panel-meta">Сначала смотрим проверку на истории, потом интерпретируем прогноз по числу пожаров и индекс риска. Вероятность события «пожар / нет пожара» показывается только если для неё есть отдельный классификатор.</span>
             </div>
         </div>
         <div class="orientation-strip">
             <a class="orientation-link is-ml" href="#mlBacktestingSection">
                 <span class="orientation-kicker">Шаг 1</span>
                 <strong>Проверить качество</strong>
-                <p>Rolling-origin backtesting и baseline показывают, насколько модель лучше простой сезонной опоры.</p>
+                <p>Скользящая проверка на истории и базовая модель показывают, насколько решение лучше простой сезонной опоры.</p>
             </a>
             <a class="orientation-link is-primary" href="#mlForecastSection">
                 <span class="orientation-kicker">Шаг 2</span>
@@ -101,12 +124,12 @@
             <a class="orientation-link" href="#mlFeatureSection">
                 <span class="orientation-kicker">Шаг 3</span>
                 <strong>Разобрать признаки</strong>
-                <p>Какие факторы реально используются в обучении и сильнее всего влияют на count-прогноз.</p>
+                <p>Какие факторы реально используются в обучении и сильнее всего влияют на прогноз по числу пожаров.</p>
             </a>
             <a class="orientation-link is-scenario" href="/forecasting#decisionSupportPanel">
                 <span class="orientation-kicker">Отдельно</span>
-                <strong>Вернуться к scenario и risk score</strong>
-                <p>Сценарный forecast и decision-support ranking остаются самостоятельными блоками.</p>
+                <strong>Вернуться к сценарию и баллу риска</strong>
+                <p>Сценарный прогноз и ранжирование для поддержки решений остаются самостоятельными блоками.</p>
             </a>
         </div>
     </section>
@@ -114,7 +137,7 @@
     <section class="panel filters-panel">
         <div class="panel-head">
             <h2>Параметры ML-блока</h2>
-            <span class="panel-meta">Этот экран показывает отдельный count-first ML-блок. Он не заменяет сценарный прогноз и не совпадает с heuristic/risk score территорий.</span>
+            <span class="panel-meta">Этот экран показывает отдельный ML-блок прогноза по числу пожаров. Он не заменяет сценарный прогноз и не совпадает с эвристическим баллом риска территорий.</span>
         </div>
         <form class="filters-grid ml-form-grid" method="get" action="/ml-model">
             <label class="filter-field">
@@ -193,54 +216,161 @@
 
     <section id="mlBacktestingSection" class="panel ml-quality-panel">
         <div class="panel-head">
-            <h2>Сначала проверьте качество модели</h2>
-            <span class="panel-meta">Метрики ниже рассчитаны на rolling-origin backtesting. Baseline — простой сезонный ориентир, с которым сравнивается count-модель.</span>
+            <div>
+                <h2>{{ quality.title }}</h2>
+                <span class="panel-meta">{{ quality.subtitle }}</span>
+            </div>
         </div>
         <div class="stats-grid">
             <article class="stat-card">
-                <span class="stat-label">Count MAE</span>
+                <span class="stat-label">MAE по числу пожаров</span>
                 <strong class="stat-value">{{ summary.count_mae_display }}</strong>
-                <span class="stat-foot">Средняя абсолютная ошибка ожидаемого числа пожаров.</span>
+                <span class="stat-foot">База: {{ summary.baseline_count_mae_display }} | Сценарный прогноз: {{ summary.heuristic_count_mae_display }}</span>
             </article>
             <article class="stat-card">
-                <span class="stat-label">Baseline MAE</span>
-                <strong class="stat-value">{{ summary.baseline_count_mae_display }}</strong>
-                <span class="stat-foot">Тот же MAE для простого сезонного baseline.</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">RMSE</span>
+                <span class="stat-label">RMSE по числу пожаров</span>
                 <strong class="stat-value">{{ summary.count_rmse_display }}</strong>
-                <span class="stat-foot">Чувствительна к редким крупным промахам по count.</span>
+                <span class="stat-foot">База: {{ summary.baseline_count_rmse_display }} | Сценарный прогноз: {{ summary.heuristic_count_rmse_display }}</span>
             </article>
             <article class="stat-card">
-                <span class="stat-label">Poisson deviance</span>
+                <span class="stat-label">SMAPE по числу пожаров</span>
+                <strong class="stat-value">{{ summary.count_smape_display }}</strong>
+                <span class="stat-foot">База: {{ summary.baseline_count_smape_display }} | Сценарный прогноз: {{ summary.heuristic_count_smape_display }}</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">Девиация Пуассона</span>
                 <strong class="stat-value">{{ summary.count_poisson_deviance_display }}</strong>
-                <span class="stat-foot">Подходящая метрика для count data.</span>
+                <span class="stat-foot">Сценарный прогноз: {{ summary.heuristic_count_poisson_deviance_display }}</span>
             </article>
             <article class="stat-card">
-                <span class="stat-label">MAE vs baseline</span>
+                <span class="stat-label">MAE к базовой модели</span>
                 <strong class="stat-value">{{ summary.mae_vs_baseline_display }}</strong>
-                <span class="stat-foot">Отрицательное значение означает, что ML лучше baseline.</span>
+                <span class="stat-foot">Отрицательное значение означает улучшение относительно базовой модели.</span>
             </article>
-            {% if summary.event_probability_enabled %}
+            {% if summary.event_backtest_available %}
             <article class="stat-card">
-                <span class="stat-label">Brier score</span>
+                <span class="stat-label">Показатель Брайера</span>
                 <strong class="stat-value">{{ summary.brier_display }}</strong>
-                <span class="stat-foot">Качество отдельного fire/no-fire классификатора.</span>
+                <span class="stat-foot">База: {{ summary.baseline_brier_display }} | Сценарный прогноз: {{ summary.heuristic_brier_display }}</span>
             </article>
             <article class="stat-card">
                 <span class="stat-label">ROC-AUC</span>
                 <strong class="stat-value">{{ summary.roc_auc_display }}</strong>
-                <span class="stat-foot">Разделяющая способность классификатора по событию.</span>
+                <span class="stat-foot">База: {{ summary.baseline_roc_auc_display }} | Сценарный прогноз: {{ summary.heuristic_roc_auc_display }}</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">F1</span>
+                <strong class="stat-value">{{ summary.f1_display }}</strong>
+                <span class="stat-foot">База: {{ summary.baseline_f1_display }} | Сценарный прогноз: {{ summary.heuristic_f1_display }}</span>
             </article>
             {% else %}
             <article class="stat-card">
-                <span class="stat-label">Fire/no-fire</span>
-                <strong class="stat-value">Не показан</strong>
-                <span class="stat-foot">Для текущего среза интерфейс не выдаёт вероятность без отдельной провалидированной модели.</span>
+                <span class="stat-label">Событие пожара</span>
+                <strong class="stat-value">Недостаточно окон</strong>
+                <span class="stat-foot">Недостаточно окон для сравнения сезонной базы, сценарной эвристики и отдельного классификатора.</span>
             </article>
             {% endif %}
         </div>
+
+        <div class="stats-grid">
+            {% for item in quality.methodology_items %}
+            <article class="stat-card">
+                <span class="stat-label">{{ item.label }}</span>
+                <strong class="stat-value">{{ item.value }}</strong>
+                <span class="stat-foot">{{ item.meta }}</span>
+            </article>
+            {% endfor %}
+        </div>
+
+        <div class="ml-table-shell">
+            <div class="panel-head">
+                <h2>{{ quality.count_table.title }}</h2>
+                <span class="panel-meta">На одинаковых окнах rolling-origin backtesting сравниваются сезонная база, текущий сценарный прогноз и обучаемые модели по счетному ряду пожаров.</span>
+            </div>
+            {% if quality.count_table.rows %}
+            <table class="forecast-table">
+                <thead>
+                    <tr>
+                        <th>Метод</th>
+                        <th>Роль</th>
+                        <th>MAE</th>
+                        <th>RMSE</th>
+                        <th>SMAPE</th>
+                        <th>Девиация Пуассона</th>
+                        <th>MAE к базовой модели</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in quality.count_table.rows %}
+                    <tr>
+                        <td data-label="Метод">{{ row.method_label }}</td>
+                        <td data-label="Роль">{{ row.role_label }}</td>
+                        <td data-label="MAE">{{ row.mae_display }}</td>
+                        <td data-label="RMSE">{{ row.rmse_display }}</td>
+                        <td data-label="SMAPE">{{ row.smape_display }}</td>
+                        <td data-label="Девиация Пуассона">{{ row.poisson_display }}</td>
+                        <td data-label="MAE к базовой модели">{{ row.mae_delta_display }}</td>
+                        <td data-label="Статус">{{ row.selection_label }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="mini-empty">{{ quality.count_table.empty_message }}</div>
+            {% endif %}
+        </div>
+
+        <div class="ml-table-shell">
+            <div class="panel-head">
+                <h2>{{ quality.event_table.title }}</h2>
+                <span class="panel-meta">На одинаковых окнах сравниваются сезонная событийная база, сценарная эвристика и, если хватает истории, отдельный классификатор.</span>
+            </div>
+            {% if quality.event_table.rows %}
+            <table class="forecast-table">
+                <thead>
+                    <tr>
+                        <th>Метод</th>
+                        <th>Роль</th>
+                        <th>Показатель Брайера</th>
+                        <th>ROC-AUC</th>
+                        <th>F1</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in quality.event_table.rows %}
+                    <tr>
+                        <td data-label="Метод">{{ row.method_label }}</td>
+                        <td data-label="Роль">{{ row.role_label }}</td>
+                        <td data-label="Показатель Брайера">{{ row.brier_display }}</td>
+                        <td data-label="ROC-AUC">{{ row.roc_auc_display }}</td>
+                        <td data-label="F1">{{ row.f1_display }}</td>
+                        <td data-label="Статус">{{ row.selection_label }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="mini-empty">{{ quality.event_table.empty_message }}</div>
+            {% endif %}
+        </div>
+
+        <article class="panel ranking-panel">
+            <div class="panel-head">
+                <h2>Формулировки для раздела о качестве</h2>
+                <span class="panel-meta">Короткие готовые тезисы, которые можно перенести в диссертационный раздел после проверки конкретного среза.</span>
+            </div>
+            <ul class="notice-list forecast-note-list">
+                {% if quality.dissertation_points %}
+                    {% for note in quality.dissertation_points %}
+                    <li>{{ note }}</li>
+                    {% endfor %}
+                {% else %}
+                <li>После проверки на истории здесь появятся готовые формулировки для раздела «оценка качества».</li>
+                {% endif %}
+            </ul>
+        </article>
     </section>
 
     <section id="mlForecastSection" class="ml-layout">
@@ -248,7 +378,7 @@
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
                     <h2>{{ charts.forecast.title }}</h2>
-                    <span class="panel-meta">График показывает count-ряд: история, backtest и будущие дни с интервалом неопределённости.</span>
+                    <span class="panel-meta">График показывает ряд по числу пожаров: историю, проверку на истории и будущие дни с интервалом неопределённости.</span>
                 </div>
                 <div id="mlForecastChart" class="plotly-chart ml-plot"></div>
                 <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
@@ -296,7 +426,7 @@
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2>{{ charts.importance.title }}</h2>
-                    <span class="panel-meta">Показывает, какие признаки сильнее всего влияют на count-прогноз.</span>
+                    <span class="panel-meta">Показывает, какие признаки сильнее всего влияют на прогноз по числу пожаров.</span>
                 </div>
                 <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small"></div>
                 <div id="mlImportanceChartFallback" class="chart-empty{% if charts.importance.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.importance.empty_message }}</div>
@@ -328,7 +458,7 @@
             <article class="panel ranking-panel">
                 <div class="panel-head">
                     <h2>Оговорки по интерпретации</h2>
-                    <span class="panel-meta">Короткие пояснения, чтобы не путать ML-блок со scenario forecast и decision-support ranking.</span>
+                    <span class="panel-meta">Короткие пояснения, чтобы не путать ML-блок со сценарным прогнозом и ранжированием для поддержки решений.</span>
                 </div>
                 <ul class="notice-list forecast-note-list">
                     {% if data.notes %}
@@ -347,10 +477,7 @@
 <script>
 window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
 </script>
-{% if ml_model.plotly_js %}
-<script>{{ ml_model.plotly_js | safe }}</script>
-{% endif %}
-<script src="/static/js/ml_model.js"></script>
-<script src="/static/js/sidebar.js"></script>
+<script src="/static/js/ml_model.js?v={{ ml_model_js_version }}"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>

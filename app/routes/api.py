@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Body, File, Form, UploadFile
+from fastapi import APIRouter, Body, File, Form, Request, UploadFile
 from fastapi.responses import Response
 
 from app.db_views import create_modified_table, get_table_columns, get_table_preview
-from app.log_manager import clear_logs, get_logs
+from app.log_manager import clear_logs as clear_job_logs
+from app.log_manager import get_logs
+from app.services.clustering_service import get_clustering_data, get_clustering_shell_context
 from app.services.forecasting_service import get_forecasting_data, get_forecasting_page_context
-from app.services.pipeline_service import import_uploaded_data, run_profiling_for_table, save_uploaded_file
-from app.state import upload_state
+from app.services.pipeline_service import import_uploaded_data, invalidate_runtime_caches, run_profiling_for_table, save_uploaded_file
+from app.state import SESSION_COOKIE_NAME, job_store
 from app.statistics import get_dashboard_data
 from core.processing.steps.keep_important_columns import get_column_matcher
 
@@ -17,12 +19,25 @@ from core.processing.steps.keep_important_columns import get_column_matcher
 router = APIRouter()
 
 
-def utf8_json(payload: dict, status_code: int = 200) -> Response:
-    return Response(
-        content=json.dumps(payload, ensure_ascii=True),
+def _ensure_session_id(request: Request) -> str:
+    return job_store.ensure_session(request.cookies.get(SESSION_COOKIE_NAME))
+
+
+def utf8_json(payload: dict, status_code: int = 200, session_id: str | None = None) -> Response:
+    response = Response(
+        content=json.dumps(payload, ensure_ascii=False),
         status_code=status_code,
         media_type="application/json; charset=utf-8",
     )
+    if session_id:
+        response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=session_id,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+    return response
 
 
 @router.get("/api/dashboard-data")
@@ -59,6 +74,32 @@ def forecasting_data_endpoint(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+        )["initial_data"]
+
+
+@router.get("/api/clustering-data")
+def clustering_data_endpoint(
+    table_name: str = "",
+    cluster_count: str = "4",
+    sample_limit: str = "1000",
+    sampling_strategy: str = "stratified",
+    feature_columns: list[str] | None = None,
+):
+    try:
+        return get_clustering_data(
+            table_name=table_name,
+            cluster_count=cluster_count,
+            sample_limit=sample_limit,
+            sampling_strategy=sampling_strategy,
+            feature_columns=feature_columns or [],
+        )
+    except Exception:
+        return get_clustering_shell_context(
+            table_name=table_name,
+            cluster_count=cluster_count,
+            sample_limit=sample_limit,
+            sampling_strategy=sampling_strategy,
+            feature_columns=feature_columns or [],
         )["initial_data"]
 
 @router.get("/api/column-search")
@@ -230,6 +271,7 @@ def create_modify_table_endpoint(payload: dict = Body(...)):
         ordered_columns = [column for column in all_columns if column in final_selected]
         created = create_modified_table(table_name, ordered_columns)
         preview_columns, preview_rows = get_table_preview(created["table_name"], created["selected_columns"], limit=100)
+        invalidate_runtime_caches()
     except Exception as exc:
         return utf8_json({"status": "error", "message": str(exc)})
 
@@ -250,31 +292,67 @@ def create_modify_table_endpoint(payload: dict = Body(...)):
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    return save_uploaded_file(file)
+async def upload_file(request: Request, file: UploadFile = File(...), job_id: str | None = Form(None)):
+    session_id = _ensure_session_id(request)
+    payload = save_uploaded_file(file=file, session_id=session_id, job_id=job_id)
+    return utf8_json(payload, session_id=session_id)
 
 
 @router.post("/import_data")
-def import_data_endpoint(output_folder: str | None = Form(None)):
-    return utf8_json(import_uploaded_data(output_folder=output_folder))
+def import_data_endpoint(request: Request, output_folder: str | None = Form(None), job_id: str | None = Form(None)):
+    session_id = _ensure_session_id(request)
+    payload = import_uploaded_data(session_id=session_id, output_folder=output_folder, job_id=job_id)
+    return utf8_json(payload, session_id=session_id)
 
 
 @router.get("/logs")
-def logs():
-    return utf8_json({"logs": get_logs()})
+def logs(request: Request, job_id: str | None = None):
+    session_id = _ensure_session_id(request)
+    resolved_job = job_store.resolve_job(session_id=session_id, job_id=job_id)
+    resolved_job_id = resolved_job.job_id if resolved_job is not None else (job_id or "")
+    status = resolved_job.status if resolved_job is not None else "missing"
+    payload = {
+        "job_id": resolved_job_id,
+        "status": status,
+        "logs": get_logs(session_id=session_id, job_id=resolved_job_id) if resolved_job_id else [],
+    }
+    return utf8_json(payload, session_id=session_id)
 
 
 @router.post("/clear_logs")
-def clear_logs_endpoint():
-    clear_logs()
-    return utf8_json({"status": "cleared"})
+def clear_logs_endpoint(request: Request, job_id: str | None = None):
+    session_id = _ensure_session_id(request)
+    resolved_job = job_store.resolve_job(session_id=session_id, job_id=job_id)
+    if resolved_job is None:
+        return utf8_json({"status": "missing", "job_id": job_id or ""}, session_id=session_id)
+
+    clear_job_logs(session_id=session_id, job_id=resolved_job.job_id)
+    pruned = job_store.prune_job_if_idle(session_id=session_id, job_id=resolved_job.job_id)
+    return utf8_json({"status": "cleared", "job_id": resolved_job.job_id, "pruned": pruned}, session_id=session_id)
 
 
 @router.get("/health")
-def health_check():
-    return {"status": "healthy", "uploaded_file": upload_state.has_uploaded_file()}
+def health_check(request: Request):
+    session_id = _ensure_session_id(request)
+    latest_import_job = job_store.resolve_job(session_id=session_id, kind="import")
+    return utf8_json(
+        {
+            "status": "healthy",
+            "uploaded_file": job_store.has_uploaded_file(session_id=session_id),
+            "job_id": latest_import_job.job_id if latest_import_job is not None else "",
+        },
+        session_id=session_id,
+    )
 
 
 @router.post("/run_profiling")
-def run_profiling_endpoint(payload: dict = Body(...)):
-    return utf8_json(run_profiling_for_table(payload.get("table", ""), payload.get("thresholds")))
+def run_profiling_endpoint(request: Request, payload: dict = Body(...)):
+    session_id = _ensure_session_id(request)
+    raw_job_id = str(payload.get("job_id") or "").strip()
+    result = run_profiling_for_table(
+        session_id=session_id,
+        table_name=str(payload.get("table") or ""),
+        thresholds=payload.get("thresholds"),
+        job_id=raw_job_id or None,
+    )
+    return utf8_json(result, session_id=session_id)

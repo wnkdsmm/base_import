@@ -6,11 +6,11 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import inspect
+
+from app.db_metadata import get_table_names_cached
 
 from app.services.forecast_risk.data import _collect_risk_inputs
 from app.services.forecast_risk.utils import _counter_top_label, _is_rural_label
-from config.db import engine
 
 from .constants import (
     CLUSTER_COUNT_OPTIONS,
@@ -25,9 +25,8 @@ from .utils import _format_number, _format_percent
 
 
 def _build_table_options() -> List[Dict[str, str]]:
-    inspector = inspect(engine)
     tables = []
-    for table_name in inspector.get_table_names():
+    for table_name in get_table_names_cached():
         if table_name.startswith(TABLE_EXCLUDED_PREFIXES):
             continue
         tables.append({"value": table_name, "label": table_name})

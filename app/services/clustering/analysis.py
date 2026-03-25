@@ -4,12 +4,13 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering, Birch, KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from .constants import CARD_TONES, FEATURE_METADATA, LOG_SCALE_FEATURES, MAX_K_DIAGNOSTICS
+from app.services.model_quality import compute_clustering_metrics
 from .utils import _format_integer, _format_number, _format_percent
 
 
@@ -21,9 +22,8 @@ def _run_clustering(cluster_frame: pd.DataFrame, cluster_count: int) -> Dict[str
 
     model = KMeans(n_clusters=cluster_count, random_state=42, n_init=40)
     labels = model.fit_predict(scaled_points)
-    silhouette = None
-    if len(cluster_frame) > cluster_count and len(set(labels)) > 1:
-        silhouette = float(silhouette_score(scaled_points, labels))
+    metrics = compute_clustering_metrics(scaled_points, labels)
+    stability_ari = _estimate_kmeans_stability(scaled_points, cluster_count)
 
     pca = PCA(n_components=2)
     pca_points = pca.fit_transform(scaled_points)
@@ -35,12 +35,17 @@ def _run_clustering(cluster_frame: pd.DataFrame, cluster_count: int) -> Dict[str
         "scaled_points": scaled_points,
         "scaled_centers": model.cluster_centers_,
         "raw_centers": raw_centers,
-        "silhouette": silhouette,
+        "silhouette": metrics.get("silhouette"),
+        "davies_bouldin": metrics.get("davies_bouldin"),
+        "calinski_harabasz": metrics.get("calinski_harabasz"),
+        "cluster_balance_ratio": metrics.get("cluster_balance_ratio"),
+        "smallest_cluster_size": metrics.get("smallest_cluster_size"),
+        "largest_cluster_size": metrics.get("largest_cluster_size"),
+        "stability_ari": stability_ari,
         "inertia": float(model.inertia_),
         "pca_points": pca_points,
         "explained_variance": float(np.sum(pca.explained_variance_ratio_)),
     }
-
 
 
 def _evaluate_cluster_counts(cluster_frame: pd.DataFrame) -> Dict[str, Any]:
@@ -79,6 +84,51 @@ def _evaluate_cluster_counts(cluster_frame: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
+
+
+def _estimate_kmeans_stability(scaled_points: np.ndarray, cluster_count: int) -> float | None:
+    seeds = [7, 21, 42, 84]
+    reference = None
+    scores: List[float] = []
+    for seed in seeds:
+        labels = KMeans(n_clusters=cluster_count, random_state=seed, n_init=25).fit_predict(scaled_points)
+        if reference is None:
+            reference = labels
+            continue
+        scores.append(float(adjusted_rand_score(reference, labels)))
+    if not scores:
+        return None
+    return float(np.mean(scores))
+
+
+def _compare_clustering_methods(cluster_frame: pd.DataFrame, cluster_count: int) -> List[Dict[str, Any]]:
+    model_frame, _ = _prepare_model_frame(cluster_frame)
+    scaler = StandardScaler()
+    scaled_points = scaler.fit_transform(model_frame.to_numpy(dtype=float))
+    rows: List[Dict[str, Any]] = []
+    methods = [
+        ("kmeans", "KMeans", lambda: KMeans(n_clusters=cluster_count, random_state=42, n_init=40).fit_predict(scaled_points)),
+        ("agglomerative", "Агломеративная кластеризация (Ward)", lambda: AgglomerativeClustering(n_clusters=cluster_count, linkage='ward').fit_predict(scaled_points)),
+        ("birch", "Birch", lambda: Birch(n_clusters=cluster_count).fit_predict(scaled_points)),
+    ]
+    for method_key, method_label, runner in methods:
+        try:
+            labels = runner()
+        except Exception:
+            continue
+        metrics = compute_clustering_metrics(scaled_points, labels)
+        rows.append(
+            {
+                "method_key": method_key,
+                "method_label": method_label,
+                "is_selected": method_key == "kmeans",
+                "silhouette": metrics.get("silhouette"),
+                "davies_bouldin": metrics.get("davies_bouldin"),
+                "calinski_harabasz": metrics.get("calinski_harabasz"),
+                "cluster_balance_ratio": metrics.get("cluster_balance_ratio"),
+            }
+        )
+    return rows
 
 def _build_cluster_profiles(
     cluster_frame: pd.DataFrame,
@@ -200,13 +250,13 @@ def _build_notes(
         )
 
     if silhouette is None:
-        notes.append("Silhouette score не рассчитан: для этого нужно больше территорий, чем кластеров, и хотя бы две непустые группы.")
+        notes.append("Коэффициент силуэта не рассчитан: для этого нужно больше территорий, чем кластеров, и хотя бы две непустые группы.")
     elif silhouette < 0.2:
         notes.append("Кластеры отделены слабо: вероятно, профиль территорий плавный и стоит попробовать меньшее число кластеров или уже другой набор признаков.")
     elif silhouette < 0.4:
         notes.append("Разделение умеренное: типы территорий уже читаются, но между ними остаются заметные переходные зоны.")
     else:
-        notes.append("Кластеры отделены достаточно чётко для exploratory-анализа типов территорий риска.")
+        notes.append("Кластеры отделены достаточно чётко для исследовательского анализа типов территорий риска.")
 
     best_silhouette_k = diagnostics.get("best_silhouette_k")
     elbow_k = diagnostics.get("elbow_k")
@@ -215,7 +265,7 @@ def _build_notes(
             f"По silhouette лучше всего выглядит k={best_silhouette_k}, а elbow даёт сгиб около k={elbow_k}; это хороший рабочий диапазон для сравнения интерпретаций."
         )
     elif best_silhouette_k:
-        notes.append(f"И silhouette, и структура инерции поддерживают около {best_silhouette_k} кластеров как разумный ориентир.")
+        notes.append(f"И коэффициент силуэта, и структура инерции поддерживают около {best_silhouette_k} кластеров как разумный ориентир.")
     elif elbow_k:
         notes.append(f"По кривой inertia заметный сгиб начинается около k={elbow_k} кластеров.")
 
@@ -226,7 +276,7 @@ def _build_notes(
             f"Самый крупный тип территорий сейчас — {largest['cluster_label']} ({largest['share_display']} выборки): {largest['segment_title'].lower()}."
         )
     notes.append(
-        "Сначала считаются агрегаты территории, затем признаки приводятся к сопоставимому масштабу, поэтому k-means выделяет типы территорий риска, а не случайные группы отдельных карточек пожара."
+        "Сначала считаются агрегаты территории, затем признаки приводятся к сопоставимому масштабу, поэтому алгоритм k-means выделяет типы территорий риска, а не случайные группы отдельных карточек пожара."
     )
     return notes
 

@@ -1,111 +1,185 @@
-async function selectAndImport() {
-        const fileInput = document.getElementById("fileInput");
-        
-        // Слушаем событие выбора файла
-        fileInput.onchange = async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
+const LOG_REFRESH_INTERVAL_MS = 2000;
+const IMPORT_JOB_STORAGE_KEY = "fire-monitor-import-job-id";
+let logsRefreshTimer = null;
+let currentImportJobId = null;
 
-            // Показываем индикатор загрузки (опционально)
-            const logBox = document.getElementById("logs");
-            if (logBox) {
-                logBox.innerHTML = `<div>⏳ Загрузка файла ${file.name}...</div>`;
-            }
+function createLogLine(text) {
+    const line = document.createElement("div");
+    line.textContent = text;
+    return line;
+}
 
-            // 1️⃣ Загружаем файл на сервер
-            const uploadData = new FormData();
-            uploadData.append("file", file);
+function replaceLogLines(logBox, items) {
+    logBox.replaceChildren(...items.map((item) => createLogLine(String(item ?? ""))));
+}
 
-            let uploadResponse = await fetch("/upload", {
-                method: "POST",
-                body: uploadData
-            });
-            
-            if (!uploadResponse.ok) {
-                if (logBox) {
-                    logBox.innerHTML += `<div>❌ Ошибка при загрузке файла</div>`;
-                }
-                return;
-            }
-            
-            let uploadResult = await uploadResponse.json();
-            if (uploadResult.status !== "uploaded") {
-                if (logBox) {
-                    logBox.innerHTML += `<div>❌ Ошибка при загрузке файла</div>`;
-                }
-                return;
-            }
+function appendLogLine(logBox, text) {
+    logBox.appendChild(createLogLine(text));
+}
 
-            if (logBox) {
-                logBox.innerHTML += `<div>✅ Файл загружен, начинаем импорт...</div>`;
-            }
+function createJobId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+    return `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
-            // 2️⃣ Запускаем импорт (output_folder не обязателен)
-            const importForm = new FormData();
+function setCurrentImportJobId(jobId) {
+    currentImportJobId = jobId || null;
+    if (!window.sessionStorage) {
+        return;
+    }
+    if (currentImportJobId) {
+        window.sessionStorage.setItem(IMPORT_JOB_STORAGE_KEY, currentImportJobId);
+    } else {
+        window.sessionStorage.removeItem(IMPORT_JOB_STORAGE_KEY);
+    }
+}
 
-            let importResponse = await fetch("/import_data", {
-                method: "POST",
-                body: importForm
-            });
+function getCurrentImportJobId() {
+    if (currentImportJobId) {
+        return currentImportJobId;
+    }
+    if (!window.sessionStorage) {
+        return null;
+    }
+    const storedJobId = window.sessionStorage.getItem(IMPORT_JOB_STORAGE_KEY);
+    if (storedJobId) {
+        currentImportJobId = storedJobId;
+        return storedJobId;
+    }
+    return null;
+}
 
-            if (!importResponse.ok) {
-                if (logBox) {
-                    logBox.innerHTML += `<div>❌ Ошибка при импорте данных</div>`;
-                }
-                return;
-            }
-
-            let importResult = await importResponse.json();
-            
-            // Показываем результат в логах вместо alert
-            let message = importResult.status;
-            if (importResult.rows) {
-                message += ` (${importResult.rows} строк, ${importResult.columns} колонок)`;
-            }
-            if (importResult.project_name) {
-                message += ` | Проект: ${importResult.project_name}`;
-            }
-            if (importResult.output_folder) {
-                message += ` | Папка: ${importResult.output_folder}`;
-            }
-            
-            if (logBox) {
-                logBox.innerHTML += `<div>${message}</div>`;
-            }
-            console.log(importResult);
-            
-            // Обновляем логи с сервера
-            await refreshLogs();
-
-            if (window.fireDashboard && typeof window.fireDashboard.afterImport === "function") {
-                window.fireDashboard.afterImport();
-            }
-        };
-
-        // Открываем диалог выбора файла
-        fileInput.click();
+async function refreshLogs(jobId = getCurrentImportJobId()) {
+    const logBox = document.getElementById("logs");
+    if (!logBox) {
+        return;
     }
 
-    // Функция для обновления логов
-    async function refreshLogs() {
-        const logBox = document.getElementById("logs");
-        if (!logBox) {
+    try {
+        const url = jobId ? `/logs?job_id=${encodeURIComponent(jobId)}` : "/logs";
+        const response = await fetch(url);
+        const payload = await response.json();
+        const items = Array.isArray(payload.logs) ? payload.logs : [];
+        replaceLogLines(logBox, items);
+        logBox.scrollTop = logBox.scrollHeight;
+    } catch (error) {
+        console.error("Error refreshing logs:", error);
+    }
+}
+
+function initializeImportLogs() {
+    const logBox = document.getElementById("logs");
+    if (!logBox) {
+        return;
+    }
+
+    refreshLogs();
+    if (!logsRefreshTimer) {
+        logsRefreshTimer = window.setInterval(() => {
+            refreshLogs();
+        }, LOG_REFRESH_INTERVAL_MS);
+    }
+}
+
+async function selectAndImport() {
+    const fileInput = document.getElementById("fileInput");
+    if (!fileInput) {
+        return;
+    }
+
+    fileInput.value = "";
+    fileInput.onchange = async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
             return;
         }
 
-        try {
-            let response = await fetch("/logs");
-            let logs = await response.json();
-            logBox.innerHTML = logs.logs.map(log => `<div>${log}</div>`).join('');
-            // Автопрокрутка вниз
-            logBox.scrollTop = logBox.scrollHeight;
-        } catch (error) {
-            console.error("Error refreshing logs:", error);
+        const jobId = createJobId();
+        setCurrentImportJobId(jobId);
+
+        const logBox = document.getElementById("logs");
+        if (logBox) {
+            replaceLogLines(logBox, [`Загрузка файла ${file.name}...`]);
         }
-    }
 
-    // Автоматически обновляем логи каждые 2 секунды
-    setInterval(refreshLogs, 2000);
+        const uploadData = new FormData();
+        uploadData.append("file", file);
+        uploadData.append("job_id", jobId);
 
-    // Также обновляем логи сразу при загрузке страницы
-    document.addEventListener('DOMContentLoaded', refreshLogs);
+        const uploadResponse = await fetch("/upload", {
+            method: "POST",
+            body: uploadData,
+        });
+
+        if (!uploadResponse.ok) {
+            if (logBox) {
+                appendLogLine(logBox, "Ошибка при загрузке файла");
+            }
+            return;
+        }
+
+        const uploadResult = await uploadResponse.json();
+        const resolvedJobId = uploadResult.job_id || jobId;
+        setCurrentImportJobId(resolvedJobId);
+
+        if (uploadResult.status !== "uploaded") {
+            if (logBox) {
+                appendLogLine(logBox, "Ошибка при загрузке файла");
+            }
+            return;
+        }
+
+        if (logBox) {
+            appendLogLine(logBox, "Файл загружен, начинаем импорт...");
+        }
+
+        await refreshLogs(resolvedJobId);
+
+        const importData = new FormData();
+        importData.append("job_id", resolvedJobId);
+
+        const importResponse = await fetch("/import_data", {
+            method: "POST",
+            body: importData,
+        });
+
+        if (!importResponse.ok) {
+            if (logBox) {
+                appendLogLine(logBox, "Ошибка при импорте данных");
+            }
+            return;
+        }
+
+        const importResult = await importResponse.json();
+        let message = importResult.status || "Импорт завершен";
+        if (importResult.rows) {
+            message += ` (${importResult.rows} строк, ${importResult.columns} колонок)`;
+        }
+        if (importResult.project_name) {
+            message += ` | Проект: ${importResult.project_name}`;
+        }
+        if (importResult.output_folder) {
+            message += ` | Папка: ${importResult.output_folder}`;
+        }
+
+        if (logBox) {
+            appendLogLine(logBox, message);
+        }
+
+        await refreshLogs(resolvedJobId);
+
+        if (window.fireDashboard && typeof window.fireDashboard.afterImport === "function") {
+            window.fireDashboard.afterImport();
+        }
+    };
+
+    fileInput.click();
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeImportLogs, { once: true });
+} else {
+    initializeImportLogs();
+}

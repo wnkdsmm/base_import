@@ -1,9 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from datetime import timedelta
 import math
 from typing import Any, Dict, List, Optional, Sequence
+
+from app.services.explainable_logistics import build_explainable_logistics_profile
 
 from .constants import LONG_RESPONSE_THRESHOLD_MINUTES
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile, resolve_component_weights
@@ -23,11 +25,12 @@ def _build_territory_rows(
     records: Sequence[Dict[str, Any]],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
+    profile_override: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     if not records:
         return []
 
-    profile = get_risk_weight_profile(weight_mode)
+    profile = profile_override if profile_override is not None else get_risk_weight_profile(weight_mode)
     thresholds = profile.get("thresholds") or {}
     defaults = profile.get("defaults") or {}
 
@@ -178,7 +181,24 @@ def _build_territory_rows(
             if avg_response is not None
             else _clamp(max(float(defaults.get("response_pressure_unknown", 0.42)), distance_score * 0.72), 0.0, 1.0)
         )
-        arrival_probability = _clamp(0.42 * long_arrival_rate + 0.34 * response_pressure + 0.24 * distance_score, 0.03, 0.98)
+        logistics_profile = build_explainable_logistics_profile(
+            avg_distance_km=avg_distance,
+            avg_response_minutes=avg_response,
+            long_arrival_rate=long_arrival_rate,
+            is_rural=is_rural,
+            response_observations=bucket["response_count"],
+            distance_observations=bucket["distance_count"],
+            night_share=night_share,
+        )
+        arrival_probability = _clamp(
+            0.24 * long_arrival_rate
+            + 0.18 * response_pressure
+            + 0.22 * float(logistics_profile["travel_time_pressure"])
+            + 0.22 * float(logistics_profile["service_coverage_gap"])
+            + 0.14 * float(logistics_profile["service_zone_pressure"]),
+            0.03,
+            0.98,
+        )
 
         water_gap_rate = (
             1.0 - (bucket["water_available"] / bucket["water_known"])
@@ -202,6 +222,9 @@ def _build_territory_rows(
             "long_arrival_rate": long_arrival_rate,
             "avg_response_pressure": response_pressure,
             "distance_pressure": distance_score,
+            "travel_time_pressure": float(logistics_profile["travel_time_pressure"]),
+            "service_coverage_gap": float(logistics_profile["service_coverage_gap"]),
+            "service_zone_pressure": float(logistics_profile["service_zone_pressure"]),
             "night_pressure": night_share,
             "water_gap_rate": water_gap_rate,
             "tanker_dependency": tanker_dependency,
@@ -221,6 +244,14 @@ def _build_territory_rows(
             "avg_response": avg_response,
             "avg_distance": avg_distance,
             "long_arrival_rate": long_arrival_rate,
+            "travel_time_minutes": logistics_profile["travel_time_minutes"],
+            "travel_time_source": logistics_profile["travel_time_source"],
+            "service_coverage_ratio": logistics_profile["service_coverage_ratio"],
+            "service_coverage_display": logistics_profile["service_coverage_display"],
+            "service_zone_label": logistics_profile["service_zone_label"],
+            "service_zone_reason": logistics_profile["service_zone_reason"],
+            "logistics_priority_score": logistics_profile["logistics_priority_score"],
+            "logistics_priority_label": logistics_profile["logistics_priority_label"],
             "night_share": night_share,
             "water_gap_rate": water_gap_rate,
             "water_known": bucket["water_known"],
@@ -293,6 +324,17 @@ def _build_territory_rows(
                 "response_time_display": f"{_format_number(avg_response)} мин" if avg_response is not None else "Нет данных",
                 "avg_distance_km": round(avg_distance, 1) if avg_distance is not None else None,
                 "distance_display": f"{_format_number(avg_distance)} км" if avg_distance is not None else "Нет данных",
+                "travel_time_minutes": logistics_profile["travel_time_minutes"],
+                "travel_time_display": logistics_profile["travel_time_display"],
+                "travel_time_source": logistics_profile["travel_time_source"],
+                "fire_station_coverage_display": logistics_profile["service_coverage_display"],
+                "fire_station_coverage_label": logistics_profile["fire_station_coverage_label"],
+                "service_zone_label": logistics_profile["service_zone_label"],
+                "service_zone_tone": logistics_profile["service_zone_tone"],
+                "service_zone_reason": logistics_profile["service_zone_reason"],
+                "logistics_priority_score": logistics_profile["logistics_priority_score"],
+                "logistics_priority_display": logistics_profile["logistics_priority_display"],
+                "logistics_priority_label": logistics_profile["logistics_priority_label"],
                 "water_availability_share": round(bucket["water_available"] / bucket["water_known"], 4) if bucket["water_known"] else None,
                 "water_supply_display": _water_supply_display(bucket["water_available"], bucket["water_known"]),
                 "dominant_object_category": dominant_object_category,
@@ -314,6 +356,7 @@ def _build_territory_rows(
         )
 
     territory_rows.sort(key=lambda item: (item["risk_score"], item["history_pressure"]), reverse=True)
+    _attach_ranking_context(territory_rows)
     return territory_rows
 
 
@@ -411,16 +454,20 @@ def _component_rationale(component_key: str, score: float, context: Dict[str, An
 
     if component_key == "long_arrival_risk":
         parts = []
-        if context["avg_response"] is not None:
-            parts.append(f"Среднее прибытие {_format_number(context['avg_response'])} мин.")
-        else:
-            parts.append("Фактическое время прибытия не найдено, поэтому компонент опирается на удалённость.")
+        parts.append(
+            f"Travel-time доезда {_format_number(context['travel_time_minutes'])} мин ({context['travel_time_source']})."
+        )
+        parts.append(
+            f"Покрытие ПЧ {context['service_coverage_display']}, сервисная зона: {context['service_zone_label']}."
+        )
         if context["long_arrival_rate"] >= 0.25:
             parts.append(f"Долгие прибытия были в {_format_probability(context['long_arrival_rate'])} случаев.")
         if context["avg_distance"] is not None and context["avg_distance"] >= 15.0:
             parts.append(f"Удалённость до ПЧ {_format_number(context['avg_distance'])} км.")
-        if context["is_rural"]:
-            parts.append("Для сельской территории логистика критичнее среднего.")
+        if context["logistics_priority_score"] >= 55:
+            parts.append(
+                f"Логистический приоритет { _format_number(context['logistics_priority_score']) } / 100."
+            )
         return " ".join(parts[:4])
 
     parts = []
@@ -446,9 +493,11 @@ def _component_driver_text(component_key: str, score: float, context: Dict[str, 
     if component_key == "consequence_severity":
         return "история последствий здесь тяжелее среднего"
     if component_key == "long_arrival_risk":
+        if context["service_coverage_ratio"] < 0.45:
+            return "территория выходит из устойчивого прикрытия ПЧ"
         if context["avg_distance"] is not None and context["avg_distance"] >= 15.0:
             return "есть риск долгого прибытия из-за удалённости"
-        return "логистика выезда может удлинять прибытие"
+        return "travel-time и сервисная зона повышают логистический риск"
     return "не подтверждён стабильный доступ к воде для тушения"
 
 
@@ -527,9 +576,17 @@ def _recommended_action(
         )
 
     if arrival_component.get("score", 0.0) >= 55:
-        detail = "Уточните маршрут, резерв прикрытия, точки разворота и фактическое время доезда."
-        if context["avg_distance"] is not None and context["avg_distance"] >= 15.0:
-            detail = "Для удалённой территории полезно перепроверить маршрут, резерв прикрытия и возможность промежуточного размещения техники или ДПК."
+        detail = (
+            "Проверьте маршрут, фактический travel-time, резерв прикрытия и держится ли территория в устойчивой зоне обслуживания ПЧ."
+        )
+        if context["service_coverage_ratio"] < 0.45:
+            detail = (
+                "Для территории с дефицитом прикрытия полезно перепроверить маршрут, резерв прикрытия, промежуточное размещение техники или ДПК и реальный норматив доезда."
+            )
+        elif context["avg_distance"] is not None and context["avg_distance"] >= 15.0:
+            detail = (
+                "Для удалённой территории полезно перепроверить маршрут, резерв прикрытия и возможность промежуточного размещения техники или ДПК."
+            )
         recommendations.append(
             {
                 "label": "Сократить риск долгого прибытия",
@@ -573,6 +630,51 @@ def _build_formula_display(component_scores: Sequence[Dict[str, Any]], risk_scor
     parts = [f"{item['label']} {_format_number(item['contribution'])}" for item in component_scores]
     return f"{' + '.join(parts)} = {_format_number(risk_score)}"
 
+
+def _attach_ranking_context(territory_rows: List[Dict[str, Any]]) -> None:
+    if not territory_rows:
+        return
+
+    top_score = float(territory_rows[0].get("risk_score") or 0.0)
+    for index, item in enumerate(territory_rows):
+        next_score = float(territory_rows[index + 1].get("risk_score") or 0.0) if index + 1 < len(territory_rows) else None
+        current_score = float(item.get("risk_score") or 0.0)
+        gap_to_next = max(0.0, round(current_score - next_score, 1)) if next_score is not None else 0.0
+        gap_to_top = max(0.0, round(top_score - current_score, 1))
+        strongest_components = [
+            f"{component.get('label') or 'Компонент'} ({component.get('contribution_display') or '0 балла'})"
+            for component in (item.get("component_scores") or [])[:2]
+        ]
+        component_lead = ", ".join(strongest_components) if strongest_components else "нет выраженного доминирующего компонента"
+        item.update(
+            {
+                "ranking_position": index + 1,
+                "ranking_position_display": f"№{index + 1}",
+                "ranking_gap_to_next": gap_to_next,
+                "ranking_gap_to_next_display": f"{_format_number(gap_to_next)} балла" if next_score is not None else "замыкает текущий список",
+                "ranking_gap_to_top": gap_to_top,
+                "ranking_gap_to_top_display": f"{_format_number(gap_to_top)} балла",
+                "ranking_component_lead": component_lead,
+                "ranking_reason": _build_ranking_reason(index, gap_to_next, gap_to_top, component_lead),
+            }
+        )
+
+
+def _build_ranking_reason(index: int, gap_to_next: float, gap_to_top: float, component_lead: str) -> str:
+    if index == 0:
+        if gap_to_next >= 4.0:
+            return f"Территория лидирует с заметным отрывом {_format_number(gap_to_next)} балла; основной вклад дают {component_lead}."
+        if gap_to_next >= 1.5:
+            return f"Территория удерживает первое место с рабочим отрывом {_format_number(gap_to_next)} балла; основной вклад дают {component_lead}."
+        return f"Территория идет первой в плотной группе; отрыв от следующей территории {_format_number(gap_to_next)} балла, основной вклад дают {component_lead}."
+
+    if gap_to_top <= 2.0:
+        return f"Территория держится рядом с лидером: отставание {_format_number(gap_to_top)} балла, ключевые вклады {component_lead}."
+    if gap_to_top <= 6.0:
+        return f"Территория входит в верхнюю группу: отставание {_format_number(gap_to_top)} балла, ключевые вклады {component_lead}."
+    return f"Территория остается в списке из-за вкладов {component_lead}, хотя ниже лидера на {_format_number(gap_to_top)} балла."
+
+
 def _top_territory_lead(top_territory: Optional[Dict[str, Any]]) -> str:
     if not top_territory:
         return "Недостаточно данных для лидирующей территории."
@@ -580,10 +682,13 @@ def _top_territory_lead(top_territory: Optional[Dict[str, Any]]) -> str:
         f"{item['label']} ({item['contribution_display']})"
         for item in (top_territory.get("component_scores") or [])[:2]
     )
-    return (
-        f"{top_territory['action_label']}. Итоговый риск {top_territory['risk_display']} формируют прежде всего {strongest_components}. "
-        f"{top_territory['action_hint']}"
-    )
+    parts = [
+        f"{top_territory['action_label']}. Итоговый риск {top_territory['risk_display']} формируют прежде всего {strongest_components}.",
+        f"Логистика: {top_territory.get('travel_time_display') or 'н/д'}, покрытие ПЧ {top_territory.get('fire_station_coverage_display') or 'н/д'}, зона {top_territory.get('service_zone_label') or 'не определена'}.",
+        top_territory.get("ranking_reason") or "",
+        top_territory.get("action_hint") or "",
+    ]
+    return " ".join(part.strip() for part in parts if str(part).strip())
 
 
 def _water_supply_display(available_count: int, known_count: int) -> str:

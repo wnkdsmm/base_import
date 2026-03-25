@@ -16,9 +16,9 @@ def check_connection():
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        print("✅ Подключение к БД успешно")
+        print("Подключение к БД успешно")
     except Exception as e:
-        print("❌ Ошибка подключения:", e)
+        print("Ошибка подключения:", e)
         raise
 
 if __name__ == "__main__":

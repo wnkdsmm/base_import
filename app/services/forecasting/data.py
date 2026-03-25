@@ -5,8 +5,9 @@ from datetime import date, timedelta
 from statistics import mean, pstdev
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 
+from app.db_metadata import get_table_columns_cached
 from app.services.table_options import get_fire_map_table_options
 from config.db import engine
 
@@ -80,12 +81,10 @@ def _table_selection_label(selected_table: str) -> str:
     return selected_table or "Нет таблицы"
 
 def _load_table_metadata(table_name: str) -> Dict[str, Any]:
-    inspector = inspect(engine)
-    table_names = inspector.get_table_names()
-    if table_name not in table_names:
-        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.")
-
-    columns = [column["name"] for column in inspector.get_columns(table_name)]
+    try:
+        columns = get_table_columns_cached(table_name)
+    except ValueError as exc:
+        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.") from exc
     resolved_columns = {
         "date": _resolve_column_name(columns, [DATE_COLUMN]),
         "district": _resolve_column_name(columns, DISTRICT_COLUMN_CANDIDATES),

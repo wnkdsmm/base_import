@@ -4,12 +4,47 @@
     }
 
     function escapeHtml(value) {
-        return String(value)
+        return String(value == null ? '' : value)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function normalizePercent(value, fallback) {
+        var normalizedFallback = fallback || '0%';
+        var rawValue = String(value == null ? '' : value).trim();
+        var match = rawValue.match(/^(-?\d+(?:\.\d+)?)%?$/);
+        if (!match) {
+            return normalizedFallback;
+        }
+
+        var numericValue = Math.max(0, Math.min(100, Number(match[1])));
+        return numericValue + '%';
+    }
+
+    function normalizeCssColor(value, fallback) {
+        var normalizedFallback = fallback || 'currentColor';
+        var candidate = String(value == null ? '' : value).trim();
+        if (!candidate) {
+            return normalizedFallback;
+        }
+
+        var probe = document.createElement('span');
+        probe.style.color = '';
+        probe.style.color = candidate;
+        return probe.style.color ? candidate : normalizedFallback;
+    }
+
+    function applyChartDecorators(root) {
+        var scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+        Array.prototype.forEach.call(scope.querySelectorAll('[data-legend-color]'), function (node) {
+            node.style.setProperty('--legend-color', normalizeCssColor(node.getAttribute('data-legend-color'), 'currentColor'));
+        });
+        Array.prototype.forEach.call(scope.querySelectorAll('[data-bar-width]'), function (node) {
+            node.style.setProperty('--ml-bar-width', normalizePercent(node.getAttribute('data-bar-width'), '0%'));
+        });
     }
 
     function renderFallback(chartNode, fallbackNode, message) {
@@ -163,11 +198,12 @@
         var legend = '';
         if (Array.isArray(chart.legend) && chart.legend.length) {
             legend = '<div class="ml-chart-legend">' + chart.legend.map(function (item) {
-                return '<span class="ml-chart-legend-item"><i style="--legend-color:' + escapeHtml(item.color) + '"></i>' + escapeHtml(item.label) + '</span>';
+                return '<span class="ml-chart-legend-item"><i data-legend-color="' + escapeHtml(item.color) + '"></i>' + escapeHtml(item.label) + '</span>';
             }).join('') + '</div>';
         }
 
         chartNode.innerHTML = legend + '<div class="ml-chart-shell">' + svg + '</div>';
+        applyChartDecorators(chartNode);
     }
 
     function renderBarsChart(chart, chartId, fallbackId) {
@@ -191,11 +227,12 @@
             html += ''
                 + '<div class="ml-bar-row">'
                 + '<div class="ml-bar-meta"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(item.value_display) + '%</strong></div>'
-                + '<div class="ml-bar-track"><div class="ml-bar-fill" style="--ml-bar-width:' + percent + '%"></div></div>'
+                + '<div class="ml-bar-track"><div class="ml-bar-fill" data-bar-width="' + percent + '%"></div></div>'
                 + '</div>';
         });
         html += '</div>';
         chartNode.innerHTML = html;
+        applyChartDecorators(chartNode);
     }
 
     function formatDate(value) {

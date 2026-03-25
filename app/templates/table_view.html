@@ -4,18 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таблица: {{ table_name }}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
-<aside class="sidebar">
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
     <div class="brand-block">
-        <span class="brand-kicker">Fire Monitor</span>
+        <span class="brand-kicker">Монитор пожаров</span>
         <h2>Просмотр</h2>
         <p>Предпросмотр выбранной таблицы с фиксированной шапкой и горизонтальной прокруткой только внутри таблицы.</p>
     </div>
 
-    <div class="sidebar-actions">
-        <button onclick="location.href='/'">Dashboard</button>
+    <div class="sidebar-actions sidebar-actions-primary">
+        <button onclick="location.href='/'">Панель</button>
         <button onclick="location.href='/forecasting'">Сценарный прогноз</button>
         <button onclick="location.href='/ml-model'">ML-прогноз</button>
         <button onclick="location.href='/clustering'">Кластеризация (доп.)</button>
@@ -24,6 +34,17 @@
         <button onclick="location.href='/select_table'">Очистка таблиц</button>
         <button onclick="location.href='/tables'">Открыть таблицы</button>
     </div>
+
+    <nav class="sidebar-actions sidebar-noscript-nav" aria-label="Primary">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/fire-map">Карта пожаров</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
 
     <div class="sidebar-status">
         <span class="status-badge status-badge-live">Предпросмотр готов</span>
@@ -41,11 +62,12 @@
         </div>
     </div>
 </aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main dashboard-main simple-page-main">
+<main class="main dashboard-main simple-page-main" id="page-content">
     <section class="hero-panel simple-page-intro">
         <div class="hero-copy">
-            <span class="eyebrow">Table preview</span>
+            <span class="eyebrow">Предпросмотр таблицы</span>
             <h1>{{ table_name }}</h1>
             <p class="subtitle">Ниже показаны первые 100 строк таблицы. Для широких наборов данных используется внутренний скролл контейнера, поэтому вся страница остаётся в пределах экрана.</p>
             <div class="hero-tags">
@@ -68,7 +90,7 @@
             <span class="panel-meta">Шапка таблицы закреплена, длинные значения переносятся внутри ячеек.</span>
         </div>
         <div class="data-table-shell">
-            <table class="data-table">
+            <table class="data-table{% if columns | length <= 5 %} table-stack-mobile{% else %} table-sticky-first{% endif %}">
                 <thead>
                     <tr>
                         {% for col in columns %}
@@ -80,7 +102,7 @@
                     {% for row in rows %}
                     <tr>
                         {% for value in row %}
-                        <td>{{ value }}</td>
+                        <td{% if columns | length <= 5 %} data-label="{{ columns[loop.index0] }}"{% endif %}>{{ value }}</td>
                         {% endfor %}
                     </tr>
                     {% endfor %}
@@ -89,7 +111,7 @@
         </div>
     </section>
 </main>
-<script src="/static/js/sidebar.js"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
 </body>
 </html>
 

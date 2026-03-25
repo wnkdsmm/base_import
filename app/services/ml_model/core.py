@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -25,14 +25,22 @@ from app.services.forecasting.utils import (
 )
 
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS, MODEL_NAME, _CACHE_LIMIT, _ML_CACHE
-from .presentation import _build_forecast_chart, _build_importance_chart, _build_notes, _build_summary, _empty_light_chart
-from .training import _apply_history_window, _train_ml_model
+from .presentation import (
+    _build_forecast_chart,
+    _build_importance_chart,
+    _build_notes,
+    _build_quality_assessment,
+    _build_summary,
+    _empty_light_chart,
+)
+from .training import _apply_history_window, _empty_ml_result, _train_ml_model
 
 ML_PREDICTIVE_BLOCK_DESCRIPTION = (
     'Это отдельный ML-блок для временного ряда пожаров. '
-    'Основная модель прогнозирует ожидаемое число пожаров по дням, а не превращает count-прогноз в псевдовероятность. '
-    'Если данных хватает, дополнительно показывается отдельная вероятность события fire/no-fire из бинарного классификатора. '
-    'Ниже используется rolling-origin backtesting, то есть каждая проверка обучается только на прошлом.'
+    'Основная модель прогнозирует ожидаемое число пожаров по дням, а не превращает прогноз по числу пожаров в псевдовероятность. '
+    'Панель качества напрямую сравнивает сезонную базу, текущий сценарный прогноз и обучаемые count-модели через rolling-origin backtesting. '
+    'Если данных хватает, дополнительно показывается отдельная вероятность события «пожар / нет пожара» из бинарного классификатора. '
+    'Все проверки обучаются только на прошлом и не используют будущие наблюдения.'
 )
 
 
@@ -140,6 +148,7 @@ def get_ml_model_data(
         'has_data': bool(filtered_records),
         'model_description': ML_PREDICTIVE_BLOCK_DESCRIPTION,
         'summary': summary,
+        'quality_assessment': _build_quality_assessment(ml_result),
         'features': _build_feature_cards(metadata_items),
         'charts': {
             'forecast': _build_forecast_chart(daily_history, ml_result),
@@ -194,6 +203,7 @@ def _empty_ml_model_data(
     temperature: str,
     history_window: str,
 ) -> Dict[str, Any]:
+    empty_result = _empty_ml_result('Недостаточно данных для обучения модели.')
     return {
         'generated_at': _format_datetime(datetime.now()),
         'has_data': False,
@@ -204,22 +214,35 @@ def _empty_ml_model_data(
             'history_period_label': 'Нет данных',
             'history_window_label': _history_window_label(history_window),
             'model_label': MODEL_NAME,
-            'count_model_label': 'Poisson Regressor',
+            'count_model_label': 'Регрессия Пуассона',
             'event_model_label': 'Не обучен',
-            'backtest_method_label': 'Backtesting не выполнен',
+            'event_backtest_model_label': 'Не показан',
+            'backtest_method_label': 'Проверка на истории не выполнена',
             'fires_count_display': '0',
             'history_days_display': '0',
             'forecast_days_display': str(forecast_days),
             'last_observed_date': '-',
             'count_mae_display': '-',
             'count_rmse_display': '-',
+            'count_smape_display': '—',
             'count_poisson_deviance_display': '-',
             'baseline_count_mae_display': '-',
             'baseline_count_rmse_display': '-',
+            'baseline_count_smape_display': '—',
+            'heuristic_count_mae_display': '-',
+            'heuristic_count_rmse_display': '-',
+            'heuristic_count_smape_display': '—',
+            'heuristic_count_poisson_deviance_display': '-',
             'mae_vs_baseline_display': '-',
             'brier_display': '—',
             'baseline_brier_display': '—',
+            'heuristic_brier_display': '—',
             'roc_auc_display': '—',
+            'baseline_roc_auc_display': '—',
+            'heuristic_roc_auc_display': '—',
+            'f1_display': '—',
+            'baseline_f1_display': '—',
+            'heuristic_f1_display': '—',
             'log_loss_display': '—',
             'top_feature_label': '-',
             'temperature_scenario_display': temperature.strip() or 'Историческая температура',
@@ -232,7 +255,9 @@ def _empty_ml_model_data(
             'peak_event_probability_display': '—',
             'peak_event_probability_day_display': '-',
             'event_probability_enabled': False,
+            'event_backtest_available': False,
         },
+        'quality_assessment': _build_quality_assessment(empty_result),
         'features': [],
         'charts': {
             'forecast': _empty_light_chart('ML-прогноз ожидаемого числа пожаров', 'Недостаточно данных для обучения модели.'),

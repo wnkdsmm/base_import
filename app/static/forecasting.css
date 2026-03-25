@@ -1,4 +1,4 @@
-﻿.forecast-primary > .panel + .panel {
+.forecast-primary > .panel + .panel {
     margin-top: 20px;
 }
 
@@ -33,7 +33,7 @@
 }
 
 .forecast-form-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     align-items: end;
 }
 
@@ -107,7 +107,7 @@
 
 .risk-meta-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
     gap: 12px;
     margin-bottom: 16px;
 }
@@ -262,6 +262,7 @@
 .risk-score-bar span {
     display: block;
     height: 100%;
+    width: var(--bar-width, 0%);
     border-radius: inherit;
     background: linear-gradient(90deg, rgba(62, 118, 224, 0.95) 0%, rgba(27, 86, 186, 0.95) 100%);
 }
@@ -302,7 +303,7 @@
 @media (max-width: 1320px) {
     .forecast-form-grid,
     .risk-meta-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     }
 
     .risk-grid,
@@ -336,7 +337,7 @@
 }
 .risk-guide-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 12px;
     margin-top: 18px;
 }
@@ -502,7 +503,7 @@
 
 .workflow-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 12px;
     margin-top: 18px;
 }
@@ -575,7 +576,7 @@
 
 .quality-passport-grid {
     display: grid;
-    grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     gap: 14px;
     margin-top: 18px;
 }
@@ -657,7 +658,7 @@
 
 @media (max-width: 1320px) {
     .workflow-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     }
 
     .quality-passport-grid {
@@ -773,6 +774,7 @@
 .risk-component-bar span {
     display: block;
     height: 100%;
+    width: var(--bar-width, 0%);
     border-radius: inherit;
     background: linear-gradient(90deg, rgba(45, 108, 143, 0.95) 0%, rgba(24, 77, 106, 0.95) 100%);
 }
@@ -858,3 +860,21 @@
     }
 }
 
+
+.forecast-command-panel {
+    margin-bottom: 22px;
+}
+
+.forecast-command-panel .executive-brief-value {
+    font-size: clamp(24px, 2.2vw, 32px);
+    line-height: 1.15;
+}
+
+.forecast-command-panel .executive-territory-list {
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}
+
+.forecast-command-panel .executive-action-list,
+.forecast-command-panel .executive-side-stack {
+    gap: 12px;
+}

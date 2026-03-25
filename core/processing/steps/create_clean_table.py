@@ -10,7 +10,7 @@ from core.processing.pipeline import PipelineStep
 
 class CreateCleanTableStep(PipelineStep):
     def __init__(self):
-        super().__init__("Create Clean Table")
+        super().__init__("Создание очищенной таблицы")
 
     def run(self, settings):
         output_folder = settings.output_folder
@@ -30,9 +30,9 @@ class CreateCleanTableStep(PipelineStep):
             profile_csv = updated_profile_csv
 
         if not os.path.exists(profile_csv):
-            raise FileNotFoundError(f"Не найден profiling report: {profile_csv}")
+            raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
 
-        print(f"Создаём clean-таблицу для: {table_name}")
+        print(f"Создаём очищенную таблицу для: {table_name}")
         print(f"Используем отчёт: {profile_csv}")
 
         profile_df = pd.read_csv(profile_csv)
@@ -40,7 +40,7 @@ class CreateCleanTableStep(PipelineStep):
         removed_columns = profile_df.loc[profile_df["candidate_to_drop"] == True, "column"].dropna().tolist()
 
         if not keep_columns:
-            raise ValueError("После profiling не осталось колонок для сохранения.")
+            raise ValueError("После профилирования не осталось колонок для сохранения.")
 
         print(f"Колонок останется: {len(keep_columns)}")
         print(f"Колонок будет исключено: {len(removed_columns)}")
@@ -58,9 +58,9 @@ class CreateCleanTableStep(PipelineStep):
         df_export = pd.read_sql(f'SELECT * FROM "{new_table}"', engine)
         df_export.to_excel(export_file, index=False, engine="openpyxl")
 
-        print(f"Excel-файл clean-таблицы: {export_file}")
-        print(f"Строк в clean-таблице: {len(df_export)}")
-        print(f"Колонок в clean-таблице: {len(df_export.columns)}")
+        print(f"Excel-файл очищенной таблицы: {export_file}")
+        print(f"Строк в очищенной таблице: {len(df_export)}")
+        print(f"Колонок в очищенной таблице: {len(df_export.columns)}")
 
         return {
             "source_table": source_table,

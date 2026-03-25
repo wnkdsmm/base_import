@@ -1,12 +1,15 @@
-﻿import re
+import re
 
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 
+from app.db_metadata import get_table_columns_cached, get_table_names_cached, invalidate_db_metadata_cache
 from config.db import engine
+
 
 
 def _quote_identifier(identifier):
     return '"' + str(identifier).replace('"', '""') + '"'
+
 
 
 def _sanitize_table_name(table_name: str) -> str:
@@ -16,27 +19,25 @@ def _sanitize_table_name(table_name: str) -> str:
     return normalized or "table"
 
 
+
 def build_modified_table_name(source_table: str) -> str:
     base_name = f"modify_{_sanitize_table_name(source_table)}"
     return base_name[:63]
 
 
+
 def get_all_tables():
     """Получить список всех таблиц в базе данных"""
-    inspector = inspect(engine)
-    return inspector.get_table_names()
+    return get_table_names_cached()
+
 
 
 def get_table_columns(table_name):
     """Получить список колонок для таблицы."""
     if not table_name or not isinstance(table_name, str):
         raise ValueError("Invalid table name")
+    return get_table_columns_cached(table_name)
 
-    inspector = inspect(engine)
-    if table_name not in inspector.get_table_names():
-        raise ValueError(f"Table '{table_name}' does not exist")
-
-    return [col["name"] for col in inspector.get_columns(table_name)]
 
 
 def get_table_preview(table_name, selected_columns, limit=100):
@@ -48,11 +49,7 @@ def get_table_preview(table_name, selected_columns, limit=100):
     if not requested_columns:
         return [], []
 
-    inspector = inspect(engine)
-    if table_name not in inspector.get_table_names():
-        raise ValueError(f"Table '{table_name}' does not exist")
-
-    table_columns = [col["name"] for col in inspector.get_columns(table_name)]
+    table_columns = get_table_columns_cached(table_name)
     available_columns = [column for column in requested_columns if column in table_columns]
     if not available_columns:
         return [], []
@@ -67,25 +64,25 @@ def get_table_preview(table_name, selected_columns, limit=100):
     return available_columns, rows
 
 
+
 def get_table_data(table_name, limit=100):
     """Получить данные из таблицы с ограничением по строкам"""
     if not table_name or not isinstance(table_name, str):
         raise ValueError("Invalid table name")
 
     try:
-        with engine.connect() as conn:
-            inspector = inspect(engine)
-            if table_name not in inspector.get_table_names():
-                raise ValueError(f"Table '{table_name}' does not exist")
+        columns = get_table_columns_cached(table_name)
+        quoted_columns = ", ".join(_quote_identifier(column) for column in columns)
+        query = text(f"SELECT {quoted_columns} FROM {_quote_identifier(table_name)} LIMIT :limit")
 
-            columns = [col["name"] for col in inspector.get_columns(table_name)]
-            query = text(f'SELECT * FROM {_quote_identifier(table_name)} LIMIT :limit')
+        with engine.connect() as conn:
             result = conn.execute(query, {"limit": limit})
             rows = [list(row) for row in result]
 
-            return columns, rows
+        return columns, rows
     except Exception as exc:
         raise Exception(f"Error accessing table {table_name}: {str(exc)}") from exc
+
 
 
 def create_modified_table(source_table: str, selected_columns, target_table: str | None = None):
@@ -99,8 +96,7 @@ def create_modified_table(source_table: str, selected_columns, target_table: str
         raise ValueError("Не выбрано ни одной колонки для новой таблицы")
 
     target_table_name = target_table or build_modified_table_name(source_table)
-    inspector = inspect(engine)
-    replaced_existing = target_table_name in inspector.get_table_names()
+    replaced_existing = target_table_name in set(get_table_names_cached())
 
     quoted_target = _quote_identifier(target_table_name)
     quoted_source = _quote_identifier(source_table)
@@ -109,6 +105,14 @@ def create_modified_table(source_table: str, selected_columns, target_table: str
     with engine.begin() as conn:
         conn.execute(text(f"DROP TABLE IF EXISTS {quoted_target}"))
         conn.execute(text(f"CREATE TABLE {quoted_target} AS SELECT {quoted_columns} FROM {quoted_source}"))
+
+    invalidate_db_metadata_cache()
+    try:
+        from app.services.pipeline_service import invalidate_runtime_caches
+
+        invalidate_runtime_caches()
+    except Exception:
+        pass
 
     return {
         "table_name": target_table_name,

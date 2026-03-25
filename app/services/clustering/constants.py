@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from app.statistics_constants import EXCLUDED_TABLE_PREFIXES as TABLE_EXCLUDED_PREFIXES
+
 CLUSTER_COUNT_OPTIONS = [2, 3, 4, 5, 6]
 SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000]
 SAMPLING_STRATEGY_OPTIONS = [
     {"value": "stratified", "label": "Стратифицированная"},
     {"value": "random", "label": "Случайная"},
 ]
-TABLE_EXCLUDED_PREFIXES = ("pg_", "sql_", "tmp_", "final_")
 CARD_TONES = ["group", "area", "table", "fire", "muted"]
 MAX_FEATURE_OPTIONS = 12
 MIN_ROWS_PER_CLUSTER = 5

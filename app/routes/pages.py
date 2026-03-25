@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app.db_views import get_all_tables, get_table_data
+from app.plotly_bundle import get_plotly_bundle
 from app.services.clustering_service import get_clustering_page_context
 from app.services.dashboard_service import get_dashboard_page_context
 from app.services.fire_map_service import build_fire_map_html
@@ -15,6 +16,7 @@ from app.services.table_options import (
     get_fire_map_table_options,
     resolve_selected_table,
 )
+from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
 from config.paths import STATIC_DIR, TEMPLATES_DIR
 from core.processing.steps.keep_important_columns import get_mandatory_feature_catalog
 
@@ -30,10 +32,43 @@ def _static_version(filename: str) -> int:
         return 0
 
 
+def _base_template_context(request: Request, **context: object) -> dict[str, object]:
+    return {
+        "request": request,
+        "style_css_version": _static_version("style.css"),
+        "sidebar_js_version": _static_version("js/sidebar.js"),
+        **context,
+    }
+
+
+PROFILING_DEFAULTS = {
+    "null_threshold_percent": round(NULL_THRESHOLD * 100),
+    "dominant_value_threshold_percent": round(DOMINANT_VALUE_THRESHOLD * 100),
+    "low_variance_threshold": LOW_VARIANCE_THRESHOLD,
+}
+
+
+@router.get("/assets/plotly.js")
+def plotly_bundle_asset() -> Response:
+    return Response(
+        content=get_plotly_bundle(),
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, table_name: str = "all", year: str = "all", group_column: str = ""):
     dashboard = get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)
-    return templates.TemplateResponse("index.html", {"request": request, "dashboard": dashboard})
+    return templates.TemplateResponse(
+        "index.html",
+        _base_template_context(
+            request,
+            dashboard=dashboard,
+            dashboard_js_version=_static_version("js/dashboard.js"),
+            import_js_version=_static_version("js/import.js"),
+        ),
+    )
 
 
 @router.get("/forecasting", response_class=HTMLResponse)
@@ -56,7 +91,15 @@ def forecasting_page(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    return templates.TemplateResponse("forecasting.html", {"request": request, "forecast": forecast, "forecasting_css_version": _static_version("forecasting.css"), "forecasting_js_version": _static_version("js/forecasting.js")})
+    return templates.TemplateResponse(
+        "forecasting.html",
+        _base_template_context(
+            request,
+            forecast=forecast,
+            forecasting_css_version=_static_version("forecasting.css"),
+            forecasting_js_version=_static_version("js/forecasting.js"),
+        ),
+    )
 
 
 @router.get("/backtesting", response_class=HTMLResponse)
@@ -78,7 +121,15 @@ def ml_model_page(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    return templates.TemplateResponse("ml_model.html", {"request": request, "ml_model": ml_model})
+    return templates.TemplateResponse(
+        "ml_model.html",
+        _base_template_context(
+            request,
+            ml_model=ml_model,
+            ml_model_css_version=_static_version("ml_model.css"),
+            ml_model_js_version=_static_version("js/ml_model.js"),
+        ),
+    )
 
 
 @router.get("/clustering", response_class=HTMLResponse)
@@ -99,12 +150,12 @@ def clustering_page(
     )
     return templates.TemplateResponse(
         "clustering.html",
-        {
-            "request": request,
-            "clustering": clustering,
-            "clustering_css_version": _static_version("clustering.css"),
-            "clustering_js_version": _static_version("js/clustering.js"),
-        },
+        _base_template_context(
+            request,
+            clustering=clustering,
+            clustering_css_version=_static_version("clustering.css"),
+            clustering_js_version=_static_version("js/clustering.js"),
+        ),
     )
 
 
@@ -115,12 +166,13 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
 
     return templates.TemplateResponse(
         "column_search.html",
-        {
-            "request": request,
-            "table_options": table_options,
-            "selected_table": selected_table,
-            "initial_query": query,
-        },
+        _base_template_context(
+            request,
+            table_options=table_options,
+            selected_table=selected_table,
+            initial_query=query,
+            column_search_js_version=_static_version("js/column_search.js"),
+        ),
     )
 
 
@@ -131,12 +183,12 @@ def fire_map_page(request: Request, table_name: str = ""):
 
     return templates.TemplateResponse(
         "fire_map.html",
-        {
-            "request": request,
-            "table_options": table_options,
-            "selected_table": selected_table,
-            "tables_count": len(table_options),
-        },
+        _base_template_context(
+            request,
+            table_options=table_options,
+            selected_table=selected_table,
+            tables_count=len(table_options),
+        ),
     )
 
 
@@ -148,7 +200,10 @@ def fire_map_embed(request: Request, table_name: str = ""):
     if not table_name or table_name != selected_table:
         return templates.TemplateResponse(
             "fire_map_error.html",
-            {"request": request, "message": "Р’С‹Р±РµСЂРёС‚Рµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰СѓСЋ С‚Р°Р±Р»РёС†Сѓ РґР»СЏ РїРѕСЃС‚СЂРѕРµРЅРёСЏ РєР°СЂС‚С‹."},
+            _base_template_context(
+                request,
+                message="Выберите существующую таблицу для построения карты.",
+            ),
             status_code=400,
         )
 
@@ -157,17 +212,17 @@ def fire_map_embed(request: Request, table_name: str = ""):
         if not map_html:
             return templates.TemplateResponse(
                 "fire_map_error.html",
-                {
-                    "request": request,
-                    "message": "Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹ РЅРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР±СЂР°С‚СЊ РєР°СЂС‚Сѓ. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РЁРёСЂРѕС‚Р° Рё Р”РѕР»РіРѕС‚Р°.",
-                },
+                _base_template_context(
+                    request,
+                    message="Для выбранной таблицы не удалось собрать карту. Проверьте координаты, даты и наличие записей.",
+                ),
                 status_code=422,
             )
         return HTMLResponse(map_html)
     except Exception as exc:
         return templates.TemplateResponse(
             "fire_map_error.html",
-            {"request": request, "message": str(exc)},
+            _base_template_context(request, message=str(exc)),
             status_code=500,
         )
 
@@ -175,7 +230,10 @@ def fire_map_embed(request: Request, table_name: str = ""):
 @router.get("/tables", response_class=HTMLResponse)
 async def list_tables(request: Request):
     tables = get_all_tables()
-    return templates.TemplateResponse("tables.html", {"request": request, "tables": tables})
+    return templates.TemplateResponse(
+        "tables.html",
+        _base_template_context(request, tables=tables),
+    )
 
 
 @router.get("/tables/{table_name}", response_class=HTMLResponse)
@@ -189,7 +247,12 @@ async def view_table(request: Request, table_name: str):
 
     return templates.TemplateResponse(
         "table_view.html",
-        {"request": request, "table_name": table_name, "columns": columns, "rows": rows},
+        _base_template_context(
+            request,
+            table_name=table_name,
+            columns=columns,
+            rows=rows,
+        ),
     )
 
 
@@ -198,10 +261,11 @@ def select_table(request: Request):
     tables = get_all_tables()
     return templates.TemplateResponse(
         "select_table.html",
-        {
-            "request": request,
-            "tables": tables,
-            "mandatory_feature_catalog": get_mandatory_feature_catalog(),
-            "profiling_css_version": _static_version("profiling.css"),
-        },
+        _base_template_context(
+            request,
+            tables=tables,
+            mandatory_feature_catalog=get_mandatory_feature_catalog(),
+            profiling_css_version=_static_version("profiling.css"),
+            profiling_defaults=PROFILING_DEFAULTS,
+        ),
     )

@@ -121,6 +121,18 @@
             renderChartFallback(chart, container);
         }
     }
+
+    function applyToneClass(node, tone) {
+        if (!node) {
+            return;
+        }
+
+        node.className = node.className.replace(/\btone-[a-z]+\b/g, '').replace(/\s+/g, ' ').trim();
+        if (tone) {
+            node.className += (node.className ? ' ' : '') + 'tone-' + tone;
+        }
+    }
+
     function renderRankingList(containerId, items, emptyMessage, accentClass) {
         const container = byId(containerId);
         if (!container) {
@@ -140,27 +152,7 @@
         }).join('');
     }
 
-    function renderHighlights(items) {
-        const container = byId('highlightsGrid');
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">Инсайты появятся, когда в базе будут данные.</div>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
-            return '<article class="insight-card tone-' + escapeHtml(item.tone || 'muted') + '" title="' + escapeHtml(item.value) + '">' +
-                '<span class="insight-label">' + escapeHtml(item.label) + '</span>' +
-                '<strong class="insight-value">' + escapeHtml(item.value) + '</strong>' +
-                '<span class="insight-meta">' + escapeHtml(item.meta) + '</span>' +
-            '</article>';
-        }).join('');
-    }
-
-    function renderNotes(notes) {
+    function renderNotesPanel(notes) {
         const panel = byId('dashboardNotesPanel');
         const list = byId('dashboardNotesList');
         if (!panel || !list) {
@@ -179,6 +171,95 @@
         }).join('');
     }
 
+    function renderSimpleNotes(containerId, notes, emptyMessage) {
+        const container = byId(containerId);
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(notes) || !notes.length) {
+            container.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
+            return;
+        }
+
+        container.innerHTML = notes.map(function (note) {
+            return '<li>' + escapeHtml(note) + '</li>';
+        }).join('');
+    }
+
+    function renderManagementCards(items) {
+        const container = byId('managementBriefCards');
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = '<div class="mini-empty">Сводка появится после загрузки данных.</div>';
+            return;
+        }
+
+        container.innerHTML = items.map(function (item) {
+            return '<article class="executive-brief-card tone-' + escapeHtml(item.tone || 'sky') + '">' +
+                '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>' +
+                '<strong class="stat-value executive-brief-value">' + escapeHtml(item.value || '-') + '</strong>' +
+                '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>' +
+            '</article>';
+        }).join('');
+    }
+
+    function renderManagementTerritories(items) {
+        const container = byId('managementTerritories');
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = '<div class="mini-empty">Территории первого внимания появятся после расчёта.</div>';
+            return;
+        }
+
+        container.innerHTML = items.map(function (item) {
+            return '<article class="executive-territory-card tone-' + escapeHtml(item.risk_tone || 'sky') + '">' +
+                '<div class="executive-territory-head">' +
+                    '<strong>' + escapeHtml(item.label || 'Территория') + '</strong>' +
+                    '<span class="executive-territory-score">' + escapeHtml(item.risk_display || '0 / 100') + '</span>' +
+                '</div>' +
+                '<div class="executive-territory-tags">' +
+                    '<span class="forecast-badge risk-badge tone-' + escapeHtml(item.risk_tone || 'sky') + '">' + escapeHtml(item.risk_class_label || 'Нет оценки') + '</span>' +
+                    '<span class="forecast-badge risk-badge tone-sky">' + escapeHtml(item.priority_label || 'Плановое наблюдение') + '</span>' +
+                '</div>' +
+                '<p class="executive-territory-reason">' + escapeHtml(item.drivers_display || 'Недостаточно данных для объяснения приоритета.') + '</p>' +
+                '<div class="executive-territory-action">' +
+                    '<strong>' + escapeHtml(item.action_label || 'Плановое наблюдение') + '</strong>' +
+                    '<span>' + escapeHtml(item.action_hint || '') + '</span>' +
+                '</div>' +
+                '<div class="executive-territory-meta">' +
+                    '<span>' + escapeHtml(item.context_label || 'Контекст не указан') + '</span>' +
+                    '<span>Последний пожар: ' + escapeHtml(item.last_fire_display || '-') + '</span>' +
+                '</div>' +
+            '</article>';
+        }).join('');
+    }
+
+    function renderManagementActions(items) {
+        const container = byId('managementActionList');
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = '<div class="mini-empty">Рекомендации появятся после расчёта.</div>';
+            return;
+        }
+
+        container.innerHTML = items.map(function (item) {
+            return '<article class="executive-action-item">' +
+                '<strong>' + escapeHtml(item.label || 'Рекомендация') + '</strong>' +
+                '<span>' + escapeHtml(item.detail || '') + '</span>' +
+            '</article>';
+        }).join('');
+    }
+
     function applyDashboardData(data) {
         if (!data) {
             return;
@@ -189,20 +270,34 @@
         const trend = data.trend || {};
         const charts = data.charts || {};
         const rankings = data.rankings || {};
-        const widgets = data.widgets || {};
         const filters = data.filters || {};
+        const management = data.management || {};
 
         setSelectOptions('tableFilter', filters.available_tables, filters.table_name, 'Все таблицы');
         setSelectOptions('yearFilter', [{ value: 'all', label: 'Все годы' }].concat(filters.available_years || []), filters.year || 'all', 'Все годы');
         setSelectOptions('groupColumnFilter', filters.available_group_columns, filters.group_column, 'Нет доступных колонок');
 
         setText('heroTableLabel', scope.table_label || 'Все таблицы');
+        setText('heroYearLabel', scope.year_label || 'Все годы');
         setText('heroGroupLabel', scope.group_label || 'Нет данных');
+        setText('dashboardLeadSummary', management.summary_line || 'После загрузки данных здесь появится управленческая сводка.');
+        setText('managementHeroPriority', management.priority_territory_label || '-');
+        setText('managementHeroPriorityMeta', management.priority_reason || 'Недостаточно данных для определения первого приоритета.');
+        setText('managementHeroConfidence', management.confidence_label || 'Ограниченная');
+        setText('managementHeroConfidenceScore', management.confidence_score_display || '0 / 100');
+        setText('managementHeroConfidenceMeta', management.confidence_summary || 'После загрузки данных здесь появится уровень доверия к сводке.');
         renderFilterSummary({
             table: scope.table_label || 'Все таблицы',
             year: scope.year_label || 'Все годы',
             group: scope.group_label || 'Нет данных'
         });
+
+        applyToneClass(byId('dashboardPriorityCard'), management.priority_tone || 'sky');
+        applyToneClass(byId('dashboardConfidenceCard'), management.confidence_tone || 'fire');
+        renderManagementCards(management.brief_cards || []);
+        renderManagementTerritories(management.territories || []);
+        renderManagementActions(management.actions || []);
+        renderSimpleNotes('managementNotesList', management.notes || [], 'Ограничения и примечания появятся после загрузки данных.');
 
         setText('trendTitle', trend.title || 'Динамика последнего года');
         setText('trendCurrentValue', trend.current_value_display || '0');
@@ -215,10 +310,6 @@
             trendCard.classList.remove('trend-up', 'trend-down', 'trend-flat');
             trendCard.classList.add('trend-' + (trend.direction || 'flat'));
         }
-
-        setText('coverageYearsValue', summary.years_covered_display || '0');
-        setText('coveragePeriodValue', summary.period_label || 'Нет данных');
-        setText('coverageFillRate', summary.area_fill_rate_display || '0%');
 
         setText('firesCountValue', summary.fires_count_display || '0');
         setText('firesCountFoot', scope.table_label || 'Все таблицы');
@@ -233,34 +324,25 @@
         setText('sidebarPeriodLabel', summary.period_label || 'Нет данных');
 
         setText('yearlyFiresTitle', charts.yearly_fires ? charts.yearly_fires.title : 'Причины возгораний');
-        setText('distributionTitle', charts.distribution ? charts.distribution.title : 'Распределение: Категория риска');
-        setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия, эвакуация и дети');
-        setText('tableBreakdownTitle', charts.table_breakdown ? charts.table_breakdown.title : 'Эвакуация и дети');
+        setText('distributionTitle', charts.distribution ? charts.distribution.title : 'Распределение по выбранному разрезу');
+        setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия пожара');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
-        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Распределение по категории риска');
-        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Последствия пожара, эвакуация и дети');
-        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Сезонная динамика пожаров по месяцам');
-        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Распределение по диапазонам площади пожара');
-        setText('sqlCausesTitle', widgets.causes ? widgets.causes.title : 'SQL-виджет: причины');
-        setText('sqlDistrictsTitle', widgets.districts ? widgets.districts.title : 'SQL-виджет: районы');
-        setText('sqlSeasonsTitle', widgets.seasons ? widgets.seasons.title : 'SQL-виджет: сезоны');
+        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Распределение по выбранному разрезу.');
+        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Последствия пожара, эвакуация и влияние на население.');
+        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Сезонная динамика пожаров по месяцам.');
+        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Распределение по диапазонам площади пожара.');
 
         renderPlotlyChart(charts.yearly_fires, 'yearlyFiresChart');
         renderPlotlyChart(charts.distribution, 'distributionChart');
         renderPlotlyChart(charts.yearly_area, 'yearlyAreaChart');
-        renderPlotlyChart(charts.table_breakdown, 'tableBreakdownChart');
         renderPlotlyChart(charts.monthly_profile, 'monthlyProfileChart');
         renderPlotlyChart(charts.area_buckets, 'areaBucketsChart');
-        renderPlotlyChart(widgets.causes, 'sqlCausesChart');
-        renderPlotlyChart(widgets.districts, 'sqlDistrictsChart');
-        renderPlotlyChart(widgets.seasons, 'sqlSeasonsChart');
 
-        renderHighlights(data.highlights || []);
         renderRankingList('topDistributionList', rankings.top_distribution, 'Нет данных по распределению.', 'ranking-row-fire');
         renderRankingList('topTablesList', rankings.top_tables, 'Нет таблиц в текущем фильтре.', 'ranking-row-table');
         renderRankingList('recentYearsList', rankings.recent_years, 'Недостаточно годовых данных.', 'ranking-row-year');
-        renderNotes(data.notes || []);
+        renderNotesPanel(data.notes || []);
     }
 
     async function fetchDashboardData() {
@@ -285,7 +367,7 @@
             });
 
             if (!response.ok) {
-                throw new Error('Не удалось обновить dashboard');
+                throw new Error('Не удалось обновить панель');
             }
 
             const data = await response.json();
@@ -323,10 +405,15 @@
         }
 
         const initialData = window.__FIRE_DASHBOARD_INITIAL_DATA__;
+        const shouldFetchOnLoad = !initialData || initialData.bootstrap_mode === 'deferred';
         if (initialData) {
             applyDashboardData(initialData);
         } else {
             renderFilterSummary();
+        }
+
+        if (shouldFetchOnLoad) {
+            fetchDashboardData();
         }
 
         window.fireDashboard = {
@@ -337,4 +424,3 @@
         };
     });
 })();
-

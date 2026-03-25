@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 
 class FiresFeatureProfilingStep(PipelineStep):
     def __init__(self, settings):
-        super().__init__("Fires Feature Profiling")
+        super().__init__("Профилирование признаков пожаров")
         self.settings = settings
 
     def _get_thresholds(self) -> dict[str, float]:
@@ -80,7 +80,7 @@ class FiresFeatureProfilingStep(PipelineStep):
         output_csv = os.path.join(output_folder, f"{table_name}{PROFILING_CSV_SUFFIX}")
         output_xlsx = os.path.join(output_folder, f"{table_name}{PROFILING_XLSX_SUFFIX}")
 
-        print(f"Таблица для profiling: {table_name}")
+        print(f"Таблица для профилирования: {table_name}")
         print(f"Папка результатов: {output_folder}")
         print(
             "Пороги: "
@@ -201,12 +201,12 @@ class FiresFeatureProfilingStep(PipelineStep):
                 }
             )
 
-        print("Profiling завершён.")
+        print("Профилирование завершено.")
         print(f"Отчёт CSV: {output_csv}")
         print(f"Отчёт Excel: {output_xlsx}")
         print(f"Всего колонок: {len(profile_df_sorted)}")
         print(f"Помечено на исключение: {len(candidates)}")
-        print(f"Останется в clean-таблице: {len(kept_columns)}")
+        print(f"Останется в очищенной таблице: {len(kept_columns)}")
 
         return {
             "profile_df": profile_df_sorted,
