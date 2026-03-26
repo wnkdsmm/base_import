@@ -7,7 +7,7 @@ from .data import _collect_risk_inputs
 from .presentation import _build_feature_cards, _build_geo_summary, _build_quality_passport, _build_risk_notes
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, build_weight_profile_snapshot, get_risk_weight_profile
 from .scoring import _build_territory_rows, _top_territory_lead
-from .utils import _apply_history_window, _clamp, _format_integer, _format_number, _format_probability, _unique_non_empty
+from .utils import _clamp, _format_integer, _format_number, _format_probability, _unique_non_empty
 from .validation import (
     build_historical_validation_payload,
     empty_historical_validation_payload,
@@ -34,23 +34,20 @@ def build_decision_support_payload(
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
     selected_year: Optional[int] = None,
 ) -> Dict[str, Any]:
-    metadata_items, records, preload_notes = _collect_risk_inputs(source_tables)
+    metadata_items, filtered_records, preload_notes = _collect_risk_inputs(
+        source_tables,
+        district=selected_district,
+        cause=selected_cause,
+        object_category=selected_object_category,
+        history_window=history_window,
+        selected_year=selected_year,
+    )
     feature_cards = _build_feature_cards(metadata_items)
     quality_passport = _build_quality_passport(feature_cards, metadata_items)
     coverage_display = f"{sum(1 for item in feature_cards if item['status'] != 'missing')} из {len(feature_cards)}" if feature_cards else "0 из 0"
     geo_summary = _build_geo_summary(geo_prediction or {})
     requested_profile = get_risk_weight_profile(weight_mode)
     requested_weight_profile = build_weight_profile_snapshot(requested_profile)
-
-    scoped_records = _apply_history_window(records, history_window)
-    filtered_records = [
-        record
-        for record in scoped_records
-        if (selected_district == "all" or record["district"] == selected_district)
-        and (selected_cause == "all" or record["cause"] == selected_cause)
-        and (selected_object_category == "all" or record["object_category"] == selected_object_category)
-        and (selected_year is None or record["date"].year == selected_year)
-    ]
 
     if not filtered_records:
         notes = _unique_non_empty(list(preload_notes[:2]) + ["После выбранных фильтров не осталось записей для ранжирования территорий."])

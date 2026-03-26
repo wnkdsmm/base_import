@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -32,7 +32,6 @@
         <p>Прогноз по ожидаемому числу пожаров: модель оценивает дневное число пожаров и не превращает его в псевдовероятность.</p>
     </div>
 
-
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
         <a class="sidebar-link" href="/">Панель</a>
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
@@ -44,8 +43,10 @@
         <a class="sidebar-link" href="/tables">Таблицы</a>
     </nav>
 
-    <div class="sidebar-status">
-        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}ML-блок собран{% else %}Нужно уточнить фильтры{% endif %}</span>
+    <div class="sidebar-status" id="mlSidebarStatus">
+        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">
+            {% if data.bootstrap_mode == 'deferred' %}Подготовка ML-блока{% elif data.has_data %}ML-блок собран{% else %}Нужно уточнить фильтры{% endif %}
+        </span>
         <div class="status-line">
             <span>Модель по числу пожаров</span>
             <strong>{{ summary.count_model_label }}</strong>
@@ -71,16 +72,16 @@
         <div class="hero-copy">
             <span class="eyebrow">Отдельный предиктивный ML-блок</span>
             <h1>ML-прогноз пожаров</h1>
-            <p class="subtitle">{{ data.model_description }}</p>
-            <div class="hero-tags">
+            <p class="subtitle" id="mlModelDescription">{{ data.model_description or 'После загрузки здесь появится описание ML-блока и качества модели.' }}</p>
+            <div class="hero-tags" id="mlHeroTags">
                 <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
                 <span class="hero-tag">История: <strong>{{ summary.history_window_label }}</strong></span>
                 <span class="hero-tag">Топ-признак: <strong>{{ summary.top_feature_label }}</strong></span>
                 <span class="hero-tag">Температура: <strong>{{ summary.temperature_scenario_display }}</strong></span>
-                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя вероятность P(>=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Событие пожара: <strong>не показано</strong>{% endif %}</span>
+                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя вероятность P(&gt;=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Событие пожара: <strong>не показано</strong>{% endif %}</span>
             </div>
         </div>
-        <div class="hero-side">
+        <div class="hero-side" id="mlHeroStats">
             <article class="hero-stat-card">
                 <span class="hero-stat-label">Среднее ожидаемое число пожаров</span>
                 <strong class="hero-stat-value">{{ summary.average_expected_count_display }}</strong>
@@ -98,7 +99,7 @@
         <div class="panel-head">
             <div>
                 <h2>Быстрый маршрут</h2>
-                <span class="panel-meta">Сначала смотрим проверку на истории, потом интерпретируем прогноз по числу пожаров и индекс риска. Вероятность события «пожар / нет пожара» показывается только если для неё есть отдельный классификатор.</span>
+                <span class="panel-meta">Сначала смотрим проверку на истории, потом интерпретируем прогноз по числу пожаров и индекс риска. Вероятность события «пожар / нет пожара» показывается только если для нее есть отдельный классификатор.</span>
             </div>
         </div>
         <div class="orientation-strip">
@@ -130,10 +131,10 @@
             <h2>Параметры ML-блока</h2>
             <span class="panel-meta">Этот экран показывает отдельный ML-блок прогноза по числу пожаров. Он не заменяет сценарный прогноз и не совпадает с эвристическим баллом риска территорий.</span>
         </div>
-        <form class="filters-grid ml-form-grid" method="get" action="/ml-model">
+        <form class="filters-grid ml-form-grid" id="mlModelForm" method="get" action="/ml-model">
             <label class="filter-field">
                 <span>Таблица</span>
-                <select name="table_name">
+                <select id="mlTableFilter" name="table_name">
                     {% for option in filters.available_tables %}
                     <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
@@ -141,7 +142,7 @@
             </label>
             <label class="filter-field">
                 <span>История</span>
-                <select name="history_window">
+                <select id="mlHistoryWindowFilter" name="history_window">
                     {% for option in filters.available_history_windows %}
                     <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
@@ -149,7 +150,7 @@
             </label>
             <label class="filter-field">
                 <span>Причина</span>
-                <select name="cause">
+                <select id="mlCauseFilter" name="cause">
                     {% for option in filters.available_causes %}
                     <option value="{{ option.value }}" {% if option.value == filters.cause %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
@@ -157,7 +158,7 @@
             </label>
             <label class="filter-field">
                 <span>Категория объекта</span>
-                <select name="object_category">
+                <select id="mlObjectCategoryFilter" name="object_category">
                     {% for option in filters.available_object_categories %}
                     <option value="{{ option.value }}" {% if option.value == filters.object_category %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
@@ -165,11 +166,11 @@
             </label>
             <label class="filter-field">
                 <span>Температура сценария</span>
-                <input name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берётся историческая температура">
+                <input id="mlTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берется историческая температура">
             </label>
             <label class="filter-field">
                 <span>Горизонт</span>
-                <select name="forecast_days">
+                <select id="mlForecastDaysFilter" name="forecast_days">
                     {% for option in filters.available_forecast_days %}
                     <option value="{{ option.value }}" {% if option.value == filters.forecast_days %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
@@ -177,12 +178,26 @@
             </label>
             <div class="filter-field filter-actions ml-actions">
                 <span>Действие</span>
-                <button class="primary-action" type="submit">Пересчитать ML-блок</button>
+                <button id="mlRefreshButton" class="primary-action" type="submit">Пересчитать ML-блок</button>
             </div>
         </form>
+        <div id="mlAsyncState" class="ml-async-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}">
+            <div id="mlLoadingState" class="ml-loading-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}" aria-live="polite">
+                <div class="ml-loading-head">
+                    <strong id="mlLoadingLead">Подготавливаем ML-страницу</strong>
+                    <span id="mlLoadingMessage">Сначала отдаем легкий shell, затем подтягиваем расчет отдельно.</span>
+                </div>
+                <div class="ml-progress-steps" id="mlProgressSteps">
+                    <span class="ml-progress-step is-active">Загрузка данных</span>
+                    <span class="ml-progress-step">Подготовка истории</span>
+                    <span class="ml-progress-step">Расчет модели</span>
+                </div>
+            </div>
+            <div id="mlErrorState" class="ml-error-state is-hidden" aria-live="polite"></div>
+        </div>
     </section>
 
-    <section class="stats-grid ml-stats-grid">
+    <section class="stats-grid ml-stats-grid" id="mlStatsGrid">
         <article class="stat-card stat-card-accent">
             <span class="stat-label">Пожаров в обучении</span>
             <strong class="stat-value">{{ summary.fires_count_display }}</strong>
@@ -196,7 +211,7 @@
         <article class="stat-card">
             <span class="stat-label">Сумма прогноза</span>
             <strong class="stat-value">{{ summary.predicted_total_display }}</strong>
-            <span class="stat-foot">Ожидаемое число пожаров на всём горизонте.</span>
+            <span class="stat-foot">Ожидаемое число пожаров на всем горизонте.</span>
         </article>
         <article class="stat-card">
             <span class="stat-label">Дней с повышенным индексом</span>
@@ -208,143 +223,132 @@
     <section id="mlBacktestingSection" class="panel ml-quality-panel">
         <div class="panel-head">
             <div>
-                <h2>{{ quality.title }}</h2>
-                <span class="panel-meta">{{ quality.subtitle }}</span>
+                <h2 id="mlQualityTitle">{{ quality.title }}</h2>
+                <span class="panel-meta" id="mlQualitySubtitle">{{ quality.subtitle }}</span>
             </div>
         </div>
-        <div class="stats-grid">
-            <article class="stat-card">
-                <span class="stat-label">MAE по числу пожаров</span>
-                <strong class="stat-value">{{ summary.count_mae_display }}</strong>
-                <span class="stat-foot">База: {{ summary.baseline_count_mae_display }} | Сценарный прогноз: {{ summary.heuristic_count_mae_display }}</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">RMSE по числу пожаров</span>
-                <strong class="stat-value">{{ summary.count_rmse_display }}</strong>
-                <span class="stat-foot">База: {{ summary.baseline_count_rmse_display }} | Сценарный прогноз: {{ summary.heuristic_count_rmse_display }}</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">SMAPE по числу пожаров</span>
-                <strong class="stat-value">{{ summary.count_smape_display }}</strong>
-                <span class="stat-foot">База: {{ summary.baseline_count_smape_display }} | Сценарный прогноз: {{ summary.heuristic_count_smape_display }}</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">Девиация Пуассона</span>
-                <strong class="stat-value">{{ summary.count_poisson_deviance_display }}</strong>
-                <span class="stat-foot">Сценарный прогноз: {{ summary.heuristic_count_poisson_deviance_display }}</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">MAE к базовой модели</span>
-                <strong class="stat-value">{{ summary.mae_vs_baseline_display }}</strong>
-                <span class="stat-foot">Отрицательное значение означает улучшение относительно базовой модели.</span>
-            </article>
-            {% if summary.event_backtest_available %}
-            <article class="stat-card">
-                <span class="stat-label">Показатель Брайера</span>
-                <strong class="stat-value">{{ summary.brier_display }}</strong>
-                <span class="stat-foot">База: {{ summary.baseline_brier_display }} | Сценарный прогноз: {{ summary.heuristic_brier_display }}</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">ROC-AUC</span>
-                <strong class="stat-value">{{ summary.roc_auc_display }}</strong>
-                <span class="stat-foot">База: {{ summary.baseline_roc_auc_display }} | Сценарный прогноз: {{ summary.heuristic_roc_auc_display }}</span>
-            </article>
-            <article class="stat-card">
-                <span class="stat-label">F1</span>
-                <strong class="stat-value">{{ summary.f1_display }}</strong>
-                <span class="stat-foot">База: {{ summary.baseline_f1_display }} | Сценарный прогноз: {{ summary.heuristic_f1_display }}</span>
-            </article>
+        <div class="stats-grid" id="mlQualityMetricCards">
+            {% if quality.metric_cards %}
+                {% for item in quality.metric_cards %}
+                <article class="stat-card">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value">{{ item.value }}</strong>
+                    <span class="stat-foot">{{ item.meta }}</span>
+                </article>
+                {% endfor %}
             {% else %}
-            <article class="stat-card">
-                <span class="stat-label">Событие пожара</span>
-                <strong class="stat-value">Недостаточно окон</strong>
-                <span class="stat-foot">Недостаточно окон для сравнения сезонной базы, сценарной эвристики и отдельного классификатора.</span>
-            </article>
+            <div class="mini-empty">После расчета здесь появятся метрики качества ML-блока.</div>
             {% endif %}
         </div>
 
-        <div class="stats-grid">
-            {% for item in quality.methodology_items %}
-            <article class="stat-card">
-                <span class="stat-label">{{ item.label }}</span>
-                <strong class="stat-value">{{ item.value }}</strong>
-                <span class="stat-foot">{{ item.meta }}</span>
-            </article>
-            {% endfor %}
+        <div class="stats-grid" id="mlQualityMethodology">
+            {% if quality.methodology_items %}
+                {% for item in quality.methodology_items %}
+                <article class="stat-card">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value">{{ item.value }}</strong>
+                    <span class="stat-foot">{{ item.meta }}</span>
+                </article>
+                {% endfor %}
+            {% else %}
+            <div class="mini-empty">Параметры валидации появятся после проверки на истории.</div>
+            {% endif %}
         </div>
+
+        <article class="panel ranking-panel">
+            <div class="panel-head">
+                <div>
+                    <h2 id="mlModelChoiceTitle">{{ quality.model_choice.title }}</h2>
+                    <span class="panel-meta" id="mlModelChoiceLead">{{ quality.model_choice.lead }}</span>
+                </div>
+            </div>
+            <p id="mlModelChoiceBody">{{ quality.model_choice.body }}</p>
+            <div class="stats-grid" id="mlModelChoiceFacts">
+                {% for item in quality.model_choice.facts %}
+                <article class="stat-card">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value">{{ item.value }}</strong>
+                </article>
+                {% endfor %}
+            </div>
+        </article>
 
         <div class="ml-table-shell">
             <div class="panel-head">
-                <h2>{{ quality.count_table.title }}</h2>
+                <h2 id="mlCountTableTitle">{{ quality.count_table.title }}</h2>
                 <span class="panel-meta">На одинаковых окнах rolling-origin backtesting сравниваются сезонная база, текущий сценарный прогноз и обучаемые модели по счетному ряду пожаров.</span>
             </div>
-            {% if quality.count_table.rows %}
-            <table class="forecast-table">
-                <thead>
-                    <tr>
-                        <th>Метод</th>
-                        <th>Роль</th>
-                        <th>MAE</th>
-                        <th>RMSE</th>
-                        <th>SMAPE</th>
-                        <th>Девиация Пуассона</th>
-                        <th>MAE к базовой модели</th>
-                        <th>Статус</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in quality.count_table.rows %}
-                    <tr>
-                        <td data-label="Метод">{{ row.method_label }}</td>
-                        <td data-label="Роль">{{ row.role_label }}</td>
-                        <td data-label="MAE">{{ row.mae_display }}</td>
-                        <td data-label="RMSE">{{ row.rmse_display }}</td>
-                        <td data-label="SMAPE">{{ row.smape_display }}</td>
-                        <td data-label="Девиация Пуассона">{{ row.poisson_display }}</td>
-                        <td data-label="MAE к базовой модели">{{ row.mae_delta_display }}</td>
-                        <td data-label="Статус">{{ row.selection_label }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="mini-empty">{{ quality.count_table.empty_message }}</div>
-            {% endif %}
+            <div id="mlCountTableShell">
+                {% if quality.count_table.rows %}
+                <table class="forecast-table">
+                    <thead>
+                        <tr>
+                            <th>Метод</th>
+                            <th>Роль</th>
+                            <th>MAE</th>
+                            <th>RMSE</th>
+                            <th>SMAPE</th>
+                            <th>Девиация Пуассона</th>
+                            <th>MAE к базовой модели</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in quality.count_table.rows %}
+                        <tr>
+                            <td data-label="Метод">{{ row.method_label }}</td>
+                            <td data-label="Роль">{{ row.role_label }}</td>
+                            <td data-label="MAE">{{ row.mae_display }}</td>
+                            <td data-label="RMSE">{{ row.rmse_display }}</td>
+                            <td data-label="SMAPE">{{ row.smape_display }}</td>
+                            <td data-label="Девиация Пуассона">{{ row.poisson_display }}</td>
+                            <td data-label="MAE к базовой модели">{{ row.mae_delta_display }}</td>
+                            <td data-label="Статус">{{ row.selection_label }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="mini-empty">{{ quality.count_table.empty_message }}</div>
+                {% endif %}
+            </div>
         </div>
 
         <div class="ml-table-shell">
             <div class="panel-head">
-                <h2>{{ quality.event_table.title }}</h2>
+                <h2 id="mlEventTableTitle">{{ quality.event_table.title }}</h2>
                 <span class="panel-meta">На одинаковых окнах сравниваются сезонная событийная база, сценарная эвристика и, если хватает истории, отдельный классификатор.</span>
             </div>
-            {% if quality.event_table.rows %}
-            <table class="forecast-table">
-                <thead>
-                    <tr>
-                        <th>Метод</th>
-                        <th>Роль</th>
-                        <th>Показатель Брайера</th>
-                        <th>ROC-AUC</th>
-                        <th>F1</th>
-                        <th>Статус</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in quality.event_table.rows %}
-                    <tr>
-                        <td data-label="Метод">{{ row.method_label }}</td>
-                        <td data-label="Роль">{{ row.role_label }}</td>
-                        <td data-label="Показатель Брайера">{{ row.brier_display }}</td>
-                        <td data-label="ROC-AUC">{{ row.roc_auc_display }}</td>
-                        <td data-label="F1">{{ row.f1_display }}</td>
-                        <td data-label="Статус">{{ row.selection_label }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="mini-empty">{{ quality.event_table.empty_message }}</div>
-            {% endif %}
+            <div id="mlEventTableShell">
+                {% if quality.event_table.rows %}
+                <table class="forecast-table">
+                    <thead>
+                        <tr>
+                            <th>Метод</th>
+                            <th>Роль</th>
+                            <th>Показатель Брайера</th>
+                            <th>ROC-AUC</th>
+                            <th>F1</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in quality.event_table.rows %}
+                        <tr>
+                            <td data-label="Метод">{{ row.method_label }}</td>
+                            <td data-label="Роль">{{ row.role_label }}</td>
+                            <td data-label="Показатель Брайера">{{ row.brier_display }}</td>
+                            <td data-label="ROC-AUC">{{ row.roc_auc_display }}</td>
+                            <td data-label="F1">{{ row.f1_display }}</td>
+                            <td data-label="Статус">{{ row.selection_label }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="mini-empty">{{ quality.event_table.empty_message }}</div>
+                {% endif %}
+            </div>
         </div>
 
         <article class="panel ranking-panel">
@@ -352,7 +356,7 @@
                 <h2>Формулировки для раздела о качестве</h2>
                 <span class="panel-meta">Короткие готовые тезисы, которые можно перенести в диссертационный раздел после проверки конкретного среза.</span>
             </div>
-            <ul class="notice-list forecast-note-list">
+            <ul class="notice-list forecast-note-list" id="mlDissertationPoints">
                 {% if quality.dissertation_points %}
                     {% for note in quality.dissertation_points %}
                     <li>{{ note }}</li>
@@ -368,8 +372,8 @@
         <div class="ml-primary">
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
-                    <h2>{{ charts.forecast.title }}</h2>
-                    <span class="panel-meta">График показывает ряд по числу пожаров: историю, проверку на истории и будущие дни с интервалом неопределённости.</span>
+                    <h2 id="mlForecastTitle">{{ charts.forecast.title }}</h2>
+                    <span class="panel-meta">График показывает ряд по числу пожаров: историю, проверку на истории и будущие дни с интервалом неопределенности.</span>
                 </div>
                 <div id="mlForecastChart" class="plotly-chart ml-plot"></div>
                 <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
@@ -380,7 +384,7 @@
                     <h2>Прогноз по будущим датам</h2>
                     <span class="panel-meta">По каждому дню: ожидаемое число пожаров, интервал, риск-индекс и, при наличии отдельного классификатора, P(&gt;=1 пожара).</span>
                 </div>
-                <div class="ml-table-shell">
+                <div class="ml-table-shell" id="mlForecastTableShell">
                     {% if data.forecast_rows %}
                     <table class="forecast-table">
                         <thead>
@@ -416,7 +420,7 @@
         <aside class="dashboard-secondary ml-secondary">
             <article class="panel chart-panel">
                 <div class="panel-head">
-                    <h2>{{ charts.importance.title }}</h2>
+                    <h2 id="mlImportanceTitle">{{ charts.importance.title }}</h2>
                     <span class="panel-meta">Показывает, какие признаки сильнее всего влияют на прогноз по числу пожаров.</span>
                 </div>
                 <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small"></div>
@@ -428,7 +432,7 @@
                     <h2>Используемые признаки</h2>
                     <span class="panel-meta">Какие колонки реально найдены в выбранных таблицах и могут участвовать в модели.</span>
                 </div>
-                <div class="forecast-feature-list">
+                <div class="forecast-feature-list" id="mlFeatureCards">
                     {% if data.features %}
                         {% for feature in data.features %}
                         <article class="forecast-feature-card status-{{ feature.status }}">
@@ -451,7 +455,7 @@
                     <h2>Оговорки по интерпретации</h2>
                     <span class="panel-meta">Короткие пояснения, чтобы не путать ML-блок со сценарным прогнозом и ранжированием для поддержки решений.</span>
                 </div>
-                <ul class="notice-list forecast-note-list">
+                <ul class="notice-list forecast-note-list" id="mlNotesList">
                     {% if data.notes %}
                         {% for note in data.notes %}
                         <li>{{ note }}</li>

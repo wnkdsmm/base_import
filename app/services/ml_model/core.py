@@ -7,12 +7,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.forecasting.core import _build_feature_cards
 from app.services.forecasting.data import (
-    _build_daily_history,
+    _build_daily_history_sql,
     _build_forecasting_table_options,
-    _build_option_catalog,
-    _collect_forecasting_inputs,
+    _build_option_catalog_sql,
+    _collect_forecasting_metadata,
     _resolve_forecasting_selection,
     _selected_source_tables,
+    clear_forecasting_sql_cache,
 )
 from app.services.forecasting.utils import (
     _format_datetime,
@@ -33,7 +34,7 @@ from .presentation import (
     _build_summary,
     _empty_light_chart,
 )
-from .training import _apply_history_window, _empty_ml_result, _train_ml_model
+from .training import _empty_ml_result, _train_ml_model
 
 ML_PREDICTIVE_BLOCK_DESCRIPTION = (
     'Это отдельный ML-блок для временного ряда пожаров. '
@@ -86,6 +87,36 @@ def get_ml_model_page_context(
     }
 
 
+def get_ml_model_shell_context(
+    table_name: str = 'all',
+    cause: str = 'all',
+    object_category: str = 'all',
+    temperature: str = '',
+    forecast_days: str = '14',
+    history_window: str = 'all',
+) -> Dict[str, Any]:
+    table_options = _build_forecasting_table_options()
+    selected_table = _resolve_forecasting_selection(table_options, table_name)
+    days_ahead = _parse_forecast_days(forecast_days)
+    selected_history_window = _parse_history_window(history_window)
+    initial_data = _empty_ml_model_data(
+        table_options,
+        selected_table,
+        days_ahead,
+        temperature,
+        selected_history_window,
+    )
+    initial_data['bootstrap_mode'] = 'deferred'
+    initial_data['filters']['cause'] = cause or 'all'
+    initial_data['filters']['object_category'] = object_category or 'all'
+    return {
+        'generated_at': _format_datetime(datetime.now()),
+        'initial_data': initial_data,
+        'plotly_js': '',
+        'has_data': bool(initial_data['filters']['available_tables']),
+    }
+
+
 def get_ml_model_data(
     table_name: str = 'all',
     cause: str = 'all',
@@ -117,27 +148,30 @@ def get_ml_model_data(
         base['notes'].append('Нет доступных таблиц для ML-модели.')
         return _cache_store(cache_key, base)
 
-    records, metadata_items, preload_notes = _collect_forecasting_inputs(source_tables)
-    scoped_records = _apply_history_window(records, selected_history_window)
-    option_catalog = _build_option_catalog(scoped_records)
+    metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
+    option_catalog = _build_option_catalog_sql(
+        source_tables,
+        history_window=selected_history_window,
+        metadata_items=metadata_items,
+    )
     selected_cause = _resolve_option_value(option_catalog['causes'], cause)
     selected_object_category = _resolve_option_value(option_catalog['object_categories'], object_category)
 
-    filtered_records = [
-        item
-        for item in scoped_records
-        if (selected_cause == 'all' or item['cause'] == selected_cause)
-        and (selected_object_category == 'all' or item['object_category'] == selected_object_category)
-    ]
-
-    daily_history = _build_daily_history(filtered_records)
+    daily_history = _build_daily_history_sql(
+        source_tables,
+        history_window=selected_history_window,
+        cause=selected_cause,
+        object_category=selected_object_category,
+        metadata_items=metadata_items,
+    )
+    filtered_records_count = int(sum(int(item.get('count') or 0) for item in daily_history))
     ml_result = _train_ml_model(daily_history, days_ahead, scenario_temperature)
     summary = _build_summary(
         selected_table=selected_table,
         selected_cause=selected_cause,
         selected_object_category=selected_object_category,
         daily_history=daily_history,
-        filtered_records=filtered_records,
+        filtered_records_count=filtered_records_count,
         ml_result=ml_result,
         history_window=selected_history_window,
         scenario_temperature=scenario_temperature,
@@ -145,7 +179,7 @@ def get_ml_model_data(
 
     payload = {
         'generated_at': _format_datetime(datetime.now()),
-        'has_data': bool(filtered_records),
+        'has_data': filtered_records_count > 0,
         'model_description': ML_PREDICTIVE_BLOCK_DESCRIPTION,
         'summary': summary,
         'quality_assessment': _build_quality_assessment(ml_result),
@@ -156,7 +190,7 @@ def get_ml_model_data(
         },
         'forecast_rows': ml_result.get('forecast_rows', []),
         'feature_importance': ml_result.get('feature_importance', []),
-        'notes': _build_notes(preload_notes, metadata_items, filtered_records, daily_history, ml_result, scenario_temperature, source_tables),
+        'notes': _build_notes(preload_notes, metadata_items, filtered_records_count, daily_history, ml_result, scenario_temperature, source_tables),
         'filters': {
             'table_name': selected_table,
             'cause': selected_cause,
@@ -172,7 +206,6 @@ def get_ml_model_data(
         },
     }
     return _cache_store(cache_key, payload)
-
 
 def _cache_get(cache_key: Tuple[str, str, str, str, int, str]) -> Optional[Dict[str, Any]]:
     cached = _ML_CACHE.get(cache_key)
@@ -193,7 +226,7 @@ def _cache_store(cache_key: Tuple[str, str, str, str, int, str], payload: Dict[s
 
 def clear_ml_model_cache() -> None:
     _ML_CACHE.clear()
-
+    clear_forecasting_sql_cache()
 
 
 def _empty_ml_model_data(

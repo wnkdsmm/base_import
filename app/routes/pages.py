@@ -10,7 +10,7 @@ from app.services.clustering_service import get_clustering_page_context
 from app.services.dashboard_service import get_dashboard_page_context, get_dashboard_shell_context
 from app.services.fire_map_service import build_fire_map_html, get_fire_map_page_context
 from app.services.forecasting_service import get_forecasting_page_context, get_forecasting_shell_context
-from app.services.ml_model_service import get_ml_model_page_context
+from app.services.ml_model_service import get_ml_model_shell_context
 from app.services.table_options import (
     get_column_search_table_options,
     get_fire_map_table_options,
@@ -173,7 +173,7 @@ def ml_model_page(
     forecast_days: str = "14",
     history_window: str = "all",
 ):
-    ml_model = get_ml_model_page_context(
+    ml_model = get_ml_model_shell_context(
         table_name=table_name,
         cause=cause,
         object_category=object_category,

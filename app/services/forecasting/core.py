@@ -16,10 +16,9 @@ from app.runtime_cache import CopyingTtlCache
 
 from .charts import _build_forecast_breakdown_chart, _build_forecast_chart, _build_geo_chart, _build_weekday_chart, _empty_chart_bundle
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS
-from .data import _build_daily_history, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog, _build_weekday_profile, _collect_forecasting_inputs, _resolve_forecasting_selection, _selected_source_tables, _table_selection_label
+from .data import _build_daily_history_sql, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog_sql, _build_weekday_profile, _collect_forecasting_inputs, _collect_forecasting_metadata, _resolve_forecasting_selection, _selected_source_tables, _table_selection_label, clear_forecasting_sql_cache
 from .geo import _build_geo_prediction
 from .utils import (
-    _apply_history_window,
     _forecast_level_label,
     _forecast_stability_hint,
     _format_datetime,
@@ -47,7 +46,7 @@ _FORECASTING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
 
 def clear_forecasting_cache() -> None:
     _FORECASTING_CACHE.clear()
-
+    clear_forecasting_sql_cache()
 
 
 def _normalize_forecasting_cache_value(value: str) -> str:
@@ -185,22 +184,34 @@ def get_forecasting_data(
         base_data["notes"].append("Нет доступных таблиц для прогнозирования.")
         return _FORECASTING_CACHE.set(cache_key, base_data)
 
-    records, metadata_items, preload_notes = _collect_forecasting_inputs(source_tables)
-    scoped_records = _apply_history_window(records, selected_history_window)
-    option_catalog = _build_option_catalog(scoped_records)
+    metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
+    option_catalog = _build_option_catalog_sql(
+        source_tables,
+        history_window=selected_history_window,
+        metadata_items=metadata_items,
+    )
     selected_district = _resolve_option_value(option_catalog["districts"], district)
     selected_cause = _resolve_option_value(option_catalog["causes"], cause)
     selected_object_category = _resolve_option_value(option_catalog["object_categories"], object_category)
 
-    filtered_records = [
-        record
-        for record in scoped_records
-        if (selected_district == "all" or record["district"] == selected_district)
-        and (selected_cause == "all" or record["cause"] == selected_cause)
-        and (selected_object_category == "all" or record["object_category"] == selected_object_category)
-    ]
+    filtered_records, _, filtered_notes = _collect_forecasting_inputs(
+        source_tables,
+        district=selected_district,
+        cause=selected_cause,
+        object_category=selected_object_category,
+        history_window=selected_history_window,
+    )
+    if filtered_notes:
+        preload_notes = preload_notes + filtered_notes
 
-    daily_history = _build_daily_history(filtered_records)
+    daily_history = _build_daily_history_sql(
+        source_tables,
+        history_window=selected_history_window,
+        district=selected_district,
+        cause=selected_cause,
+        object_category=selected_object_category,
+        metadata_items=metadata_items,
+    )
     scenario_backtest = _run_scenario_backtesting(daily_history)
     quality_assessment = _build_scenario_quality_assessment(scenario_backtest)
     forecast_rows = _build_forecast_rows(daily_history, days_ahead, temperature_value)
@@ -235,7 +246,7 @@ def get_forecasting_data(
         )["risk_prediction"]
         risk_prediction["feature_cards"] = _build_feature_cards(metadata_items)
         risk_prediction["notes"] = [
-            "Блок поддержки решений по территориям временно недоступен, поэтому страница показывает только эвристический сценарный прогноз.",
+            "Блок поддержки решений по территории временно недоступен, поэтому страница показывает только эвристический сценарный прогноз.",
             f"Техническая причина: {exc}",
         ]
     notes = preload_notes + _build_notes(
@@ -303,7 +314,6 @@ def get_forecasting_data(
         },
     }
     return _FORECASTING_CACHE.set(cache_key, payload)
-
 def _scenario_baseline_expected_count(history: List[Dict[str, Any]], target_date: Any) -> float:
     if not history:
         return 0.0

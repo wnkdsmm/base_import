@@ -133,7 +133,7 @@ def _build_summary(
     selected_cause: str,
     selected_object_category: str,
     daily_history: List[Dict[str, Any]],
-    filtered_records: List[Dict[str, Any]],
+    filtered_records_count: int,
     ml_result: Dict[str, Any],
     history_window: str,
     scenario_temperature: Optional[float],
@@ -179,7 +179,7 @@ def _build_summary(
         'event_model_label': ml_result.get('event_model_label') or 'Не обучен',
         'event_backtest_model_label': ml_result.get('selected_event_model_label') or 'Не показан',
         'backtest_method_label': ml_result.get('backtest_method_label') or 'Проверка на истории не выполнена',
-        'fires_count_display': _format_integer(len(filtered_records)),
+        'fires_count_display': _format_integer(filtered_records_count),
         'history_days_display': _format_integer(len(daily_history)),
         'forecast_days_display': _format_integer(len(forecast_rows)),
         'last_observed_date': history_dates[-1].strftime('%d.%m.%Y') if history_dates else '-',
@@ -237,7 +237,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
         {
             'method_label': row.get('method_label', 'Метод'),
             'role_label': row.get('role_label', ''),
-            'selection_label': 'Выбранная ML-модель' if row.get('is_selected') else 'Сравнение',
+            'selection_label': 'Выбранная модель' if row.get('is_selected') else 'Сравнение',
             'mae_display': _format_optional_number(row.get('mae')),
             'rmse_display': _format_optional_number(row.get('rmse')),
             'smape_display': _format_optional_percent(row.get('smape')),
@@ -254,6 +254,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             'brier_display': _format_optional_number(row.get('brier_score')),
             'roc_auc_display': _format_optional_number(row.get('roc_auc')),
             'f1_display': _format_optional_number(row.get('f1')),
+            'log_loss_display': _format_optional_number(row.get('log_loss')),
         }
         for row in ml_result.get('event_comparison_rows', [])
     ]
@@ -276,11 +277,19 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             ),
         },
         {
-            'label': 'SMAPE по числу пожаров',
+            'label': 'sMAPE по числу пожаров',
             'value': _format_optional_percent(ml_result.get('count_smape')),
             'meta': (
                 f"база: {_format_optional_percent(ml_result.get('baseline_count_smape'))}; "
                 f"сценарный прогноз: {_format_optional_percent(ml_result.get('heuristic_count_smape'))}"
+            ),
+        },
+        {
+            'label': 'Poisson deviance',
+            'value': _format_optional_number(ml_result.get('count_poisson_deviance')),
+            'meta': (
+                f"база: {_format_optional_number(ml_result.get('baseline_count_poisson_deviance'))}; "
+                f"сценарный прогноз: {_format_optional_number(ml_result.get('heuristic_count_poisson_deviance'))}"
             ),
         },
     ]
@@ -288,7 +297,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
         metric_cards.extend(
             [
                 {
-                    'label': 'Показатель Брайера',
+                    'label': 'Brier score',
                     'value': _format_optional_number(ml_result.get('brier_score')),
                     'meta': (
                         f"база: {_format_optional_number(ml_result.get('baseline_brier_score'))}; "
@@ -311,41 +320,24 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
                         f"сценарный прогноз: {_format_optional_number(ml_result.get('heuristic_f1_score'))}"
                     ),
                 },
+                {
+                    'label': 'Log-loss',
+                    'value': _format_optional_number(ml_result.get('log_loss')),
+                    'meta': (
+                        f"база: {_format_optional_number(ml_result.get('baseline_log_loss'))}; "
+                        f"сценарный прогноз: {_format_optional_number(ml_result.get('heuristic_log_loss'))}"
+                    ),
+                },
             ]
         )
 
-    dissertation_points: List[str] = []
-    if ml_result.get('is_ready'):
-        folds = int(overview.get('folds') or 0)
-        min_train_rows = int(overview.get('min_train_rows') or 0)
-        dissertation_points.append(
-            f"Валидация выполнена по схеме rolling-origin backtesting: {folds} одношаговых окон, минимальное обучающее окно {min_train_rows} дней."
-        )
-        dissertation_points.append(
-            f"Сезонная базовая модель на тех же окнах дала MAE {_format_optional_number(ml_result.get('baseline_count_mae'))}, RMSE {_format_optional_number(ml_result.get('baseline_count_rmse'))} и SMAPE {_format_optional_percent(ml_result.get('baseline_count_smape'))}."
-        )
-        dissertation_points.append(
-            f"Текущий сценарный эвристический прогноз показал MAE {_format_optional_number(ml_result.get('heuristic_count_mae'))}, RMSE {_format_optional_number(ml_result.get('heuristic_count_rmse'))} и SMAPE {_format_optional_percent(ml_result.get('heuristic_count_smape'))}."
-        )
-        dissertation_points.append(
-            f"Лучшая обучаемая count-модель ({ml_result.get('count_model_label') or 'модель'}) показала MAE {_format_optional_number(ml_result.get('count_mae'))}, RMSE {_format_optional_number(ml_result.get('count_rmse'))} и SMAPE {_format_optional_percent(ml_result.get('count_smape'))}; изменение MAE относительно сезонной базы составило {_format_signed_percent(ml_result.get('count_vs_baseline_delta')) if ml_result.get('count_vs_baseline_delta') is not None else '—'}."
-        )
-        if ml_result.get('event_backtest_available'):
-            dissertation_points.append(
-                f"Для события «пожар / нет пожара» рабочий метод ({ml_result.get('selected_event_model_label') or 'метод'}) дал ROC-AUC {_format_optional_number(ml_result.get('roc_auc'))}, F1 {_format_optional_number(ml_result.get('f1_score'))} и показатель Брайера {_format_optional_number(ml_result.get('brier_score'))}; сценарная эвристика на тех же окнах дала ROC-AUC {_format_optional_number(ml_result.get('heuristic_roc_auc'))}, F1 {_format_optional_number(ml_result.get('heuristic_f1_score'))} и показатель Брайера {_format_optional_number(ml_result.get('heuristic_brier_score'))}."
-            )
-        else:
-            dissertation_points.append(
-                'Для события «пожар / нет пожара» история пока не дала достаточно окон, чтобы корректно сравнить вероятностные методы.'
-            )
-    else:
-        dissertation_points.append('Качество ML-блока пока не подтверждено: истории недостаточно для корректной проверки на истории.')
-
+    candidate_models = overview.get('candidate_model_labels') or []
+    candidate_models_display = ', '.join(candidate_models) if candidate_models else '—'
     methodology_items = [
         {
             'label': 'Схема валидации',
             'value': ml_result.get('backtest_method_label') or 'Проверка на истории не выполнена',
-            'meta': 'каждое окно обучается только на прошлом',
+            'meta': 'expanding window, одношаговый rolling-origin backtesting',
         },
         {
             'label': 'Минимум обучающего окна',
@@ -353,27 +345,93 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             'meta': 'дней истории на одно окно',
         },
         {
-            'label': 'Правило выбора',
-            'value': str(overview.get('selection_rule') or 'Минимум девиации Пуассона, затем MAE'),
-            'meta': 'по результатам проверки на истории',
+            'label': 'Сравниваемые count-модели',
+            'value': candidate_models_display,
+            'meta': 'обучаемые кандидаты поверх baseline и сценарной эвристики',
         },
         {
-            'label': 'Порог классификации',
-            'value': _format_optional_number(overview.get('classification_threshold')),
-            'meta': 'используется только для F1',
+            'label': 'Индекс пере-дисперсии',
+            'value': _format_optional_number(overview.get('dispersion_ratio')),
+            'meta': 'variance / mean для счётного ряда',
+        },
+        {
+            'label': 'Правило выбора',
+            'value': str(overview.get('selection_rule') or 'Минимум Poisson deviance, затем MAE и RMSE'),
+            'meta': 'лучший кандидат выбирается только по окнам backtesting',
         },
     ]
+    if overview.get('event_selection_rule'):
+        methodology_items.append(
+            {
+                'label': 'Правило для бинарного блока',
+                'value': str(overview.get('event_selection_rule')),
+                'meta': 'используется только если достаточно окон для события',
+            }
+        )
+
+    model_choice = {
+        'title': 'Почему выбрана лучшая модель',
+        'lead': ml_result.get('selected_count_model_reason_short') or 'После валидации здесь появится краткое объяснение выбора модели.',
+        'body': ml_result.get('selected_count_model_reason') or 'Недостаточно данных, чтобы обосновать выбор count-модели.',
+        'facts': [
+            {
+                'label': 'Рабочая count-модель',
+                'value': ml_result.get('count_model_label') or '—',
+            },
+            {
+                'label': 'Сравниваемые кандидаты',
+                'value': candidate_models_display,
+            },
+            {
+                'label': 'Топ-признак',
+                'value': ml_result.get('top_feature_label') or '—',
+            },
+        ],
+    }
+
+    dissertation_points: List[str] = []
+    if ml_result.get('is_ready'):
+        folds = int(overview.get('folds') or 0)
+        min_train_rows = int(overview.get('min_train_rows') or 0)
+        dissertation_points.append(
+            f"Качество ML-блока подтверждено по схеме rolling-origin backtesting: {folds} одношаговых окон, минимальное обучающее окно {min_train_rows} дней."
+        )
+        dissertation_points.append(
+            f"В count-сравнение включены сезонный baseline, сценарная эвристика и интерпретируемые count-модели: {candidate_models_display}."
+        )
+        dissertation_points.append(
+            f"Сезонный baseline на тех же окнах дал MAE {_format_optional_number(ml_result.get('baseline_count_mae'))}, RMSE {_format_optional_number(ml_result.get('baseline_count_rmse'))}, sMAPE {_format_optional_percent(ml_result.get('baseline_count_smape'))} и Poisson deviance {_format_optional_number(ml_result.get('baseline_count_poisson_deviance'))}."
+        )
+        dissertation_points.append(
+            f"Сценарная эвристика на тех же окнах дала MAE {_format_optional_number(ml_result.get('heuristic_count_mae'))}, RMSE {_format_optional_number(ml_result.get('heuristic_count_rmse'))}, sMAPE {_format_optional_percent(ml_result.get('heuristic_count_smape'))} и Poisson deviance {_format_optional_number(ml_result.get('heuristic_count_poisson_deviance'))}."
+        )
+        dissertation_points.append(
+            f"Рабочей моделью выбрана {ml_result.get('count_model_label') or 'модель'}: MAE {_format_optional_number(ml_result.get('count_mae'))}, RMSE {_format_optional_number(ml_result.get('count_rmse'))}, sMAPE {_format_optional_percent(ml_result.get('count_smape'))}, Poisson deviance {_format_optional_number(ml_result.get('count_poisson_deviance'))}."
+        )
+        if ml_result.get('selected_count_model_reason'):
+            dissertation_points.append(str(ml_result.get('selected_count_model_reason')))
+        if ml_result.get('event_backtest_available'):
+            dissertation_points.append(
+                f"Для бинарного события «пожар / нет пожара» рабочий метод ({ml_result.get('selected_event_model_label') or 'метод'}) дал Brier score {_format_optional_number(ml_result.get('brier_score'))}, ROC-AUC {_format_optional_number(ml_result.get('roc_auc'))} и F1 {_format_optional_number(ml_result.get('f1_score'))}."
+            )
+        else:
+            dissertation_points.append(
+                'Для бинарного события «пожар / нет пожара» история пока не дала достаточно окон, чтобы корректно сравнить вероятностные методы.'
+            )
+    else:
+        dissertation_points.append('Качество ML-блока пока не подтверждено: истории недостаточно для корректной проверки на истории.')
 
     return {
         'ready': bool(ml_result.get('is_ready')),
         'title': 'Оценка качества ML-блока',
-        'subtitle': 'На одной и той же истории сравниваются сезонная база, текущий сценарный прогноз и обучаемые модели для счетных данных пожаров.',
+        'subtitle': 'На одной и той же истории сравниваются baseline, сценарная эвристика и интерпретируемые count-модели; основной критерий — rolling-origin backtesting.',
         'methodology_items': methodology_items,
         'metric_cards': metric_cards,
+        'model_choice': model_choice,
         'count_table': {
             'title': 'Сравнение по числу пожаров',
             'rows': count_rows,
-            'empty_message': 'Сравнение сезонной базы, сценарного прогноза и обучаемых моделей появится после проверки на истории.',
+            'empty_message': 'Сравнение baseline, сценарного прогноза и count-моделей появится после проверки на истории.',
         },
         'event_table': {
             'title': 'Сравнение по вероятности события пожара',
@@ -386,7 +444,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
 def _build_notes(
     preload_notes: List[str],
     metadata_items: List[Dict[str, Any]],
-    filtered_records: List[Dict[str, Any]],
+    filtered_records_count: int,
     daily_history: List[Dict[str, Any]],
     ml_result: Dict[str, Any],
     scenario_temperature: Optional[float],
@@ -395,7 +453,7 @@ def _build_notes(
     notes = list(preload_notes)
     if len(source_tables) > 1:
         notes.append(f'ML-модель обучается сразу по {len(source_tables)} таблицам.')
-    if not filtered_records:
+    if filtered_records_count <= 0:
         notes.append('После выбранных фильтров не осталось исторических пожаров для обучения ML-модели.')
     if ml_result.get('message'):
         notes.append(ml_result['message'])
@@ -403,19 +461,24 @@ def _build_notes(
         notes.append('Температура задана вручную, но температурная колонка в таблицах не найдена: сценарное значение используется только для будущих дат.')
 
     if ml_result.get('is_ready'):
+        candidate_models = ml_result.get('candidate_count_model_labels') or []
+        if candidate_models:
+            notes.append(f"Для count-задачи сравниваются baseline, сценарная эвристика и модели: {', '.join(candidate_models)}.")
         notes.append('Основная ML-задача сформулирована как прогноз ожидаемого числа пожаров в день, а не как псевдовероятность из регрессии по числу пожаров.')
-        notes.append('Панель качества теперь напрямую сравнивает сезонную базу, текущий сценарный прогноз и обучаемые модели по MAE, RMSE, SMAPE и девиации Пуассона.')
-        notes.append('Скользящая проверка на истории гарантирует, что каждое окно использует только прошлую историю и не подглядывает в будущее.')
-        notes.append('Если по качеству несколько моделей близки, блок отдает приоритет более объяснимой регрессии Пуассона и сохраняет сценарный прогноз как внешний бенчмарк.')
-        notes.append('Интервалы неопределенности построены вокруг ожидаемого числа пожаров с поправкой на эмпирическую дисперсию ряда.')
+        notes.append('Rolling-origin backtesting стал основной схемой проверки: каждое окно обучается только на прошлом и не использует будущие наблюдения.')
+        if ml_result.get('selected_count_model_reason_short'):
+            notes.append(str(ml_result.get('selected_count_model_reason_short')))
+        notes.append('В интерфейсе одновременно показываются MAE, RMSE, sMAPE и Poisson deviance, чтобы сравнение count-моделей выглядело методологически корректно для счётных данных.')
+        notes.append('Интерпретируемость сохраняется за счёт GLM-подхода и явного списка признаков: день недели, месяц, температура, лаги и скользящие средние.')
+        notes.append('Интервалы неопределенности строятся вокруг ожидаемого числа пожаров с поправкой на эмпирическую дисперсию ряда.')
         if ml_result.get('event_backtest_available'):
-            notes.append('Для события «пожар / нет пожара» дополнительно считаются ROC-AUC, F1 и показатель Брайера для сезонной базы, сценарной эвристики и, если хватает истории, отдельного логистического классификатора.')
+            notes.append('Для бинарного события «пожар / нет пожара» дополнительно считаются Brier score, ROC-AUC, F1 и log-loss для baseline, сценарной эвристики и логистической регрессии, если она реально доступна в backtesting.')
         else:
-            notes.append('Для события «пожар / нет пожара» пока недостаточно одношаговых окон, поэтому блок не делает сильных выводов по вероятностной задаче.')
+            notes.append('Для бинарного события «пожар / нет пожара» пока недостаточно одношаговых окон, поэтому блок не делает сильных выводов по вероятностной части.')
         if not ml_result.get('classifier_ready'):
-            notes.append('Отдельный классификатор события пока не используется для будущих дат, поэтому интерфейс опирается на ожидаемое число пожаров и риск-индекс.')
+            notes.append('Отдельный классификатор события не используется для будущих дат, если он не подтвердил качество на rolling-origin backtesting.')
     else:
-        notes.append('Пока данных недостаточно для корректной проверки на истории, поэтому ML-блок остаётся в безопасном режиме без прогноза.')
+        notes.append('Пока данных недостаточно для корректной проверки на истории, поэтому ML-блок остается в безопасном режиме без прогноза.')
 
     if len(daily_history) < 60:
         notes.append('Истории меньше 60 дней: для корректной ML-валидации этого обычно недостаточно.')

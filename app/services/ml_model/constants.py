@@ -26,7 +26,8 @@ FEATURE_LABELS = {
 
 COUNT_MODEL_LABELS = {
     'poisson': 'Регрессия Пуассона',
-    'random_forest': 'Случайный лес',
+    'negative_binomial': 'Negative Binomial GLM',
+    'tweedie': 'Tweedie GLM (compound Poisson-Gamma)',
     'heuristic_forecast': 'Сценарный эвристический прогноз',
     'seasonal_baseline': 'Сезонная базовая модель',
 }
@@ -39,20 +40,20 @@ MIN_EVENT_CLASS_COUNT = 8
 MAX_HISTORY_POINTS = 900
 MAX_BACKTEST_POINTS = 45
 PERMUTATION_REPEATS = 8
+ROLLING_MIN_TRAIN_ROWS = 28
+COUNT_MODEL_SELECTION_TOLERANCE = 0.05
 
 _CACHE_LIMIT = 12
 _ML_CACHE: 'OrderedDict[Tuple[str, str, str, str, int, str], Dict[str, Any]]' = OrderedDict()
 
-_RF_PARAMS = {
-    'n_estimators': 180,
-    'max_depth': 8,
-    'min_samples_leaf': 2,
-    'random_state': 42,
-    'n_jobs': -1,
-}
-
 _POISSON_PARAMS = {
     'alpha': 0.15,
+    'max_iter': 500,
+}
+
+_TWEEDIE_PARAMS = {
+    'power': 1.5,
+    'alpha': 0.08,
     'max_iter': 500,
 }
 

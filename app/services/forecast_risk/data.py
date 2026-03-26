@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
@@ -26,32 +26,130 @@ from .utils import (
 )
 
 
-def _collect_risk_inputs(source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+def _collect_risk_metadata(source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
     metadata_items: List[Dict[str, Any]] = []
-    records: List[Dict[str, Any]] = []
     notes: List[str] = []
     for source_table in source_tables:
         try:
             metadata = _load_table_metadata(source_table)
             metadata_items.append(metadata)
-            records.extend(_load_risk_records(source_table, metadata["resolved_columns"]))
         except Exception as exc:
             notes.append(f"{source_table}: {exc}")
+    return metadata_items, notes
+
+
+def _history_window_year_span(history_window: str) -> int:
+    if history_window == "recent_3":
+        return 3
+    if history_window == "recent_5":
+        return 5
+    return 0
+
+
+def _resolve_history_window_min_year(metadata_items: Sequence[Dict[str, Any]], history_window: str) -> Optional[int]:
+    year_span = _history_window_year_span(history_window)
+    if year_span <= 0 or not metadata_items:
+        return None
+
+    latest_years: List[int] = []
+    with engine.connect() as conn:
+        for metadata in metadata_items:
+            resolved_columns = metadata.get("resolved_columns") or {}
+            date_column = resolved_columns.get("date")
+            table_name = str(metadata.get("table_name") or "")
+            if not date_column or not table_name:
+                continue
+            date_expression = _date_expression(date_column)
+            query = text(
+                f"""
+                SELECT MAX(EXTRACT(YEAR FROM {date_expression})) AS max_year
+                FROM {_quote_identifier(table_name)}
+                WHERE {date_expression} IS NOT NULL
+                """
+            )
+            max_year = conn.execute(query).scalar()
+            if max_year is not None:
+                latest_years.append(int(max_year))
+
+    if not latest_years:
+        return None
+
+    return max(latest_years) - (year_span - 1)
+
+
+def _build_scope_conditions(
+    resolved_columns: Dict[str, str],
+    min_year: Optional[int] = None,
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    selected_year: Optional[int] = None,
+) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
+    date_column = resolved_columns["date"]
+    if not date_column:
+        return None, [], {}, True
+
+    date_expression = _date_expression(date_column)
+    conditions = [f"{date_expression} IS NOT NULL"]
+    params: Dict[str, Any] = {}
+    if min_year is not None:
+        conditions.append(f"EXTRACT(YEAR FROM {date_expression}) >= :min_year")
+        params["min_year"] = min_year
+    if selected_year is not None:
+        conditions.append(f"EXTRACT(YEAR FROM {date_expression}) = :selected_year")
+        params["selected_year"] = selected_year
+
+    for field_name, selected_value in (("district", district), ("cause", cause), ("object_category", object_category)):
+        normalized_value = str(selected_value or "").strip() or "all"
+        if normalized_value == "all":
+            continue
+        column_name = resolved_columns.get(field_name)
+        if not column_name:
+            return date_expression, conditions, params, False
+        conditions.append(f"{_text_expression(column_name)} = :{field_name}")
+        params[field_name] = normalized_value
+
+    return date_expression, conditions, params, True
+
+
+def _collect_risk_inputs(
+    source_tables: Sequence[str],
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    history_window: str = "all",
+    selected_year: Optional[int] = None,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+    metadata_items, notes = _collect_risk_metadata(source_tables)
+    records: List[Dict[str, Any]] = []
+    min_year = _resolve_history_window_min_year(metadata_items, history_window)
+    for metadata in metadata_items:
+        try:
+            records.extend(
+                _load_risk_records(
+                    metadata["table_name"],
+                    metadata["resolved_columns"],
+                    district=district,
+                    cause=cause,
+                    object_category=object_category,
+                    min_year=min_year,
+                    selected_year=selected_year,
+                )
+            )
+        except Exception as exc:
+            notes.append(f"{metadata['table_name']}: {exc}")
     records.sort(key=lambda item: item["date"])
     return metadata_items, records, notes
-
-
-
 def _load_table_metadata(table_name: str) -> Dict[str, Any]:
     try:
         columns = get_table_columns_cached(table_name)
     except ValueError as exc:
-        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.") from exc
+        raise ValueError(f"\u0422\u0430\u0431\u043b\u0438\u0446\u0430 '{table_name}' \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430 \u0432 \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445.") from exc
     resolved_columns = {
         "date": _resolve_column_name(columns, [DATE_COLUMN]),
         "district": _resolve_column_name(columns, DISTRICT_COLUMN_CANDIDATES),
         "cause": _resolve_column_name(columns, CAUSE_COLUMN_CANDIDATES),
-        "object_category": _resolve_column_name(columns, [OBJECT_CATEGORY_COLUMN, "Категория объекта пожара"]),
+        "object_category": _resolve_column_name(columns, [OBJECT_CATEGORY_COLUMN, "\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f \u043e\u0431\u044a\u0435\u043a\u0442\u0430 \u043f\u043e\u0436\u0430\u0440\u0430"]),
         "temperature": _resolve_column_name(columns, TEMPERATURE_COLUMN_CANDIDATES),
         "fire_area": _resolve_column_name(columns, FIRE_AREA_COLUMN_CANDIDATES),
         "territory_label": _resolve_column_name(columns, TERRITORY_LABEL_COLUMN_CANDIDATES),
@@ -77,12 +175,27 @@ def _load_table_metadata(table_name: str) -> Dict[str, Any]:
 
 
 
-def _load_risk_records(table_name: str, resolved_columns: Dict[str, str]) -> List[Dict[str, Any]]:
-    date_column = resolved_columns["date"]
-    if not date_column:
+def _load_risk_records(
+    table_name: str,
+    resolved_columns: Dict[str, str],
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    min_year: Optional[int] = None,
+    selected_year: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    date_expression, conditions, params, scope_is_valid = _build_scope_conditions(
+        resolved_columns,
+        min_year=min_year,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        selected_year=selected_year,
+    )
+    if date_expression is None or not scope_is_valid:
         return []
 
-    select_parts = [f"{_date_expression(date_column)} AS fire_date"]
+    select_parts = [f"{date_expression} AS fire_date"]
     text_aliases = {
         "district": "district_value",
         "cause": "cause_value",
@@ -121,12 +234,12 @@ def _load_risk_records(table_name: str, resolved_columns: Dict[str, str]) -> Lis
         f"""
         SELECT {", ".join(select_parts)}
         FROM {_quote_identifier(table_name)}
-        WHERE {_date_expression(date_column)} IS NOT NULL
+        WHERE {" AND ".join(conditions)}
         ORDER BY fire_date
         """
     )
     with engine.connect() as conn:
-        rows = conn.execute(query).mappings().all()
+        rows = conn.execute(query, params).mappings().all()
 
     records: List[Dict[str, Any]] = []
     for row in rows:

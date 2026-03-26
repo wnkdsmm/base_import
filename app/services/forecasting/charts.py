@@ -7,7 +7,6 @@ from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go, serial
 
 from .constants import PLOTLY_PALETTE
 from .utils import (
-    _probability_from_expected_count,
     _rolling_average,
     _scenario_color,
 )
@@ -161,11 +160,12 @@ def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_
             hovertemplate="<b>%{x}</b><br>%{customdata[0]}<br>Вероятность: %{y:.1f}%<br>%{customdata[1]}<extra></extra>",
         )
     )
-    if recent_average > 0:
+    usual_probability_values = [float(row.get("usual_fire_probability", 0.0)) * 100.0 for row in visible_rows]
+    if any(value > 0 for value in usual_probability_values):
         figure.add_trace(
             go.Scatter(
                 x=labels,
-                y=[_probability_from_expected_count(recent_average) * 100.0] * len(visible_rows),
+                y=usual_probability_values,
                 mode="lines",
                 name="Недавний обычный уровень",
                 line=dict(color="rgba(94, 73, 49, 0.7)", width=2, dash="dot"),

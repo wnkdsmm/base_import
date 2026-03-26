@@ -11,6 +11,7 @@ from app.log_manager import get_logs
 from app.services.clustering_service import get_clustering_data, get_clustering_shell_context
 from app.services.dashboard_service import get_dashboard_page_context
 from app.services.forecasting_service import get_forecasting_data, get_forecasting_page_context
+from app.services.ml_model_service import get_ml_model_data, get_ml_model_shell_context
 from app.services.pipeline_service import import_uploaded_data, invalidate_runtime_caches, run_profiling_for_table, save_uploaded_file
 from app.state import SESSION_COOKIE_NAME, job_store
 from app.statistics import get_dashboard_data
@@ -107,6 +108,42 @@ def clustering_data_endpoint(
             sampling_strategy=sampling_strategy,
             feature_columns=feature_columns or [],
         )["initial_data"]
+
+
+@router.get("/api/ml-model-data")
+def ml_model_data_endpoint(
+    table_name: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+    history_window: str = "all",
+):
+    try:
+        return get_ml_model_data(
+            table_name=table_name,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+        )
+    except Exception as exc:
+        payload = get_ml_model_shell_context(
+            table_name=table_name,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+        )["initial_data"]
+        payload["bootstrap_mode"] = "error"
+        payload["error_message"] = "Не удалось рассчитать ML-модель. Проверьте фильтры и попробуйте еще раз."
+        payload["notes"] = [
+            payload["error_message"],
+            f"Техническая причина: {exc}",
+        ] + [note for note in payload.get("notes", []) if note]
+        return utf8_json(payload, status_code=500)
 
 
 @router.delete("/api/tables/{table_name}")
