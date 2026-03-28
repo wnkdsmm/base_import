@@ -369,11 +369,229 @@
 
     var currentForecastData = window.__FIRE_FORECAST_INITIAL__ || null;
     var forecastRequestToken = 0;
+    var forecastStepTimers = [];
+
+    function clearForecastStepTimers() {
+        while (forecastStepTimers.length) {
+            clearTimeout(forecastStepTimers.pop());
+        }
+    }
+
+    function setForecastAsyncVisibility(visible) {
+        var asyncNode = byId('forecastAsyncState');
+        if (!asyncNode) {
+            return;
+        }
+        asyncNode.classList.toggle('is-hidden', !visible);
+    }
+
+    function setForecastSkeletonVisible(visible) {
+        var skeletonNode = byId('forecastLoadingSkeleton');
+        if (!skeletonNode) {
+            return;
+        }
+        skeletonNode.classList.toggle('is-hidden', !visible);
+    }
+
+    function hideForecastError() {
+        var errorNode = byId('forecastErrorState');
+        if (!errorNode) {
+            return;
+        }
+        errorNode.classList.add('is-hidden');
+        setText('forecastErrorMessage', '');
+    }
+
+    function showForecastError(message) {
+        var loadingNode = byId('forecastLoadingState');
+        var errorNode = byId('forecastErrorState');
+        setForecastAsyncVisibility(true);
+        if (loadingNode) {
+            loadingNode.classList.remove('is-hidden', 'is-pending');
+            loadingNode.classList.add('is-ready');
+        }
+        setForecastSkeletonVisible(false);
+        setText('forecastErrorMessage', message || 'Не удалось пересчитать прогноз. Попробуйте еще раз.');
+        if (errorNode) {
+            errorNode.classList.remove('is-hidden');
+        }
+    }
+
+    function setForecastProgress(activeIndex, options) {
+        var stepsNode = byId('forecastProgressSteps');
+        var lead = options && options.lead ? options.lead : '';
+        var message = options && options.message ? options.message : '';
+        var isFinished = Boolean(options && options.isFinished);
+        var isError = Boolean(options && options.isError);
+
+        setText('forecastLoadingLead', lead);
+        setText('forecastLoadingMessage', message);
+
+        if (!stepsNode) {
+            return;
+        }
+
+        Array.prototype.forEach.call(stepsNode.querySelectorAll('.analysis-step'), function (node, index) {
+            node.classList.remove('is-active', 'is-done', 'is-error');
+            if (isError && index === activeIndex) {
+                node.classList.add('is-error');
+                return;
+            }
+            if (isFinished) {
+                if (index <= activeIndex) {
+                    node.classList.add('is-done');
+                }
+                return;
+            }
+            if (index < activeIndex) {
+                node.classList.add('is-done');
+                return;
+            }
+            if (index === activeIndex) {
+                node.classList.add('is-active');
+            }
+        });
+    }
+
+    function setForecastLoadingState(lead, message, activeIndex, options) {
+        var loadingNode = byId('forecastLoadingState');
+        var settings = options || {};
+        setForecastAsyncVisibility(true);
+        hideForecastError();
+        if (loadingNode) {
+            loadingNode.classList.remove('is-hidden', 'is-ready');
+            loadingNode.classList.add('is-pending');
+        }
+        setForecastSkeletonVisible(settings.showSkeleton !== false);
+        setForecastProgress(activeIndex, {
+            lead: lead,
+            message: message
+        });
+    }
+
+    function setForecastReadyState(lead, message) {
+        var loadingNode = byId('forecastLoadingState');
+        setForecastAsyncVisibility(true);
+        hideForecastError();
+        if (loadingNode) {
+            loadingNode.classList.remove('is-hidden', 'is-pending');
+            loadingNode.classList.add('is-ready');
+        }
+        setForecastSkeletonVisible(false);
+        setForecastProgress(3, {
+            lead: lead,
+            message: message,
+            isFinished: true
+        });
+    }
+
+    function startForecastProgressSequence() {
+        clearForecastStepTimers();
+        setForecastProgress(0, {
+            lead: 'Загружаем данные для сценарного прогноза',
+            message: 'Получаем выбранный срез, историю и параметры сценария.'
+        });
+        forecastStepTimers.push(setTimeout(function () {
+            setForecastProgress(1, {
+                lead: 'Агрегируем историю пожаров',
+                message: 'Собираем дневной ряд и ключевые показатели по выбранным фильтрам.'
+            });
+        }, 320));
+        forecastStepTimers.push(setTimeout(function () {
+            setForecastProgress(2, {
+                lead: 'Считаем базовый прогноз и проверку',
+                message: 'Обновляем базовый сценарий и метрики по историческому ряду.'
+            });
+        }, 980));
+    }
+
+    function syncForecastAsyncState(data) {
+        if (!data) {
+            setForecastAsyncVisibility(false);
+            return;
+        }
+
+        if (data.decision_support_error) {
+            clearForecastStepTimers();
+            setForecastReadyState(
+                'Базовый прогноз готов, блок поддержки решений требует повтора',
+                data.decision_support_status_message || 'Базовый прогноз уже показан, но догрузка поддержки решений завершилась ошибкой.'
+            );
+            showForecastError(data.decision_support_status_message || 'Не удалось догрузить блок поддержки решений. Попробуйте еще раз.');
+            return;
+        }
+
+        if (data.decision_support_pending) {
+            clearForecastStepTimers();
+            setForecastLoadingState(
+                'Базовый прогноз готов, догружаем поддержку решений',
+                data.decision_support_status_message || 'Подтягиваем приоритеты территорий, рекомендации и финальные визуализации.',
+                3,
+                { showSkeleton: false }
+            );
+            return;
+        }
+
+        if (data.loading || data.bootstrap_mode === 'deferred') {
+            setForecastLoadingState(
+                'Подготавливаем сценарный прогноз',
+                data.loading_status_message || 'Сначала собираем базовый прогноз, затем вторым этапом догружаем блок поддержки решений.',
+                0,
+                { showSkeleton: true }
+            );
+            return;
+        }
+
+        if (data.base_forecast_ready || data.decision_support_ready) {
+            clearForecastStepTimers();
+            setForecastReadyState(
+                'Сценарный прогноз обновлён',
+                data.decision_support_ready
+                    ? 'Базовый прогноз, визуализации и блок поддержки решений уже синхронизированы.'
+                    : (data.loading_status_message || 'Базовый прогноз и визуализации готовы.')
+            );
+            return;
+        }
+
+        setForecastAsyncVisibility(false);
+    }
 
     function buildForecastRequestQuery(baseQuery, includeDecisionSupport) {
         var params = new URLSearchParams(baseQuery || '');
         params.set('include_decision_support', includeDecisionSupport ? '1' : '0');
         return params.toString();
+    }
+
+    function setBootstrapStatus(message, state) {
+        var node = byId('forecastBootstrapStatus');
+        var text = String(message == null ? '' : message).trim();
+        if (!node) {
+            return;
+        }
+
+        node.textContent = text;
+        node.classList.toggle('is-hidden', !text);
+        node.classList.remove('is-pending', 'is-ready', 'is-error');
+        if (text && state) {
+            node.classList.add('is-' + state);
+        }
+    }
+
+    function syncBootstrapStatus(data) {
+        if (!data) {
+            setBootstrapStatus('', '');
+            return;
+        }
+
+        if (data.loading && data.loading_status_message) {
+            setBootstrapStatus(data.loading_status_message, 'pending');
+            return;
+        }
+        if (data.base_forecast_ready && data.loading_status_message) {
+            setBootstrapStatus(data.loading_status_message, 'ready');
+            return;
+        }
+        setBootstrapStatus('', '');
     }
 
     function setDecisionSupportStatus(message, state) {
@@ -412,12 +630,55 @@
         setDecisionSupportStatus('', '');
     }
 
-    async function requestForecastPayload(query) {
-        var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
-        if (!response.ok) {
-            throw new Error('fetch failed');
+    function syncSidebarBadge(data) {
+        var node = document.querySelector('.sidebar-status .status-badge');
+        if (!node) {
+            return;
         }
-        return response.json();
+
+        if (data && data.bootstrap_mode === 'deferred') {
+            node.textContent = 'Подготавливаем прогноз';
+            node.classList.add('status-badge-live');
+            return;
+        }
+        if (data && data.has_data) {
+            node.textContent = 'Сценарный прогноз собран';
+            node.classList.add('status-badge-live');
+            return;
+        }
+        node.textContent = 'Нужно уточнить фильтры';
+        node.classList.remove('status-badge-live');
+    }
+
+    function buildSummaryLine(summary, data) {
+        var safeSummary = summary || {};
+        if (data && data.loading && data.loading_status_message) {
+            return data.loading_status_message;
+        }
+        return (safeSummary.slice_label || 'Все пожары') +
+            ' | Средняя вероятность: ' + (safeSummary.average_probability_display || '0%') +
+            ' | Максимум: ' + (safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
+            ' | К последним 4 неделям: ' + (safeSummary.forecast_vs_recent_display || '0%');
+    }
+
+    async function requestForecastPayload(query, options) {
+        var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
+        var payload;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            if (!response.ok) {
+                throw new Error('fetch failed');
+            }
+            throw error;
+        }
+        if (!response.ok) {
+            throw new Error((payload && payload.detail) || 'fetch failed');
+        }
+        if (options && options.expectResolved && payload && payload.bootstrap_mode === 'deferred') {
+            throw new Error('forecasting API returned shell payload instead of resolved forecast');
+        }
+        return payload;
     }
 
     function applyToneClass(node, tone) {
@@ -806,11 +1067,7 @@
 
         var summaryNode = byId('forecastSummaryLine');
         if (summaryNode) {
-            summaryNode.textContent =
-                (summary.slice_label || 'Все пожары') +
-                ' | Средняя вероятность: ' + (summary.average_probability_display || '0%') +
-                ' | Максимум: ' + (summary.peak_forecast_probability_display || '0%') + ' (' + (summary.peak_forecast_day_display || '-') + ')' +
-                ' | К последним 4 неделям: ' + (summary.forecast_vs_recent_display || '0%');
+            summaryNode.textContent = buildSummaryLine(summary, data);
         }
 
         renderScenarioQuality(data.quality_assessment || {});
@@ -832,7 +1089,10 @@
         renderChart(charts.weekday, 'forecastWeekdayChart', 'forecastWeekdayChartFallback');
         var geoRendered = renderChart(charts.geo, 'forecastGeoChart', 'forecastGeoChartFallback');
         syncGeoPanel(geo, geoRendered);
+        syncSidebarBadge(data);
+        syncBootstrapStatus(data);
         syncDecisionSupportStatus(data);
+        syncForecastAsyncState(data);
         updateForecastBriefExport({
             table_name: filters.table_name || '',
             district: filters.district || 'all',
@@ -845,8 +1105,16 @@
     }
 
     async function fetchDecisionSupport(baseQuery, requestToken) {
+        clearForecastStepTimers();
+        setForecastLoadingState(
+            'Догружаем поддержку решений',
+            'Базовый прогноз уже обновлён. Подтягиваем рекомендации и финальные визуализации.',
+            3,
+            { showSkeleton: false }
+        );
+        setDecisionSupportStatus('Догружаем приоритеты территорий и рекомендации...', 'pending');
         try {
-            var data = await requestForecastPayload(buildForecastRequestQuery(baseQuery, true));
+            var data = await requestForecastPayload(buildForecastRequestQuery(baseQuery, true), { expectResolved: true });
             if (requestToken !== forecastRequestToken) {
                 return;
             }
@@ -856,6 +1124,13 @@
                 return;
             }
             console.error(error);
+            showForecastError('Не удалось догрузить блок поддержки решений. Базовый прогноз уже показан, можно повторить запрос.');
+            clearForecastStepTimers();
+            setForecastProgress(3, {
+                lead: 'Не удалось завершить поддержку решений',
+                message: 'Базовый прогноз уже показан. Повторите догрузку рекомендаций.',
+                isError: true
+            });
             setDecisionSupportStatus('Не удалось догрузить блок приоритетов территорий. Базовый сценарный прогноз уже показан.', 'error');
         }
     }
@@ -874,10 +1149,18 @@
         if (button) {
             button.disabled = true;
         }
-        setDecisionSupportStatus('Собираем базовый сценарный прогноз...', 'pending');
+        setForecastLoadingState(
+            'Собираем сценарный прогноз',
+            'Загружаем данные, агрегируем историю и подготавливаем базовый расчёт.',
+            0,
+            { showSkeleton: true }
+        );
+        startForecastProgressSequence();
+        setBootstrapStatus('Собираем базовый сценарный прогноз...', 'pending');
+        setDecisionSupportStatus('', '');
 
         try {
-            var data = await requestForecastPayload(query);
+            var data = await requestForecastPayload(query, { expectResolved: true });
             if (requestToken !== forecastRequestToken) {
                 return;
             }
@@ -887,8 +1170,19 @@
                 void fetchDecisionSupport(baseQuery, requestToken);
             }
         } catch (error) {
+            if (requestToken !== forecastRequestToken) {
+                return;
+            }
             console.error(error);
-            form.submit();
+            setBootstrapStatus('Не удалось загрузить базовый прогноз. Попробуйте обновить страницу или изменить фильтры.', 'error');
+            clearForecastStepTimers();
+            setForecastProgress(2, {
+                lead: 'Не удалось собрать базовый прогноз',
+                message: 'Проверьте фильтры и повторите расчёт.',
+                isError: true
+            });
+            setDecisionSupportStatus('', '');
+            showForecastError('Не удалось загрузить базовый прогноз. Попробуйте изменить фильтры или запустить расчёт еще раз.');
         } finally {
             if (button && requestToken === forecastRequestToken) {
                 button.disabled = false;
@@ -917,16 +1211,24 @@
                 }
             });
         }
+        var retryButton = byId('forecastRetryButton');
+        if (retryButton) {
+            retryButton.addEventListener('click', function () {
+                fetchForecastData();
+            });
+        }
 
         syncBriefLink();
-        if (initialData && initialData.bootstrap_mode !== 'deferred') {
+        if (initialData) {
             applyForecastData(initialData);
-            if (initialData.decision_support_pending && form) {
-                forecastRequestToken += 1;
-                void fetchDecisionSupport(new URLSearchParams(new FormData(form)).toString(), forecastRequestToken);
-            }
-        } else {
+        }
+        if (!initialData || initialData.bootstrap_mode === 'deferred') {
             fetchForecastData();
+            return;
+        }
+        if (initialData.decision_support_pending && form) {
+            forecastRequestToken += 1;
+            void fetchDecisionSupport(new URLSearchParams(new FormData(form)).toString(), forecastRequestToken);
         }
     });
 })();

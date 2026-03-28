@@ -1,5 +1,7 @@
 ﻿(function () {
     var currentMlData = null;
+    var currentJobState = null;
+    var jobPollTimer = null;
     var isFetching = false;
     var progressTimers = [];
     var progressSteps = [
@@ -9,14 +11,19 @@
             message: 'Получаем выбранный срез и обновляем параметры страницы.'
         },
         {
-            label: 'Подготовка истории',
-            lead: 'Подготавливаем историю',
+            label: 'Агрегация',
+            lead: 'Агрегируем историю',
             message: 'Собираем дневной ряд, фильтры и доступные признаки.'
         },
         {
-            label: 'Расчет модели',
-            lead: 'Расчет модели',
+            label: 'Обучение / валидация',
+            lead: 'Обучение и валидация',
             message: 'Считаем backtesting, прогноз и итоговые таблицы.'
+        },
+        {
+            label: 'Построение визуализаций',
+            lead: 'Обновляем визуализации',
+            message: 'Подставляем графики, таблицы и карточки результата.'
         }
     ];
 
@@ -728,25 +735,46 @@
         }
     }
 
-    function updateProgressStep(activeIndex) {
+    function updateProgressStep(activeIndex, options) {
+        var settings = options || {};
         var stepsContainer = byId('mlProgressSteps');
         var leadNode = byId('mlLoadingLead');
         var messageNode = byId('mlLoadingMessage');
         var activeStep = progressSteps[Math.max(0, Math.min(progressSteps.length - 1, activeIndex))];
+        var isFinished = !!settings.isFinished;
+        var isError = !!settings.isError;
+        var leadText = settings.lead || activeStep.lead;
+        var messageText = settings.message || activeStep.message;
 
         if (leadNode) {
-            leadNode.textContent = activeStep.lead;
+            leadNode.textContent = leadText;
         }
         if (messageNode) {
-            messageNode.textContent = activeStep.message;
+            messageNode.textContent = messageText;
         }
         if (!stepsContainer) {
             return;
         }
 
         Array.prototype.forEach.call(stepsContainer.querySelectorAll('.ml-progress-step'), function (node, index) {
-            node.classList.toggle('is-active', index === activeIndex);
-            node.classList.toggle('is-done', index < activeIndex);
+            node.classList.remove('is-active', 'is-done', 'is-error');
+            if (isError && index === activeIndex) {
+                node.classList.add('is-error');
+                return;
+            }
+            if (isFinished) {
+                if (index <= activeIndex) {
+                    node.classList.add('is-done');
+                }
+                return;
+            }
+            if (index < activeIndex) {
+                node.classList.add('is-done');
+                return;
+            }
+            if (index === activeIndex) {
+                node.classList.add('is-active');
+            }
         });
     }
 
@@ -755,6 +783,7 @@
         updateProgressStep(0);
         progressTimers.push(setTimeout(function () { updateProgressStep(1); }, 350));
         progressTimers.push(setTimeout(function () { updateProgressStep(2); }, 1100));
+        progressTimers.push(setTimeout(function () { updateProgressStep(3); }, 1800));
     }
 
     function setRefreshButtonState(isBusy) {
@@ -764,6 +793,23 @@
         }
         button.disabled = !!isBusy;
         button.classList.toggle('is-loading', !!isBusy);
+    }
+
+    function setLoadingStateMode(mode) {
+        var loadingState = byId('mlLoadingState');
+        var skeleton = byId('mlLoadingSkeleton');
+        if (!loadingState) {
+            return;
+        }
+        loadingState.classList.remove('is-pending', 'is-ready');
+        if (mode === 'ready') {
+            loadingState.classList.add('is-ready');
+        } else {
+            loadingState.classList.add('is-pending');
+        }
+        if (skeleton) {
+            skeleton.classList.toggle('is-hidden', mode === 'ready');
+        }
     }
 
     function showLoadingState() {
@@ -777,9 +823,10 @@
             loadingState.classList.remove('is-hidden');
         }
         if (errorState) {
-            errorState.textContent = '';
             errorState.classList.add('is-hidden');
         }
+        setText('mlErrorMessage', '');
+        setLoadingStateMode('pending');
     }
 
     function hideLoadingState() {
@@ -796,14 +843,32 @@
 
     function showError(message) {
         var asyncState = byId('mlAsyncState');
+        var loadingState = byId('mlLoadingState');
         var errorState = byId('mlErrorState');
+        var activeIndex = 0;
         if (asyncState) {
             asyncState.classList.remove('is-hidden');
         }
+        if (loadingState) {
+            loadingState.classList.remove('is-hidden');
+        }
         if (errorState) {
-            errorState.textContent = message || 'Не удалось загрузить ML-данные. Попробуйте еще раз.';
             errorState.classList.remove('is-hidden');
         }
+        if (currentJobState && currentJobState.status === 'running') {
+            activeIndex = 1;
+        }
+        if (currentJobState && currentJobState.backtest_job
+            && (currentJobState.backtest_job.status === 'running' || currentJobState.backtest_job.status === 'completed')) {
+            activeIndex = 2;
+        }
+        setLoadingStateMode('ready');
+        updateProgressStep(activeIndex, {
+            isError: true,
+            lead: 'Не удалось завершить ML-анализ',
+            message: message || 'Попробуйте повторить запуск с теми же фильтрами.'
+        });
+        setText('mlErrorMessage', message || 'Не удалось загрузить ML-данные. Попробуйте еще раз.');
     }
 
     function hideError() {
@@ -811,9 +876,9 @@
         var loadingState = byId('mlLoadingState');
         var errorState = byId('mlErrorState');
         if (errorState) {
-            errorState.textContent = '';
             errorState.classList.add('is-hidden');
         }
+        setText('mlErrorMessage', '');
         if (asyncState && loadingState && loadingState.classList.contains('is-hidden')) {
             asyncState.classList.add('is-hidden');
         }
@@ -827,19 +892,165 @@
         return new URLSearchParams(new FormData(form)).toString();
     }
 
-    async function fetchMlModelData(options) {
+    function buildPayloadFromQuery(query) {
+        var params = new URLSearchParams(query || '');
+        return {
+            table_name: params.get('table_name') || 'all',
+            cause: params.get('cause') || 'all',
+            object_category: params.get('object_category') || 'all',
+            temperature: params.get('temperature') || '',
+            forecast_days: params.get('forecast_days') || '14',
+            history_window: params.get('history_window') || 'all'
+        };
+    }
+
+    function buildRequestPayload(options) {
         var settings = options || {};
         var query = settings.useLocationSearch && window.location.search
             ? window.location.search.replace(/^\?/, '')
             : buildQueryFromForm();
-        var endpoint = '/api/ml-model-data' + (query ? '?' + query : '');
+        return {
+            query: query,
+            body: buildPayloadFromQuery(query)
+        };
+    }
+
+    function stopJobPolling() {
+        if (jobPollTimer) {
+            clearTimeout(jobPollTimer);
+            jobPollTimer = null;
+        }
+    }
+
+    function renderJobRuntime(jobPayload) {
+        var runtimeNode = byId('mlJobRuntime');
+        var statusNode = byId('mlJobStatusLabel');
+        var metaNode = byId('mlJobMeta');
+        var backtestNode = byId('mlBacktestMeta');
+        var logsNode = byId('mlJobLogOutput');
+        var safeJob = jobPayload || {};
+        var backtestJob = safeJob.backtest_job || null;
+        var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
+        if (!runtimeNode || !statusNode || !metaNode || !backtestNode || !logsNode) {
+            return;
+        }
+
+        if (!safeJob.job_id) {
+            runtimeNode.classList.add('is-hidden');
+            statusNode.textContent = '';
+            metaNode.textContent = '';
+            backtestNode.textContent = '';
+            logsNode.textContent = '';
+            return;
+        }
+
+        runtimeNode.classList.remove('is-hidden');
+        statusNode.textContent = 'Статус ML-job: ' + String(safeJob.status || 'pending');
+        metaNode.textContent = 'job_id: ' + String(safeJob.job_id || '');
+        if (backtestJob && backtestJob.job_id) {
+            backtestNode.textContent = 'Backtesting: ' + String(backtestJob.status || 'pending') + ' (' + backtestJob.job_id + ')';
+        } else {
+            backtestNode.textContent = 'Backtesting будет создан после старта основного ML-job.';
+        }
+        logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
+    }
+
+    function updateAsyncStateForJob(jobPayload) {
+        var safeJob = jobPayload || {};
+        var backtestJob = safeJob.backtest_job || null;
+        var activeIndex = 0;
+        var lead = 'ML-задача поставлена в очередь';
+        var message = 'Ожидаем запуска фонового расчёта.';
+        var finished = false;
+
+        if (safeJob.status === 'running') {
+            activeIndex = 1;
+            lead = 'Агрегируем историю и признаки';
+            message = 'Собираем SQL-агрегаты, фильтры и дневной ряд для ML-блока.';
+        }
+        if (backtestJob && (backtestJob.status === 'running' || backtestJob.status === 'completed')) {
+            activeIndex = 2;
+            lead = backtestJob.status === 'completed' ? 'Валидация завершена' : 'Выполняем обучение и валидацию';
+            message = backtestJob.logs && backtestJob.logs.length
+                ? backtestJob.logs[backtestJob.logs.length - 1]
+                : 'Проверяем модели на истории и выбираем рабочую конфигурацию.';
+        }
+        if (safeJob.logs && safeJob.logs.length) {
+            message = safeJob.logs[safeJob.logs.length - 1];
+        }
+        if (safeJob.status === 'completed') {
+            activeIndex = 3;
+            lead = 'ML-анализ завершён';
+            message = 'Результат готов, визуализации и таблицы уже подставлены в интерфейс.';
+            finished = true;
+        }
+        setLoadingStateMode(finished ? 'ready' : 'pending');
+        updateProgressStep(activeIndex, {
+            isFinished: finished,
+            lead: lead,
+            message: message
+        });
+        renderJobRuntime(safeJob);
+    }
+
+    async function pollMlJob(jobId) {
         var response;
         var payload = null;
 
+        if (!jobId) {
+            return;
+        }
+
+        try {
+            response = await fetch('/api/ml-model-jobs/' + encodeURIComponent(jobId), {
+                headers: { Accept: 'application/json' }
+            });
+            payload = await response.json();
+            currentJobState = payload;
+            updateAsyncStateForJob(payload);
+
+            if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
+                throw new Error(payload && payload.error_message ? payload.error_message : 'Фоновая ML-задача завершилась с ошибкой.');
+            }
+
+            if (payload.status === 'completed' && payload.result) {
+                applyMlModelData(payload.result);
+                hideError();
+                isFetching = false;
+                setRefreshButtonState(false);
+                renderSidebarStatus(currentMlData || payload.result || window.__FIRE_ML_INITIAL__ || {});
+                return;
+            }
+
+            jobPollTimer = setTimeout(function () {
+                pollMlJob(jobId);
+            }, 1200);
+        } catch (error) {
+            console.error(error);
+            isFetching = false;
+            setRefreshButtonState(false);
+            hideLoadingState();
+            showError(error && error.message ? error.message : 'Не удалось получить статус ML-задачи.');
+            renderSidebarStatus(currentMlData || window.__FIRE_ML_INITIAL__ || {});
+        }
+    }
+
+    async function startMlModelJob(options) {
+        var settings = options || {};
+        var requestPayload = buildRequestPayload(settings);
+        var response;
+        var payload = null;
+
+        stopJobPolling();
         isFetching = true;
+        currentJobState = null;
         setRefreshButtonState(true);
         showLoadingState();
-        startProgressSequence();
+        hideError();
+        updateProgressStep(0, {
+            lead: 'ML-задача поставлена в очередь',
+            message: 'Подготавливаем фоновый запуск анализа.'
+        });
         renderSidebarStatus(currentMlData || window.__FIRE_ML_INITIAL__ || {});
 
         if (settings.initialLoad) {
@@ -847,27 +1058,40 @@
         }
 
         try {
-            response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+            response = await fetch('/api/ml-model-jobs', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestPayload.body)
+            });
             payload = await response.json();
+            currentJobState = payload;
+            updateAsyncStateForJob(payload);
+            window.history.replaceState({}, '', requestPayload.query ? (window.location.pathname + '?' + requestPayload.query) : window.location.pathname);
 
-            if (!response.ok) {
-                if (payload) {
-                    applyMlModelData(payload);
-                }
-                throw new Error(payload && payload.error_message ? payload.error_message : 'Не удалось рассчитать ML-модель.');
+            if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
+                throw new Error(payload && payload.error_message ? payload.error_message : 'Не удалось запустить ML-задачу.');
             }
 
-            applyMlModelData(payload);
-            hideError();
-            window.history.replaceState({}, '', query ? (window.location.pathname + '?' + query) : window.location.pathname);
+            if (payload.status === 'completed' && payload.result) {
+                applyMlModelData(payload.result);
+                updateAsyncStateForJob(payload);
+                hideError();
+                isFetching = false;
+                setRefreshButtonState(false);
+                renderSidebarStatus(currentMlData || payload.result || window.__FIRE_ML_INITIAL__ || {});
+                return;
+            }
+
+            pollMlJob(payload.job_id);
         } catch (error) {
             console.error(error);
-            showError(error && error.message ? error.message : 'Не удалось загрузить ML-данные. Попробуйте еще раз.');
-        } finally {
-            clearProgressTimers();
             isFetching = false;
             setRefreshButtonState(false);
             hideLoadingState();
+            showError(error && error.message ? error.message : 'Не удалось запустить ML-анализ. Попробуйте еще раз.');
             renderSidebarStatus(currentMlData || window.__FIRE_ML_INITIAL__ || {});
         }
     }
@@ -879,7 +1103,13 @@
         if (form) {
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
-                fetchMlModelData();
+                startMlModelJob();
+            });
+        }
+        var retryButton = byId('mlRetryButton');
+        if (retryButton) {
+            retryButton.addEventListener('click', function () {
+                startMlModelJob();
             });
         }
 
@@ -887,7 +1117,11 @@
             applyMlModelData(initialData);
         } else {
             applyMlModelData(initialData || {});
-            fetchMlModelData({ initialLoad: true, useLocationSearch: true });
+            updateProgressStep(0, {
+                lead: 'Лёгкий shell страницы уже открыт',
+                message: 'Запускаем ML-анализ в фоне и следим за статусом по job_id.'
+            });
+            startMlModelJob({ initialLoad: true, useLocationSearch: true });
         }
     });
 })();

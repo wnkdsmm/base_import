@@ -468,7 +468,7 @@ def build_table_page_summary(
         scope_note = "Сводка рассчитана по всей таблице."
     elif displayed_rows:
         scope_note = (
-            f"Сводка рассчитана по текущей странице предпросмотра: "
+            f"Эта сводка относится только к текущей странице предпросмотра: "
             f"строки {page_row_start}-{page_row_end} из { _format_int(total_rows) }."
         )
     else:

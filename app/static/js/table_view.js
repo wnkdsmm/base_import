@@ -27,6 +27,9 @@
     const summaryCards = document.getElementById('tableSummaryCards');
     const criteriaLead = document.getElementById('tableCriteriaLead');
     const criteriaGroups = document.getElementById('tableCriteriaGroups');
+    const inlineError = document.getElementById('tableInlineError');
+    const inlineErrorMessage = document.getElementById('tableInlineErrorMessage');
+    const inlineRetryButton = document.getElementById('tableInlineRetryButton');
 
     let isLoading = false;
 
@@ -210,6 +213,24 @@
         }
     }
 
+    function hideInlineError() {
+        if (inlineError) {
+            inlineError.classList.add('is-hidden');
+        }
+        if (inlineErrorMessage) {
+            inlineErrorMessage.textContent = '';
+        }
+    }
+
+    function showInlineError(message) {
+        if (inlineErrorMessage) {
+            inlineErrorMessage.textContent = message || 'Не удалось загрузить страницу таблицы.';
+        }
+        if (inlineError) {
+            inlineError.classList.remove('is-hidden');
+        }
+    }
+
     async function loadPage(targetPage, targetPageSize, options = {}) {
         if (isLoading) {
             return;
@@ -217,6 +238,7 @@
 
         const updateHistory = options.updateHistory !== false;
         setLoadingState(true);
+        hideInlineError();
 
         try {
             const response = await fetch(buildApiUrl(targetPage, targetPageSize), {
@@ -248,7 +270,7 @@
                 );
             }
         } catch (error) {
-            window.alert(error instanceof Error ? error.message : 'Не удалось загрузить страницу таблицы.');
+            showInlineError(error instanceof Error ? error.message : 'Не удалось загрузить страницу таблицы.');
         } finally {
             setLoadingState(false);
         }
@@ -291,5 +313,11 @@
         const targetPage = Math.max(Number(params.get('page') || 1), 1);
         const targetPageSize = Number(params.get('page_size') || pageSizeSelect?.value || 100);
         loadPage(targetPage, targetPageSize, { updateHistory: false });
+    });
+
+    inlineRetryButton?.addEventListener('click', () => {
+        const targetPage = Math.max(Number(pageInput?.value || 1), 1);
+        const targetPageSize = Number(pageSizeSelect?.value || 100);
+        loadPage(targetPage, targetPageSize);
     });
 })();

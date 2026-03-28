@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.forecasting.core import _build_feature_cards
 from app.services.forecasting.data import (
@@ -11,6 +11,7 @@ from app.services.forecasting.data import (
     _build_forecasting_table_options,
     _build_option_catalog_sql,
     _collect_forecasting_metadata,
+    _count_forecasting_records_sql,
     _resolve_forecasting_selection,
     _selected_source_tables,
     clear_forecasting_sql_cache,
@@ -35,6 +36,8 @@ from .presentation import (
     _empty_light_chart,
 )
 from .training import _empty_ml_result, _train_ml_model
+
+MlProgressCallback = Optional[Callable[[str, str], None]]
 
 ML_PREDICTIVE_BLOCK_DESCRIPTION = (
     'Это отдельный ML-блок для временного ряда пожаров. '
@@ -124,23 +127,26 @@ def get_ml_model_data(
     temperature: str = '',
     forecast_days: str = '14',
     history_window: str = 'all',
+    progress_callback: MlProgressCallback = None,
 ) -> Dict[str, Any]:
-    table_options = _build_forecasting_table_options()
-    selected_table = _resolve_forecasting_selection(table_options, table_name)
-    source_tables = _selected_source_tables(table_options, selected_table)
-    days_ahead = _parse_forecast_days(forecast_days)
-    selected_history_window = _parse_history_window(history_window)
-    scenario_temperature = _parse_float(temperature)
-    cache_key = (
-        selected_table,
-        cause or 'all',
-        object_category or 'all',
-        _format_float_for_input(scenario_temperature) if scenario_temperature is not None else '',
-        days_ahead,
-        selected_history_window,
+    request_state = _build_ml_request_state(
+        table_name=table_name,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        forecast_days=forecast_days,
+        history_window=history_window,
     )
+    table_options = request_state['table_options']
+    selected_table = request_state['selected_table']
+    source_tables = request_state['source_tables']
+    days_ahead = request_state['days_ahead']
+    selected_history_window = request_state['selected_history_window']
+    scenario_temperature = request_state['scenario_temperature']
+    cache_key = request_state['cache_key']
     cached = _cache_get(cache_key)
     if cached is not None:
+        _emit_progress(progress_callback, 'ml_model.completed', 'Результат ML-анализа взят из кэша.')
         return cached
 
     base = _empty_ml_model_data(table_options, selected_table, days_ahead, temperature, selected_history_window)
@@ -148,6 +154,7 @@ def get_ml_model_data(
         base['notes'].append('Нет доступных таблиц для ML-модели.')
         return _cache_store(cache_key, base)
 
+    _emit_progress(progress_callback, 'ml_model.running', 'Собираем SQL-агрегаты и доступные фильтры для ML-блока.')
     metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
     option_catalog = _build_option_catalog_sql(
         source_tables,
@@ -164,8 +171,25 @@ def get_ml_model_data(
         object_category=selected_object_category,
         metadata_items=metadata_items,
     )
-    filtered_records_count = int(sum(int(item.get('count') or 0) for item in daily_history))
-    ml_result = _train_ml_model(daily_history, days_ahead, scenario_temperature)
+    filtered_records_count = _count_forecasting_records_sql(
+        source_tables,
+        history_window=selected_history_window,
+        cause=selected_cause,
+        object_category=selected_object_category,
+        metadata_items=metadata_items,
+    )
+    _emit_progress(
+        progress_callback,
+        'ml_model.running',
+        f"Подготовлен дневной ряд: {len(daily_history)} дней истории, {filtered_records_count} пожаров после фильтров.",
+    )
+    ml_result = _train_ml_model(
+        daily_history,
+        days_ahead,
+        scenario_temperature,
+        progress_callback=progress_callback,
+    )
+    _emit_progress(progress_callback, 'ml_model.running', 'Формируем итоговые метрики, графики и таблицы ML-блока.')
     summary = _build_summary(
         selected_table=selected_table,
         selected_cause=selected_cause,
@@ -205,6 +229,7 @@ def get_ml_model_data(
             'available_history_windows': HISTORY_WINDOW_OPTIONS,
         },
     }
+    _emit_progress(progress_callback, 'ml_model.completed', 'ML-анализ завершён, результат готов к выдаче.')
     return _cache_store(cache_key, payload)
 
 def _cache_get(cache_key: Tuple[str, str, str, str, int, str]) -> Optional[Dict[str, Any]]:
@@ -221,6 +246,48 @@ def _cache_store(cache_key: Tuple[str, str, str, str, int, str], payload: Dict[s
     while len(_ML_CACHE) > _CACHE_LIMIT:
         _ML_CACHE.popitem(last=False)
     return deepcopy(payload)
+
+
+def _build_ml_request_state(
+    table_name: str = 'all',
+    cause: str = 'all',
+    object_category: str = 'all',
+    temperature: str = '',
+    forecast_days: str = '14',
+    history_window: str = 'all',
+) -> Dict[str, Any]:
+    table_options = _build_forecasting_table_options()
+    selected_table = _resolve_forecasting_selection(table_options, table_name)
+    source_tables = _selected_source_tables(table_options, selected_table)
+    days_ahead = _parse_forecast_days(forecast_days)
+    selected_history_window = _parse_history_window(history_window)
+    scenario_temperature = _parse_float(temperature)
+    cache_key = (
+        selected_table,
+        cause or 'all',
+        object_category or 'all',
+        _format_float_for_input(scenario_temperature) if scenario_temperature is not None else '',
+        days_ahead,
+        selected_history_window,
+    )
+    return {
+        'table_options': table_options,
+        'selected_table': selected_table,
+        'source_tables': source_tables,
+        'days_ahead': days_ahead,
+        'selected_history_window': selected_history_window,
+        'scenario_temperature': scenario_temperature,
+        'cache_key': cache_key,
+    }
+
+
+def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: str) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(phase, message)
+    except Exception:
+        return
 
 
 

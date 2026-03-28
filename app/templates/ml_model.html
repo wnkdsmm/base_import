@@ -178,22 +178,58 @@
             </label>
             <div class="filter-field filter-actions ml-actions">
                 <span>Действие</span>
-                <button id="mlRefreshButton" class="primary-action" type="submit">Пересчитать ML-блок</button>
+                <button id="mlRefreshButton" class="primary-action" type="submit">Запустить ML-анализ</button>
             </div>
         </form>
-        <div id="mlAsyncState" class="ml-async-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}">
-            <div id="mlLoadingState" class="ml-loading-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}" aria-live="polite">
-                <div class="ml-loading-head">
-                    <strong id="mlLoadingLead">Подготавливаем ML-страницу</strong>
-                    <span id="mlLoadingMessage">Сначала отдаем легкий shell, затем подтягиваем расчет отдельно.</span>
+        <div id="mlAsyncState" class="analysis-async ml-async-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}">
+            <div id="mlLoadingState" class="analysis-status-card ml-loading-state{% if data.bootstrap_mode == 'deferred' %} is-pending{% else %} is-hidden{% endif %}" aria-live="polite">
+                <div class="analysis-status-head ml-loading-head">
+                    <div class="analysis-status-copy">
+                        <strong id="mlLoadingLead" class="analysis-status-lead">Подготавливаем ML-страницу</strong>
+                        <span id="mlLoadingMessage" class="analysis-status-message">Сначала отдаем легкий shell, затем подтягиваем расчет отдельно.</span>
+                    </div>
                 </div>
-                <div class="ml-progress-steps" id="mlProgressSteps">
-                    <span class="ml-progress-step is-active">Загрузка данных</span>
-                    <span class="ml-progress-step">Подготовка истории</span>
-                    <span class="ml-progress-step">Расчет модели</span>
+                <div class="analysis-step-list ml-progress-steps" id="mlProgressSteps">
+                    <span class="analysis-step ml-progress-step is-active">Загрузка данных</span>
+                    <span class="analysis-step ml-progress-step">Агрегация</span>
+                    <span class="analysis-step ml-progress-step">Обучение / валидация</span>
+                    <span class="analysis-step ml-progress-step">Построение визуализаций</span>
+                </div>
+                <div id="mlLoadingSkeleton" class="analysis-skeleton-grid">
+                    <div class="analysis-skeleton-card">
+                        <span class="analysis-skeleton-line short"></span>
+                        <span class="analysis-skeleton-line value"></span>
+                        <span class="analysis-skeleton-line medium"></span>
+                    </div>
+                    <div class="analysis-skeleton-card">
+                        <span class="analysis-skeleton-line short"></span>
+                        <span class="analysis-skeleton-line value"></span>
+                        <span class="analysis-skeleton-line long"></span>
+                    </div>
+                    <div class="analysis-skeleton-card">
+                        <span class="analysis-skeleton-line short"></span>
+                        <span class="analysis-skeleton-line value"></span>
+                        <span class="analysis-skeleton-line medium"></span>
+                    </div>
                 </div>
             </div>
-            <div id="mlErrorState" class="ml-error-state is-hidden" aria-live="polite"></div>
+            <div id="mlErrorState" class="analysis-error-card ml-error-state is-hidden" aria-live="polite">
+                <div class="analysis-error-copy">
+                    <strong>Не удалось завершить ML-анализ</strong>
+                    <span id="mlErrorMessage">Попробуйте повторить расчёт с теми же параметрами.</span>
+                </div>
+                <div class="analysis-inline-actions">
+                    <button id="mlRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+                </div>
+            </div>
+            <div id="mlJobRuntime" class="analysis-runtime-card ml-job-runtime is-hidden" aria-live="polite">
+                <div class="ml-job-runtime-head">
+                    <strong id="mlJobStatusLabel">Статус ML-job</strong>
+                    <span id="mlJobMeta"></span>
+                </div>
+                <div id="mlBacktestMeta" class="ml-job-backtest-meta"></div>
+                <pre id="mlJobLogOutput" class="ml-job-log-output"></pre>
+            </div>
         </div>
     </section>
 

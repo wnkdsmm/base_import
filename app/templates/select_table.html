@@ -119,7 +119,47 @@
                 </div>
                 <div id="selectionNote" class="selection-note">Таблица пока не выбрана.</div>
                 <div class="action-row"><button id="runButton" class="primary-action primary-action-success" type="button" disabled>Запустить очистку</button></div>
-                <div id="statusBanner" class="status-banner status-idle">Выберите таблицу, при необходимости измените пороги и запустите очистку.</div>
+                <div id="statusBanner" class="analysis-runtime-card status-banner status-idle">Выберите таблицу, при необходимости измените пороги и запустите очистку.</div>
+                <div id="profilingLoadingState" class="analysis-status-card is-hidden" aria-live="polite">
+                    <div class="analysis-status-head">
+                        <div class="analysis-status-copy">
+                            <strong id="profilingLoadingLead" class="analysis-status-lead">Подготавливаем очистку таблицы</strong>
+                            <span id="profilingLoadingMessage" class="analysis-status-message">Проверяем выбранную таблицу, считаем метрики и собираем итоговые файлы.</span>
+                        </div>
+                    </div>
+                    <div id="profilingProgressSteps" class="analysis-step-list">
+                        <span class="analysis-step is-active">Загрузка данных</span>
+                        <span class="analysis-step">Агрегация</span>
+                        <span class="analysis-step">Обучение / валидация</span>
+                        <span class="analysis-step">Построение визуализаций</span>
+                    </div>
+                    <div id="profilingLoadingSkeleton" class="analysis-skeleton-grid">
+                        <div class="analysis-skeleton-card">
+                            <span class="analysis-skeleton-line short"></span>
+                            <span class="analysis-skeleton-line value"></span>
+                            <span class="analysis-skeleton-line medium"></span>
+                        </div>
+                        <div class="analysis-skeleton-card">
+                            <span class="analysis-skeleton-line short"></span>
+                            <span class="analysis-skeleton-line value"></span>
+                            <span class="analysis-skeleton-line long"></span>
+                        </div>
+                        <div class="analysis-skeleton-card">
+                            <span class="analysis-skeleton-line short"></span>
+                            <span class="analysis-skeleton-line value"></span>
+                            <span class="analysis-skeleton-line medium"></span>
+                        </div>
+                    </div>
+                </div>
+                <div id="profilingErrorState" class="analysis-error-card is-hidden" aria-live="polite">
+                    <div class="analysis-error-copy">
+                        <strong>Не удалось завершить очистку</strong>
+                        <span id="profilingErrorMessage">Попробуйте повторить запуск с теми же порогами.</span>
+                    </div>
+                    <div class="analysis-inline-actions">
+                        <button id="profilingRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+                    </div>
+                </div>
             {% else %}
                 <div class="empty-state">В базе данных пока нет таблиц. Сначала загрузите файл на главной странице.</div>
             {% endif %}
@@ -295,8 +335,124 @@
     function setStatus(type, message) {
         const banner = document.getElementById('statusBanner');
         if (!banner) return;
-        banner.className = `status-banner status-${type}`;
+        banner.className = `analysis-runtime-card status-banner status-${type}`;
         banner.innerHTML = message;
+    }
+
+    const profilingStepTimers = [];
+
+    function clearProfilingStepTimers() {
+        while (profilingStepTimers.length) {
+            clearTimeout(profilingStepTimers.pop());
+        }
+    }
+
+    function setProfilingSkeletonVisible(visible) {
+        const skeleton = document.getElementById('profilingLoadingSkeleton');
+        if (!skeleton) return;
+        skeleton.classList.toggle('is-hidden', !visible);
+    }
+
+    function hideProfilingError() {
+        const errorNode = document.getElementById('profilingErrorState');
+        const messageNode = document.getElementById('profilingErrorMessage');
+        if (errorNode) errorNode.classList.add('is-hidden');
+        if (messageNode) messageNode.textContent = '';
+    }
+
+    function showProfilingError(message) {
+        const errorNode = document.getElementById('profilingErrorState');
+        const messageNode = document.getElementById('profilingErrorMessage');
+        const loadingNode = document.getElementById('profilingLoadingState');
+        if (loadingNode) {
+            loadingNode.classList.remove('is-hidden', 'is-pending');
+            loadingNode.classList.add('is-ready');
+        }
+        setProfilingSkeletonVisible(false);
+        if (messageNode) {
+            messageNode.textContent = message || 'Не удалось завершить очистку. Попробуйте еще раз.';
+        }
+        if (errorNode) {
+            errorNode.classList.remove('is-hidden');
+        }
+    }
+
+    function setProfilingProgress(activeIndex, options = {}) {
+        const leadNode = document.getElementById('profilingLoadingLead');
+        const messageNode = document.getElementById('profilingLoadingMessage');
+        const stepsNode = document.getElementById('profilingProgressSteps');
+        const isFinished = Boolean(options.isFinished);
+        const isError = Boolean(options.isError);
+        if (leadNode) leadNode.textContent = options.lead || '';
+        if (messageNode) messageNode.textContent = options.message || '';
+        if (!stepsNode) return;
+
+        Array.from(stepsNode.querySelectorAll('.analysis-step')).forEach((node, index) => {
+            node.classList.remove('is-active', 'is-done', 'is-error');
+            if (isError && index === activeIndex) {
+                node.classList.add('is-error');
+                return;
+            }
+            if (isFinished) {
+                if (index <= activeIndex) node.classList.add('is-done');
+                return;
+            }
+            if (index < activeIndex) {
+                node.classList.add('is-done');
+                return;
+            }
+            if (index === activeIndex) {
+                node.classList.add('is-active');
+            }
+        });
+    }
+
+    function setProfilingLoadingState(lead, message, activeIndex, options = {}) {
+        const loadingNode = document.getElementById('profilingLoadingState');
+        hideProfilingError();
+        if (loadingNode) {
+            loadingNode.classList.remove('is-hidden', 'is-ready');
+            loadingNode.classList.add('is-pending');
+        }
+        setProfilingSkeletonVisible(options.showSkeleton !== false);
+        setProfilingProgress(activeIndex, { lead, message });
+    }
+
+    function setProfilingReadyState(lead, message) {
+        const loadingNode = document.getElementById('profilingLoadingState');
+        hideProfilingError();
+        if (loadingNode) {
+            loadingNode.classList.remove('is-hidden', 'is-pending');
+            loadingNode.classList.add('is-ready');
+        }
+        setProfilingSkeletonVisible(false);
+        setProfilingProgress(3, { lead, message, isFinished: true });
+    }
+
+    function startProfilingProgressSequence() {
+        clearProfilingStepTimers();
+        setProfilingProgress(0, {
+            lead: 'Загружаем таблицу и проверяем параметры',
+            message: 'Получаем выбранную таблицу и пороги очистки.'
+        });
+        profilingStepTimers.push(setTimeout(() => {
+            setProfilingProgress(1, {
+                lead: 'Агрегируем метрики по колонкам',
+                message: 'Считаем пропуски, доминирующие значения и дисперсию.'
+            });
+        }, 260));
+        profilingStepTimers.push(setTimeout(() => {
+            setProfilingProgress(2, {
+                lead: 'Проверяем правила очистки',
+                message: 'Формируем итоговый набор колонок и валидируем результат.'
+            });
+        }, 920));
+        profilingStepTimers.push(setTimeout(() => {
+            setProfilingProgress(3, {
+                lead: 'Собираем итоговую сводку',
+                message: 'Подготавливаем таблицу clean_* и файлы результата.'
+            });
+        }, 1650));
     }
 
     function renderRunSummary(summary = {}) {
@@ -328,6 +484,9 @@
         const runButton = document.getElementById('runButton');
         if (!tableName) {
             selectedTable = null;
+            clearProfilingStepTimers();
+            hideProfilingError();
+            document.getElementById('profilingLoadingState')?.classList.add('is-hidden');
             if (selectionNote) selectionNote.textContent = 'Таблица пока не выбрана.';
             if (runButton) {
                 runButton.disabled = true;
@@ -339,6 +498,8 @@
         }
 
         selectedTable = tableName;
+        hideProfilingError();
+        document.getElementById('profilingLoadingState')?.classList.add('is-hidden');
         if (selectionNote) selectionNote.textContent = `Выбрана таблица: ${tableName}`;
         if (runButton) {
             runButton.disabled = false;
@@ -430,10 +591,25 @@
     async function runPipeline() {
         if (!selectedTable || isRunning) return;
         let thresholds;
+        setProfilingLoadingState(
+            'Запускаем очистку таблицы',
+            'Загружаем данные, проверяем колонки и готовим итоговую сводку.',
+            0,
+            { showSkeleton: true }
+        );
+        startProfilingProgressSequence();
+
         try {
             thresholds = readThresholds();
         } catch (error) {
+            clearProfilingStepTimers();
             setStatus('error', escapeHtml(error.message));
+            setProfilingProgress(0, {
+                lead: 'Не удалось проверить пороги',
+                message: error.message,
+                isError: true,
+            });
+            showProfilingError(error.message);
             return;
         }
 
@@ -458,8 +634,20 @@
             if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить очистку.');
             renderSummary(result);
             setStatus('success', `Готово. Таблица <strong>${escapeHtml(selectedTable)}</strong> обработана по выбранным порогам.`);
+            clearProfilingStepTimers();
+            setProfilingReadyState(
+                'Очистка завершена',
+                'Сводка, cleaned-table и файлы результата уже готовы для просмотра.'
+            );
         } catch (error) {
             setStatus('error', `Ошибка выполнения: ${escapeHtml(error.message)}`);
+            clearProfilingStepTimers();
+            setProfilingProgress(2, {
+                lead: 'Не удалось завершить очистку',
+                message: error.message,
+                isError: true,
+            });
+            showProfilingError(error.message);
         } finally {
             isRunning = false;
             runButton.disabled = false;
@@ -482,6 +670,14 @@
         if (runButton) {
             runButton.addEventListener('click', () => {
                 if (!runButton.disabled) {
+                    runPipeline();
+                }
+            });
+        }
+        const retryButton = document.getElementById('profilingRetryButton');
+        if (retryButton) {
+            retryButton.addEventListener('click', () => {
+                if (!isRunning) {
                     runPipeline();
                 }
             });

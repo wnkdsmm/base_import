@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -68,6 +68,17 @@ EVENT_SELECTION_RULE = (
     'сохраняется более простой интерпретируемый метод.'
 )
 
+MlProgressCallback = Optional[Callable[[str, str], None]]
+
+
+def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: str) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(phase, message)
+    except Exception:
+        return
+
 
 def _apply_history_window(records: List[Dict[str, Any]], history_window: str) -> List[Dict[str, Any]]:
     if not records or history_window == 'all':
@@ -78,12 +89,18 @@ def _apply_history_window(records: List[Dict[str, Any]], history_window: str) ->
 
 
 
-def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, scenario_temperature: Optional[float]) -> Dict[str, Any]:
+def _train_ml_model(
+    daily_history: List[Dict[str, Any]],
+    forecast_days: int,
+    scenario_temperature: Optional[float],
+    progress_callback: MlProgressCallback = None,
+) -> Dict[str, Any]:
     if len(daily_history) < MIN_DAILY_HISTORY or forecast_days <= 0:
         return _empty_ml_result(
             f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить rolling-origin backtesting и обучить модель.'
         )
 
+    _emit_progress(progress_callback, 'ml_model.running', 'Подготавливаем признаки и обучающую выборку для ML-модели.')
     history_tail = daily_history[-MAX_HISTORY_POINTS:]
     frame = pd.DataFrame(
         {
@@ -104,11 +121,18 @@ def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, sce
             f'После формирования лагов и скользящих признаков осталось только {len(dataset)} наблюдений: этого мало для корректного rolling-origin backtesting.'
         )
 
-    backtest = _run_backtest(frame.copy(), dataset)
+    _emit_progress(progress_callback, 'ml_backtest.pending', 'Готовим rolling-origin backtesting на выбранной истории.')
+    backtest = _run_backtest(frame.copy(), dataset, progress_callback=progress_callback)
     if not backtest['is_ready']:
+        _emit_progress(progress_callback, 'ml_backtest.failed', backtest['message'])
         return _empty_ml_result(backtest['message'])
 
     selected_count_model_key = backtest['selected_count_model_key']
+    _emit_progress(
+        progress_callback,
+        'ml_model.running',
+        f"Обучаем итоговую count-модель {COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)} на полной истории.",
+    )
     final_count_model = _fit_count_model(selected_count_model_key, dataset)
     if final_count_model is None:
         return _empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
@@ -122,6 +146,7 @@ def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, sce
     final_event_model = _fit_event_model(dataset) if classifier_validated else None
 
     dispersion = _estimate_dispersion(dataset['count'].to_numpy(dtype=float), backtest['selected_metrics']['rmse'])
+    _emit_progress(progress_callback, 'ml_model.running', 'Строим прогноз по будущим датам и интервалы неопределённости.')
     forecast_rows = _build_future_forecast_rows(
         frame=frame,
         count_model=final_count_model,
@@ -131,6 +156,7 @@ def _train_ml_model(daily_history: List[Dict[str, Any]], forecast_days: int, sce
         dispersion=dispersion,
     )
 
+    _emit_progress(progress_callback, 'ml_model.running', 'Оцениваем важность признаков и собираем итоговый ML-отчёт.')
     feature_importance = _build_feature_importance(final_count_model, dataset)
     backtest_rows = [
         {
@@ -488,7 +514,11 @@ def _scenario_reference_forecast(train: pd.DataFrame, test: pd.DataFrame) -> Tup
     probability = row.get('fire_probability')
     return max(0.0, float(row.get('forecast_value', 0.0))), _clip_probability(probability if probability is not None else 0.0)
 
-def _run_backtest(history_frame: pd.DataFrame, dataset: pd.DataFrame) -> Dict[str, Any]:
+def _run_backtest(
+    history_frame: pd.DataFrame,
+    dataset: pd.DataFrame,
+    progress_callback: MlProgressCallback = None,
+) -> Dict[str, Any]:
     history_frame = history_frame.sort_values('date').reset_index(drop=True)
     dataset = dataset.reset_index(drop=True)
     design_matrix = _build_design_matrix(dataset)
@@ -505,6 +535,12 @@ def _run_backtest(history_frame: pd.DataFrame, dataset: pd.DataFrame) -> Dict[st
         }
 
     start_index = max(min_train_rows, len(dataset) - min(MAX_BACKTEST_POINTS, available_backtest_points))
+    total_windows = len(dataset) - start_index
+    _emit_progress(
+        progress_callback,
+        'ml_backtest.running',
+        f"Backtesting запущен: {total_windows} rolling-origin окон для проверки на истории.",
+    )
     rows: List[Dict[str, Any]] = []
 
     for index in range(start_index, len(dataset)):
@@ -555,6 +591,13 @@ def _run_backtest(history_frame: pd.DataFrame, dataset: pd.DataFrame) -> Dict[st
                 'predicted_event_probability': event_prediction,
             }
         )
+        completed_windows = index - start_index + 1
+        if completed_windows == 1 or completed_windows == total_windows or completed_windows % 5 == 0:
+            _emit_progress(
+                progress_callback,
+                'ml_backtest.running',
+                f"Backtesting: обработано {completed_windows} из {total_windows} окон.",
+            )
 
     valid_rows = [row for row in rows if any(row['predictions'].get(model_key) is not None for model_key in COUNT_MODEL_KEYS)]
     if len(valid_rows) < MIN_BACKTEST_POINTS:
@@ -611,6 +654,11 @@ def _run_backtest(history_frame: pd.DataFrame, dataset: pd.DataFrame) -> Dict[st
         )
 
     event_metrics = _compute_event_metrics(backtest_rows)
+    _emit_progress(
+        progress_callback,
+        'ml_backtest.completed',
+        f"Backtesting завершён: {len(backtest_rows)} валидных окон, метрики качества готовы.",
+    )
 
     return {
         'is_ready': True,

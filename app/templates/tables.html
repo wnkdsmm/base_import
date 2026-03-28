@@ -79,21 +79,16 @@
                 <span class="panel-meta">Импорт живёт в разделе таблиц, чтобы загрузка, просмотр и последующая обработка были в одном месте.</span>
             </div>
         </div>
-        <div class="table-management-layout">
+        <div class="table-management-layout table-management-layout-single">
             <article class="table-action-card">
                 <div class="table-import-copy">
                     <p class="table-import-lead">Загрузите новый файл, и после завершения импорта список таблиц обновится автоматически.</p>
                     <div class="table-import-actions">
-                        <button type="button" class="primary-action" onclick="selectAndImport()" aria-controls="logs">Импортировать файл</button>
-                        <span class="table-import-note">Ход загрузки и обработки появится справа в журнале.</span>
+                        <button type="button" class="primary-action" onclick="selectAndImport()">Импортировать файл</button>
+                        <span class="table-import-note">После импорта список таблиц на странице обновится автоматически.</span>
                     </div>
                 </div>
             </article>
-            <div class="table-import-log-shell">
-                <div id="logs" class="import-log-box" aria-live="polite">
-                    <div>Выберите файл для импорта. Здесь появятся этапы загрузки и обработки.</div>
-                </div>
-            </div>
         </div>
     </section>
 

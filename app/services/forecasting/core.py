@@ -16,8 +16,7 @@ from app.runtime_cache import CopyingTtlCache
 
 from .charts import _build_forecast_breakdown_chart, _build_forecast_chart, _build_geo_chart, _build_weekday_chart, _empty_chart_bundle
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS
-from .data import _build_daily_history_sql, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog_sql, _build_weekday_profile, _collect_forecasting_inputs, _collect_forecasting_metadata, _resolve_forecasting_selection, _selected_source_tables, _table_selection_label, clear_forecasting_sql_cache
-from .geo import _build_geo_prediction
+from .data import _build_daily_history_sql, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog_sql, _build_weekday_profile, _collect_forecasting_metadata, _count_forecasting_records_sql, _resolve_forecasting_selection, _selected_source_tables, _table_selection_label, clear_forecasting_sql_cache
 from .utils import (
     _forecast_level_label,
     _forecast_stability_hint,
@@ -135,7 +134,7 @@ def get_forecasting_shell_context(
     history_window: str = "all",
 ) -> Dict[str, Any]:
     try:
-        initial_data = get_forecasting_data(
+        initial_data = _build_forecasting_shell_data(
             table_name=table_name,
             district=district,
             cause=cause,
@@ -143,11 +142,11 @@ def get_forecasting_shell_context(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
-            include_decision_support=False,
         )
-    except Exception:
+    except Exception as exc:
         table_options = _build_forecasting_table_options()
         selected_table = _resolve_forecasting_selection(table_options, table_name)
+        source_tables = _selected_source_tables(table_options, selected_table)
         days_ahead = _parse_forecast_days(forecast_days)
         selected_history_window = _parse_history_window(history_window)
         initial_data = _empty_forecasting_data(
@@ -157,7 +156,21 @@ def get_forecasting_shell_context(
             temperature,
             selected_history_window,
         )
-        initial_data["bootstrap_mode"] = "deferred"
+        if source_tables:
+            initial_data["bootstrap_mode"] = "deferred"
+            initial_data["loading"] = True
+            initial_data["deferred"] = True
+            initial_data["base_forecast_pending"] = True
+            initial_data["base_forecast_ready"] = False
+            initial_data["loading_status_message"] = (
+                "Страница открыта в безопасном быстром режиме. Базовый прогноз будет загружен после рендера страницы."
+            )
+            initial_data["notes"].append(initial_data["loading_status_message"])
+        initial_data["notes"].append(
+            "Часть быстрого bootstrap-контекста временно недоступна, поэтому страница открыта с безопасными placeholder-данными."
+        )
+        initial_data["notes"].append(f"Техническая причина: {exc}")
+        initial_data["model_description"] = SCENARIO_FORECAST_DESCRIPTION
     return {
         "generated_at": _format_datetime(datetime.now()),
         "initial_data": initial_data,
@@ -250,6 +263,196 @@ def _build_pending_executive_brief(message: str) -> Dict[str, Any]:
     return executive_brief
 
 
+def _build_slice_label(
+    selected_district: str,
+    selected_cause: str,
+    selected_object_category: str,
+) -> str:
+    slice_parts = []
+    if selected_district != "all":
+        slice_parts.append(f"район: {selected_district}")
+    if selected_cause != "all":
+        slice_parts.append(f"причина: {selected_cause}")
+    if selected_object_category != "all":
+        slice_parts.append(f"категория: {selected_object_category}")
+    return " | ".join(slice_parts) if slice_parts else "Все пожары выбранной истории"
+
+
+def _build_shell_risk_prediction(
+    *,
+    table_options: List[Dict[str, str]],
+    selected_table: str,
+    forecast_days: int,
+    temperature: str,
+    history_window: str,
+    feature_cards: List[Dict[str, str]],
+    message: str,
+) -> Dict[str, Any]:
+    followup_message = (
+        "Приоритеты территорий, паспорт качества и рекомендации запустятся автоматически после базового прогноза."
+    )
+    risk_prediction = _empty_forecasting_data(
+        table_options=table_options,
+        selected_table=selected_table,
+        forecast_days=forecast_days,
+        temperature=temperature,
+        history_window=history_window,
+    )["risk_prediction"]
+    risk_prediction["feature_cards"] = feature_cards
+    risk_prediction["top_territory_label"] = "Подготавливаем прогноз"
+    risk_prediction["top_territory_explanation"] = message
+    risk_prediction["top_territory_confidence_label"] = "Ожидание"
+    risk_prediction["top_territory_confidence_score_display"] = "..."
+    risk_prediction["top_territory_confidence_note"] = followup_message
+    risk_prediction["notes"] = [message, followup_message]
+    risk_prediction["quality_passport"]["confidence_label"] = "Ожидание"
+    risk_prediction["quality_passport"]["confidence_score_display"] = "..."
+    risk_prediction["quality_passport"]["confidence_tone"] = "sand"
+    risk_prediction["quality_passport"]["validation_label"] = "Ждет базовый прогноз"
+    risk_prediction["quality_passport"]["validation_summary"] = followup_message
+    risk_prediction["quality_passport"]["reliability_notes"] = [followup_message]
+    risk_prediction["weight_profile"]["status_label"] = "Ждет базовый прогноз"
+    risk_prediction["weight_profile"]["status_tone"] = "sand"
+    risk_prediction["weight_profile"]["description"] = (
+        "Профиль весов станет доступен после базового прогноза и последующей догрузки decision support."
+    )
+    risk_prediction["weight_profile"]["notes"] = [followup_message]
+    risk_prediction["weight_profile"]["calibration_notes"] = [followup_message]
+    risk_prediction["historical_validation"]["status_label"] = "Ждет базовый прогноз"
+    risk_prediction["historical_validation"]["status_tone"] = "sand"
+    risk_prediction["historical_validation"]["summary"] = followup_message
+    risk_prediction["historical_validation"]["notes"] = [followup_message]
+    risk_prediction["geo_summary"]["compact_message"] = "Карта риска появится после базового прогноза."
+    risk_prediction["geo_summary"]["coverage_display"] = "Подготавливается"
+    risk_prediction["geo_summary"]["top_zone_label"] = "Подготавливается"
+    risk_prediction["geo_summary"]["top_risk_display"] = "..."
+    risk_prediction["geo_summary"]["hotspots_count_display"] = "..."
+    risk_prediction["geo_summary"]["top_explanation"] = followup_message
+    return risk_prediction
+
+
+def _build_forecasting_shell_data(
+    table_name: str = "all",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+    history_window: str = "all",
+) -> Dict[str, Any]:
+    table_options = _build_forecasting_table_options()
+    selected_table = _resolve_forecasting_selection(table_options, table_name)
+    source_tables = _selected_source_tables(table_options, selected_table)
+    days_ahead = _parse_forecast_days(forecast_days)
+    selected_history_window = _parse_history_window(history_window)
+    temperature_value = _parse_float(temperature)
+
+    shell_data = _empty_forecasting_data(
+        table_options=table_options,
+        selected_table=selected_table,
+        forecast_days=days_ahead,
+        temperature=temperature,
+        history_window=selected_history_window,
+    )
+    if not source_tables:
+        shell_data["notes"].append("Нет доступных таблиц для прогнозирования.")
+        return shell_data
+
+    metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
+    feature_cards = _build_feature_cards(metadata_items)
+    option_catalog = _build_option_catalog_sql(
+        source_tables,
+        history_window=selected_history_window,
+        metadata_items=metadata_items,
+    )
+    selected_district = _resolve_option_value(option_catalog["districts"], district)
+    selected_cause = _resolve_option_value(option_catalog["causes"], cause)
+    selected_object_category = _resolve_option_value(option_catalog["object_categories"], object_category)
+    loading_message = (
+        "Страница открыта в быстром режиме: сначала догружаем базовый сценарный прогноз, затем блок поддержки решений."
+    )
+    followup_message = (
+        "После базового прогноза автоматически начнется второй этап: приоритеты территорий, паспорт качества и рекомендации."
+    )
+
+    shell_data["bootstrap_mode"] = "deferred"
+    shell_data["loading"] = True
+    shell_data["deferred"] = True
+    shell_data["base_forecast_pending"] = True
+    shell_data["base_forecast_ready"] = False
+    shell_data["loading_status_message"] = loading_message
+    shell_data["decision_support_pending"] = False
+    shell_data["decision_support_ready"] = False
+    shell_data["decision_support_error"] = False
+    shell_data["decision_support_status_message"] = ""
+    shell_data["model_description"] = SCENARIO_FORECAST_DESCRIPTION
+    shell_data["features"] = feature_cards
+    shell_data["summary"].update(
+        {
+            "selected_table_label": _table_selection_label(selected_table),
+            "slice_label": _build_slice_label(selected_district, selected_cause, selected_object_category),
+            "history_period_label": "История загружается",
+            "history_window_label": _history_window_label(selected_history_window),
+            "fires_count_display": "...",
+            "history_days_display": "...",
+            "active_days_display": "...",
+            "last_observed_date": "-",
+            "forecast_days_display": str(days_ahead),
+            "predicted_total_display": "...",
+            "predicted_average_display": "...",
+            "average_probability_display": "...",
+            "historical_average_display": "...",
+            "recent_average_display": "...",
+            "forecast_vs_recent_display": "...",
+            "forecast_vs_recent_label": "Подготавливается",
+            "active_days_share_display": "...",
+            "peak_forecast_day_display": "-",
+            "peak_forecast_value_display": "...",
+            "peak_forecast_probability_display": "...",
+            "temperature_scenario_display": f"{_format_number(temperature_value)} °C" if temperature_value is not None else "Историческая сезонность",
+        }
+    )
+    shell_data["quality_assessment"]["subtitle"] = (
+        "Базовый прогноз загружается после рендера страницы, затем появятся метрики качества и сравнение с базовой моделью."
+    )
+    shell_data["quality_assessment"]["dissertation_points"] = [loading_message]
+    shell_data["risk_prediction"] = _build_shell_risk_prediction(
+        table_options=table_options,
+        selected_table=selected_table,
+        forecast_days=days_ahead,
+        temperature=temperature,
+        history_window=selected_history_window,
+        feature_cards=feature_cards,
+        message=loading_message,
+    )
+    shell_data["executive_brief"] = _build_pending_executive_brief(loading_message)
+    shell_data["executive_brief"]["notes"] = [loading_message, followup_message]
+    shell_data["executive_brief"]["export_excerpt"] = loading_message
+    shell_data["charts"] = {
+        "daily": _empty_chart_bundle("История и сценарный прогноз", "Базовый прогноз загружается после рендера страницы."),
+        "breakdown": _empty_chart_bundle("Сценарная вероятность пожара по ближайшим дням", "Распределение по дням появится после базового прогноза."),
+        "weekday": _empty_chart_bundle("В какие дни недели пожары случаются чаще", "Недельный профиль появится после базового прогноза."),
+        "geo": _empty_chart_bundle("Карта блока поддержки решений", "Карта риска появится на втором этапе после базового прогноза."),
+    }
+    shell_data["notes"] = preload_notes + [loading_message, followup_message]
+    shell_data["filters"] = {
+        "table_name": selected_table,
+        "district": selected_district,
+        "cause": selected_cause,
+        "object_category": selected_object_category,
+        "temperature": temperature if temperature_value is None else _format_float_for_input(temperature_value),
+        "forecast_days": str(days_ahead),
+        "history_window": selected_history_window,
+        "available_tables": table_options,
+        "available_districts": option_catalog["districts"],
+        "available_causes": option_catalog["causes"],
+        "available_object_categories": option_catalog["object_categories"],
+        "available_forecast_days": [{"value": str(option), "label": f"{option} дней"} for option in FORECAST_DAY_OPTIONS],
+        "available_history_windows": HISTORY_WINDOW_OPTIONS,
+    }
+    return shell_data
+
+
 def get_forecasting_data(
     table_name: str = "all",
     district: str = "all",
@@ -285,6 +488,11 @@ def get_forecasting_data(
     if not source_tables:
         base_data["notes"].append("Нет доступных таблиц для прогнозирования.")
         base_data["bootstrap_mode"] = "full"
+        base_data["loading"] = False
+        base_data["deferred"] = False
+        base_data["base_forecast_pending"] = False
+        base_data["base_forecast_ready"] = True
+        base_data["loading_status_message"] = ""
         base_data["decision_support_pending"] = False
         base_data["decision_support_ready"] = include_decision_support
         base_data["decision_support_error"] = False
@@ -302,16 +510,14 @@ def get_forecasting_data(
     selected_cause = _resolve_option_value(option_catalog["causes"], cause)
     selected_object_category = _resolve_option_value(option_catalog["object_categories"], object_category)
 
-    filtered_records, _, filtered_notes = _collect_forecasting_inputs(
+    filtered_records_count = _count_forecasting_records_sql(
         source_tables,
+        history_window=selected_history_window,
         district=selected_district,
         cause=selected_cause,
         object_category=selected_object_category,
-        history_window=selected_history_window,
+        metadata_items=metadata_items,
     )
-    if filtered_notes:
-        preload_notes = preload_notes + filtered_notes
-
     daily_history = _build_daily_history_sql(
         source_tables,
         history_window=selected_history_window,
@@ -332,8 +538,7 @@ def get_forecasting_data(
         "breakdown": _build_forecast_breakdown_chart(forecast_rows, recent_average),
         "weekday": _build_weekday_chart(weekday_profile),
     }
-    geo_prediction = _build_geo_prediction(filtered_records, days_ahead)
-    charts["geo"] = _build_geo_chart(geo_prediction)
+    geo_prediction: Dict[str, Any] = {}
     decision_support_pending = not include_decision_support
     decision_support_ready = False
     decision_support_error = False
@@ -348,8 +553,8 @@ def get_forecasting_data(
             selected_object_category=selected_object_category,
             history_window=selected_history_window,
             planning_horizon_days=days_ahead,
-            geo_prediction=geo_prediction,
         )
+        geo_prediction = risk_prediction.get("geo_prediction") or {}
         decision_support_ready = True
     except Exception as exc:
         risk_prediction = _empty_forecasting_data(
@@ -394,9 +599,10 @@ def get_forecasting_data(
                 message=decision_support_status_message,
             )
             risk_prediction["notes"].append(f"Техническая причина: {exc}")
+    charts["geo"] = _build_geo_chart(geo_prediction)
     notes = preload_notes + _build_notes(
         metadata=metadata_items,
-        filtered_records=filtered_records,
+        filtered_records_count=filtered_records_count,
         daily_history=daily_history,
         temperature_value=temperature_value,
     )
@@ -409,7 +615,7 @@ def get_forecasting_data(
         selected_object_category=selected_object_category,
         temperature_value=temperature_value,
         daily_history=daily_history,
-        filtered_records=filtered_records,
+        filtered_records_count=filtered_records_count,
         forecast_rows=forecast_rows,
         history_window=selected_history_window,
     )
@@ -435,8 +641,13 @@ def get_forecasting_data(
 
     payload = {
         "generated_at": generated_at,
-        "has_data": bool(filtered_records),
+        "has_data": filtered_records_count > 0,
         "bootstrap_mode": "full" if decision_support_ready else "partial",
+        "loading": False,
+        "deferred": False,
+        "base_forecast_pending": False,
+        "base_forecast_ready": True,
+        "loading_status_message": "",
         "decision_support_pending": decision_support_pending,
         "decision_support_ready": decision_support_ready,
         "decision_support_error": decision_support_error,
@@ -627,6 +838,11 @@ def _empty_forecasting_data(
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,
         "bootstrap_mode": "empty",
+        "loading": False,
+        "deferred": False,
+        "base_forecast_pending": False,
+        "base_forecast_ready": False,
+        "loading_status_message": "",
         "decision_support_pending": False,
         "decision_support_ready": False,
         "decision_support_error": False,
@@ -763,7 +979,7 @@ def _build_summary(
     selected_object_category: str,
     temperature_value: Optional[float],
     daily_history: List[Dict[str, Any]],
-    filtered_records: List[Dict[str, Any]],
+    filtered_records_count: int,
     forecast_rows: List[Dict[str, Any]],
     history_window: str,
 ) -> Dict[str, str]:
@@ -781,20 +997,12 @@ def _build_summary(
     scenario_label, _scenario_tone = _forecast_level_label(predicted_average, recent_average if recent_average > 0 else historical_average)
     peak_row = max(forecast_rows, key=lambda item: float(item["forecast_value"])) if forecast_rows else None
 
-    slice_parts = []
-    if selected_district != "all":
-        slice_parts.append(f"район: {selected_district}")
-    if selected_cause != "all":
-        slice_parts.append(f"причина: {selected_cause}")
-    if selected_object_category != "all":
-        slice_parts.append(f"категория: {selected_object_category}")
-
     return {
         "selected_table_label": _table_selection_label(selected_table),
-        "slice_label": " | ".join(slice_parts) if slice_parts else "Все пожары выбранной истории",
+        "slice_label": _build_slice_label(selected_district, selected_cause, selected_object_category),
         "history_period_label": _format_period(history_dates),
         "history_window_label": _history_window_label(history_window),
-        "fires_count_display": _format_integer(len(filtered_records)),
+        "fires_count_display": _format_integer(filtered_records_count),
         "history_days_display": _format_integer(len(daily_history)),
         "active_days_display": _format_integer(active_days),
         "active_days_share_display": _format_percent(active_days_share),
@@ -914,7 +1122,7 @@ def _build_insights(
     return insights[:4]
 def _build_notes(
     metadata: Dict[str, Any],
-    filtered_records: List[Dict[str, Any]],
+    filtered_records_count: int,
     daily_history: List[Dict[str, Any]],
     temperature_value: Optional[float],
 ) -> List[str]:
@@ -927,7 +1135,7 @@ def _build_notes(
 
     if not any(item["resolved_columns"].get("date") for item in metadata_items):
         notes.append("В выбранных таблицах не найдена дата возникновения пожара.")
-    if not filtered_records:
+    if filtered_records_count <= 0:
         notes.append("По выбранным фильтрам нет пожаров в истории. Попробуйте снять часть ограничений.")
     elif len(daily_history) < 14:
         notes.append("История короткая, поэтому прогноз может быть шумным.")

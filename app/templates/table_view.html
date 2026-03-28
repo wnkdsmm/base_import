@@ -157,6 +157,16 @@
             </span>
         </div>
 
+        <div id="tableInlineError" class="analysis-error-card table-inline-error is-hidden" aria-live="polite">
+            <div class="analysis-error-copy">
+                <strong>Не удалось загрузить страницу таблицы</strong>
+                <span id="tableInlineErrorMessage">Попробуйте повторить запрос еще раз.</span>
+            </div>
+            <div class="analysis-inline-actions">
+                <button id="tableInlineRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+            </div>
+        </div>
+
         <div class="table-pagination-toolbar">
             <form id="tablePaginationForm" class="table-pagination-form" method="get" action="/tables/{{ table_name }}">
                 <label class="filter-field table-pagination-field">

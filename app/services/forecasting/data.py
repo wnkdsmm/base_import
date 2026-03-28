@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 from statistics import mean, pstdev
@@ -188,6 +189,151 @@ def _resolve_history_window_min_year(metadata_items: Sequence[Dict[str, Any]], h
     return min_year
 
 
+def _materialized_view_suffix(value: str) -> str:
+    raw_value = str(value or "").strip()
+    normalized = "".join(character.lower() if character.isalnum() else "_" for character in raw_value)
+    normalized = "_".join(part for part in normalized.split("_") if part)
+    if not normalized:
+        normalized = "table"
+    digest = hashlib.sha1(raw_value.encode("utf-8")).hexdigest()[:8]
+    return f"{normalized[:32]}_{digest}"
+
+
+def _daily_aggregate_view_name(table_name: str) -> str:
+    return f"mv_forecasting_daily_{_materialized_view_suffix(table_name)}"
+
+
+def _daily_aggregate_view_exists(table_name: str) -> bool:
+    if engine.dialect.name != "postgresql":
+        return False
+
+    cache_key = _build_sql_cache_key("daily_aggregate_view_exists", [table_name])
+    cached_value = _FORECASTING_SQL_CACHE.get(cache_key)
+    if cached_value is not None:
+        return bool(cached_value)
+
+    query = text(
+        """
+        SELECT 1
+        FROM pg_matviews
+        WHERE schemaname = current_schema() AND matviewname = :view_name
+        """
+    )
+    with engine.connect() as conn:
+        exists = conn.execute(query, {"view_name": _daily_aggregate_view_name(table_name)}).scalar() is not None
+    _FORECASTING_SQL_CACHE.set(cache_key, exists)
+    return exists
+
+
+def _build_materialized_scope_conditions(
+    resolved_columns: Dict[str, str],
+    min_year: Optional[int] = None,
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+) -> tuple[list[str], Dict[str, Any], bool]:
+    conditions = ["fire_date IS NOT NULL"]
+    params: Dict[str, Any] = {}
+    if min_year is not None:
+        conditions.append("EXTRACT(YEAR FROM fire_date) >= :min_year")
+        params["min_year"] = min_year
+
+    for field_name, selected_value, column_name in (
+        ("district", _normalize_filter_value(district), "district_value"),
+        ("cause", _normalize_filter_value(cause), "cause_value"),
+        ("object_category", _normalize_filter_value(object_category), "object_category_value"),
+    ):
+        if selected_value == "all":
+            continue
+        if not resolved_columns.get(field_name):
+            return conditions, params, False
+        conditions.append(f"{column_name} = :{field_name}")
+        params[field_name] = selected_value
+
+    return conditions, params, True
+
+
+def _build_daily_aggregate_view_sql(table_name: str, resolved_columns: Dict[str, str]) -> str:
+    date_column = resolved_columns.get("date")
+    if not date_column:
+        return ""
+
+    date_expression = _date_expression(date_column)
+    district_expression = _text_expression(resolved_columns["district"]) if resolved_columns.get("district") else "NULL::text"
+    cause_expression = _text_expression(resolved_columns["cause"]) if resolved_columns.get("cause") else "NULL::text"
+    object_expression = _text_expression(resolved_columns["object_category"]) if resolved_columns.get("object_category") else "NULL::text"
+    temperature_expression = _numeric_expression_for_column(resolved_columns["temperature"]) if resolved_columns.get("temperature") else None
+    avg_temperature_sql = f"AVG({temperature_expression})" if temperature_expression else "NULL::double precision"
+    temperature_samples_sql = f"COUNT({temperature_expression})" if temperature_expression else "0::bigint"
+
+    return f"""
+        SELECT
+            {date_expression} AS fire_date,
+            {district_expression} AS district_value,
+            {cause_expression} AS cause_value,
+            {object_expression} AS object_category_value,
+            COUNT(*) AS incident_count,
+            {avg_temperature_sql} AS avg_temperature,
+            {temperature_samples_sql} AS temperature_samples
+        FROM {_quote_identifier(table_name)}
+        WHERE {date_expression} IS NOT NULL
+        GROUP BY fire_date, district_value, cause_value, object_category_value
+    """
+
+
+def prepare_forecasting_materialized_views(
+    source_tables: Optional[Sequence[str]] = None,
+    *,
+    refresh_existing: bool = True,
+) -> List[str]:
+    if engine.dialect.name != "postgresql":
+        return []
+
+    table_options = _build_forecasting_table_options()
+    available_tables = [option["value"] for option in table_options if option.get("value") and option["value"] != "all"]
+    target_tables = [table_name for table_name in (source_tables or available_tables) if table_name in available_tables]
+    metadata_items, _notes = _collect_forecasting_metadata(target_tables)
+    prepared_views: List[str] = []
+
+    with engine.begin() as conn:
+        for metadata in metadata_items:
+            table_name = str(metadata.get("table_name") or "")
+            resolved_columns = metadata.get("resolved_columns") or {}
+            view_sql = _build_daily_aggregate_view_sql(table_name, resolved_columns)
+            if not table_name or not view_sql:
+                continue
+
+            view_name = _daily_aggregate_view_name(table_name)
+            exists_query = text(
+                """
+                SELECT 1
+                FROM pg_matviews
+                WHERE schemaname = current_schema() AND matviewname = :view_name
+                """
+            )
+            exists = conn.execute(exists_query, {"view_name": view_name}).scalar() is not None
+            if not exists:
+                conn.execute(text(f"CREATE MATERIALIZED VIEW {_quote_identifier(view_name)} AS {view_sql}"))
+                conn.execute(
+                    text(
+                        f"CREATE INDEX IF NOT EXISTS {_quote_identifier(f'idx_{_materialized_view_suffix(table_name)}_fire_date')} "
+                        f"ON {_quote_identifier(view_name)} (fire_date)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        f"CREATE INDEX IF NOT EXISTS {_quote_identifier(f'idx_{_materialized_view_suffix(table_name)}_filters')} "
+                        f"ON {_quote_identifier(view_name)} (fire_date, district_value, cause_value, object_category_value)"
+                    )
+                )
+            elif refresh_existing:
+                conn.execute(text(f"REFRESH MATERIALIZED VIEW {_quote_identifier(view_name)}"))
+            prepared_views.append(view_name)
+
+    clear_forecasting_sql_cache()
+    return prepared_views
+
+
 def _build_scope_conditions(
     resolved_columns: Dict[str, str],
     min_year: Optional[int] = None,
@@ -298,6 +444,29 @@ def _load_option_counts(
     field_name: str,
     min_year: Optional[int] = None,
 ) -> Counter:
+    if resolved_columns.get(field_name) and _daily_aggregate_view_exists(table_name):
+        conditions, params, scope_is_valid = _build_materialized_scope_conditions(resolved_columns, min_year=min_year)
+        if not scope_is_valid:
+            return Counter()
+        query = text(
+            f"""
+            SELECT {field_name}_value AS option_value, SUM(incident_count) AS option_count
+            FROM {_quote_identifier(_daily_aggregate_view_name(table_name))}
+            WHERE {" AND ".join(conditions)} AND {field_name}_value IS NOT NULL
+            GROUP BY option_value
+            """
+        )
+        with engine.connect() as conn:
+            rows = conn.execute(query, params).mappings().all()
+
+        counter: Counter = Counter()
+        for row in rows:
+            option_value = _clean_option_value(row.get("option_value"))
+            option_count = int(row.get("option_count") or 0)
+            if option_value and option_count > 0:
+                counter[option_value] += option_count
+        return counter
+
     date_expression, conditions, params, scope_is_valid = _build_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -376,6 +545,48 @@ def _load_daily_history_rows(
     object_category: str = "all",
     min_year: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
+    if _daily_aggregate_view_exists(table_name):
+        conditions, params, scope_is_valid = _build_materialized_scope_conditions(
+            resolved_columns,
+            min_year=min_year,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+        )
+        if not scope_is_valid:
+            return []
+
+        query = text(
+            f"""
+            SELECT
+                fire_date,
+                SUM(incident_count) AS incident_count,
+                CASE
+                    WHEN SUM(temperature_samples) > 0
+                    THEN SUM(COALESCE(avg_temperature, 0.0) * temperature_samples) / SUM(temperature_samples)
+                    ELSE NULL
+                END AS avg_temperature,
+                SUM(temperature_samples) AS temperature_samples
+            FROM {_quote_identifier(_daily_aggregate_view_name(table_name))}
+            WHERE {" AND ".join(conditions)}
+            GROUP BY fire_date
+            ORDER BY fire_date
+            """
+        )
+        with engine.connect() as conn:
+            rows = conn.execute(query, params).mappings().all()
+
+        return [
+            {
+                "date": row.get("fire_date"),
+                "count": int(row.get("incident_count") or 0),
+                "avg_temperature": _to_float_or_none(row.get("avg_temperature")),
+                "temperature_samples": int(row.get("temperature_samples") or 0),
+            }
+            for row in rows
+            if row.get("fire_date") is not None
+        ]
+
     date_expression, conditions, params, scope_is_valid = _build_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -421,6 +632,55 @@ def _load_daily_history_rows(
         for row in rows
         if row.get("fire_date") is not None
     ]
+
+
+def _load_scope_total_count(
+    table_name: str,
+    resolved_columns: Dict[str, str],
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    min_year: Optional[int] = None,
+) -> int:
+    if _daily_aggregate_view_exists(table_name):
+        conditions, params, scope_is_valid = _build_materialized_scope_conditions(
+            resolved_columns,
+            min_year=min_year,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+        )
+        if not scope_is_valid:
+            return 0
+        query = text(
+            f"""
+            SELECT COALESCE(SUM(incident_count), 0) AS total_count
+            FROM {_quote_identifier(_daily_aggregate_view_name(table_name))}
+            WHERE {" AND ".join(conditions)}
+            """
+        )
+        with engine.connect() as conn:
+            return int(conn.execute(query, params).scalar() or 0)
+
+    date_expression, conditions, params, scope_is_valid = _build_scope_conditions(
+        resolved_columns,
+        min_year=min_year,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+    )
+    if date_expression is None or not scope_is_valid:
+        return 0
+
+    query = text(
+        f"""
+        SELECT COUNT(*) AS total_count
+        FROM {_quote_identifier(table_name)}
+        WHERE {" AND ".join(conditions)}
+        """
+    )
+    with engine.connect() as conn:
+        return int(conn.execute(query, params).scalar() or 0)
 
 
 def _build_daily_history_sql(
@@ -520,6 +780,48 @@ def _build_daily_history_sql(
         current_date += timedelta(days=1)
 
     return _FORECASTING_SQL_CACHE.set(cache_key, history)
+
+
+def _count_forecasting_records_sql(
+    source_tables: Sequence[str],
+    history_window: str = "all",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+) -> int:
+    normalized_tables = [str(table_name) for table_name in source_tables if str(table_name or "").strip()]
+    cache_key = _build_sql_cache_key(
+        "filtered_record_count",
+        normalized_tables,
+        history_window,
+        _normalize_filter_value(district),
+        _normalize_filter_value(cause),
+        _normalize_filter_value(object_category),
+    )
+    cached_count = _FORECASTING_SQL_CACHE.get(cache_key)
+    if cached_count is not None:
+        return int(cached_count)
+
+    local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
+    min_year = _resolve_history_window_min_year(local_metadata_items, history_window)
+    total_count = 0
+
+    for metadata in local_metadata_items:
+        table_name = str(metadata.get("table_name") or "")
+        resolved_columns = metadata.get("resolved_columns") or {}
+        if not table_name:
+            continue
+        total_count += _load_scope_total_count(
+            table_name,
+            resolved_columns,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            min_year=min_year,
+        )
+
+    return int(_FORECASTING_SQL_CACHE.set(cache_key, total_count))
 def _build_option_catalog(records: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, str]]]:
     return {
         "districts": _build_options(records, "district", "\u0412\u0441\u0435 \u0440\u0430\u0439\u043e\u043d\u044b"),

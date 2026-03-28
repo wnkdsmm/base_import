@@ -11,7 +11,12 @@ from app.log_manager import get_logs
 from app.services.clustering_service import get_clustering_data, get_clustering_shell_context
 from app.services.dashboard_service import get_dashboard_page_context
 from app.services.forecasting_service import get_forecasting_data, get_forecasting_shell_context
-from app.services.ml_model_service import get_ml_model_data, get_ml_model_shell_context
+from app.services.ml_model_service import (
+    get_ml_job_status,
+    get_ml_model_data,
+    get_ml_model_shell_context,
+    start_ml_model_job,
+)
 from app.services.pipeline_service import import_uploaded_data, invalidate_runtime_caches, run_profiling_for_table, save_uploaded_file
 from app.services.table_summary import build_table_page_summary
 from app.state import SESSION_COOKIE_NAME, job_store
@@ -147,6 +152,29 @@ def ml_model_data_endpoint(
             f"Техническая причина: {exc}",
         ] + [note for note in payload.get("notes", []) if note]
         return utf8_json(payload, status_code=500)
+
+
+@router.post("/api/ml-model-jobs")
+def start_ml_model_job_endpoint(request: Request, payload: dict = Body(...)):
+    session_id = _ensure_session_id(request)
+    result = start_ml_model_job(
+        session_id=session_id,
+        table_name=str(payload.get("table_name") or "all"),
+        cause=str(payload.get("cause") or "all"),
+        object_category=str(payload.get("object_category") or "all"),
+        temperature=str(payload.get("temperature") or ""),
+        forecast_days=str(payload.get("forecast_days") or "14"),
+        history_window=str(payload.get("history_window") or "all"),
+    )
+    return utf8_json(result, session_id=session_id)
+
+
+@router.get("/api/ml-model-jobs/{job_id}")
+def ml_model_job_status_endpoint(request: Request, job_id: str):
+    session_id = _ensure_session_id(request)
+    result = get_ml_job_status(session_id=session_id, job_id=job_id)
+    status_code = 404 if result.get("status") == "missing" else 200
+    return utf8_json(result, status_code=status_code, session_id=session_id)
 
 
 @router.get("/api/tables/{table_name}/page")

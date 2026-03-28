@@ -45,6 +45,10 @@ def build_decision_support_payload(
     feature_cards = _build_feature_cards(metadata_items)
     quality_passport = _build_quality_passport(feature_cards, metadata_items)
     coverage_display = f"{sum(1 for item in feature_cards if item['status'] != 'missing')} из {len(feature_cards)}" if feature_cards else "0 из 0"
+    if geo_prediction is None and filtered_records:
+        from app.services.forecasting.geo import _build_geo_prediction
+
+        geo_prediction = _build_geo_prediction(filtered_records, planning_horizon_days)
     geo_summary = _build_geo_summary(geo_prediction or {})
     requested_profile = get_risk_weight_profile(weight_mode)
     requested_weight_profile = build_weight_profile_snapshot(requested_profile)
@@ -71,6 +75,7 @@ def build_decision_support_payload(
             "historical_validation": empty_historical_validation_payload(requested_weight_profile.get("mode_label") or "Адаптивные веса"),
             "notes": notes,
             "geo_summary": geo_summary,
+            "geo_prediction": geo_prediction or {},
         }
 
     resolved_profile = resolve_weight_profile_for_records(filtered_records, planning_horizon_days, weight_mode=weight_mode)
@@ -110,6 +115,7 @@ def build_decision_support_payload(
         "historical_validation": historical_validation,
         "notes": _build_risk_notes(feature_cards, preload_notes, weight_profile, historical_validation),
         "geo_summary": geo_summary,
+        "geo_prediction": geo_prediction or {},
     }
 
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import RLock
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from config.paths import UPLOADS_DIR
@@ -29,6 +30,9 @@ class JobState:
     original_filename: Optional[str] = None
     history: Dict[str, dict] = field(default_factory=dict)
     logs: list[str] = field(default_factory=list)
+    result: Any = None
+    error_message: str = ""
+    meta: Dict[str, Any] = field(default_factory=dict)
     status: str = "created"
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)
@@ -77,6 +81,9 @@ class JobStore:
             job.original_filename = None
             job.history = {}
             job.logs = []
+            job.result = None
+            job.error_message = ""
+            job.meta = {}
             job.status = "created"
             job.created_at = now
             job.updated_at = now
@@ -174,6 +181,47 @@ class JobStore:
             job.status = status
             self._touch_job(session_id, job)
 
+    def set_job_result(self, session_id: str, job_id: str, result: Any) -> None:
+        with self._lock:
+            job = self._require_job(session_id, job_id)
+            job.result = deepcopy(result)
+            job.error_message = ""
+            self._touch_job(session_id, job)
+
+    def get_job_result(self, session_id: str, job_id: str) -> Any:
+        with self._lock:
+            job = self._require_job(session_id, job_id)
+            return deepcopy(job.result)
+
+    def set_job_error(self, session_id: str, job_id: str, error_message: str) -> None:
+        with self._lock:
+            job = self._require_job(session_id, job_id)
+            job.error_message = error_message
+            self._touch_job(session_id, job)
+
+    def update_job_meta(self, session_id: str, job_id: str, **meta: Any) -> None:
+        with self._lock:
+            job = self._require_job(session_id, job_id)
+            job.meta.update(deepcopy(meta))
+            self._touch_job(session_id, job)
+
+    def get_job_snapshot(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[dict]:
+        with self._lock:
+            job = self.resolve_job(session_id, job_id=job_id, kind=kind)
+            if job is None:
+                return None
+            return {
+                "job_id": job.job_id,
+                "kind": job.kind,
+                "status": job.status,
+                "logs": list(job.logs),
+                "result": deepcopy(job.result),
+                "error_message": job.error_message,
+                "meta": deepcopy(job.meta),
+                "created_at": job.created_at.isoformat(),
+                "updated_at": job.updated_at.isoformat(),
+            }
+
     def get_job_status(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[str]:
         with self._lock:
             job = self.resolve_job(session_id, job_id=job_id, kind=kind)
@@ -189,7 +237,14 @@ class JobStore:
             if job is None:
                 return False
 
-            if job.current_file_path is not None or job.logs or job.status not in FINAL_JOB_STATUSES:
+            if (
+                job.current_file_path is not None
+                or job.logs
+                or job.result is not None
+                or job.error_message
+                or job.meta
+                or job.status not in FINAL_JOB_STATUSES
+            ):
                 return False
 
             del session.jobs[job_id]
