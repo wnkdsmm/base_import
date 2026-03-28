@@ -5,14 +5,15 @@ import json
 from fastapi import APIRouter, Body, File, Form, Request, UploadFile
 from fastapi.responses import Response
 
-from app.db_views import create_modified_table, delete_table, delete_tables, get_table_columns, get_table_preview
+from app.db_views import create_modified_table, delete_table, delete_tables, get_table_columns, get_table_page, get_table_preview
 from app.log_manager import clear_logs as clear_job_logs
 from app.log_manager import get_logs
 from app.services.clustering_service import get_clustering_data, get_clustering_shell_context
 from app.services.dashboard_service import get_dashboard_page_context
-from app.services.forecasting_service import get_forecasting_data, get_forecasting_page_context
+from app.services.forecasting_service import get_forecasting_data, get_forecasting_shell_context
 from app.services.ml_model_service import get_ml_model_data, get_ml_model_shell_context
 from app.services.pipeline_service import import_uploaded_data, invalidate_runtime_caches, run_profiling_for_table, save_uploaded_file
+from app.services.table_summary import build_table_page_summary
 from app.state import SESSION_COOKIE_NAME, job_store
 from app.statistics import get_dashboard_data
 from core.processing.steps.keep_important_columns import get_column_matcher
@@ -27,7 +28,7 @@ def _ensure_session_id(request: Request) -> str:
 
 def utf8_json(payload: dict, status_code: int = 200, session_id: str | None = None) -> Response:
     response = Response(
-        content=json.dumps(payload, ensure_ascii=False),
+        content=json.dumps(payload, ensure_ascii=False, default=str),
         status_code=status_code,
         media_type="application/json; charset=utf-8",
     )
@@ -61,6 +62,7 @@ def forecasting_data_endpoint(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    include_decision_support: bool = True,
 ):
     try:
         return get_forecasting_data(
@@ -71,9 +73,10 @@ def forecasting_data_endpoint(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+            include_decision_support=include_decision_support,
         )
     except Exception:
-        return get_forecasting_page_context(
+        return get_forecasting_shell_context(
             table_name=table_name,
             district=district,
             cause=cause,
@@ -144,6 +147,50 @@ def ml_model_data_endpoint(
             f"Техническая причина: {exc}",
         ] + [note for note in payload.get("notes", []) if note]
         return utf8_json(payload, status_code=500)
+
+
+@router.get("/api/tables/{table_name}/page")
+def table_page_endpoint(table_name: str, page: int = 1, page_size: int = 100):
+    try:
+        table_page = get_table_page(table_name, page=page, page_size=page_size)
+    except ValueError as exc:
+        return utf8_json(
+            {
+                "ok": False,
+                "table_name": table_name,
+                "message": str(exc),
+            },
+            status_code=400,
+        )
+    except Exception as exc:
+        return utf8_json(
+            {
+                "ok": False,
+                "table_name": table_name,
+                "message": f"Не удалось загрузить страницу таблицы: {exc}",
+            },
+            status_code=404,
+        )
+
+    table_summary = build_table_page_summary(
+        table_name=table_name,
+        columns=table_page["columns"],
+        rows=table_page["rows"],
+        total_rows=table_page["total_rows"],
+        page_row_start=table_page["page_row_start"],
+        page_row_end=table_page["page_row_end"],
+    )
+    return utf8_json(
+        {
+            "ok": True,
+            "table_name": table_name,
+            "columns": table_page["columns"],
+            "rows": table_page["rows"],
+            "pagination": table_page,
+            "table_summary": table_summary,
+            "message": "Страница таблицы загружена.",
+        }
+    )
 
 
 @router.delete("/api/tables/{table_name}")

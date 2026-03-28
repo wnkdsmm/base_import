@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from app.db_views import get_all_tables, get_table_data
+from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS, get_all_tables, get_table_page
 from app.plotly_bundle import get_plotly_bundle
 from app.services.clustering_service import get_clustering_page_context
 from app.services.dashboard_service import get_dashboard_page_context, get_dashboard_shell_context
@@ -16,7 +16,7 @@ from app.services.table_options import (
     get_fire_map_table_options,
     resolve_selected_table,
 )
-from app.services.table_summary import build_table_summary
+from app.services.table_summary import build_table_page_summary
 from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
 from config.paths import STATIC_DIR, TEMPLATES_DIR
 from core.processing.steps.keep_important_columns import get_mandatory_feature_catalog
@@ -299,15 +299,29 @@ async def list_tables(request: Request):
 
 
 @router.get("/tables/{table_name}", response_class=HTMLResponse)
-async def view_table(request: Request, table_name: str):
+async def view_table(
+    request: Request,
+    table_name: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(DEFAULT_TABLE_PAGE_SIZE, ge=1),
+):
     try:
-        columns, rows = get_table_data(table_name, limit=None)
+        table_page = get_table_page(table_name, page=page, page_size=page_size)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=404, detail="Table not found") from exc
 
-    table_summary = build_table_summary(table_name, columns, rows)
+    columns = table_page["columns"]
+    rows = table_page["rows"]
+    table_summary = build_table_page_summary(
+        table_name=table_name,
+        columns=columns,
+        rows=rows,
+        total_rows=table_page["total_rows"],
+        page_row_start=table_page["page_row_start"],
+        page_row_end=table_page["page_row_end"],
+    )
 
     return templates.TemplateResponse(
         "table_view.html",
@@ -316,7 +330,10 @@ async def view_table(request: Request, table_name: str):
             table_name=table_name,
             columns=columns,
             rows=rows,
+            pagination=table_page,
+            page_size_options=TABLE_PAGE_SIZE_OPTIONS,
             table_summary=table_summary,
+            table_view_js_version=_static_version("js/table_view.js"),
         ),
     )
 

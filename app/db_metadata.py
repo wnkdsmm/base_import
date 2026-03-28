@@ -21,6 +21,13 @@ def invalidate_db_metadata_cache(table_name: Optional[str] = None) -> None:
     else:
         _TABLE_COLUMNS_CACHE.delete(str(table_name))
 
+    try:
+        from app.db_views import invalidate_table_order_cache
+
+        invalidate_table_order_cache(table_name)
+    except Exception:
+        pass
+
 
 
 def get_table_names_cached(force_refresh: bool = False) -> List[str]:

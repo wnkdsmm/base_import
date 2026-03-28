@@ -7,7 +7,7 @@
         return;
     }
 
-    const mobileBreakpoint = 960;
+    const mobileBreakpoint = 1200;
     const openLabel = 'Меню';
     const closeLabel = 'Закрыть';
     const body = document.body;

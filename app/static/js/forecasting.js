@@ -368,6 +368,57 @@
 
 
     var currentForecastData = window.__FIRE_FORECAST_INITIAL__ || null;
+    var forecastRequestToken = 0;
+
+    function buildForecastRequestQuery(baseQuery, includeDecisionSupport) {
+        var params = new URLSearchParams(baseQuery || '');
+        params.set('include_decision_support', includeDecisionSupport ? '1' : '0');
+        return params.toString();
+    }
+
+    function setDecisionSupportStatus(message, state) {
+        var node = byId('forecastDecisionSupportStatus');
+        var text = String(message == null ? '' : message).trim();
+        if (!node) {
+            return;
+        }
+
+        node.textContent = text;
+        node.classList.toggle('is-hidden', !text);
+        node.classList.remove('is-pending', 'is-ready', 'is-error');
+        if (text && state) {
+            node.classList.add('is-' + state);
+        }
+    }
+
+    function syncDecisionSupportStatus(data) {
+        if (!data) {
+            setDecisionSupportStatus('', '');
+            return;
+        }
+
+        if (data.decision_support_error) {
+            setDecisionSupportStatus(data.decision_support_status_message, 'error');
+            return;
+        }
+        if (data.decision_support_pending) {
+            setDecisionSupportStatus(data.decision_support_status_message, 'pending');
+            return;
+        }
+        if (data.decision_support_ready && data.decision_support_status_message) {
+            setDecisionSupportStatus(data.decision_support_status_message, 'ready');
+            return;
+        }
+        setDecisionSupportStatus('', '');
+    }
+
+    async function requestForecastPayload(query) {
+        var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
+        if (!response.ok) {
+            throw new Error('fetch failed');
+        }
+        return response.json();
+    }
 
     function applyToneClass(node, tone) {
         if (!node) {
@@ -781,6 +832,7 @@
         renderChart(charts.weekday, 'forecastWeekdayChart', 'forecastWeekdayChartFallback');
         var geoRendered = renderChart(charts.geo, 'forecastGeoChart', 'forecastGeoChartFallback');
         syncGeoPanel(geo, geoRendered);
+        syncDecisionSupportStatus(data);
         updateForecastBriefExport({
             table_name: filters.table_name || '',
             district: filters.district || 'all',
@@ -792,6 +844,22 @@
         });
     }
 
+    async function fetchDecisionSupport(baseQuery, requestToken) {
+        try {
+            var data = await requestForecastPayload(buildForecastRequestQuery(baseQuery, true));
+            if (requestToken !== forecastRequestToken) {
+                return;
+            }
+            applyForecastData(data);
+        } catch (error) {
+            if (requestToken !== forecastRequestToken) {
+                return;
+            }
+            console.error(error);
+            setDecisionSupportStatus('Не удалось догрузить блок приоритетов территорий. Базовый сценарный прогноз уже показан.', 'error');
+        }
+    }
+
     async function fetchForecastData() {
         var form = byId('forecastForm');
         var button = byId('forecastRefreshButton');
@@ -799,25 +867,30 @@
             return;
         }
 
-        var params = new URLSearchParams(new FormData(form));
-        var query = params.toString();
+        var requestToken = forecastRequestToken + 1;
+        var baseQuery = new URLSearchParams(new FormData(form)).toString();
+        var query = buildForecastRequestQuery(baseQuery, false);
+        forecastRequestToken = requestToken;
         if (button) {
             button.disabled = true;
         }
+        setDecisionSupportStatus('Собираем базовый сценарный прогноз...', 'pending');
 
         try {
-            var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
-            if (!response.ok) {
-                throw new Error('fetch failed');
+            var data = await requestForecastPayload(query);
+            if (requestToken !== forecastRequestToken) {
+                return;
             }
-            var data = await response.json();
             applyForecastData(data);
-            window.history.replaceState({}, '', query ? '/forecasting?' + query : '/forecasting');
+            window.history.replaceState({}, '', baseQuery ? '/forecasting?' + baseQuery : '/forecasting');
+            if (data.decision_support_pending) {
+                void fetchDecisionSupport(baseQuery, requestToken);
+            }
         } catch (error) {
             console.error(error);
             form.submit();
         } finally {
-            if (button) {
+            if (button && requestToken === forecastRequestToken) {
                 button.disabled = false;
             }
         }
@@ -845,10 +918,14 @@
             });
         }
 
+        syncBriefLink();
         if (initialData && initialData.bootstrap_mode !== 'deferred') {
             applyForecastData(initialData);
+            if (initialData.decision_support_pending && form) {
+                forecastRequestToken += 1;
+                void fetchDecisionSupport(new URLSearchParams(new FormData(form)).toString(), forecastRequestToken);
+            }
         } else {
-            syncBriefLink();
             fetchForecastData();
         }
     });

@@ -63,6 +63,7 @@ def _build_forecasting_cache_key(
     temperature: str,
     days_ahead: int,
     history_window: str,
+    include_decision_support: bool,
 ) -> Tuple[str, ...]:
     return (
         selected_table,
@@ -73,6 +74,7 @@ def _build_forecasting_cache_key(
         _normalize_forecasting_cache_value(temperature),
         str(days_ahead),
         history_window,
+        "full" if include_decision_support else "core",
     )
 
 
@@ -132,24 +134,122 @@ def get_forecasting_shell_context(
     forecast_days: str = "14",
     history_window: str = "all",
 ) -> Dict[str, Any]:
-    table_options = _build_forecasting_table_options()
-    selected_table = _resolve_forecasting_selection(table_options, table_name)
-    days_ahead = _parse_forecast_days(forecast_days)
-    selected_history_window = _parse_history_window(history_window)
-    initial_data = _empty_forecasting_data(
-        table_options,
-        selected_table,
-        days_ahead,
-        temperature,
-        selected_history_window,
-    )
-    initial_data["bootstrap_mode"] = "deferred"
+    try:
+        initial_data = get_forecasting_data(
+            table_name=table_name,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+            include_decision_support=False,
+        )
+    except Exception:
+        table_options = _build_forecasting_table_options()
+        selected_table = _resolve_forecasting_selection(table_options, table_name)
+        days_ahead = _parse_forecast_days(forecast_days)
+        selected_history_window = _parse_history_window(history_window)
+        initial_data = _empty_forecasting_data(
+            table_options,
+            selected_table,
+            days_ahead,
+            temperature,
+            selected_history_window,
+        )
+        initial_data["bootstrap_mode"] = "deferred"
     return {
         "generated_at": _format_datetime(datetime.now()),
         "initial_data": initial_data,
         "plotly_js": "",
         "has_data": bool(initial_data["filters"]["available_tables"]),
     }
+
+
+def _build_pending_decision_support_payload(
+    *,
+    table_options: List[Dict[str, str]],
+    selected_table: str,
+    forecast_days: int,
+    temperature: str,
+    history_window: str,
+    feature_cards: List[Dict[str, str]],
+    message: str,
+) -> Dict[str, Any]:
+    risk_prediction = _empty_forecasting_data(
+        table_options=table_options,
+        selected_table=selected_table,
+        forecast_days=forecast_days,
+        temperature=temperature,
+        history_window=history_window,
+    )["risk_prediction"]
+    risk_prediction["feature_cards"] = feature_cards
+    risk_prediction["top_territory_label"] = "Подготавливается"
+    risk_prediction["top_territory_explanation"] = message
+    risk_prediction["top_territory_confidence_label"] = "Подготавливается"
+    risk_prediction["top_territory_confidence_score_display"] = "..."
+    risk_prediction["top_territory_confidence_note"] = message
+    risk_prediction["notes"] = [message]
+    risk_prediction["quality_passport"]["confidence_label"] = "Подготавливается"
+    risk_prediction["quality_passport"]["confidence_score_display"] = "..."
+    risk_prediction["quality_passport"]["confidence_tone"] = "sand"
+    risk_prediction["quality_passport"]["validation_label"] = "Фоновая догрузка"
+    risk_prediction["quality_passport"]["validation_summary"] = message
+    risk_prediction["quality_passport"]["reliability_notes"] = [message]
+    risk_prediction["weight_profile"]["status_label"] = "Фоновая догрузка"
+    risk_prediction["weight_profile"]["status_tone"] = "sand"
+    risk_prediction["weight_profile"]["notes"] = [message]
+    risk_prediction["historical_validation"]["status_label"] = "Фоновая догрузка"
+    risk_prediction["historical_validation"]["status_tone"] = "sand"
+    risk_prediction["historical_validation"]["summary"] = message
+    risk_prediction["historical_validation"]["notes"] = [message]
+    return risk_prediction
+
+
+def _build_pending_executive_brief(message: str) -> Dict[str, Any]:
+    executive_brief = empty_executive_brief()
+    executive_brief["lead"] = message
+    executive_brief["top_territory_label"] = "Подготавливается"
+    executive_brief["priority_reason"] = message
+    executive_brief["why_value"] = "Идет фоновый расчет"
+    executive_brief["why_meta"] = "Причина приоритета появится после догрузки ranking-блока."
+    executive_brief["action_label"] = "Подготавливается"
+    executive_brief["action_detail"] = "Рекомендации появятся сразу после завершения фонового расчета."
+    executive_brief["confidence_label"] = "Подготавливается"
+    executive_brief["confidence_score_display"] = "..."
+    executive_brief["confidence_tone"] = "sand"
+    executive_brief["confidence_summary"] = "Паспорт качества и доверие к данным догружаются фоном."
+    executive_brief["cards"] = [
+        {
+            "label": "Где риск выше",
+            "value": "Подготавливается",
+            "meta": message,
+            "tone": "sky",
+        },
+        {
+            "label": "Почему нужен приоритет",
+            "value": "Идет фоновый расчет",
+            "meta": "Причина приоритета появится после догрузки ranking-блока.",
+            "tone": "sand",
+        },
+        {
+            "label": "Доверие к данным",
+            "value": "Подготавливается",
+            "meta": "Паспорт качества догружается фоном.",
+            "tone": "sand",
+        },
+        {
+            "label": "Что сделать первым",
+            "value": "Подготавливается",
+            "meta": "Рекомендации появятся сразу после завершения фонового расчета.",
+            "tone": "forest",
+        },
+    ]
+    executive_brief["notes"] = [message]
+    executive_brief["export_excerpt"] = message
+    return executive_brief
+
+
 def get_forecasting_data(
     table_name: str = "all",
     district: str = "all",
@@ -158,6 +258,7 @@ def get_forecasting_data(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    include_decision_support: bool = True,
 ) -> Dict[str, Any]:
     table_options = _build_forecasting_table_options()
     selected_table = _resolve_forecasting_selection(table_options, table_name)
@@ -174,6 +275,7 @@ def get_forecasting_data(
         temperature=temperature,
         days_ahead=days_ahead,
         history_window=selected_history_window,
+        include_decision_support=include_decision_support,
     )
     cached_payload = _FORECASTING_CACHE.get(cache_key)
     if cached_payload is not None:
@@ -182,9 +284,15 @@ def get_forecasting_data(
     base_data = _empty_forecasting_data(table_options, selected_table, days_ahead, temperature, selected_history_window)
     if not source_tables:
         base_data["notes"].append("Нет доступных таблиц для прогнозирования.")
+        base_data["bootstrap_mode"] = "full"
+        base_data["decision_support_pending"] = False
+        base_data["decision_support_ready"] = include_decision_support
+        base_data["decision_support_error"] = False
+        base_data["decision_support_status_message"] = ""
         return _FORECASTING_CACHE.set(cache_key, base_data)
 
     metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
+    feature_cards = _build_feature_cards(metadata_items)
     option_catalog = _build_option_catalog_sql(
         source_tables,
         history_window=selected_history_window,
@@ -226,7 +334,13 @@ def get_forecasting_data(
     }
     geo_prediction = _build_geo_prediction(filtered_records, days_ahead)
     charts["geo"] = _build_geo_chart(geo_prediction)
+    decision_support_pending = not include_decision_support
+    decision_support_ready = False
+    decision_support_error = False
+    decision_support_status_message = ""
     try:
+        if not include_decision_support:
+            raise RuntimeError("__decision_support_deferred__")
         risk_prediction = build_decision_support_payload(
             source_tables=source_tables,
             selected_district=selected_district,
@@ -236,6 +350,7 @@ def get_forecasting_data(
             planning_horizon_days=days_ahead,
             geo_prediction=geo_prediction,
         )
+        decision_support_ready = True
     except Exception as exc:
         risk_prediction = _empty_forecasting_data(
             table_options=table_options,
@@ -244,18 +359,48 @@ def get_forecasting_data(
             temperature=temperature,
             history_window=selected_history_window,
         )["risk_prediction"]
-        risk_prediction["feature_cards"] = _build_feature_cards(metadata_items)
+        risk_prediction["feature_cards"] = feature_cards
         risk_prediction["notes"] = [
             "Блок поддержки решений по территории временно недоступен, поэтому страница показывает только эвристический сценарный прогноз.",
             f"Техническая причина: {exc}",
         ]
+        if str(exc) == "__decision_support_deferred__":
+            decision_support_status_message = (
+                "Базовый сценарный прогноз уже показан. "
+                "Приоритеты территорий, паспорт качества и рекомендации догружаются фоном."
+            )
+            risk_prediction = _build_pending_decision_support_payload(
+                table_options=table_options,
+                selected_table=selected_table,
+                forecast_days=days_ahead,
+                temperature=temperature,
+                history_window=selected_history_window,
+                feature_cards=feature_cards,
+                message=decision_support_status_message,
+            )
+        else:
+            decision_support_error = True
+            decision_support_status_message = (
+                "Блок приоритетов территорий временно недоступен. "
+                "Базовый сценарный прогноз показан без него."
+            )
+            risk_prediction = _build_pending_decision_support_payload(
+                table_options=table_options,
+                selected_table=selected_table,
+                forecast_days=days_ahead,
+                temperature=temperature,
+                history_window=selected_history_window,
+                feature_cards=feature_cards,
+                message=decision_support_status_message,
+            )
+            risk_prediction["notes"].append(f"Техническая причина: {exc}")
     notes = preload_notes + _build_notes(
         metadata=metadata_items,
         filtered_records=filtered_records,
         daily_history=daily_history,
         temperature_value=temperature_value,
     )
-    features = risk_prediction["feature_cards"] or _build_feature_cards(metadata_items)
+    features = risk_prediction["feature_cards"] or feature_cards
     insights = _build_insights(daily_history, forecast_rows, weekday_profile)
     summary = _build_summary(
         selected_table=selected_table,
@@ -269,10 +414,14 @@ def get_forecasting_data(
         history_window=selected_history_window,
     )
     generated_at = _format_datetime(datetime.now())
-    executive_brief = build_executive_brief_from_risk_payload(
-        risk_prediction,
-        notes=risk_prediction.get("notes"),
+    executive_brief = _build_pending_executive_brief(
+        decision_support_status_message or "Управленческий бриф будет доступен после расчета ranking-блока."
     )
+    if decision_support_ready:
+        executive_brief = build_executive_brief_from_risk_payload(
+            risk_prediction,
+            notes=risk_prediction.get("notes"),
+        )
     executive_brief["export_text"] = compose_executive_brief_text(
         executive_brief,
         scope_label=(
@@ -287,6 +436,11 @@ def get_forecasting_data(
     payload = {
         "generated_at": generated_at,
         "has_data": bool(filtered_records),
+        "bootstrap_mode": "full" if decision_support_ready else "partial",
+        "decision_support_pending": decision_support_pending,
+        "decision_support_ready": decision_support_ready,
+        "decision_support_error": decision_support_error,
+        "decision_support_status_message": decision_support_status_message,
         "model_description": SCENARIO_FORECAST_DESCRIPTION,
         "summary": summary,
         "quality_assessment": quality_assessment,
@@ -472,6 +626,11 @@ def _empty_forecasting_data(
     return {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,
+        "bootstrap_mode": "empty",
+        "decision_support_pending": False,
+        "decision_support_ready": False,
+        "decision_support_error": False,
+        "decision_support_status_message": "",
         "model_description": "",
         "summary": {
             "selected_table_label": _table_selection_label(selected_table),

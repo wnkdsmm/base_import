@@ -757,6 +757,64 @@
     }
 }
 
+@media (max-width: 1200px) {
+    .profiling-layout .profiling-page {
+        --threshold-label-size: clamp(15px, 0.45vw + 12px, 17px);
+        --threshold-value-size: clamp(18px, 0.55vw + 14px, 20px);
+        --threshold-help-size: 14px;
+        --section-title-size: clamp(23px, 1vw + 18px, 27px);
+    }
+
+    .profiling-page .hero-panel {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .threshold-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .threshold-field {
+        min-height: 0;
+        padding: 16px;
+        gap: 10px 14px;
+    }
+}
+
+@media (max-width: 720px) {
+    .profiling-layout .profiling-page {
+        --threshold-control-width: 100%;
+        --threshold-label-size: 15px;
+        --threshold-value-size: 18px;
+        --threshold-help-size: 13px;
+        --section-title-size: clamp(21px, 4vw, 24px);
+        --section-meta-size: 14px;
+    }
+
+    .profiling-page .hero-panel {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 16px;
+    }
+
+    .threshold-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .threshold-field {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "label"
+            "input"
+            "help";
+        min-height: 0;
+        padding: 16px;
+        gap: 10px;
+    }
+
+    .threshold-field input {
+        justify-self: stretch;
+    }
+}
+
 @media (max-width: 1380px) {
     .profiling-layout {
         height: auto;

@@ -186,6 +186,7 @@
         <div class="filter-summary" id="forecastSummaryLine">{{ summary.slice_label }} | Средняя вероятность: {{ summary.average_probability_display }} | Максимум: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | К последним 4 неделям: {{ summary.forecast_vs_recent_display }}</div>
     </section>
 
+        <div id="forecastDecisionSupportStatus" class="forecast-load-status{% if not data.decision_support_status_message %} is-hidden{% endif %}{% if data.decision_support_error %} is-error{% elif data.decision_support_pending %} is-pending{% elif data.decision_support_ready %} is-ready{% endif %}">{{ data.decision_support_status_message }}</div>
     <section class="stats-grid forecast-stats">
         <article class="stat-card stat-card-accent">
             <span class="stat-label">Пожаров в истории</span>

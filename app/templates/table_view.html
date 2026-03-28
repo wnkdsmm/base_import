@@ -22,7 +22,7 @@
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
         <h2>Просмотр</h2>
-        <p>Предпросмотр выбранной таблицы с фиксированной шапкой и горизонтальной прокруткой только внутри таблицы.</p>
+        <p>Предпросмотр выбранной таблицы с серверной пагинацией, фиксированной шапкой и горизонтальной прокруткой только внутри таблицы.</p>
     </div>
 
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
@@ -33,7 +33,7 @@
         <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
+        <a class="sidebar-link" href="/tables" aria-current="page">Таблицы</a>
     </nav>
 
     <div class="sidebar-status">
@@ -47,22 +47,52 @@
             <strong>{{ columns | length }}</strong>
         </div>
         <div class="status-line">
-            <span>Показано строк</span>
-            <strong>{{ rows | length }}</strong>
+            <span>Всего строк</span>
+            <strong id="sidebarTotalRows">{{ pagination.total_rows }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Текущая страница</span>
+            <strong id="sidebarPageNumber">{{ pagination.page }} / {{ pagination.total_pages }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Показан диапазон</span>
+            <strong id="sidebarShownRows">
+                {% if pagination.displayed_rows %}
+                {{ pagination.page_row_start }}-{{ pagination.page_row_end }}
+                {% else %}
+                0
+                {% endif %}
+            </strong>
         </div>
     </div>
 </aside>
 <a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 
-<main class="main dashboard-main simple-page-main" id="page-content">
+<main
+    class="main dashboard-main simple-page-main"
+    id="page-content"
+    data-table-name="{{ table_name }}"
+    data-columns-count="{{ columns | length }}"
+>
     <section class="hero-panel simple-page-intro">
         <div class="hero-copy">
             <span class="eyebrow">Предпросмотр таблицы</span>
             <h1>{{ table_name }}</h1>
-            <p class="subtitle">Ниже показаны все строки таблицы. Для широких наборов данных используется внутренний скролл контейнера, поэтому вся страница остаётся в пределах экрана.</p>
+            <p class="subtitle">Страница показывает только одну порцию строк за раз. Для больших таблиц PostgreSQL данные теперь подгружаются по страницам и не передаются в шаблон целиком.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Колонок: <strong>{{ columns | length }}</strong></span>
-                <span class="hero-tag">Строк показано: <strong>{{ rows | length }}</strong></span>
+                <span class="hero-tag">Всего строк: <strong id="tableHeroTotalRows">{{ pagination.total_rows }}</strong></span>
+                <span class="hero-tag">
+                    Диапазон:
+                    <strong id="tableHeroRange">
+                        {% if pagination.displayed_rows %}
+                        {{ pagination.page_row_start }}-{{ pagination.page_row_end }}
+                        {% else %}
+                        0
+                        {% endif %}
+                    </strong>
+                </span>
+                <span class="hero-tag">Страница: <strong id="tableHeroPage">{{ pagination.page }} / {{ pagination.total_pages }}</strong></span>
             </div>
             <div class="simple-page-actions">
                 <a class="primary-action" href="/tables">Вернуться к таблицам</a>
@@ -70,19 +100,22 @@
         </div>
         <div class="hero-side">
             <article class="hero-stat-card">
-                <span class="hero-stat-label">Режим</span>
-                <strong class="hero-stat-value"><small>Только просмотр</small></strong>
-                <span class="hero-stat-foot">Подходит для быстрой проверки структуры данных перед следующими шагами.</span>
+                <span class="hero-stat-label">Размер страницы</span>
+                <strong class="hero-stat-value" id="tablePageSizeValue">{{ pagination.page_size }}</strong>
+                <span class="hero-stat-foot">Доступные размеры: 50, 100 и 500 строк. Переключение страницы не требует повторной отправки всей таблицы в шаблон.</span>
             </article>
         </div>
     </section>
 
     <section class="panel">
         <div class="panel-head">
-            <h2>Краткая статистика по таблице</h2>
-            <span class="panel-meta">{{ table_summary.lead }}</span>
+            <div>
+                <h2>Краткая статистика по таблице</h2>
+                <span class="panel-meta" id="tableSummaryLead">{{ table_summary.lead }}</span>
+            </div>
+            <span class="panel-meta table-summary-scope" id="tableSummaryScopeNote">{{ table_summary.scope_note }}</span>
         </div>
-        <div class="stats-grid">
+        <div class="stats-grid" id="tableSummaryCards">
             {% for card in table_summary.cards %}
             <article class="stat-card">
                 <span class="stat-label">{{ card.label }}</span>
@@ -96,9 +129,9 @@
     <section class="panel">
         <div class="panel-head">
             <h2>Ключевые критерии перед просмотром</h2>
-            <span class="panel-meta">{{ table_summary.criteria_lead }}</span>
+            <span class="panel-meta" id="tableCriteriaLead">{{ table_summary.criteria_lead }}</span>
         </div>
-        <div class="stats-grid">
+        <div class="stats-grid" id="tableCriteriaGroups">
             {% for group in table_summary.groups %}
             <article class="stat-card">
                 <span class="stat-label">{{ group.label }}</span>
@@ -111,31 +144,97 @@
 
     <section class="panel data-table-panel">
         <div class="panel-head">
-            <h2>Все строки</h2>
-            <span class="panel-meta">Шапка таблицы закреплена, длинные значения переносятся внутри ячеек.</span>
+            <div>
+                <h2>Строки таблицы</h2>
+                <span class="panel-meta">Шапка таблицы закреплена, длинные значения переносятся внутри ячеек, а страницы переключаются сервером.</span>
+            </div>
+            <span class="panel-meta" id="tablePageStatus">
+                {% if pagination.displayed_rows %}
+                Показаны строки {{ pagination.page_row_start }}-{{ pagination.page_row_end }} из {{ pagination.total_rows }}
+                {% else %}
+                В таблице пока нет строк
+                {% endif %}
+            </span>
         </div>
+
+        <div class="table-pagination-toolbar">
+            <form id="tablePaginationForm" class="table-pagination-form" method="get" action="/tables/{{ table_name }}">
+                <label class="filter-field table-pagination-field">
+                    <span>Размер страницы</span>
+                    <select id="tablePageSize" name="page_size">
+                        {% for option in page_size_options %}
+                        <option value="{{ option }}"{% if option == pagination.page_size %} selected{% endif %}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <label class="filter-field table-pagination-field">
+                    <span>Страница</span>
+                    <input
+                        id="tablePageInput"
+                        name="page"
+                        type="number"
+                        min="1"
+                        max="{{ pagination.total_pages }}"
+                        value="{{ pagination.page }}"
+                    >
+                </label>
+
+                <button class="primary-action table-pagination-submit" type="submit">Перейти</button>
+            </form>
+
+            <div class="table-pagination-actions">
+                <a
+                    id="tablePrevLink"
+                    class="table-page-link{% if not pagination.has_previous %} is-disabled{% endif %}"
+                    href="/tables/{{ table_name }}?page={{ pagination.page - 1 if pagination.has_previous else 1 }}&page_size={{ pagination.page_size }}"
+                    aria-disabled="{{ 'false' if pagination.has_previous else 'true' }}"
+                    data-page-target="{{ pagination.page - 1 if pagination.has_previous else pagination.page }}"
+                >
+                    Предыдущая
+                </a>
+                <div class="table-page-indicator" id="tablePageCount">{{ pagination.page }} / {{ pagination.total_pages }}</div>
+                <a
+                    id="tableNextLink"
+                    class="table-page-link{% if not pagination.has_next %} is-disabled{% endif %}"
+                    href="/tables/{{ table_name }}?page={{ pagination.page + 1 if pagination.has_next else pagination.total_pages }}&page_size={{ pagination.page_size }}"
+                    aria-disabled="{{ 'false' if pagination.has_next else 'true' }}"
+                    data-page-target="{{ pagination.page + 1 if pagination.has_next else pagination.page }}"
+                >
+                    Следующая
+                </a>
+            </div>
+        </div>
+
         <div class="data-table-shell">
-            <table class="data-table{% if columns | length <= 5 %} table-stack-mobile{% else %} table-sticky-first{% endif %}">
-                <thead>
+            <table id="tableDataTable" class="data-table{% if columns | length <= 5 %} table-stack-mobile{% else %} table-sticky-first{% endif %}">
+                <thead id="tableDataHead">
                     <tr>
                         {% for col in columns %}
                         <th>{{ col }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
-                <tbody>
-                    {% for row in rows %}
-                    <tr>
-                        {% for value in row %}
-                        <td{% if columns | length <= 5 %} data-label="{{ columns[loop.index0] }}"{% endif %}>{{ value }}</td>
+                <tbody id="tableDataBody">
+                    {% if rows %}
+                        {% for row in rows %}
+                        <tr>
+                            {% for value in row %}
+                            <td{% if columns | length <= 5 %} data-label="{{ columns[loop.index0] }}"{% endif %}>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
                         {% endfor %}
-                    </tr>
-                    {% endfor %}
+                    {% else %}
+                        <tr class="table-empty-row">
+                            <td colspan="{{ columns | length if columns else 1 }}">В выбранной таблице нет строк для показа.</td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
     </section>
 </main>
 <script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
+<script src="/static/js/table_view.js?v={{ table_view_js_version }}"></script>
 </body>
 </html>

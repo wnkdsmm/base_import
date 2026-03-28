@@ -37,6 +37,34 @@
     align-items: end;
 }
 
+.forecast-load-status {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(58, 92, 132, 0.14);
+    background: rgba(243, 247, 252, 0.92);
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.forecast-load-status.is-pending {
+    border-color: rgba(184, 129, 34, 0.18);
+    background: rgba(255, 248, 232, 0.96);
+    color: #8a5d00;
+}
+
+.forecast-load-status.is-ready {
+    border-color: rgba(47, 122, 95, 0.16);
+    background: rgba(237, 248, 242, 0.96);
+    color: #2b6b55;
+}
+
+.forecast-load-status.is-error {
+    border-color: rgba(186, 72, 44, 0.18);
+    background: rgba(255, 241, 236, 0.96);
+    color: #9a4029;
+}
+
 .risk-overview-panel {
     margin-top: 24px;
 }

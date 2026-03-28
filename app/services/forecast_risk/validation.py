@@ -7,9 +7,9 @@ import math
 from statistics import mean
 from typing import Any, Dict, List, Optional, Sequence
 
-from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile
+from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile, resolve_component_weights
 from .scoring import _build_territory_rows
-from .utils import _format_integer, _format_number, _format_probability, _unique_non_empty
+from .utils import _clamp, _format_integer, _format_number, _format_probability, _unique_non_empty
 
 DEFAULT_RANKING_K = 3
 MIN_VALIDATION_WINDOWS = 3
@@ -50,13 +50,18 @@ def resolve_weight_profile_for_records(
             ),
         )
 
+    evaluation_windows = _prepare_evaluation_windows(
+        windows_bundle.get("windows") or [],
+        expert_profile,
+    )
+
     candidates = _generate_weight_candidates(expert_profile)
     evaluations: List[Dict[str, Any]] = []
     expert_entry: Optional[Dict[str, Any]] = None
 
     for candidate in candidates:
         candidate_profile = _profile_with_weights(requested_profile, expert_profile, candidate["weights"])
-        evaluation = _evaluate_profile_on_windows(candidate_profile, windows_bundle.get("windows") or [], DEFAULT_RANKING_K)
+        evaluation = _evaluate_profile_on_windows(candidate_profile, evaluation_windows, DEFAULT_RANKING_K)
         if not evaluation.get("has_metrics"):
             continue
 
@@ -394,12 +399,17 @@ def _evaluate_profile_on_windows(
     skipped_no_rows = 0
 
     for window in windows:
-        predicted_rows = _build_territory_rows(
-            window.get("train_records") or [],
-            int(window.get("horizon_days") or ranking_k or DEFAULT_RANKING_K),
-            weight_mode=profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
-            profile_override=profile,
+        predicted_rows = _rerank_predicted_rows_for_profile(
+            window.get("predicted_rows") or [],
+            profile,
         )
+        if not predicted_rows:
+            predicted_rows = _build_territory_rows(
+                window.get("train_records") or [],
+                int(window.get("horizon_days") or ranking_k or DEFAULT_RANKING_K),
+                weight_mode=profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
+                profile_override=profile,
+            )
         if not predicted_rows:
             skipped_no_rows += 1
             continue
@@ -420,6 +430,60 @@ def _evaluate_profile_on_windows(
         "aggregate": aggregate,
         "skipped_no_rows": skipped_no_rows,
     }
+
+
+def _prepare_evaluation_windows(
+    windows: Sequence[Dict[str, Any]],
+    profile: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    prepared: List[Dict[str, Any]] = []
+    for window in windows:
+        prepared_window = dict(window)
+        prepared_window["predicted_rows"] = _build_territory_rows(
+            window.get("train_records") or [],
+            int(window.get("horizon_days") or DEFAULT_RANKING_K),
+            weight_mode=profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
+            profile_override=profile,
+        )
+        prepared.append(prepared_window)
+    return prepared
+
+
+def _rerank_predicted_rows_for_profile(
+    predicted_rows: Sequence[Dict[str, Any]],
+    profile: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    if not predicted_rows:
+        return []
+
+    urban_weights = {
+        item["key"]: float(item.get("weight") or 0.0)
+        for item in resolve_component_weights(profile, is_rural=False)
+    }
+    rural_weights = {
+        item["key"]: float(item.get("weight") or 0.0)
+        for item in resolve_component_weights(profile, is_rural=True)
+    }
+
+    reranked: List[Dict[str, Any]] = []
+    for row in predicted_rows:
+        component_scores = row.get("component_scores") or []
+        weight_map = rural_weights if row.get("is_rural") else urban_weights
+        risk_score = _clamp(
+            sum(float(component.get("score") or 0.0) * weight_map.get(component.get("key"), 0.0) for component in component_scores),
+            1.0,
+            99.0,
+        )
+        reranked.append(
+            {
+                "label": row.get("label") or "Территория",
+                "risk_score": round(risk_score, 1),
+                "history_pressure": float(row.get("history_pressure") or 0.0),
+            }
+        )
+
+    reranked.sort(key=lambda item: (item["risk_score"], item["history_pressure"]), reverse=True)
+    return reranked
 
 
 

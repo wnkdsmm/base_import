@@ -449,3 +449,30 @@ def build_table_summary(table_name: str, columns: Sequence[str], rows: Sequence[
         "cards": _build_summary_cards(len(row_list), len(column_list), feature_stats),
         "groups": _build_group_cards(feature_stats),
     }
+
+
+def build_table_page_summary(
+    table_name: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[Any]],
+    total_rows: int,
+    page_row_start: int,
+    page_row_end: int,
+) -> Dict[str, Any]:
+    summary = build_table_summary(table_name, columns, rows)
+    displayed_rows = len(rows or [])
+
+    if total_rows <= 0:
+        scope_note = "В таблице пока нет строк."
+    elif total_rows <= displayed_rows:
+        scope_note = "Сводка рассчитана по всей таблице."
+    elif displayed_rows:
+        scope_note = (
+            f"Сводка рассчитана по текущей странице предпросмотра: "
+            f"строки {page_row_start}-{page_row_end} из { _format_int(total_rows) }."
+        )
+    else:
+        scope_note = f"В таблице найдено { _format_int(total_rows) } строк."
+
+    summary["scope_note"] = scope_note
+    return summary
