@@ -661,6 +661,35 @@
             ' | К последним 4 неделям: ' + (safeSummary.forecast_vs_recent_display || '0%');
     }
 
+    function getForecastApiErrorMessage(payload, fallback) {
+        var normalizedFallback = fallback || 'Forecasting request failed.';
+        if (!payload || typeof payload !== 'object') {
+            return normalizedFallback;
+        }
+
+        if (payload.error && typeof payload.error === 'object') {
+            var apiMessage = String(payload.error.message || payload.error.detail || payload.error.code || '').trim();
+            if (apiMessage) {
+                return apiMessage;
+            }
+        }
+
+        var legacyMessage = String(payload.detail || payload.message || '').trim();
+        return legacyMessage || normalizedFallback;
+    }
+
+    function createForecastApiError(response, payload, fallback) {
+        var error = new Error(getForecastApiErrorMessage(payload, fallback));
+        error.status = response && typeof response.status === 'number' ? response.status : 0;
+        error.payload = payload || null;
+        return error;
+    }
+
+    function getForecastErrorMessage(error, fallback) {
+        var message = error && typeof error.message === 'string' ? error.message.trim() : '';
+        return message || fallback;
+    }
+
     async function requestForecastPayload(query, options) {
         var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
         var payload;
@@ -668,15 +697,18 @@
             payload = await response.json();
         } catch (error) {
             if (!response.ok) {
-                throw new Error('fetch failed');
+                throw createForecastApiError(response, null, 'От forecasting API пришел не JSON-ответ.');
             }
             throw error;
         }
         if (!response.ok) {
-            throw new Error((payload && payload.detail) || 'fetch failed');
+            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос forecasting.');
+        }
+        if (payload && payload.ok === false) {
+            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос forecasting.');
         }
         if (options && options.expectResolved && payload && payload.bootstrap_mode === 'deferred') {
-            throw new Error('forecasting API returned shell payload instead of resolved forecast');
+            throw new Error('В forecasting API вернулся shell-пейлоад вместо готового прогноза.');
         }
         return payload;
     }
@@ -1123,15 +1155,19 @@
             if (requestToken !== forecastRequestToken) {
                 return;
             }
+            var decisionSupportMessage = getForecastErrorMessage(
+                error,
+                'Не удалось догрузить блок поддержки решений. Базовый прогноз уже показан, можно повторить запрос.'
+            );
             console.error(error);
-            showForecastError('Не удалось догрузить блок поддержки решений. Базовый прогноз уже показан, можно повторить запрос.');
+            showForecastError(decisionSupportMessage);
             clearForecastStepTimers();
             setForecastProgress(3, {
                 lead: 'Не удалось завершить поддержку решений',
-                message: 'Базовый прогноз уже показан. Повторите догрузку рекомендаций.',
+                message: decisionSupportMessage,
                 isError: true
             });
-            setDecisionSupportStatus('Не удалось догрузить блок приоритетов территорий. Базовый сценарный прогноз уже показан.', 'error');
+            setDecisionSupportStatus(decisionSupportMessage, 'error');
         }
     }
 
@@ -1173,16 +1209,20 @@
             if (requestToken !== forecastRequestToken) {
                 return;
             }
+            var forecastErrorMessage = getForecastErrorMessage(
+                error,
+                'Не удалось загрузить базовый прогноз. Попробуйте изменить фильтры или запустить расчёт еще раз.'
+            );
             console.error(error);
-            setBootstrapStatus('Не удалось загрузить базовый прогноз. Попробуйте обновить страницу или изменить фильтры.', 'error');
+            setBootstrapStatus(forecastErrorMessage, 'error');
             clearForecastStepTimers();
             setForecastProgress(2, {
                 lead: 'Не удалось собрать базовый прогноз',
-                message: 'Проверьте фильтры и повторите расчёт.',
+                message: forecastErrorMessage,
                 isError: true
             });
             setDecisionSupportStatus('', '');
-            showForecastError('Не удалось загрузить базовый прогноз. Попробуйте изменить фильтры или запустить расчёт еще раз.');
+            showForecastError(forecastErrorMessage);
         } finally {
             if (button && requestToken === forecastRequestToken) {
                 button.disabled = false;

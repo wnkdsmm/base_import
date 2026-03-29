@@ -482,6 +482,35 @@
         }).join('');
     }
 
+    function getClusteringApiErrorMessage(payload, fallback) {
+        var normalizedFallback = fallback || 'Clustering request failed.';
+        if (!payload || typeof payload !== 'object') {
+            return normalizedFallback;
+        }
+
+        if (payload.error && typeof payload.error === 'object') {
+            var apiMessage = String(payload.error.message || payload.error.detail || payload.error.code || '').trim();
+            if (apiMessage) {
+                return apiMessage;
+            }
+        }
+
+        var legacyMessage = String(payload.detail || payload.message || '').trim();
+        return legacyMessage || normalizedFallback;
+    }
+
+    function createClusteringApiError(response, payload, fallback) {
+        var error = new Error(getClusteringApiErrorMessage(payload, fallback));
+        error.status = response && typeof response.status === 'number' ? response.status : 0;
+        error.payload = payload || null;
+        return error;
+    }
+
+    function getClusteringErrorMessage(error, fallback) {
+        var message = error && typeof error.message === 'string' ? error.message.trim() : '';
+        return message || fallback;
+    }
+
     function applyClusteringData(data) {
         if (!data) {
             return;
@@ -549,21 +578,39 @@
 
         try {
             var response = await fetch('/api/clustering-data?' + query, { headers: { Accept: 'application/json' } });
-            if (!response.ok) {
-                throw new Error('fetch failed');
+            var data = null;
+            try {
+                data = await response.json();
+            } catch (error) {
+                if (!response.ok) {
+                    throw createClusteringApiError(response, null, 'От clustering API пришел не JSON-ответ.');
+                }
+                throw error;
             }
-            var data = await response.json();
+            if (!response.ok) {
+                throw createClusteringApiError(response, data, 'Не удалось выполнить запрос clustering.');
+            }
+            if (data && data.ok === false) {
+                throw createClusteringApiError(response, data, 'Не удалось выполнить запрос clustering.');
+            }
+            if (data && data.bootstrap_mode === 'deferred' && !data.has_data) {
+                throw new Error('В clustering API вернулся shell-пейлоад вместо готовых данных.');
+            }
             applyClusteringData(data);
             window.history.replaceState({}, '', query ? '/clustering?' + query : '/clustering');
         } catch (error) {
+            var clusteringErrorMessage = getClusteringErrorMessage(
+                error,
+                'Не удалось получить данные кластеризации. Попробуйте повторить расчёт еще раз.'
+            );
             console.error(error);
             clearClusteringStepTimers();
             setClusteringProgress(2, {
                 lead: 'Не удалось пересчитать кластеры',
-                message: 'Проверьте фильтры и повторите запрос.',
+                message: clusteringErrorMessage,
                 isError: true
             });
-            showClusteringError('Не удалось получить данные кластеризации. Попробуйте повторить расчёт еще раз.');
+            showClusteringError(clusteringErrorMessage);
         } finally {
             if (button) {
                 button.disabled = false;

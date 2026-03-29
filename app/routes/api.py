@@ -8,9 +8,9 @@ from fastapi.responses import Response
 from app.db_views import create_modified_table, delete_table, delete_tables, get_table_columns, get_table_page, get_table_preview
 from app.log_manager import clear_logs as clear_job_logs
 from app.log_manager import get_logs
-from app.services.clustering_service import get_clustering_data, get_clustering_shell_context
+from app.services.clustering_service import get_clustering_data
 from app.services.dashboard_service import get_dashboard_page_context
-from app.services.forecasting_service import get_forecasting_data, get_forecasting_shell_context
+from app.services.forecasting_service import get_forecasting_data
 from app.services.ml_model_service import (
     get_ml_job_status,
     get_ml_model_data,
@@ -48,6 +48,26 @@ def utf8_json(payload: dict, status_code: int = 200, session_id: str | None = No
     return response
 
 
+def analytics_error_response(
+    *,
+    code: str,
+    message: str,
+    status_code: int,
+    detail: str | None = None,
+) -> Response:
+    payload = {
+        "ok": False,
+        "error": {
+            "code": code,
+            "message": message,
+            "status_code": status_code,
+        },
+    }
+    if detail:
+        payload["error"]["detail"] = detail
+    return utf8_json(payload, status_code=status_code)
+
+
 @router.get("/api/dashboard-data")
 def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_column: str = ""):
     try:
@@ -80,16 +100,20 @@ def forecasting_data_endpoint(
             history_window=history_window,
             include_decision_support=include_decision_support,
         )
-    except Exception:
-        return get_forecasting_shell_context(
-            table_name=table_name,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            temperature=temperature,
-            forecast_days=forecast_days,
-            history_window=history_window,
-        )["initial_data"]
+    except ValueError as exc:
+        return analytics_error_response(
+            code="forecasting_invalid_request",
+            message=str(exc) or "Некорректные параметры прогноза.",
+            status_code=400,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        return analytics_error_response(
+            code="forecasting_failed",
+            message="Не удалось собрать forecasting-данные. Попробуйте повторить запрос.",
+            status_code=500,
+            detail=str(exc),
+        )
 
 
 @router.get("/api/clustering-data")
@@ -108,14 +132,20 @@ def clustering_data_endpoint(
             sampling_strategy=sampling_strategy,
             feature_columns=feature_columns or [],
         )
-    except Exception:
-        return get_clustering_shell_context(
-            table_name=table_name,
-            cluster_count=cluster_count,
-            sample_limit=sample_limit,
-            sampling_strategy=sampling_strategy,
-            feature_columns=feature_columns or [],
-        )["initial_data"]
+    except ValueError as exc:
+        return analytics_error_response(
+            code="clustering_invalid_request",
+            message=str(exc) or "Некорректные параметры кластеризации.",
+            status_code=400,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        return analytics_error_response(
+            code="clustering_failed",
+            message="Не удалось собрать clustering-данные. Попробуйте повторить запрос.",
+            status_code=500,
+            detail=str(exc),
+        )
 
 
 @router.get("/api/ml-model-data")
