@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проблемные точки пожарной доступности</title>
+    <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
+    <link rel="stylesheet" href="/static/access_points.css?v={{ access_points_css_version }}">
+</head>
+<body>
+<a class="skip-link" href="#page-content">Перейти к содержимому</a>
+<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+<noscript>
+    <style>
+        .sidebar-actions-primary { display: none; }
+        .sidebar-noscript-nav { display: grid; }
+    </style>
+</noscript>
+{% set data = access_points.initial_data %}
+{% set filters = data.filters %}
+{% set summary = data.summary %}
+{% set charts = data.charts %}
+
+<aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-mobile-head">
+        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
+    </div>
+    <div class="brand-block">
+        <span class="brand-kicker">Монитор пожаров</span>
+        <h2>Проблемные точки</h2>
+        <p>Отдельный экран для ranking отдельных населённых пунктов, объектов и локаций с плохой доступностью пожарных подразделений.</p>
+    </div>
+
+    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
+        <a class="sidebar-link" href="/">Панель</a>
+        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
+        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
+        <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link is-active" href="/access-points" aria-current="page">Проблемные точки</a>
+        <a class="sidebar-link" href="/fire-map">Fire-map</a>
+        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
+        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
+        <a class="sidebar-link" href="/tables">Таблицы</a>
+    </nav>
+
+    <div class="sidebar-status" id="accessPointsSidebarStatus">
+        <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">
+            {% if data.bootstrap_mode == 'deferred' %}Собираем ranking{% elif data.has_data %}Рейтинг готов{% else %}Нужны данные{% endif %}
+        </span>
+        <div class="status-line">
+            <span>Таблица</span>
+            <strong id="accessPointsSidebarTable">{{ summary.selected_table_label }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Точек в срезе</span>
+            <strong id="accessPointsSidebarCount">{{ summary.total_points_display }}</strong>
+        </div>
+        <div class="status-line">
+            <span>Топ-1</span>
+            <strong id="accessPointsSidebarLead">{{ summary.top_point_label }}</strong>
+        </div>
+    </div>
+</aside>
+<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+
+<main class="main dashboard-main access-points-main" id="page-content">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">Индивидуальные проблемные точки</span>
+            <h1>Где выезд пожарных подразделений хуже всего по конкретным объектам и локациям</h1>
+            <p class="subtitle" id="accessPointsLead">{{ data.top_point_explanation }}</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Таблица: <strong id="accessPointsTableLabel">{{ summary.selected_table_label }}</strong></span>
+                <span class="hero-tag">Район: <strong id="accessPointsDistrictLabel">{{ summary.selected_district_label }}</strong></span>
+                <span class="hero-tag">Год: <strong id="accessPointsYearLabel">{{ summary.selected_year_label }}</strong></span>
+                <span class="hero-tag">Лимит: <strong id="accessPointsLimitLabel">{{ summary.limit_display }}</strong></span>
+            </div>
+        </div>
+
+        <div class="hero-side">
+            <article class="hero-stat-card">
+                <span class="hero-stat-label">Точка №1</span>
+                <strong class="hero-stat-value" id="accessPointsHeroLabel">{{ data.top_point_label }}</strong>
+                <span class="hero-stat-foot" id="accessPointsHeroMeta">{{ summary.top_point_priority_label }} | score {{ summary.top_point_score_display }}</span>
+            </article>
+            <article class="hero-stat-card hero-stat-card-soft">
+                <span class="hero-stat-label">Неполные данные</span>
+                <strong class="hero-stat-value" id="accessPointsIncompleteCount">{{ summary.incomplete_points_display }}</strong>
+                <span class="hero-stat-foot">Точки, где нужен разбор пропусков по воде, времени прибытия и удалённости.</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Фильтры рейтинга</h2>
+            <span class="panel-meta">Можно ограничить рейтинг по таблице, району, году и размеру top-N без влияния на существующую вкладку кластеризации.</span>
+        </div>
+        <form class="filters-grid access-points-form-grid" id="accessPointsForm" method="get" action="/access-points">
+            <label class="filter-field">
+                <span>Таблица</span>
+                <select id="accessPointsTableFilter" name="table_name">
+                    {% for option in filters.available_tables %}
+                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Район</span>
+                <select id="accessPointsDistrictFilter" name="district">
+                    {% for option in filters.available_districts %}
+                    <option value="{{ option.value }}" {% if option.value == filters.district %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Год</span>
+                <select id="accessPointsYearFilter" name="year">
+                    {% for option in filters.available_years %}
+                    <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Лимит строк</span>
+                <select id="accessPointsLimitFilter" name="limit">
+                    {% for option in filters.available_limits %}
+                    <option value="{{ option.value }}" {% if option.value == filters.limit %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="filter-field filter-actions">
+                <span>Действие</span>
+                <button id="accessPointsRefreshButton" class="primary-action" type="submit">Пересчитать рейтинг</button>
+            </div>
+        </form>
+        <div class="filter-summary" id="accessPointsSummaryLine">{{ summary.filter_description }} | точек в рейтинге: {{ summary.total_points_display }} | критичный приоритет: {{ summary.critical_points_display }}</div>
+    </section>
+
+    <div id="accessPointsAsyncState" class="analysis-async{% if not (data.bootstrap_mode == 'deferred' or data.loading_status_message) %} is-hidden{% endif %}">
+        <div id="accessPointsLoadingState" class="analysis-status-card{% if data.bootstrap_mode == 'deferred' %} is-pending{% elif data.has_data %} is-ready{% else %} is-hidden{% endif %}">
+            <div class="analysis-status-head">
+                <div class="analysis-status-copy">
+                    <strong class="analysis-status-lead" id="accessPointsLoadingLead">Готовим рейтинг проблемных точек</strong>
+                    <span class="analysis-status-message" id="accessPointsLoadingMessage">{{ data.loading_status_message or 'Собираем incidents по точкам, считаем score доступности и объяснения.' }}</span>
+                </div>
+            </div>
+        </div>
+        <div id="accessPointsErrorState" class="analysis-error-card is-hidden" aria-live="polite">
+            <div class="analysis-error-copy">
+                <strong>Не удалось обновить рейтинг</strong>
+                <span id="accessPointsErrorMessage">Попробуйте повторить запрос.</span>
+            </div>
+            <div class="analysis-inline-actions">
+                <button id="accessPointsRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+            </div>
+        </div>
+    </div>
+
+    <section class="stats-grid access-points-stats" id="accessPointsCards">
+        {% for card in data.summary_cards %}
+        <article class="stat-card{% if card.tone == 'critical' %} stat-card-accent{% endif %}">
+            <span class="stat-label">{{ card.label }}</span>
+            <strong class="stat-value">{{ card.value }}</strong>
+            <span class="stat-foot">{{ card.meta }}</span>
+        </article>
+        {% endfor %}
+    </section>
+
+    <section class="access-points-layout">
+        <div class="access-points-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2 id="accessPointsScatterTitle">{{ charts.scatter.title }}</h2>
+                    <span class="panel-meta">Каждая точка — отдельная проблемная локация. Положение рассчитано по совокупности компонент риска, как на двумерной проекции в clustering.</span>
+                </div>
+                <div id="accessPointsScatterChart" class="plotly-chart access-points-scatter-chart"></div>
+                <div id="accessPointsScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Top-N проблемных точек</h2>
+                    <span class="panel-meta">Короткий список для оперативного просмотра и объяснения причин попадания в верх рейтинга.</span>
+                </div>
+                <div id="accessPointsTopList" class="point-card-grid">
+                    {% if data.top_points %}
+                        {% for point in data.top_points %}
+                        <article class="point-card tone-{{ point.tone }}">
+                            <div class="point-card-head">
+                                <span class="point-rank">#{{ point.rank }}</span>
+                                <span class="point-score">{{ point.score_display }}</span>
+                            </div>
+                            <strong class="point-label">{{ point.label }}</strong>
+                            <span class="point-meta">{{ point.entity_type }}{% if point.location_hint %} | {{ point.location_hint }}{% endif %}</span>
+                            <div class="point-chip-row">
+                                <span class="point-chip">{{ point.typology_label }}</span>
+                                <span class="point-chip">Пожаров: {{ point.incident_count_display }}</span>
+                                <span class="point-chip">Полнота: {{ point.completeness_display }}</span>
+                            </div>
+                            <p class="point-explanation">{{ point.explanation }}</p>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">После расчёта здесь появятся самые проблемные точки.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel data-table-panel">
+                <div class="panel-head">
+                    <h2>Рейтинг и explainability</h2>
+                    <span class="panel-meta">Сводная таблица по score, типологии, доступности, воде, последствиям и полноте данных.</span>
+                </div>
+                <div class="data-table-shell" id="accessPointsRankingTableShell">
+                    {% if data.points %}
+                    <table class="data-table table-sticky-first access-points-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Точка</th>
+                                <th>Тип</th>
+                                <th>Район</th>
+                                <th>Score</th>
+                                <th>Типология</th>
+                                <th>Пожары</th>
+                                <th>Удалённость</th>
+                                <th>Прибытие</th>
+                                <th>Вода</th>
+                                <th>Полнота</th>
+                                <th>Почему в топе</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for point in data.points %}
+                            <tr>
+                                <td>{{ point.rank }}</td>
+                                <td>
+                                    <strong>{{ point.label }}</strong>
+                                    {% if point.coordinates_display %}
+                                    <div class="table-subnote">{{ point.coordinates_display }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>{{ point.entity_type }}</td>
+                                <td>{{ point.district or '—' }}</td>
+                                <td><span class="score-pill tone-{{ point.tone }}">{{ point.score_display }}</span></td>
+                                <td>{{ point.typology_label }}</td>
+                                <td>{{ point.incident_count_display }}</td>
+                                <td>{{ point.average_distance_display }}</td>
+                                <td>{{ point.average_response_display }}</td>
+                                <td>нет воды: {{ point.no_water_share_display }}<br>пропуски: {{ point.water_unknown_share_display }}</td>
+                                <td>{{ point.completeness_display }}</td>
+                                <td>{{ point.explanation }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="mini-empty">После расчёта здесь появится ranking отдельных проблемных точек.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="access-points-secondary">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Мини-типология</h2>
+                    <span class="panel-meta">Небольшое агрегированное описание того, какие типы проблемных точек чаще попадают в рейтинг.</span>
+                </div>
+                <div id="accessPointsTypologyShell" class="typology-grid">
+                    {% if data.typology %}
+                        {% for item in data.typology %}
+                        <article class="typology-card">
+                            <strong>{{ item.label }}</strong>
+                            <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
+                            <span>Максимальный score: {{ item.max_score_display }}</span>
+                            <span>Лидер: {{ item.lead_label }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Типология появится после расчёта рейтинга.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel panel-warning">
+                <div class="panel-head">
+                    <h2>Данные неполные</h2>
+                    <span class="panel-meta">Точки, где высокий приоритет проверки растёт в первую очередь из-за пропусков по воде, времени прибытия или удалённости.</span>
+                </div>
+                <div id="accessPointsIncompleteShell" class="incomplete-list">
+                    {% if data.incomplete_points %}
+                        {% for point in data.incomplete_points %}
+                        <article class="incomplete-card">
+                            <strong>{{ point.label }}</strong>
+                            <span>{{ point.incomplete_note }}</span>
+                            <span>Investigation score: {{ point.investigation_score_display }} | Полнота: {{ point.completeness_display }}</span>
+                            <span>{{ point.explanation }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Отдельные точки с риском из-за пропусков пока не выделены.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Что важно помнить</h2>
+                    <span class="panel-meta">Пояснения по fallback-логике, полноте данных и интерпретации рейтинга.</span>
+                </div>
+                <ul class="notice-list" id="accessPointsNotes">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>
+</main>
+
+<script>
+window.__FIRE_ACCESS_POINTS_INITIAL__ = {{ data | tojson }};
+</script>
+<script src="/assets/plotly.js"></script>
+<script src="/static/js/access_points.js?v={{ access_points_js_version }}"></script>
+<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
+</body>
+</html>

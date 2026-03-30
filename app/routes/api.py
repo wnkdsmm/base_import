@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
+from uuid import uuid4
 
 from fastapi import APIRouter, Body, File, Form, Request, UploadFile
 from fastapi.responses import Response
@@ -8,13 +11,22 @@ from fastapi.responses import Response
 from app.db_views import create_modified_table, delete_table, delete_tables, get_table_columns, get_table_page, get_table_preview
 from app.log_manager import clear_logs as clear_job_logs
 from app.log_manager import get_logs
-from app.services.clustering_service import get_clustering_data
-from app.services.dashboard_service import get_dashboard_page_context
-from app.services.forecasting_service import get_forecasting_data
+from app.services.access_points_service import get_access_points_data
+from app.services.clustering_service import (
+    get_clustering_data,
+    get_clustering_job_status,
+    start_clustering_job,
+)
+from app.services.forecasting_service import (
+    get_forecasting_data,
+    get_forecasting_decision_support_data,
+    get_forecasting_decision_support_job_status,
+    get_forecasting_metadata,
+    start_forecasting_decision_support_job,
+)
 from app.services.ml_model_service import (
     get_ml_job_status,
     get_ml_model_data,
-    get_ml_model_shell_context,
     start_ml_model_job,
 )
 from app.services.pipeline_service import import_uploaded_data, invalidate_runtime_caches, run_profiling_for_table, save_uploaded_file
@@ -25,10 +37,21 @@ from core.processing.steps.keep_important_columns import get_column_matcher
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+_LOCAL_RUNTIME_NAMES = {"local", "development", "dev", "debug", "test"}
 
 
 def _ensure_session_id(request: Request) -> str:
     return job_store.ensure_session(request.cookies.get(SESSION_COOKIE_NAME))
+
+
+def _coerce_string_list(value: object) -> list[str]:
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value is None:
+        return []
+    text = str(value).strip()
+    return [text] if text else []
 
 
 def utf8_json(payload: dict, status_code: int = 200, session_id: str | None = None) -> Response:
@@ -53,28 +76,100 @@ def analytics_error_response(
     code: str,
     message: str,
     status_code: int,
+    error_id: str | None = None,
     detail: str | None = None,
 ) -> Response:
+    resolved_error_id = str(error_id or uuid4().hex)
     payload = {
         "ok": False,
         "error": {
             "code": code,
             "message": message,
             "status_code": status_code,
+            "error_id": resolved_error_id,
         },
     }
-    if detail:
+    if detail and _should_expose_analytics_detail():
         payload["error"]["detail"] = detail
     return utf8_json(payload, status_code=status_code)
+
+
+def _env_flag_enabled(*names: str) -> bool:
+    for name in names:
+        value = str(os.getenv(name, "")).strip().lower()
+        if value in {"1", "true", "yes", "on"}:
+            return True
+    return False
+
+
+def _runtime_name() -> str:
+    for name in ("FIRE_MONITOR_ENV", "APP_ENV", "FASTAPI_ENV", "PYTHON_ENV", "ENV"):
+        value = str(os.getenv(name, "")).strip().lower()
+        if value:
+            return value
+    return "production"
+
+
+def _is_local_or_debug_runtime() -> bool:
+    if _env_flag_enabled("FIRE_MONITOR_DEBUG", "FASTAPI_DEBUG", "DEBUG"):
+        return True
+    return _runtime_name() in _LOCAL_RUNTIME_NAMES
+
+
+def _should_expose_analytics_detail() -> bool:
+    # Raw exception text stays server-side by default. Even in local/debug
+    # runtimes it is returned only after an explicit opt-in.
+    return _is_local_or_debug_runtime() and _env_flag_enabled("FIRE_MONITOR_EXPOSE_API_ERROR_DETAIL")
+
+
+def _log_analytics_exception(*, code: str, status_code: int, error_id: str, exc: Exception) -> None:
+    message = "Analytics API error [%s] %s (%s): %s"
+    if status_code >= 500:
+        logger.exception(message, error_id, code, status_code, exc)
+        return
+    logger.warning(message, error_id, code, status_code, exc, exc_info=True)
+
+
+def analytics_exception_response(
+    *,
+    code: str,
+    message: str,
+    status_code: int,
+    exc: Exception,
+) -> Response:
+    error_id = uuid4().hex
+    _log_analytics_exception(code=code, status_code=status_code, error_id=error_id, exc=exc)
+    return analytics_error_response(
+        code=code,
+        message=message,
+        status_code=status_code,
+        error_id=error_id,
+        detail=str(exc),
+    )
 
 
 @router.get("/api/dashboard-data")
 def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_column: str = ""):
     try:
-        return utf8_json(get_dashboard_data(table_name=table_name, year=year, group_column=group_column))
-    except Exception:
-        return utf8_json(
-            get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)["initial_data"]
+        return get_dashboard_data(
+            table_name=table_name,
+            year=year,
+            group_column=group_column,
+            allow_fallback=False,
+        )
+    except ValueError as exc:
+        return analytics_exception_response(
+            code="dashboard_invalid_request",
+            message=str(exc) or "Не удалось обработать параметры dashboard.",
+            status_code=400,
+            exc=exc,
+        )
+    except Exception as exc:
+        return analytics_exception_response(
+            code="dashboard_failed",
+            message="Не удалось обновить dashboard. Попробуйте повторить запрос.",
+            status_code=500,
+            exc=exc,
         )
 
 
@@ -90,6 +185,16 @@ def forecasting_data_endpoint(
     include_decision_support: bool = True,
 ):
     try:
+        if include_decision_support:
+            return get_forecasting_decision_support_data(
+                table_name=table_name,
+                district=district,
+                cause=cause,
+                object_category=object_category,
+                temperature=temperature,
+                forecast_days=forecast_days,
+                history_window=history_window,
+            )
         return get_forecasting_data(
             table_name=table_name,
             district=district,
@@ -98,22 +203,97 @@ def forecasting_data_endpoint(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
-            include_decision_support=include_decision_support,
+            include_decision_support=False,
         )
     except ValueError as exc:
-        return analytics_error_response(
+        return analytics_exception_response(
             code="forecasting_invalid_request",
             message=str(exc) or "Некорректные параметры прогноза.",
             status_code=400,
-            detail=str(exc),
+            exc=exc,
         )
     except Exception as exc:
-        return analytics_error_response(
+        return analytics_exception_response(
             code="forecasting_failed",
-            message="Не удалось собрать forecasting-данные. Попробуйте повторить запрос.",
+            message="Не удалось собрать данные прогноза. Попробуйте повторить запрос.",
             status_code=500,
-            detail=str(exc),
+            exc=exc,
         )
+
+
+@router.get("/api/forecasting-metadata")
+def forecasting_metadata_endpoint(
+    table_name: str = "all",
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    temperature: str = "",
+    forecast_days: str = "14",
+    history_window: str = "all",
+):
+    try:
+        return get_forecasting_metadata(
+            table_name=table_name,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+        )
+    except ValueError as exc:
+        return analytics_exception_response(
+            code="forecasting_metadata_invalid_request",
+            message=str(exc) or "Не удалось обработать параметры загрузки фильтров и признаков.",
+            status_code=400,
+            exc=exc,
+        )
+    except Exception as exc:
+        return analytics_exception_response(
+            code="forecasting_metadata_failed",
+            message="Не удалось загрузить фильтры и признаки прогноза. Попробуйте повторить запрос.",
+            status_code=500,
+            exc=exc,
+        )
+
+
+@router.post("/api/forecasting-decision-support-jobs")
+def start_forecasting_decision_support_job_endpoint(request: Request, payload: dict = Body(...)):
+    session_id = _ensure_session_id(request)
+    try:
+        result = start_forecasting_decision_support_job(
+            session_id=session_id,
+            table_name=str(payload.get("table_name") or "all"),
+            district=str(payload.get("district") or "all"),
+            cause=str(payload.get("cause") or "all"),
+            object_category=str(payload.get("object_category") or "all"),
+            temperature=str(payload.get("temperature") or ""),
+            forecast_days=str(payload.get("forecast_days") or "14"),
+            history_window=str(payload.get("history_window") or "all"),
+        )
+        return utf8_json(result, session_id=session_id)
+    except ValueError as exc:
+        return analytics_exception_response(
+            code="forecasting_decision_support_invalid_request",
+            message=str(exc) or "Некорректные параметры для фонового блока поддержки решений.",
+            status_code=400,
+            exc=exc,
+        )
+    except Exception as exc:
+        return analytics_exception_response(
+            code="forecasting_decision_support_failed",
+            message="Не удалось запустить фоновый расчет блока поддержки решений. Попробуйте повторить запрос.",
+            status_code=500,
+            exc=exc,
+        )
+
+
+@router.get("/api/forecasting-decision-support-jobs/{job_id}")
+def forecasting_decision_support_job_status_endpoint(request: Request, job_id: str):
+    session_id = _ensure_session_id(request)
+    result = get_forecasting_decision_support_job_status(session_id=session_id, job_id=job_id)
+    status_code = 404 if result.get("status") == "missing" else 200
+    return utf8_json(result, status_code=status_code, session_id=session_id)
 
 
 @router.get("/api/clustering-data")
@@ -133,19 +313,86 @@ def clustering_data_endpoint(
             feature_columns=feature_columns or [],
         )
     except ValueError as exc:
-        return analytics_error_response(
+        return analytics_exception_response(
             code="clustering_invalid_request",
             message=str(exc) or "Некорректные параметры кластеризации.",
             status_code=400,
-            detail=str(exc),
+            exc=exc,
         )
     except Exception as exc:
-        return analytics_error_response(
+        return analytics_exception_response(
             code="clustering_failed",
             message="Не удалось собрать clustering-данные. Попробуйте повторить запрос.",
             status_code=500,
-            detail=str(exc),
+            exc=exc,
         )
+
+
+@router.get("/api/access-points-data")
+def access_points_data_endpoint(
+    table_name: str = "all",
+    district: str = "all",
+    year: str = "all",
+    limit: str = "25",
+):
+    try:
+        return get_access_points_data(
+            table_name=table_name,
+            district=district,
+            year=year,
+            limit=limit,
+        )
+    except ValueError as exc:
+        return analytics_exception_response(
+            code="access_points_invalid_request",
+            message=str(exc) or "Некорректные параметры рейтинга проблемных точек.",
+            status_code=400,
+            exc=exc,
+        )
+    except Exception as exc:
+        return analytics_exception_response(
+            code="access_points_failed",
+            message="Не удалось построить рейтинг проблемных точек. Попробуйте повторить запрос.",
+            status_code=500,
+            exc=exc,
+        )
+
+
+@router.post("/api/clustering-jobs")
+def start_clustering_job_endpoint(request: Request, payload: dict = Body(...)):
+    session_id = _ensure_session_id(request)
+    try:
+        result = start_clustering_job(
+            session_id=session_id,
+            table_name=str(payload.get("table_name") or ""),
+            cluster_count=str(payload.get("cluster_count") or "4"),
+            sample_limit=str(payload.get("sample_limit") or "1000"),
+            sampling_strategy=str(payload.get("sampling_strategy") or "stratified"),
+            feature_columns=_coerce_string_list(payload.get("feature_columns")),
+        )
+        return utf8_json(result, session_id=session_id)
+    except ValueError as exc:
+        return analytics_exception_response(
+            code="clustering_job_invalid_request",
+            message=str(exc) or "Некорректные параметры для фоновой clustering-задачи.",
+            status_code=400,
+            exc=exc,
+        )
+    except Exception as exc:
+        return analytics_exception_response(
+            code="clustering_job_failed",
+            message="Не удалось запустить фоновую clustering-задачу. Попробуйте повторить запрос.",
+            status_code=500,
+            exc=exc,
+        )
+
+
+@router.get("/api/clustering-jobs/{job_id}")
+def clustering_job_status_endpoint(request: Request, job_id: str):
+    session_id = _ensure_session_id(request)
+    result = get_clustering_job_status(session_id=session_id, job_id=job_id)
+    status_code = 404 if result.get("status") == "missing" else 200
+    return utf8_json(result, status_code=status_code, session_id=session_id)
 
 
 @router.get("/api/ml-model-data")
@@ -166,22 +413,20 @@ def ml_model_data_endpoint(
             forecast_days=forecast_days,
             history_window=history_window,
         )
+    except ValueError as exc:
+        return analytics_exception_response(
+            code="ml_model_invalid_request",
+            message=str(exc) or "Не удалось обработать параметры ML-анализа.",
+            status_code=400,
+            exc=exc,
+        )
     except Exception as exc:
-        payload = get_ml_model_shell_context(
-            table_name=table_name,
-            cause=cause,
-            object_category=object_category,
-            temperature=temperature,
-            forecast_days=forecast_days,
-            history_window=history_window,
-        )["initial_data"]
-        payload["bootstrap_mode"] = "error"
-        payload["error_message"] = "Не удалось рассчитать ML-модель. Проверьте фильтры и попробуйте еще раз."
-        payload["notes"] = [
-            payload["error_message"],
-            f"Техническая причина: {exc}",
-        ] + [note for note in payload.get("notes", []) if note]
-        return utf8_json(payload, status_code=500)
+        return analytics_exception_response(
+            code="ml_model_failed",
+            message="Не удалось рассчитать ML-анализ. Попробуйте повторить запрос.",
+            status_code=500,
+            exc=exc,
+        )
 
 
 @router.post("/api/ml-model-jobs")

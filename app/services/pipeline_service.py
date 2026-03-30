@@ -239,6 +239,13 @@ def invalidate_runtime_caches(on_warning: Callable[[str], None] | None = None) -
         warn(f"Предупреждение при обновлении кэша кластеризации: {exc}")
 
     try:
+        from app.services.access_points.core import clear_access_points_cache
+
+        clear_access_points_cache()
+    except Exception as exc:
+        warn(f"Предупреждение при обновлении кэша проблемных точек: {exc}")
+
+    try:
         from app.services.fire_map_service import clear_fire_map_cache
 
         clear_fire_map_cache()

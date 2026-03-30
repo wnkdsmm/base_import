@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.statistics_constants import (
     BUILDING_CAUSE_COLUMN,

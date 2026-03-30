@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сценарный прогноз пожаров</title>
+    <title>Прогноз пожаров по дням и территориям</title>
     <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
     <link rel="stylesheet" href="/static/forecasting.css?v={{ forecasting_css_version }}">
 </head>
@@ -32,8 +32,8 @@
     </div>
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Сценарный прогноз</h2>
-        <p>Сначала показывает приоритетные территории и рекомендуемые действия, затем даёт сценарный прогноз по дням и поясняющие графики.</p>
+        <h2>Прогноз и приоритеты</h2>
+        <p>Экран для прогноза на ближайшие дни: сначала показывает ожидаемую нагрузку, затем приоритет территорий и пояснения по риску.</p>
     </div>
 
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
@@ -41,6 +41,7 @@
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
         <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
@@ -68,8 +69,8 @@
 <main class="main dashboard-main forecasting-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Управленческая сводка</span>
-            <h1>Где риск, почему и что делать</h1>
+            <span class="eyebrow">Прогноз на ближайшие дни</span>
+            <h1>Что ожидается и где готовиться заранее</h1>
             <p class="subtitle" id="forecastLeadSummary">{{ risk.top_territory_explanation }}</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="forecastTableLabel">{{ summary.selected_table_label }}</strong></span>
@@ -96,24 +97,24 @@
     <nav class="orientation-strip" aria-label="Быстрый маршрут по сценарию">
         <a class="orientation-link is-primary" href="#decisionSupportPanel">
             <span class="orientation-kicker">1</span>
-            <strong>Сначала бриф</strong>
-            <p>Где риск выше, почему именно там и какое действие первым.</p>
+            <strong>Сначала приоритеты</strong>
+            <p>Сразу увидеть, какие территории могут потребовать внимания после расчёта.</p>
         </a>
         <a class="orientation-link is-scenario" href="#forecastFilters">
             <span class="orientation-kicker">2</span>
-            <strong>Потом параметры</strong>
-            <p>Уточнить таблицу, историю и горизонт сценария.</p>
+            <strong>Потом настройка прогноза</strong>
+            <p>Выбрать таблицу, глубину истории и горизонт прогноза.</p>
         </a>
         <a class="orientation-link is-decision" href="#forecastDetails">
             <span class="orientation-kicker">3</span>
-            <strong>Затем детализация</strong>
-            <p>Проверить территории, карту и объясняющие сигналы.</p>
+            <strong>Затем карта и объяснения</strong>
+            <p>Проверить дни риска, карту и пояснения по территориям.</p>
         </a>
     </nav>
 
     {% set brief = data.executive_brief %}
     {% set section_id = 'decisionSupportPanel' %}
-    {% set brief_heading = 'Управленческий бриф по территориям' %}
+    {% set brief_heading = 'Приоритеты территорий и действия' %}
     {% set export_href = '/brief/forecasting.txt?table_name=' ~ filters.table_name ~ '&district=' ~ filters.district ~ '&cause=' ~ filters.cause ~ '&object_category=' ~ filters.object_category ~ '&temperature=' ~ filters.temperature ~ '&forecast_days=' ~ filters.forecast_days ~ '&history_window=' ~ filters.history_window %}
     {% set export_link_id = 'forecastExportBriefLink' %}
     {% set cards_id = 'forecastCommandCards' %}
@@ -122,8 +123,8 @@
     {% include 'includes/executive_brief.html' %}
     <section id="forecastFilters" class="panel filters-panel">
         <div class="panel-head">
-            <h2>Параметры сценарного прогноза</h2>
-            <span class="panel-meta">Выберите таблицу, горизонт и нужный срез, чтобы пересобрать прогноз и приоритет территорий.</span>
+            <h2>Настройки прогноза</h2>
+            <span class="panel-meta">Выберите таблицу, период истории и горизонт, чтобы пересобрать прогноз на дни и приоритет территорий.</span>
         </div>
         <form class="filters-grid forecast-form-grid" id="forecastForm" method="get" action="/forecasting">
             <label class="filter-field">
@@ -186,12 +187,12 @@
         <div class="filter-summary" id="forecastSummaryLine">{% if data.loading and data.loading_status_message %}{{ data.loading_status_message }}{% else %}{{ summary.slice_label }} | Средняя вероятность: {{ summary.average_probability_display }} | Максимум: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | К последним 4 неделям: {{ summary.forecast_vs_recent_display }}{% endif %}</div>
     </section>
 
-    <div id="forecastAsyncState" class="analysis-async{% if not (data.bootstrap_mode == 'deferred' or data.loading_status_message or data.decision_support_status_message) %} is-hidden{% endif %}">
+    <div id="forecastAsyncState" class="analysis-async{% if not (data.bootstrap_mode == 'deferred' or data.metadata_status_message or data.loading_status_message or data.decision_support_status_message) %} is-hidden{% endif %}">
         <div id="forecastLoadingState" class="analysis-status-card{% if data.loading or data.decision_support_pending or data.bootstrap_mode == 'deferred' %} is-pending{% elif data.base_forecast_ready or data.decision_support_ready %} is-ready{% else %} is-hidden{% endif %}" aria-live="polite">
             <div class="analysis-status-head">
                 <div class="analysis-status-copy">
-                    <strong id="forecastLoadingLead" class="analysis-status-lead">Подготавливаем сценарный прогноз</strong>
-                    <span id="forecastLoadingMessage" class="analysis-status-message">{% if data.decision_support_pending and data.decision_support_status_message %}{{ data.decision_support_status_message }}{% elif data.loading_status_message %}{{ data.loading_status_message }}{% else %}Сначала собираем базовый прогноз, затем вторым этапом догружаем блок поддержки решений и визуализации.{% endif %}</span>
+                    <strong id="forecastLoadingLead" class="analysis-status-lead">Подготавливаем прогноз по дням</strong>
+                    <span id="forecastLoadingMessage" class="analysis-status-message">{% if data.decision_support_pending and data.decision_support_status_message %}{{ data.decision_support_status_message }}{% elif data.loading_status_message %}{{ data.loading_status_message }}{% elif data.metadata_status_message %}{{ data.metadata_status_message }}{% else %}Сначала загружаем фильтры и признаки, затем считаем базовый прогноз и только третьим этапом догружаем поддержку решений.{% endif %}</span>
                 </div>
             </div>
             <div id="forecastProgressSteps" class="analysis-step-list">
@@ -201,6 +202,7 @@
                 <span class="analysis-step">Построение визуализаций</span>
             </div>
             <div class="analysis-status-meta">
+                <div id="forecastMetadataStatus" class="analysis-status-line{% if not data.metadata_status_message %} is-hidden{% endif %}{% if data.metadata_error %} is-error{% elif data.metadata_pending %} is-pending{% elif data.metadata_ready %} is-ready{% endif %}" data-stage-label="Фильтры и признаки">{{ data.metadata_status_message }}</div>
                 <div id="forecastBootstrapStatus" class="analysis-status-line{% if not data.loading_status_message %} is-hidden{% endif %}{% if data.loading or data.bootstrap_mode == 'deferred' %} is-pending{% elif data.base_forecast_ready and data.loading_status_message %} is-ready{% endif %}" data-stage-label="Базовый прогноз">{{ data.loading_status_message }}</div>
                 <div id="forecastDecisionSupportStatus" class="analysis-status-line{% if not data.decision_support_status_message %} is-hidden{% endif %}{% if data.decision_support_error %} is-error{% elif data.decision_support_pending %} is-pending{% elif data.decision_support_ready %} is-ready{% endif %}" data-stage-label="Поддержка решений">{{ data.decision_support_status_message }}</div>
             </div>
@@ -230,6 +232,13 @@
             <div class="analysis-inline-actions">
                 <button id="forecastRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
             </div>
+        </div>
+        <div id="forecastJobRuntime" class="analysis-runtime-card is-hidden" aria-live="polite">
+            <div class="analysis-runtime-head">
+                <strong id="forecastJobStatusLabel">Статус decision-support job</strong>
+                <span id="forecastJobMeta"></span>
+            </div>
+            <pre id="forecastJobLogOutput" class="analysis-job-log-output"></pre>
         </div>
     </div>
     <section class="stats-grid forecast-stats">
@@ -352,8 +361,8 @@
 
             <article class="panel forecast-table-panel">
                 <div class="panel-head">
-                    <h2>Ближайшие даты</h2>
-                    <span class="panel-meta">Простая таблица по ближайшим дням: дата, вероятность пожара и короткий комментарий без дробных технических значений.</span>
+                <h2>Прогноз по ближайшим дням</h2>
+                <span class="panel-meta">Календарь ближайших дат: день, вероятность пожара и короткий комментарий без лишних технических деталей.</span>
                 </div>
                 <div id="forecastTableShell" class="forecast-table-shell">
                     {% if data.forecast_rows %}
@@ -390,8 +399,8 @@
         <aside class="dashboard-secondary forecast-secondary">
             <article class="panel insight-panel">
                 <div class="panel-head">
-                    <h2>Ключевые сигналы</h2>
-                    <span class="panel-meta">Четыре коротких вывода, чтобы понять сценарий без лишней аналитики.</span>
+                    <h2>Короткие выводы по прогнозу</h2>
+                    <span class="panel-meta">Несколько быстрых выводов, чтобы понять сценарий без чтения всех графиков.</span>
                 </div>
                 <div id="forecastInsights" class="insight-grid">
                     {% if data.insights %}
@@ -419,8 +428,8 @@
 
             <article class="panel ranking-panel">
                 <div class="panel-head">
-                    <h2>Что важно помнить</h2>
-                    <span class="panel-meta">Короткие оговорки, которые помогают не переоценивать точность прогноза.</span>
+                    <h2>Ограничения прогноза</h2>
+                    <span class="panel-meta">Короткие оговорки, которые помогают правильно интерпретировать прогноз.</span>
                 </div>
                 <ul id="forecastNotesList" class="notice-list forecast-note-list">
                     {% if data.notes %}
@@ -438,8 +447,8 @@
     <section id="forecastDetails" class="risk-grid">
         <article class="panel ranking-panel risk-ranking-panel">
             <div class="panel-head">
-                <h2>Территории с приоритетом для решений</h2>
-                <span class="panel-meta">Это ранжирование для поддержки решений: итоговый риск прозрачно разложен на четыре компонента, чтобы быстро видеть не только приоритетные территории, но и причину их положения в списке.</span>
+                <h2>Где нужен приоритет по территориям</h2>
+                <span class="panel-meta">Ранжирование показывает, какие территории требуют внимания в первую очередь и из чего складывается их риск.</span>
             </div>
             <div id="forecastRiskTerritories" class="risk-territory-list">
                 {% if risk.territories %}
@@ -568,8 +577,8 @@
             <article class="panel">
                 <div class="panel-head">
                     <div>
-                        <h2>Как считается риск</h2>
-                        <span class="panel-meta">Экспертная база, историческая калибровка по окнам и сельский контур показывают, как меняется вклад каждого компонента без потери объяснимости.</span>
+                        <h2>Из чего складывается балл территории</h2>
+                        <span class="panel-meta">Здесь видно, как отдельные компоненты и калибровки формируют итоговый балл риска по территории.</span>
                     </div>
                     <span id="forecastWeightModeBadge" class="forecast-badge risk-badge tone-{{ risk.weight_profile.status_tone | default('forest') }}">{{ risk.weight_profile.status_label | default('Активный профиль') }}</span>
                 </div>
@@ -751,8 +760,8 @@
 
             <article class="panel ranking-panel">
                 <div class="panel-head">
-                    <h2>Как читать балл поддержки решений</h2>
-                    <span class="panel-meta">Короткие пояснения, чтобы не путать компонентное ранжирование риска со сценарным прогнозом или ML-прогнозом.</span>
+                    <h2>Как интерпретировать балл территории</h2>
+                    <span class="panel-meta">Короткие пояснения, чтобы не путать ранжирование территорий с прогнозом по дням или ML-прогнозом.</span>
                 </div>
                 <ul id="forecastRiskNotes" class="notice-list forecast-note-list">
                     {% if risk.notes %}

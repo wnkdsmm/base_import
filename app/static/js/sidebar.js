@@ -7,7 +7,9 @@
         return;
     }
 
-    const mobileBreakpoint = 1200;
+    const mobileBreakpoint = 1360;
+    const portraitBreakpoint = 1400;
+    const compactHeightBreakpoint = 820;
     const openLabel = 'Меню';
     const closeLabel = 'Закрыть';
     const body = document.body;
@@ -36,7 +38,18 @@
         link.setAttribute('href', closeHash);
     });
 
-    const isMobile = () => window.innerWidth <= mobileBreakpoint;
+    const isPortraitCompact = () => (
+        window.matchMedia('(orientation: portrait)').matches
+        && window.innerWidth <= portraitBreakpoint
+    );
+
+    const isHeightCompact = () => window.innerHeight <= compactHeightBreakpoint;
+
+    const isMobile = () => (
+        window.innerWidth <= mobileBreakpoint
+        || isPortraitCompact()
+        || isHeightCompact()
+    );
 
     const normalizePath = (value) => {
         const trimmed = value.replace(/\/+$/, '');

@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var currentMlData = null;
     var currentJobState = null;
     var jobPollTimer = null;

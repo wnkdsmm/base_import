@@ -1,11 +1,13 @@
 import math
 import re
+from contextlib import nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 
 from sqlalchemy import inspect, text
 
 from app.db_metadata import get_table_columns_cached, get_table_names_cached, invalidate_db_metadata_cache
+from app.perf import ensure_sqlalchemy_timing, perf_trace
 from config.db import engine
 
 
@@ -212,22 +214,32 @@ def get_table_columns(table_name):
 
 def get_table_preview(table_name, selected_columns, limit=100):
     """Превью выбранных колонок из таблицы."""
-    if not table_name or not isinstance(table_name, str):
-        raise ValueError("Invalid table name")
+    ensure_sqlalchemy_timing(engine)
+    with perf_trace("table.preview", table_name=table_name, requested_limit=limit) as perf:
+        if not table_name or not isinstance(table_name, str):
+            raise ValueError("Invalid table name")
 
-    requested_columns = [str(column) for column in (selected_columns or []) if column]
-    if not requested_columns:
-        return [], []
+        with perf.span("filter_prep"):
+            requested_columns = [str(column) for column in (selected_columns or []) if column]
+            if not requested_columns:
+                perf.update(requested_columns=0, available_columns=0, returned_rows=0)
+                return [], []
 
-    table_columns = get_table_columns_cached(table_name)
-    available_columns = [column for column in requested_columns if column in table_columns]
-    if not available_columns:
-        return [], []
+            table_columns = get_table_columns_cached(table_name)
+            available_columns = [column for column in requested_columns if column in table_columns]
+            perf.update(
+                requested_columns=len(requested_columns),
+                available_columns=len(available_columns),
+            )
+            if not available_columns:
+                perf.update(returned_rows=0)
+                return [], []
 
-    with engine.connect() as conn:
-        rows = _fetch_ordered_rows(conn, table_name, available_columns, limit=limit)
-
-    return available_columns, rows
+        with perf.span("payload_render"):
+            with engine.connect() as conn:
+                rows = _fetch_ordered_rows(conn, table_name, available_columns, limit=limit)
+            perf.update(input_rows=len(rows), returned_rows=len(rows))
+            return available_columns, rows
 
 
 def normalize_table_page_size(page_size):
@@ -244,63 +256,90 @@ def normalize_table_page_size(page_size):
     return DEFAULT_TABLE_PAGE_SIZE
 
 
-def get_table_data(table_name, limit=None, offset=0):
+def get_table_data(table_name, limit=None, offset=0, perf=None):
     """Получить данные из таблицы с limit/offset и общим числом строк."""
-    if not table_name or not isinstance(table_name, str):
-        raise ValueError("Invalid table name")
+    ensure_sqlalchemy_timing(engine)
+    trace = perf or perf_trace("table.data", table_name=table_name, requested_limit=limit, requested_offset=offset)
+    trace_context = nullcontext(trace) if perf is not None else trace
 
-    try:
-        columns = get_table_columns_cached(table_name)
-        has_limit = limit is not None
-        safe_limit = max(1, int(limit)) if has_limit else None
-        safe_offset = max(0, int(offset or 0))
+    with trace_context as active_perf:
+        if not table_name or not isinstance(table_name, str):
+            raise ValueError("Invalid table name")
 
-        with engine.connect() as conn:
-            total_rows = int(conn.execute(text(f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}")).scalar() or 0)
-            rows = _fetch_ordered_rows(conn, table_name, columns, limit=safe_limit if has_limit else None, offset=safe_offset)
+        try:
+            with active_perf.span("filter_prep"):
+                columns = get_table_columns_cached(table_name)
+                has_limit = limit is not None
+                safe_limit = max(1, int(limit)) if has_limit else None
+                safe_offset = max(0, int(offset or 0))
+                active_perf.update(
+                    column_count=len(columns),
+                    requested_limit=safe_limit if has_limit else "all",
+                    requested_offset=safe_offset,
+                )
 
-        return columns, rows, total_rows
-    except Exception as exc:
-        raise Exception(f"Error accessing table {table_name}: {str(exc)}") from exc
+            with active_perf.span("payload_render"):
+                with engine.connect() as conn:
+                    total_rows = int(conn.execute(text(f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}")).scalar() or 0)
+                    rows = _fetch_ordered_rows(conn, table_name, columns, limit=safe_limit if has_limit else None, offset=safe_offset)
+                active_perf.update(input_rows=total_rows, total_rows=total_rows, returned_rows=len(rows))
+                return columns, rows, total_rows
+        except Exception as exc:
+            if perf is not None:
+                active_perf.fail(exc)
+            raise Exception(f"Error accessing table {table_name}: {str(exc)}") from exc
 
 
 def get_table_page(table_name, page=1, page_size=DEFAULT_TABLE_PAGE_SIZE):
-    if not table_name or not isinstance(table_name, str):
-        raise ValueError("Invalid table name")
+    ensure_sqlalchemy_timing(engine)
+    with perf_trace("table.page", table_name=table_name, requested_page=page, requested_page_size=page_size) as perf:
+        if not table_name or not isinstance(table_name, str):
+            raise ValueError("Invalid table name")
 
-    try:
-        safe_page = max(1, int(page))
-    except (TypeError, ValueError):
-        safe_page = 1
+        try:
+            safe_page = max(1, int(page))
+        except (TypeError, ValueError):
+            safe_page = 1
 
-    safe_page_size = normalize_table_page_size(page_size)
-    offset = (safe_page - 1) * safe_page_size
-    columns, rows, total_rows = get_table_data(table_name, limit=safe_page_size, offset=offset)
+        with perf.span("filter_prep"):
+            safe_page_size = normalize_table_page_size(page_size)
+            offset = (safe_page - 1) * safe_page_size
+            perf.update(page=safe_page, page_size=safe_page_size, requested_offset=offset)
 
-    total_pages = max(1, math.ceil(total_rows / safe_page_size)) if total_rows else 1
-    if total_rows and offset >= total_rows and safe_page > 1:
-        safe_page = total_pages
-        offset = (safe_page - 1) * safe_page_size
-        columns, rows, total_rows = get_table_data(table_name, limit=safe_page_size, offset=offset)
+        columns, rows, total_rows = get_table_data(table_name, limit=safe_page_size, offset=offset, perf=perf)
 
-    displayed_rows = len(rows)
-    page_row_start = offset + 1 if displayed_rows else 0
-    page_row_end = offset + displayed_rows
+        with perf.span("payload_render"):
+            total_pages = max(1, math.ceil(total_rows / safe_page_size)) if total_rows else 1
+            if total_rows and offset >= total_rows and safe_page > 1:
+                safe_page = total_pages
+                offset = (safe_page - 1) * safe_page_size
+                columns, rows, total_rows = get_table_data(table_name, limit=safe_page_size, offset=offset, perf=perf)
 
-    return {
-        "table_name": table_name,
-        "columns": columns,
-        "rows": rows,
-        "total_rows": total_rows,
-        "page": safe_page,
-        "page_size": safe_page_size,
-        "total_pages": total_pages,
-        "page_row_start": page_row_start,
-        "page_row_end": page_row_end,
-        "displayed_rows": displayed_rows,
-        "has_previous": safe_page > 1,
-        "has_next": safe_page < total_pages,
-    }
+            displayed_rows = len(rows)
+            page_row_start = offset + 1 if displayed_rows else 0
+            page_row_end = offset + displayed_rows
+            perf.update(
+                total_rows=total_rows,
+                total_pages=total_pages,
+                displayed_rows=displayed_rows,
+                page_row_start=page_row_start,
+                page_row_end=page_row_end,
+            )
+
+            return {
+                "table_name": table_name,
+                "columns": columns,
+                "rows": rows,
+                "total_rows": total_rows,
+                "page": safe_page,
+                "page_size": safe_page_size,
+                "total_pages": total_pages,
+                "page_row_start": page_row_start,
+                "page_row_end": page_row_end,
+                "displayed_rows": displayed_rows,
+                "has_previous": safe_page > 1,
+                "has_next": safe_page < total_pages,
+            }
 
 
 def create_modified_table(source_table: str, selected_columns, target_table: str | None = None):

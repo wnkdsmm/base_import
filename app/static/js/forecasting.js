@@ -370,6 +370,7 @@
     var currentForecastData = window.__FIRE_FORECAST_INITIAL__ || null;
     var forecastRequestToken = 0;
     var forecastStepTimers = [];
+    var decisionSupportJobPollTimer = null;
 
     function clearForecastStepTimers() {
         while (forecastStepTimers.length) {
@@ -488,26 +489,45 @@
     function startForecastProgressSequence() {
         clearForecastStepTimers();
         setForecastProgress(0, {
-            lead: 'Загружаем данные для сценарного прогноза',
-            message: 'Получаем выбранный срез, историю и параметры сценария.'
+            lead: 'Загружаем фильтры и признаки',
+            message: 'Подготавливаем данные для формы: доступные значения фильтров и найденные группы признаков.'
         });
         forecastStepTimers.push(setTimeout(function () {
             setForecastProgress(1, {
-                lead: 'Агрегируем историю пожаров',
-                message: 'Собираем дневной ряд и ключевые показатели по выбранным фильтрам.'
+                lead: 'Подготавливаем базовый прогноз',
+                message: 'Фильтры уже готовы. Переходим к сбору истории и базового сценарного прогноза.'
             });
         }, 320));
+    }
+
+    function startBaseForecastProgressSequence() {
+        clearForecastStepTimers();
+        setForecastProgress(1, {
+            lead: 'Агрегируем историю пожаров',
+            message: 'Собираем дневной ряд и ключевые показатели по выбранным фильтрам.'
+        });
         forecastStepTimers.push(setTimeout(function () {
             setForecastProgress(2, {
                 lead: 'Считаем базовый прогноз и проверку',
                 message: 'Обновляем базовый сценарий и метрики по историческому ряду.'
             });
-        }, 980));
+        }, 640));
     }
 
     function syncForecastAsyncState(data) {
         if (!data) {
             setForecastAsyncVisibility(false);
+            return;
+        }
+
+        if (data.metadata_pending) {
+            clearForecastStepTimers();
+            setForecastLoadingState(
+                'Подготавливаем фильтры и признаки',
+                data.metadata_status_message || 'Сначала догружаем фильтры и признаки для страницы прогноза.',
+                0,
+                { showSkeleton: true }
+            );
             return;
         }
 
@@ -534,9 +554,9 @@
 
         if (data.loading || data.bootstrap_mode === 'deferred') {
             setForecastLoadingState(
-                'Подготавливаем сценарный прогноз',
-                data.loading_status_message || 'Сначала собираем базовый прогноз, затем вторым этапом догружаем блок поддержки решений.',
-                0,
+                data.metadata_ready ? 'Собираем базовый сценарный прогноз' : 'Подготавливаем сценарный прогноз',
+                data.loading_status_message || 'После загрузки фильтров и признаков рассчитываем базовый прогноз, а затем догружаем поддержку решений.',
+                data.metadata_ready ? 1 : 0,
                 { showSkeleton: true }
             );
             return;
@@ -560,6 +580,42 @@
         var params = new URLSearchParams(baseQuery || '');
         params.set('include_decision_support', includeDecisionSupport ? '1' : '0');
         return params.toString();
+    }
+
+    function setMetadataStatus(message, state) {
+        var node = byId('forecastMetadataStatus');
+        var text = String(message == null ? '' : message).trim();
+        if (!node) {
+            return;
+        }
+
+        node.textContent = text;
+        node.classList.toggle('is-hidden', !text);
+        node.classList.remove('is-pending', 'is-ready', 'is-error');
+        if (text && state) {
+            node.classList.add('is-' + state);
+        }
+    }
+
+    function syncMetadataStatus(data) {
+        if (!data) {
+            setMetadataStatus('', '');
+            return;
+        }
+
+        if (data.metadata_error) {
+            setMetadataStatus(data.metadata_status_message, 'error');
+            return;
+        }
+        if (data.metadata_pending) {
+            setMetadataStatus(data.metadata_status_message, 'pending');
+            return;
+        }
+        if (data.metadata_ready && data.metadata_status_message) {
+            setMetadataStatus(data.metadata_status_message, 'ready');
+            return;
+        }
+        setMetadataStatus('', '');
     }
 
     function setBootstrapStatus(message, state) {
@@ -652,6 +708,9 @@
 
     function buildSummaryLine(summary, data) {
         var safeSummary = summary || {};
+        if (data && data.metadata_pending && data.metadata_status_message) {
+            return data.metadata_status_message;
+        }
         if (data && data.loading && data.loading_status_message) {
             return data.loading_status_message;
         }
@@ -662,7 +721,7 @@
     }
 
     function getForecastApiErrorMessage(payload, fallback) {
-        var normalizedFallback = fallback || 'Forecasting request failed.';
+        var normalizedFallback = fallback || 'Не удалось выполнить запрос прогноза.';
         if (!payload || typeof payload !== 'object') {
             return normalizedFallback;
         }
@@ -690,27 +749,178 @@
         return message || fallback;
     }
 
-    async function requestForecastPayload(query, options) {
-        var response = await fetch('/api/forecasting-data?' + query, { headers: { Accept: 'application/json' } });
+    async function requestForecastApiPayload(endpoint, query, options) {
+        var response = await fetch(endpoint + '?' + query, { headers: { Accept: 'application/json' } });
         var payload;
         try {
             payload = await response.json();
         } catch (error) {
             if (!response.ok) {
-                throw createForecastApiError(response, null, 'От forecasting API пришел не JSON-ответ.');
+                throw createForecastApiError(response, null, 'API прогноза вернул ответ в неожиданном формате.');
             }
             throw error;
         }
         if (!response.ok) {
-            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос forecasting.');
+            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос прогноза.');
         }
         if (payload && payload.ok === false) {
-            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос forecasting.');
+            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос прогноза.');
         }
         if (options && options.expectResolved && payload && payload.bootstrap_mode === 'deferred') {
-            throw new Error('В forecasting API вернулся shell-пейлоад вместо готового прогноза.');
+            throw new Error('API прогноза вернул стартовую заготовку вместо готового результата.');
         }
         return payload;
+    }
+
+    function requestForecastPayload(query, options) {
+        return requestForecastApiPayload('/api/forecasting-data', query, options);
+    }
+
+    function requestForecastMetadataPayload(query, options) {
+        return requestForecastApiPayload('/api/forecasting-metadata', query, options);
+    }
+
+    function buildForecastJobBody(query) {
+        var params = new URLSearchParams(query || '');
+        return {
+            table_name: params.get('table_name') || 'all',
+            district: params.get('district') || 'all',
+            cause: params.get('cause') || 'all',
+            object_category: params.get('object_category') || 'all',
+            temperature: params.get('temperature') || '',
+            forecast_days: params.get('forecast_days') || '14',
+            history_window: params.get('history_window') || 'all'
+        };
+    }
+
+    function stopDecisionSupportPolling() {
+        if (decisionSupportJobPollTimer) {
+            clearTimeout(decisionSupportJobPollTimer);
+            decisionSupportJobPollTimer = null;
+        }
+    }
+
+    function renderForecastJobRuntime(jobPayload) {
+        var runtimeNode = byId('forecastJobRuntime');
+        var statusNode = byId('forecastJobStatusLabel');
+        var metaNode = byId('forecastJobMeta');
+        var logsNode = byId('forecastJobLogOutput');
+        var safeJob = jobPayload || {};
+        var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
+        var meta = safeJob.meta || {};
+        var metaParts = [];
+
+        if (!runtimeNode || !statusNode || !metaNode || !logsNode) {
+            return;
+        }
+        if (!safeJob.job_id) {
+            runtimeNode.classList.add('is-hidden');
+            runtimeNode.classList.remove('is-ready');
+            statusNode.textContent = '';
+            metaNode.textContent = '';
+            logsNode.textContent = '';
+            return;
+        }
+
+        runtimeNode.classList.remove('is-hidden');
+        runtimeNode.classList.toggle('is-ready', safeJob.status === 'completed');
+        statusNode.textContent = 'Статус decision-support job: ' + String(safeJob.status || 'pending');
+        metaParts.push('job_id: ' + String(safeJob.job_id || ''));
+        if (meta.cache_hit) {
+            metaParts.push('кэш');
+        }
+        if (safeJob.reused) {
+            metaParts.push('переиспользован');
+        }
+        metaNode.textContent = metaParts.join(' | ');
+        logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
+    }
+
+    function updateDecisionSupportJobState(jobPayload) {
+        var safeJob = jobPayload || {};
+        var meta = safeJob.meta || {};
+        var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
+        var stageLabel = meta.stage_label ? String(meta.stage_label) : 'Поддержка решений';
+        var message = String(meta.stage_message || '').trim();
+
+        if (!message && logs.length) {
+            message = logs[logs.length - 1];
+        }
+        if (!message) {
+            message = safeJob.status === 'pending'
+                ? 'Ожидаем запуска фонового расчета блока поддержки решений.'
+                : 'Блок поддержки решений выполняется в фоне.';
+        }
+
+        renderForecastJobRuntime(safeJob);
+        if (safeJob.status === 'completed') {
+            setDecisionSupportStatus('Блок поддержки решений и рекомендации готовы.', 'ready');
+            return;
+        }
+
+        setForecastLoadingState(
+            'Догружаем поддержку решений',
+            message,
+            3,
+            { showSkeleton: false }
+        );
+        setForecastProgress(3, {
+            lead: 'Decision support: ' + stageLabel,
+            message: message
+        });
+        setDecisionSupportStatus(message, safeJob.status === 'failed' ? 'error' : 'pending');
+    }
+
+    async function pollDecisionSupportJob(jobId, baseQuery, requestToken) {
+        var response;
+        var payload = null;
+
+        if (!jobId) {
+            return;
+        }
+
+        try {
+            response = await fetch('/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId), {
+                headers: { Accept: 'application/json' }
+            });
+            payload = await response.json();
+            if (requestToken !== forecastRequestToken) {
+                return;
+            }
+            updateDecisionSupportJobState(payload);
+
+            if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
+                throw new Error(payload && payload.error_message ? payload.error_message : 'Фоновая задача decision support завершилась с ошибкой.');
+            }
+            if (payload.status === 'completed' && payload.result) {
+                applyForecastData(payload.result);
+                renderForecastJobRuntime(payload);
+                window.history.replaceState({}, '', baseQuery ? '/forecasting?' + baseQuery : '/forecasting');
+                return;
+            }
+
+            decisionSupportJobPollTimer = setTimeout(function () {
+                pollDecisionSupportJob(jobId, baseQuery, requestToken);
+            }, 1200);
+        } catch (error) {
+            if (requestToken !== forecastRequestToken) {
+                return;
+            }
+            var decisionSupportMessage = getForecastErrorMessage(
+                error,
+                'Не удалось получить статус блока поддержки решений. Попробуйте повторить запрос.'
+            );
+            console.error(error);
+            showForecastError(decisionSupportMessage);
+            clearForecastStepTimers();
+            setForecastProgress(3, {
+                lead: 'Не удалось завершить поддержку решений',
+                message: decisionSupportMessage,
+                isError: true
+            });
+            setDecisionSupportStatus(decisionSupportMessage, 'error');
+            renderForecastJobRuntime(payload);
+        }
     }
 
     function applyToneClass(node, tone) {
@@ -1122,6 +1332,7 @@
         var geoRendered = renderChart(charts.geo, 'forecastGeoChart', 'forecastGeoChartFallback');
         syncGeoPanel(geo, geoRendered);
         syncSidebarBadge(data);
+        syncMetadataStatus(data);
         syncBootstrapStatus(data);
         syncDecisionSupportStatus(data);
         syncForecastAsyncState(data);
@@ -1137,7 +1348,10 @@
     }
 
     async function fetchDecisionSupport(baseQuery, requestToken) {
+        var response;
+        var payload = null;
         clearForecastStepTimers();
+        stopDecisionSupportPolling();
         setForecastLoadingState(
             'Догружаем поддержку решений',
             'Базовый прогноз уже обновлён. Подтягиваем рекомендации и финальные визуализации.',
@@ -1146,11 +1360,28 @@
         );
         setDecisionSupportStatus('Догружаем приоритеты территорий и рекомендации...', 'pending');
         try {
-            var data = await requestForecastPayload(buildForecastRequestQuery(baseQuery, true), { expectResolved: true });
+            response = await fetch('/api/forecasting-decision-support-jobs', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(buildForecastJobBody(baseQuery))
+            });
+            payload = await response.json();
             if (requestToken !== forecastRequestToken) {
                 return;
             }
-            applyForecastData(data);
+            updateDecisionSupportJobState(payload);
+            if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
+                throw new Error(payload && payload.error_message ? payload.error_message : 'Не удалось запустить блок поддержки решений.');
+            }
+            if (payload.status === 'completed' && payload.result) {
+                applyForecastData(payload.result);
+                renderForecastJobRuntime(payload);
+                return;
+            }
+            pollDecisionSupportJob(payload.job_id, baseQuery, requestToken);
         } catch (error) {
             if (requestToken !== forecastRequestToken) {
                 return;
@@ -1171,6 +1402,31 @@
         }
     }
 
+    async function fetchForecastMetadata(baseQuery, requestToken) {
+        setForecastLoadingState(
+            'Загружаем фильтры и признаки',
+            'Сначала догружаем фильтры, доступные значения и найденные признаки.',
+            0,
+            { showSkeleton: true }
+        );
+        startForecastProgressSequence();
+        setMetadataStatus('Загружаем фильтры и признаки...', 'pending');
+        setBootstrapStatus('Базовый прогноз запустится сразу после загрузки фильтров и признаков.', 'pending');
+        setDecisionSupportStatus('', '');
+
+        try {
+            var metadataPayload = await requestForecastMetadataPayload(baseQuery, { expectResolved: false });
+            if (requestToken !== forecastRequestToken) {
+                return null;
+            }
+            applyForecastData(metadataPayload);
+            return metadataPayload;
+        } catch (error) {
+            error.forecastingStage = 'metadata';
+            throw error;
+        }
+    }
+
     async function fetchForecastData() {
         var form = byId('forecastForm');
         var button = byId('forecastRefreshButton');
@@ -1182,20 +1438,28 @@
         var baseQuery = new URLSearchParams(new FormData(form)).toString();
         var query = buildForecastRequestQuery(baseQuery, false);
         forecastRequestToken = requestToken;
+        stopDecisionSupportPolling();
+        renderForecastJobRuntime(null);
         if (button) {
             button.disabled = true;
         }
-        setForecastLoadingState(
-            'Собираем сценарный прогноз',
-            'Загружаем данные, агрегируем историю и подготавливаем базовый расчёт.',
-            0,
-            { showSkeleton: true }
-        );
-        startForecastProgressSequence();
-        setBootstrapStatus('Собираем базовый сценарный прогноз...', 'pending');
-        setDecisionSupportStatus('', '');
 
         try {
+            await fetchForecastMetadata(baseQuery, requestToken);
+            if (requestToken !== forecastRequestToken) {
+                return;
+            }
+
+            setForecastLoadingState(
+                'Собираем базовый сценарный прогноз',
+                'Фильтры уже готовы. Загружаем данные, агрегируем историю и подготавливаем базовый расчёт.',
+                1,
+                { showSkeleton: true }
+            );
+            startBaseForecastProgressSequence();
+            setMetadataStatus('Фильтры и признаки готовы.', 'ready');
+            setBootstrapStatus('Собираем базовый сценарный прогноз...', 'pending');
+
             var data = await requestForecastPayload(query, { expectResolved: true });
             if (requestToken !== forecastRequestToken) {
                 return;
@@ -1214,10 +1478,23 @@
                 'Не удалось загрузить базовый прогноз. Попробуйте изменить фильтры или запустить расчёт еще раз.'
             );
             console.error(error);
-            setBootstrapStatus(forecastErrorMessage, 'error');
             clearForecastStepTimers();
+            if (error && error.forecastingStage === 'metadata') {
+                setMetadataStatus(forecastErrorMessage, 'error');
+                setBootstrapStatus('Базовый прогноз не запущен: фильтры и признаки не загрузились.', 'error');
+                setForecastProgress(0, {
+                    lead: 'Не удалось загрузить фильтры и признаки',
+                    message: forecastErrorMessage,
+                    isError: true
+                });
+                setDecisionSupportStatus('', '');
+                showForecastError(forecastErrorMessage);
+                return;
+            }
+            setMetadataStatus('Фильтры и признаки готовы.', 'ready');
+            setBootstrapStatus(forecastErrorMessage, 'error');
             setForecastProgress(2, {
-                lead: 'Не удалось собрать базовый прогноз',
+                lead: 'Не удалось завершить базовый прогноз',
                 message: forecastErrorMessage,
                 isError: true
             });

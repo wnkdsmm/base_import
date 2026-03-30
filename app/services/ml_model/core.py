@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from app.perf import current_perf_trace, profiled
 from app.services.forecasting.core import _build_feature_cards
 from app.services.forecasting.data import (
     _build_daily_history_sql,
@@ -25,6 +27,7 @@ from app.services.forecasting.utils import (
     _parse_history_window,
     _resolve_option_value,
 )
+from config.db import engine
 
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS, MODEL_NAME, _CACHE_LIMIT, _ML_CACHE
 from .presentation import (
@@ -98,10 +101,27 @@ def get_ml_model_shell_context(
     forecast_days: str = '14',
     history_window: str = 'all',
 ) -> Dict[str, Any]:
-    table_options = _build_forecasting_table_options()
-    selected_table = _resolve_forecasting_selection(table_options, table_name)
-    days_ahead = _parse_forecast_days(forecast_days)
-    selected_history_window = _parse_history_window(history_window)
+    request_state = _build_ml_request_state(
+        table_name=table_name,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        forecast_days=forecast_days,
+        history_window=history_window,
+    )
+    cached = _cache_get(request_state['cache_key'])
+    if cached is not None:
+        return {
+            'generated_at': _format_datetime(datetime.now()),
+            'initial_data': cached,
+            'plotly_js': '',
+            'has_data': bool(cached['filters']['available_tables']),
+        }
+
+    table_options = request_state['table_options']
+    selected_table = request_state['selected_table']
+    days_ahead = request_state['days_ahead']
+    selected_history_window = request_state['selected_history_window']
     initial_data = _empty_ml_model_data(
         table_options,
         selected_table,
@@ -120,6 +140,7 @@ def get_ml_model_shell_context(
     }
 
 
+@profiled('ml_model', engine=engine)
 def get_ml_model_data(
     table_name: str = 'all',
     cause: str = 'all',
@@ -129,6 +150,7 @@ def get_ml_model_data(
     history_window: str = 'all',
     progress_callback: MlProgressCallback = None,
 ) -> Dict[str, Any]:
+    perf = current_perf_trace()
     request_state = _build_ml_request_state(
         table_name=table_name,
         cause=cause,
@@ -144,91 +166,130 @@ def get_ml_model_data(
     selected_history_window = request_state['selected_history_window']
     scenario_temperature = request_state['scenario_temperature']
     cache_key = request_state['cache_key']
+    if perf is not None:
+        perf.update(
+            requested_table=table_name,
+            requested_cause=cause,
+            requested_object_category=object_category,
+            selected_table=selected_table,
+            source_tables=len(source_tables),
+            forecast_horizon_days=days_ahead,
+            history_window=selected_history_window,
+        )
     cached = _cache_get(cache_key)
     if cached is not None:
+        if perf is not None:
+            perf.update(cache_hit=True, payload_has_data=bool(cached.get('has_data')))
         _emit_progress(progress_callback, 'ml_model.completed', 'Результат ML-анализа взят из кэша.')
         return cached
 
+    if perf is not None:
+        perf.update(cache_hit=False)
     base = _empty_ml_model_data(table_options, selected_table, days_ahead, temperature, selected_history_window)
     if not source_tables:
         base['notes'].append('Нет доступных таблиц для ML-модели.')
+        if perf is not None:
+            perf.update(payload_has_data=False, payload_notes=len(base['notes']))
         return _cache_store(cache_key, base)
 
     _emit_progress(progress_callback, 'ml_model.running', 'Собираем SQL-агрегаты и доступные фильтры для ML-блока.')
-    metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
-    option_catalog = _build_option_catalog_sql(
-        source_tables,
-        history_window=selected_history_window,
-        metadata_items=metadata_items,
-    )
-    selected_cause = _resolve_option_value(option_catalog['causes'], cause)
-    selected_object_category = _resolve_option_value(option_catalog['object_categories'], object_category)
+    filter_prep_context = perf.span('filter_prep') if perf is not None else nullcontext()
+    with filter_prep_context:
+        metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
+        option_catalog = _build_option_catalog_sql(
+            source_tables,
+            history_window=selected_history_window,
+            metadata_items=metadata_items,
+        )
+        selected_cause = _resolve_option_value(option_catalog['causes'], cause)
+        selected_object_category = _resolve_option_value(option_catalog['object_categories'], object_category)
+        if perf is not None:
+            perf.update(
+                metadata_tables=len(metadata_items),
+                available_causes=len(option_catalog['causes']),
+                available_object_categories=len(option_catalog['object_categories']),
+            )
 
-    daily_history = _build_daily_history_sql(
-        source_tables,
-        history_window=selected_history_window,
-        cause=selected_cause,
-        object_category=selected_object_category,
-        metadata_items=metadata_items,
-    )
-    filtered_records_count = _count_forecasting_records_sql(
-        source_tables,
-        history_window=selected_history_window,
-        cause=selected_cause,
-        object_category=selected_object_category,
-        metadata_items=metadata_items,
-    )
+    aggregation_context = perf.span('aggregation') if perf is not None else nullcontext()
+    with aggregation_context:
+        daily_history = _build_daily_history_sql(
+            source_tables,
+            history_window=selected_history_window,
+            cause=selected_cause,
+            object_category=selected_object_category,
+            metadata_items=metadata_items,
+        )
+        filtered_records_count = _count_forecasting_records_sql(
+            source_tables,
+            history_window=selected_history_window,
+            cause=selected_cause,
+            object_category=selected_object_category,
+            metadata_items=metadata_items,
+        )
+        if perf is not None:
+            perf.update(input_rows=filtered_records_count, history_days=len(daily_history))
     _emit_progress(
         progress_callback,
         'ml_model.running',
         f"Подготовлен дневной ряд: {len(daily_history)} дней истории, {filtered_records_count} пожаров после фильтров.",
     )
-    ml_result = _train_ml_model(
-        daily_history,
-        days_ahead,
-        scenario_temperature,
-        progress_callback=progress_callback,
-    )
+    model_training_context = perf.span('model_training') if perf is not None else nullcontext()
+    with model_training_context:
+        ml_result = _train_ml_model(
+            daily_history,
+            days_ahead,
+            scenario_temperature,
+            progress_callback=progress_callback,
+        )
     _emit_progress(progress_callback, 'ml_model.running', 'Формируем итоговые метрики, графики и таблицы ML-блока.')
-    summary = _build_summary(
-        selected_table=selected_table,
-        selected_cause=selected_cause,
-        selected_object_category=selected_object_category,
-        daily_history=daily_history,
-        filtered_records_count=filtered_records_count,
-        ml_result=ml_result,
-        history_window=selected_history_window,
-        scenario_temperature=scenario_temperature,
-    )
+    payload_render_context = perf.span('payload_render') if perf is not None else nullcontext()
+    with payload_render_context:
+        summary = _build_summary(
+            selected_table=selected_table,
+            selected_cause=selected_cause,
+            selected_object_category=selected_object_category,
+            daily_history=daily_history,
+            filtered_records_count=filtered_records_count,
+            ml_result=ml_result,
+            history_window=selected_history_window,
+            scenario_temperature=scenario_temperature,
+        )
 
-    payload = {
-        'generated_at': _format_datetime(datetime.now()),
-        'has_data': filtered_records_count > 0,
-        'model_description': ML_PREDICTIVE_BLOCK_DESCRIPTION,
-        'summary': summary,
-        'quality_assessment': _build_quality_assessment(ml_result),
-        'features': _build_feature_cards(metadata_items),
-        'charts': {
-            'forecast': _build_forecast_chart(daily_history, ml_result),
-            'importance': _build_importance_chart(ml_result.get('feature_importance', [])),
-        },
-        'forecast_rows': ml_result.get('forecast_rows', []),
-        'feature_importance': ml_result.get('feature_importance', []),
-        'notes': _build_notes(preload_notes, metadata_items, filtered_records_count, daily_history, ml_result, scenario_temperature, source_tables),
-        'filters': {
-            'table_name': selected_table,
-            'cause': selected_cause,
-            'object_category': selected_object_category,
-            'temperature': temperature if scenario_temperature is None else _format_float_for_input(scenario_temperature),
-            'forecast_days': str(days_ahead),
-            'history_window': selected_history_window,
-            'available_tables': table_options,
-            'available_causes': option_catalog['causes'],
-            'available_object_categories': option_catalog['object_categories'],
-            'available_forecast_days': [{'value': str(item), 'label': f'{item} дней'} for item in FORECAST_DAY_OPTIONS],
-            'available_history_windows': HISTORY_WINDOW_OPTIONS,
-        },
-    }
+        payload = {
+            'generated_at': _format_datetime(datetime.now()),
+            'has_data': filtered_records_count > 0,
+            'model_description': ML_PREDICTIVE_BLOCK_DESCRIPTION,
+            'summary': summary,
+            'quality_assessment': _build_quality_assessment(ml_result),
+            'features': _build_feature_cards(metadata_items),
+            'charts': {
+                'forecast': _build_forecast_chart(daily_history, ml_result),
+                'importance': _build_importance_chart(ml_result.get('feature_importance', [])),
+            },
+            'forecast_rows': ml_result.get('forecast_rows', []),
+            'feature_importance': ml_result.get('feature_importance', []),
+            'notes': _build_notes(preload_notes, metadata_items, filtered_records_count, daily_history, ml_result, scenario_temperature, source_tables),
+            'filters': {
+                'table_name': selected_table,
+                'cause': selected_cause,
+                'object_category': selected_object_category,
+                'temperature': temperature if scenario_temperature is None else _format_float_for_input(scenario_temperature),
+                'forecast_days': str(days_ahead),
+                'history_window': selected_history_window,
+                'available_tables': table_options,
+                'available_causes': option_catalog['causes'],
+                'available_object_categories': option_catalog['object_categories'],
+                'available_forecast_days': [{'value': str(item), 'label': f'{item} дней'} for item in FORECAST_DAY_OPTIONS],
+                'available_history_windows': HISTORY_WINDOW_OPTIONS,
+            },
+        }
+        if perf is not None:
+            perf.update(
+                payload_has_data=bool(payload['has_data']),
+                payload_notes=len(payload['notes']),
+                feature_importance_rows=len(payload['feature_importance']),
+                forecast_rows=len(payload['forecast_rows']),
+            )
     _emit_progress(progress_callback, 'ml_model.completed', 'ML-анализ завершён, результат готов к выдаче.')
     return _cache_store(cache_key, payload)
 

@@ -434,6 +434,37 @@ svg {
     background: rgba(255, 255, 255, 0.82);
 }
 
+.analysis-runtime-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.analysis-runtime-head strong {
+    color: var(--ink);
+    font-size: 14px;
+}
+
+.analysis-runtime-head span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.analysis-job-log-output {
+    margin: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .analysis-skeleton-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
@@ -1843,7 +1874,7 @@ td {
     }
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1360px), (orientation: portrait) and (max-width: 1400px), (max-height: 820px) {
     body.sidebar-open {
         overflow: hidden;
     }
@@ -1851,7 +1882,7 @@ td {
     .sidebar-toggle {
         position: fixed;
         top: 16px;
-        left: 16px;
+        left: 24px;
         z-index: 12;
         display: inline-flex;
         align-items: center;
@@ -1886,9 +1917,9 @@ td {
     }
 
     .sidebar {
-        inset: 16px auto 16px 16px;
-        width: min(var(--sidebar-width), calc(100vw - 32px));
-        max-width: calc(100vw - 32px);
+        inset: 16px auto 16px 24px;
+        width: min(var(--sidebar-width), calc(100vw - 48px));
+        max-width: calc(100vw - 48px);
         height: calc(100vh - 32px);
         max-height: calc(100vh - 32px);
         height: calc(100dvh - 32px);
@@ -1899,7 +1930,7 @@ td {
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
         touch-action: pan-y;
-        transform: translateX(calc(-100% - 24px));
+        transform: translateX(calc(-100% - 36px));
         visibility: hidden;
         transition: transform 0.22s ease, visibility 0.22s ease;
         z-index: 11;
@@ -1962,7 +1993,7 @@ td {
 }
 
 @supports selector(body:has(.sidebar:target)) {
-    @media (max-width: 1200px) {
+    @media (max-width: 1360px), (orientation: portrait) and (max-width: 1400px), (max-height: 820px) {
         body:has(.sidebar:target) {
             overflow: hidden;
         }

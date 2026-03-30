@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS, get_all_tables, get_table_page
 from app.plotly_bundle import get_plotly_bundle
+from app.services.access_points_service import get_access_points_shell_context
 from app.services.clustering_service import get_clustering_page_context
 from app.services.dashboard_service import get_dashboard_page_context, get_dashboard_shell_context
 from app.services.fire_map_service import build_fire_map_html, get_fire_map_page_context
@@ -215,6 +216,31 @@ def clustering_page(
             clustering=clustering,
             clustering_css_version=_static_version("clustering.css"),
             clustering_js_version=_static_version("js/clustering.js"),
+        ),
+    )
+
+
+@router.get("/access-points", response_class=HTMLResponse)
+def access_points_page(
+    request: Request,
+    table_name: str = "all",
+    district: str = "all",
+    year: str = "all",
+    limit: str = "25",
+):
+    access_points = get_access_points_shell_context(
+        table_name=table_name,
+        district=district,
+        year=year,
+        limit=limit,
+    )
+    return templates.TemplateResponse(
+        "access_points.html",
+        _base_template_context(
+            request,
+            access_points=access_points,
+            access_points_css_version=_static_version("access_points.css"),
+            access_points_js_version=_static_version("js/access_points.js"),
         ),
     )
 

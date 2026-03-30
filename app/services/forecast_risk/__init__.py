@@ -1,4 +1,4 @@
-﻿from .constants import *
+from .constants import *
 from .core import *
 from .data import *
 from .presentation import *

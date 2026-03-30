@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from app.perf import ensure_sqlalchemy_timing, perf_trace
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
 from app.services.executive_brief import compose_executive_brief_text
+from config.db import engine
 
 from .aggregates import (
     _build_area_buckets_chart,
@@ -73,119 +75,152 @@ def get_dashboard_data(
     year: str = "all",
     group_column: str = "",
     metadata: Optional[Dict[str, Any]] = None,
+    allow_fallback: bool = True,
 ) -> Dict[str, Any]:
-    try:
-        metadata = metadata or _collect_dashboard_metadata_cached()
-        tables = metadata["tables"]
-        normalized_group_column = group_column or metadata["default_group_column"]
+    ensure_sqlalchemy_timing(engine)
+    with perf_trace(
+        "dashboard",
+        requested_table=table_name,
+        requested_year=year,
+        requested_group_column=group_column or "",
+        allow_fallback=allow_fallback,
+    ) as perf:
+        try:
+            with perf.span("filter_prep"):
+                metadata = metadata or _collect_dashboard_metadata_cached()
+                tables = metadata["tables"]
+                normalized_group_column = group_column or metadata["default_group_column"]
 
-        cache_key = (
-            tuple(sorted(table["name"] for table in tables)),
-            table_name,
-            year,
-            normalized_group_column,
-        )
-        cached = _get_dashboard_cache(cache_key)
-        if cached is not None:
-            return cached
+                cache_key = (
+                    tuple(sorted(table["name"] for table in tables)),
+                    table_name,
+                    year,
+                    normalized_group_column,
+                )
+                cached = _get_dashboard_cache(cache_key)
+                if cached is not None:
+                    perf.update(
+                        cache_hit=True,
+                        available_tables=len(metadata["table_options"]),
+                        payload_has_data=bool(cached.get("has_data")),
+                        payload_notes=len(cached.get("notes") or []),
+                    )
+                    return cached
 
-        selected_tables = _resolve_selected_tables(tables, table_name)
-        available_years = _collect_year_options(selected_tables)
-        requested_year = _parse_year(year)
-        available_year_values = {item['value'] for item in available_years}
-        selected_year = requested_year if requested_year is not None and str(requested_year) in available_year_values else None
+                selected_tables = _resolve_selected_tables(tables, table_name)
+                available_years = _collect_year_options(selected_tables)
+                requested_year = _parse_year(year)
+                available_year_values = {item["value"] for item in available_years}
+                selected_year = requested_year if requested_year is not None and str(requested_year) in available_year_values else None
 
-        available_group_columns = _collect_group_column_options(selected_tables)
+                available_group_columns = _collect_group_column_options(selected_tables)
 
-        selected_group_column = _resolve_group_column(
-            normalized_group_column,
-            available_group_columns,
-            metadata["default_group_column"],
-        )
+                selected_group_column = _resolve_group_column(
+                    normalized_group_column,
+                    available_group_columns,
+                    metadata["default_group_column"],
+                )
 
-        selected_table_name = table_name if any(item["value"] == table_name for item in metadata["table_options"]) else "all"
+                selected_table_name = table_name if any(item["value"] == table_name for item in metadata["table_options"]) else "all"
+                perf.update(
+                    cache_hit=False,
+                    selected_tables=len(selected_tables),
+                    available_tables=len(metadata["table_options"]),
+                    available_years=len(available_years),
+                    available_group_columns=len(available_group_columns),
+                )
 
-        summary = _build_summary(selected_tables, selected_year)
-        yearly_fires_series = _build_yearly_chart(selected_tables, metric="count")
-        table_breakdown_series = _build_table_breakdown_chart(selected_tables, selected_year)
-        cause_overview = _build_cause_chart(selected_tables, selected_year)
-        if _is_damage_group_selection(selected_group_column):
-            distribution = _build_damage_overview_chart(selected_tables, selected_year)
-            yearly_area_chart = _build_damage_pairs_chart(selected_tables, selected_year)
-            monthly_profile = _build_damage_standalone_chart(selected_tables, selected_year)
-            area_buckets = _build_damage_share_chart(selected_tables, selected_year)
-        else:
-            distribution = _build_distribution_chart(selected_tables, selected_year, selected_group_column)
-            yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
-            monthly_profile = _build_monthly_profile_chart(selected_tables, selected_year)
-            area_buckets = _build_area_buckets_chart(selected_tables, selected_year)
-        trend = _build_trend(yearly_fires_series)
-        rankings = _build_rankings(distribution, table_breakdown_series, yearly_fires_series)
-        highlights = _build_highlights(summary, yearly_fires_series, cause_overview)
-        widgets = _build_sql_widgets(selected_tables, selected_year)
-        management = _build_management_snapshot(
-            selected_tables=selected_tables,
-            selected_year=selected_year,
-            summary=summary,
-            trend=trend,
-            cause_overview=cause_overview,
-            district_widget=widgets["districts"],
-        )
-        scope = _build_scope(
-            summary=summary,
-            metadata=metadata,
+            with perf.span("aggregation"):
+                summary = _build_summary(selected_tables, selected_year)
+                yearly_fires_series = _build_yearly_chart(selected_tables, metric="count")
+                table_breakdown_series = _build_table_breakdown_chart(selected_tables, selected_year)
+                cause_overview = _build_cause_chart(selected_tables, selected_year)
+                if _is_damage_group_selection(selected_group_column):
+                    distribution = _build_damage_overview_chart(selected_tables, selected_year)
+                    yearly_area_chart = _build_damage_pairs_chart(selected_tables, selected_year)
+                    monthly_profile = _build_damage_standalone_chart(selected_tables, selected_year)
+                    area_buckets = _build_damage_share_chart(selected_tables, selected_year)
+                else:
+                    distribution = _build_distribution_chart(selected_tables, selected_year, selected_group_column)
+                    yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
+                    monthly_profile = _build_monthly_profile_chart(selected_tables, selected_year)
+                    area_buckets = _build_area_buckets_chart(selected_tables, selected_year)
+                trend = _build_trend(yearly_fires_series)
+                rankings = _build_rankings(distribution, table_breakdown_series, yearly_fires_series)
+                highlights = _build_highlights(summary, yearly_fires_series, cause_overview)
+                widgets = _build_sql_widgets(selected_tables, selected_year)
+                management = _build_management_snapshot(
+                    selected_tables=selected_tables,
+                    selected_year=selected_year,
+                    summary=summary,
+                    trend=trend,
+                    cause_overview=cause_overview,
+                    district_widget=widgets["districts"],
+                )
+                scope = _build_scope(
+                    summary=summary,
+                    metadata=metadata,
             selected_table_label=_find_option_label(metadata["table_options"], selected_table_name, "Все таблицы"),
             selected_group_label=_find_option_label(available_group_columns, selected_group_column, "Нет доступных колонок"),
-            available_years=available_years,
-        )
+                    available_years=available_years,
+                )
+                perf.update(input_rows=summary.get("fires_count"))
 
-        scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
-        export_text = compose_executive_brief_text(
-            management.get("brief"),
-            scope_label=scope_label,
-            generated_at=_format_datetime(datetime.now()),
-        )
-        management["export_text"] = export_text
-        if isinstance(management.get("brief"), dict):
-            management["brief"]["export_text"] = export_text
+            scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
+            with perf.span("payload_render"):
+                export_text = compose_executive_brief_text(
+                    management.get("brief"),
+                    scope_label=scope_label,
+                    generated_at=_format_datetime(datetime.now()),
+                )
+                management["export_text"] = export_text
+                if isinstance(management.get("brief"), dict):
+                    management["brief"]["export_text"] = export_text
 
-        notes = list(metadata["errors"][:5])
-        if not PLOTLY_AVAILABLE:
-            notes.append("Библиотека Plotly не найдена в окружении. Интерактивные графики не будут показаны.")
+                notes = list(metadata["errors"][:5])
+                if not PLOTLY_AVAILABLE:
+                    notes.append("Библиотека Plotly не найдена в окружении. Интерактивные графики не будут показаны.")
 
-        data = {
-            "generated_at": _format_datetime(datetime.now()),
-            "has_data": bool(selected_tables),
-            "summary": summary,
-            "scope": scope,
-            "trend": trend,
-            "management": management,
-            "highlights": highlights,
-            "rankings": rankings,
-            "widgets": widgets,
-            "charts": {
-                "yearly_fires": cause_overview,
-                "yearly_area": yearly_area_chart,
-                "distribution": distribution,
-                "table_breakdown": _finalize_chart("", [], ""),
-                "monthly_profile": monthly_profile,
-                "area_buckets": area_buckets,
-            },
-            "filters": {
-                "table_name": selected_table_name,
-                "year": str(selected_year) if selected_year is not None else "all",
-                "group_column": selected_group_column,
-                "available_tables": metadata["table_options"],
-                "available_years": available_years,
-                "available_group_columns": available_group_columns,
+                data = {
+                    "generated_at": _format_datetime(datetime.now()),
+                    "has_data": bool(selected_tables),
+                    "summary": summary,
+                    "scope": scope,
+                    "trend": trend,
+                    "management": management,
+                    "highlights": highlights,
+                    "rankings": rankings,
+                    "widgets": widgets,
+                    "charts": {
+                        "yearly_fires": cause_overview,
+                        "yearly_area": yearly_area_chart,
+                        "distribution": distribution,
+                        "table_breakdown": _finalize_chart("", [], ""),
+                        "monthly_profile": monthly_profile,
+                        "area_buckets": area_buckets,
+                    },
+                    "filters": {
+                        "table_name": selected_table_name,
+                        "year": str(selected_year) if selected_year is not None else "all",
+                        "group_column": selected_group_column,
+                        "available_tables": metadata["table_options"],
+                        "available_years": available_years,
+                        "available_group_columns": available_group_columns,
+                    },
+                    "notes": notes,
+                }
+                perf.update(
+                    payload_has_data=bool(data["has_data"]),
+                    payload_notes=len(notes),
+                )
 
-            },
-            "notes": notes,
-        }
-        _set_dashboard_cache(cache_key, data)
-        return data
-    except Exception as exc:
-        return _empty_dashboard_data(str(exc))
+            _set_dashboard_cache(cache_key, data)
+            return data
+        except Exception as exc:
+            if not allow_fallback:
+                raise
+            perf.fail(exc, status="fallback")
+            return _empty_dashboard_data(str(exc))
 
 
 def _empty_dashboard_data(error_message: str = "") -> Dict[str, Any]:

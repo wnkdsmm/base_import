@@ -1,4 +1,4 @@
-﻿DATE_COLUMN = "Дата возникновения пожара"
+DATE_COLUMN = "Дата возникновения пожара"
 AREA_COLUMN = "Площадь пожара"
 GENERAL_CAUSE_COLUMN = "Причина пожара (общая)"
 OPEN_AREA_CAUSE_COLUMN = "Причина пожара для открытой территории"

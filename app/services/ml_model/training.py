@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from contextlib import nullcontext
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -32,6 +33,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     sm = None
 
+from app.perf import current_perf_trace, profiled
 from app.services.forecasting.data import _build_forecast_rows as _build_scenario_forecast_rows
 from app.services.forecasting.utils import _format_number, _format_percent
 from app.services.model_quality import compute_classification_metrics, compute_count_metrics, relative_delta
@@ -95,27 +97,32 @@ def _train_ml_model(
     scenario_temperature: Optional[float],
     progress_callback: MlProgressCallback = None,
 ) -> Dict[str, Any]:
+    perf = current_perf_trace()
     if len(daily_history) < MIN_DAILY_HISTORY or forecast_days <= 0:
         return _empty_ml_result(
             f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить rolling-origin backtesting и обучить модель.'
         )
 
     _emit_progress(progress_callback, 'ml_model.running', 'Подготавливаем признаки и обучающую выборку для ML-модели.')
-    history_tail = daily_history[-MAX_HISTORY_POINTS:]
-    frame = pd.DataFrame(
-        {
-            'date': pd.to_datetime([item['date'] for item in history_tail]),
-            'count': [float(item['count']) for item in history_tail],
-            'avg_temperature': [item.get('avg_temperature') for item in history_tail],
-        }
-    ).sort_values('date').reset_index(drop=True)
-    frame['temp_value'] = frame['avg_temperature']
-    frame['temp_value'] = frame.groupby(frame['date'].dt.month)['temp_value'].transform(lambda series: series.fillna(series.mean()))
-    frame['temp_value'] = frame['temp_value'].fillna(frame['temp_value'].mean()).fillna(0.0)
+    feature_prep_context = perf.span('feature_prep') if perf is not None else nullcontext()
+    with feature_prep_context:
+        history_tail = daily_history[-MAX_HISTORY_POINTS:]
+        frame = pd.DataFrame(
+            {
+                'date': pd.to_datetime([item['date'] for item in history_tail]),
+                'count': [float(item['count']) for item in history_tail],
+                'avg_temperature': [item.get('avg_temperature') for item in history_tail],
+            }
+        ).sort_values('date').reset_index(drop=True)
+        frame['temp_value'] = frame['avg_temperature']
+        frame['temp_value'] = frame.groupby(frame['date'].dt.month)['temp_value'].transform(lambda series: series.fillna(series.mean()))
+        frame['temp_value'] = frame['temp_value'].fillna(frame['temp_value'].mean()).fillna(0.0)
 
-    featured = _feature_frame(frame)
-    dataset = featured.dropna(subset=FEATURE_COLUMNS + ['count']).copy().reset_index(drop=True)
-    dataset['event'] = (dataset['count'] > 0).astype(int)
+        featured = _feature_frame(frame)
+        dataset = featured.dropna(subset=FEATURE_COLUMNS + ['count']).copy().reset_index(drop=True)
+        dataset['event'] = (dataset['count'] > 0).astype(int)
+        if perf is not None:
+            perf.update(history_points=len(history_tail), feature_rows=len(dataset))
     if len(dataset) < MIN_FEATURE_ROWS:
         return _empty_ml_result(
             f'После формирования лагов и скользящих признаков осталось только {len(dataset)} наблюдений: этого мало для корректного rolling-origin backtesting.'
@@ -157,77 +164,85 @@ def _train_ml_model(
     )
 
     _emit_progress(progress_callback, 'ml_model.running', 'Оцениваем важность признаков и собираем итоговый ML-отчёт.')
-    feature_importance = _build_feature_importance(final_count_model, dataset)
-    backtest_rows = [
-        {
-            'date': row['date'],
-            'actual_count': round(float(row['actual_count']), 3),
-            'predicted_count': round(float(row['predicted_count']), 3),
-            'baseline_count': round(float(row['baseline_count']), 3),
-            'heuristic_count': round(float(row['heuristic_count']), 3),
-            'actual_event': int(row['actual_event']),
-            'predicted_event_probability': round(float(row['predicted_event_probability']), 4)
-            if row['predicted_event_probability'] is not None
-            else None,
-            'baseline_event_probability': round(float(row['baseline_event_probability']), 4)
-            if row['baseline_event_probability'] is not None
-            else None,
-            'heuristic_event_probability': round(float(row['heuristic_event_probability']), 4)
-            if row['heuristic_event_probability'] is not None
-            else None,
-        }
-        for row in backtest['rows']
-    ]
+    result_render_context = perf.span('result_render') if perf is not None else nullcontext()
+    with result_render_context:
+        feature_importance = _build_feature_importance(final_count_model, dataset)
+        backtest_rows = [
+            {
+                'date': row['date'],
+                'actual_count': round(float(row['actual_count']), 3),
+                'predicted_count': round(float(row['predicted_count']), 3),
+                'baseline_count': round(float(row['baseline_count']), 3),
+                'heuristic_count': round(float(row['heuristic_count']), 3),
+                'actual_event': int(row['actual_event']),
+                'predicted_event_probability': round(float(row['predicted_event_probability']), 4)
+                if row['predicted_event_probability'] is not None
+                else None,
+                'baseline_event_probability': round(float(row['baseline_event_probability']), 4)
+                if row['baseline_event_probability'] is not None
+                else None,
+                'heuristic_event_probability': round(float(row['heuristic_event_probability']), 4)
+                if row['heuristic_event_probability'] is not None
+                else None,
+            }
+            for row in backtest['rows']
+        ]
 
-    overview = backtest['backtest_overview']
-    return {
-        'is_ready': True,
-        'forecast_rows': forecast_rows,
-        'feature_importance': feature_importance,
-        'backtest_rows': backtest_rows,
-        'count_mae': backtest['selected_metrics']['mae'],
-        'count_rmse': backtest['selected_metrics']['rmse'],
-        'count_smape': backtest['selected_metrics']['smape'],
-        'count_poisson_deviance': backtest['selected_metrics']['poisson_deviance'],
-        'baseline_count_mae': backtest['baseline_metrics']['mae'],
-        'baseline_count_rmse': backtest['baseline_metrics']['rmse'],
-        'baseline_count_smape': backtest['baseline_metrics']['smape'],
-        'baseline_count_poisson_deviance': backtest['baseline_metrics']['poisson_deviance'],
-        'heuristic_count_mae': backtest['heuristic_metrics']['mae'],
-        'heuristic_count_rmse': backtest['heuristic_metrics']['rmse'],
-        'heuristic_count_smape': backtest['heuristic_metrics']['smape'],
-        'heuristic_count_poisson_deviance': backtest['heuristic_metrics']['poisson_deviance'],
-        'count_vs_baseline_delta': backtest['selected_metrics']['mae_delta_vs_baseline'],
-        'brier_score': backtest['event_metrics']['brier_score'],
-        'baseline_brier_score': backtest['event_metrics']['baseline_brier_score'],
-        'heuristic_brier_score': backtest['event_metrics'].get('heuristic_brier_score'),
-        'roc_auc': backtest['event_metrics']['roc_auc'],
-        'baseline_roc_auc': backtest['event_metrics'].get('baseline_roc_auc'),
-        'heuristic_roc_auc': backtest['event_metrics'].get('heuristic_roc_auc'),
-        'f1_score': backtest['event_metrics']['f1'],
-        'baseline_f1_score': backtest['event_metrics']['baseline_f1'],
-        'heuristic_f1_score': backtest['event_metrics'].get('heuristic_f1'),
-        'log_loss': backtest['event_metrics']['log_loss'],
-        'baseline_log_loss': backtest['event_metrics'].get('baseline_log_loss'),
-        'heuristic_log_loss': backtest['event_metrics'].get('heuristic_log_loss'),
-        'count_comparison_rows': backtest['count_comparison_rows'],
-        'event_comparison_rows': backtest['event_metrics'].get('comparison_rows', []),
-        'backtest_overview': overview,
-        'selected_count_model_key': selected_count_model_key,
-        'selected_count_model_reason': backtest.get('selected_count_model_reason'),
-        'selected_count_model_reason_short': backtest.get('selected_count_model_reason_short'),
-        'candidate_count_model_labels': overview.get('candidate_model_labels', []),
-        'selected_event_model_key': backtest['event_metrics'].get('selected_model_key'),
-        'selected_event_model_label': backtest['event_metrics'].get('selected_model_label'),
-        'top_feature_label': feature_importance[0]['label'] if feature_importance else '-',
-        'count_model_label': COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key),
-        'event_model_label': EVENT_MODEL_LABEL if final_event_model is not None else None,
-        'event_backtest_available': backtest['event_metrics'].get('available', False),
-        'backtest_method_label': overview.get('rolling_scheme_label')
-        or f'Rolling-origin backtesting: {len(backtest_rows)} одношаговых окон',
-        'classifier_ready': final_event_model is not None,
-        'message': '',
-    }
+        overview = backtest['backtest_overview']
+        if perf is not None:
+            perf.update(
+                forecast_rows=len(forecast_rows),
+                feature_importance_rows=len(feature_importance),
+                backtest_rows=len(backtest_rows),
+            )
+        return {
+            'is_ready': True,
+            'forecast_rows': forecast_rows,
+            'feature_importance': feature_importance,
+            'backtest_rows': backtest_rows,
+            'count_mae': backtest['selected_metrics']['mae'],
+            'count_rmse': backtest['selected_metrics']['rmse'],
+            'count_smape': backtest['selected_metrics']['smape'],
+            'count_poisson_deviance': backtest['selected_metrics']['poisson_deviance'],
+            'baseline_count_mae': backtest['baseline_metrics']['mae'],
+            'baseline_count_rmse': backtest['baseline_metrics']['rmse'],
+            'baseline_count_smape': backtest['baseline_metrics']['smape'],
+            'baseline_count_poisson_deviance': backtest['baseline_metrics']['poisson_deviance'],
+            'heuristic_count_mae': backtest['heuristic_metrics']['mae'],
+            'heuristic_count_rmse': backtest['heuristic_metrics']['rmse'],
+            'heuristic_count_smape': backtest['heuristic_metrics']['smape'],
+            'heuristic_count_poisson_deviance': backtest['heuristic_metrics']['poisson_deviance'],
+            'count_vs_baseline_delta': backtest['selected_metrics']['mae_delta_vs_baseline'],
+            'brier_score': backtest['event_metrics']['brier_score'],
+            'baseline_brier_score': backtest['event_metrics']['baseline_brier_score'],
+            'heuristic_brier_score': backtest['event_metrics'].get('heuristic_brier_score'),
+            'roc_auc': backtest['event_metrics']['roc_auc'],
+            'baseline_roc_auc': backtest['event_metrics'].get('baseline_roc_auc'),
+            'heuristic_roc_auc': backtest['event_metrics'].get('heuristic_roc_auc'),
+            'f1_score': backtest['event_metrics']['f1'],
+            'baseline_f1_score': backtest['event_metrics']['baseline_f1'],
+            'heuristic_f1_score': backtest['event_metrics'].get('heuristic_f1'),
+            'log_loss': backtest['event_metrics']['log_loss'],
+            'baseline_log_loss': backtest['event_metrics'].get('baseline_log_loss'),
+            'heuristic_log_loss': backtest['event_metrics'].get('heuristic_log_loss'),
+            'count_comparison_rows': backtest['count_comparison_rows'],
+            'event_comparison_rows': backtest['event_metrics'].get('comparison_rows', []),
+            'backtest_overview': overview,
+            'selected_count_model_key': selected_count_model_key,
+            'selected_count_model_reason': backtest.get('selected_count_model_reason'),
+            'selected_count_model_reason_short': backtest.get('selected_count_model_reason_short'),
+            'candidate_count_model_labels': overview.get('candidate_model_labels', []),
+            'selected_event_model_key': backtest['event_metrics'].get('selected_model_key'),
+            'selected_event_model_label': backtest['event_metrics'].get('selected_model_label'),
+            'top_feature_label': feature_importance[0]['label'] if feature_importance else '-',
+            'count_model_label': COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key),
+            'event_model_label': EVENT_MODEL_LABEL if final_event_model is not None else None,
+            'event_backtest_available': backtest['event_metrics'].get('available', False),
+            'backtest_method_label': overview.get('rolling_scheme_label')
+            or f'Rolling-origin backtesting: {len(backtest_rows)} одношаговых окон',
+            'classifier_ready': final_event_model is not None,
+            'message': '',
+        }
 
 
 def _empty_ml_result(message: str) -> Dict[str, Any]:
@@ -514,17 +529,27 @@ def _scenario_reference_forecast(train: pd.DataFrame, test: pd.DataFrame) -> Tup
     probability = row.get('fire_probability')
     return max(0.0, float(row.get('forecast_value', 0.0))), _clip_probability(probability if probability is not None else 0.0)
 
+@profiled('ml_backtest')
 def _run_backtest(
     history_frame: pd.DataFrame,
     dataset: pd.DataFrame,
     progress_callback: MlProgressCallback = None,
 ) -> Dict[str, Any]:
+    perf = current_perf_trace()
     history_frame = history_frame.sort_values('date').reset_index(drop=True)
     dataset = dataset.reset_index(drop=True)
     design_matrix = _build_design_matrix(dataset)
     history_dates = history_frame['date'].to_numpy(dtype='datetime64[ns]')
     min_train_rows = min(max(ROLLING_MIN_TRAIN_ROWS, MIN_FEATURE_ROWS), len(dataset) - MIN_BACKTEST_POINTS)
     available_backtest_points = len(dataset) - min_train_rows
+    if perf is not None:
+        perf.update(
+            history_rows=len(history_frame),
+            dataset_rows=len(dataset),
+            design_columns=len(design_matrix.columns),
+            min_train_rows=min_train_rows,
+            available_backtest_points=available_backtest_points,
+        )
     if available_backtest_points < MIN_BACKTEST_POINTS:
         return {
             'is_ready': False,
@@ -536,6 +561,8 @@ def _run_backtest(
 
     start_index = max(min_train_rows, len(dataset) - min(MAX_BACKTEST_POINTS, available_backtest_points))
     total_windows = len(dataset) - start_index
+    if perf is not None:
+        perf.update(total_windows=total_windows)
     _emit_progress(
         progress_callback,
         'ml_backtest.running',
@@ -600,6 +627,8 @@ def _run_backtest(
             )
 
     valid_rows = [row for row in rows if any(row['predictions'].get(model_key) is not None for model_key in COUNT_MODEL_KEYS)]
+    if perf is not None:
+        perf.update(valid_windows=len(valid_rows))
     if len(valid_rows) < MIN_BACKTEST_POINTS:
         return {
             'is_ready': False,
@@ -659,6 +688,14 @@ def _run_backtest(
         'ml_backtest.completed',
         f"Backtesting завершён: {len(backtest_rows)} валидных окон, метрики качества готовы.",
     )
+
+    if perf is not None:
+        perf.update(
+            completed_windows=len(rows),
+            valid_windows=len(valid_rows),
+            candidate_models=len(count_metrics),
+            payload_rows=len(backtest_rows),
+        )
 
     return {
         'is_ready': True,
@@ -1046,7 +1083,7 @@ def _build_future_forecast_rows(
                 'upper_bound': round(upper_bound, 3),
                 'upper_bound_display': _format_number(upper_bound),
                 'range_display': f"{_format_number(lower_bound)} - {_format_number(upper_bound)} пожара",
-                'temperature_display': f"{_format_number(temp_value)} °C",
+                'temperature_display': f"{_format_number(temp_value)} В°C",
                 'risk_index': round(risk_index, 1),
                 'risk_index_display': f"{int(round(risk_index))} / 100",
                 'risk_level_label': risk_level_label,

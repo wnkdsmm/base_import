@@ -1,4 +1,4 @@
-﻿from app.services.forecast_risk.constants import *
+from app.services.forecast_risk.constants import *
 from app.services.forecast_risk.core import *
 from app.services.forecast_risk.data import *
 from app.services.forecast_risk.presentation import *

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель статистики по пожарам</title>
+    <title>Оперативная панель по пожарам</title>
     <link rel="stylesheet" href="/static/style.css?v={{ style_css_version }}">
 </head>
 <body>
@@ -33,8 +33,8 @@
     </div>
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Панель</h2>
-        <p>Быстрый управленческий обзор: где риск выше, почему ситуация требует внимания и какие территории стоит брать в работу первыми.</p>
+        <h2>Оперативная панель</h2>
+        <p>Быстрый обзор текущей обстановки: где риск выше сейчас, почему ситуация требует внимания и какие территории стоит брать в работу первыми.</p>
     </div>
 
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
@@ -42,6 +42,7 @@
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
         <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
@@ -71,8 +72,8 @@
 <main class="main dashboard-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Управленческая сводка</span>
-            <h1>Где риск и что делать</h1>
+            <span class="eyebrow">Текущая обстановка</span>
+            <h1>Что происходит сейчас и где нужен приоритет</h1>
             <p class="subtitle" id="dashboardLeadSummary">{{ management.summary_line }}</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
@@ -98,18 +99,18 @@
     <nav class="orientation-strip" aria-label="Быстрый маршрут по dashboard">
         <a class="orientation-link is-primary" href="#dashboardBrief">
             <span class="orientation-kicker">1</span>
-            <strong>Сначала бриф</strong>
-            <p>За 10 секунд понять, где риск и что делать первым.</p>
+            <strong>Сначала краткая сводка</strong>
+            <p>Быстро увидеть, где ситуация напряжённее и что проверить в первую очередь.</p>
         </a>
         <a class="orientation-link is-scenario" href="#dashboardFilters">
             <span class="orientation-kicker">2</span>
-            <strong>Потом уточнение</strong>
-            <p>Сузить картину по таблице, году и аналитическому разрезу.</p>
+            <strong>Потом уточните срез</strong>
+            <p>Сузить обзор по таблице, году и аналитическому разрезу.</p>
         </a>
         <a class="orientation-link is-decision" href="#dashboardDetails">
             <span class="orientation-kicker">3</span>
-            <strong>Затем детали</strong>
-            <p>Проверить лидирующие территории и адресные действия.</p>
+            <strong>Затем проверьте территории</strong>
+            <p>Посмотреть, какие территории и действия важны именно сейчас.</p>
         </a>
     </nav>
 
@@ -151,8 +152,8 @@
 
                 <section id="dashboardFilters" class="panel filters-panel">
                     <div class="panel-head">
-                        <h2>Фильтры</h2>
-                        <span class="panel-meta">Измените таблицу, год и аналитический разрез, чтобы пересобрать сводку и графики.</span>
+                        <h2>Фильтры панели</h2>
+                        <span class="panel-meta">Меняйте таблицу, год и аналитический разрез, чтобы пересобрать текущую сводку и графики.</span>
                     </div>
                     <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
                         <label class="filter-field">
@@ -190,6 +191,14 @@
                     <div class="filter-summary" id="filterSummary">Таблица: {{ scope.table_label }} | Год: {{ scope.year_label }} | Разрез: {{ scope.group_label }}</div>
                 </section>
 
+                <div id="dashboardInlineError" class="analysis-error-card is-hidden" aria-live="polite">
+                    <div class="analysis-error-copy">
+                        <strong id="dashboardInlineErrorLead">Не удалось обновить панель</strong>
+                        <span id="dashboardInlineErrorMessage">Проверьте подключение и повторите запрос.</span>
+                    </div>
+                    <button id="dashboardInlineRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+                </div>
+
                 <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
                     <div class="panel-head">
                         <h2>Замечания по данным</h2>
@@ -208,14 +217,14 @@
             <section id="dashboardDetails" class="panel executive-detail-panel">
                 <div class="panel-head">
                     <div>
-                        <h2>Детали приоритета</h2>
-                        <span class="panel-meta">Ниже остаются территории и действия для проверки решения, но уже после короткого брифа.</span>
+                        <h2>Территории и действия на сейчас</h2>
+                        <span class="panel-meta">Ниже показаны приоритетные территории и рекомендуемые действия для текущего среза.</span>
                     </div>
                 </div>
                 <div class="executive-layout">
                     <div>
                         <div class="executive-section-head">
-                            <h3>Территории первого внимания</h3>
+                            <h3>Территории, требующие внимания сейчас</h3>
                             <span>Top-3 по управленческому приоритету</span>
                         </div>
                         <div id="managementTerritories" class="executive-territory-list">
@@ -249,8 +258,8 @@
                     <aside class="executive-side-stack">
                         <article class="executive-side-card">
                             <div class="executive-section-head">
-                                <h3>Рекомендуемые действия</h3>
-                                <span>Что сделать в первую очередь</span>
+                                <h3>Что сделать в первую очередь</h3>
+                                <span>Короткий список действий для текущей ситуации</span>
                             </div>
                             <div id="managementActionList" class="executive-action-list">
                                 {% if management.actions %}

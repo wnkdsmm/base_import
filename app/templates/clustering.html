@@ -38,6 +38,7 @@
         <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
         <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
         <a class="sidebar-link" href="/clustering">Кластеризация</a>
+        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
         <a class="sidebar-link" href="/fire-map">Fire-map</a>
         <a class="sidebar-link" href="/column-search">Поиск колонок</a>
         <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
@@ -203,6 +204,13 @@
             <div class="analysis-inline-actions">
                 <button id="clusteringRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
             </div>
+        </div>
+        <div id="clusteringJobRuntime" class="analysis-runtime-card is-hidden" aria-live="polite">
+            <div class="analysis-runtime-head">
+                <strong id="clusteringJobStatusLabel">Статус clustering-job</strong>
+                <span id="clusteringJobMeta"></span>
+            </div>
+            <pre id="clusteringJobLogOutput" class="analysis-job-log-output"></pre>
         </div>
     </div>
     <section class="stats-grid" id="clusteringStatsGrid">
