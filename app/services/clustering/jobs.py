@@ -22,6 +22,7 @@ def start_clustering_job(
     sample_limit: str = "1000",
     sampling_strategy: str = "stratified",
     feature_columns: list[str] | None = None,
+    cluster_count_is_explicit: bool = False,
 ) -> Dict[str, Any]:
     request_state = _build_clustering_request_state(
         table_name=table_name,
@@ -29,6 +30,7 @@ def start_clustering_job(
         sample_limit=sample_limit,
         sampling_strategy=sampling_strategy,
         feature_columns=feature_columns,
+        cluster_count_is_explicit=cluster_count_is_explicit,
     )
     cache_key_token = _serialize_cache_key(request_state["cache_key"])
     params_payload = _build_params_payload(
@@ -37,6 +39,7 @@ def start_clustering_job(
         sample_limit=sample_limit,
         sampling_strategy=sampling_strategy,
         feature_columns=feature_columns,
+        cluster_count_is_explicit=cluster_count_is_explicit,
     )
 
     with _CLUSTERING_JOB_LOCK:
@@ -108,6 +111,7 @@ def _run_clustering_job(
             sample_limit=str(params_payload["sample_limit"]),
             sampling_strategy=str(params_payload["sampling_strategy"]),
             feature_columns=list(params_payload.get("feature_columns") or []),
+            cluster_count_is_explicit=bool(params_payload.get("cluster_count_is_explicit")),
             progress_callback=reporter.handle_progress,
         )
         job_store.set_job_result(session_id, job_id, payload)
@@ -196,6 +200,7 @@ def _build_params_payload(
     sample_limit: str,
     sampling_strategy: str,
     feature_columns: list[str] | None,
+    cluster_count_is_explicit: bool,
 ) -> Dict[str, Any]:
     return {
         "table_name": str(table_name or ""),
@@ -203,6 +208,7 @@ def _build_params_payload(
         "sample_limit": str(sample_limit or "1000"),
         "sampling_strategy": str(sampling_strategy or "stratified"),
         "feature_columns": [str(item).strip() for item in (feature_columns or []) if str(item).strip()],
+        "cluster_count_is_explicit": bool(cluster_count_is_explicit),
     }
 
 

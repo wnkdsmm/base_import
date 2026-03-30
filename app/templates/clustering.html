@@ -79,9 +79,9 @@
         </div>
         <div class="hero-side" id="clusteringHeroStats">
             <article class="hero-stat-card">
-                <span class="hero-stat-label">Лучший k по силуэту</span>
+                <span class="hero-stat-label">{{ summary.suggested_cluster_count_label }}</span>
                 <strong class="hero-stat-value">{{ summary.suggested_cluster_count_display }}</strong>
-                <span class="hero-stat-foot">Подсказка по числу кластеров на основе качества разделения.</span>
+                <span class="hero-stat-foot">{{ summary.suggested_cluster_count_note }}</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
                 <span class="hero-stat-label">Точка локтя</span>
@@ -227,7 +227,7 @@
         <article class="stat-card">
             <span class="stat-label">Число кластеров</span>
             <strong class="stat-value">{{ summary.cluster_count_display }}</strong>
-            <span class="stat-foot">Запрошено: {{ summary.cluster_count_requested_display }}</span>
+            <span class="stat-foot">{{ summary.cluster_count_note }}</span>
         </article>
         <article class="stat-card">
             <span class="stat-label">Инерция</span>

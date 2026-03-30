@@ -11,16 +11,42 @@ SAMPLING_STRATEGY_OPTIONS = [
 CARD_TONES = ["group", "area", "table", "fire", "muted"]
 MAX_FEATURE_OPTIONS = 12
 MIN_ROWS_PER_CLUSTER = 5
-MAX_K_DIAGNOSTICS = 8
+MAX_K_DIAGNOSTICS = max(CLUSTER_COUNT_OPTIONS)
 
 DEFAULT_CLUSTER_FEATURES = [
     "Число пожаров",
     "Средняя площадь пожара",
     "Доля ночных пожаров",
     "Среднее время прибытия, мин",
-    "Доля тяжелых последствий",
     "Доля без подтвержденного водоснабжения",
 ]
+AUTO_DEFAULT_EXCLUDED_FEATURES = {
+    "Покрытие данных по водоснабжению",
+    "Покрытие данных по времени прибытия",
+}
+DEFAULT_FEATURE_TARGET_COUNT = len(DEFAULT_CLUSTER_FEATURES)
+MIN_DEFAULT_FEATURE_COUNT = 4
+FEATURE_SELECTION_MIN_IMPROVEMENT = 0.0025
+DEFAULT_CLUSTER_MODE_PROFILE = "territory_profile"
+DEFAULT_CLUSTER_MODE_LOAD = "load_profile"
+DEFAULT_CLUSTER_MODE_PROFILE_LABEL = "Профиль территории"
+DEFAULT_CLUSTER_MODE_LOAD_LABEL = "Профиль территории + нагрузка"
+WEIGHTING_STRATEGY_UNIFORM = "uniform"
+WEIGHTING_STRATEGY_INCIDENT_LOG = "incident_log"
+WEIGHTING_STRATEGY_NOT_APPLICABLE = "not_applicable"
+WEIGHTING_STRATEGY_UNIFORM_LABEL = "Равный вес территорий"
+WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL = "Умеренный вес по числу пожаров"
+WEIGHTING_STRATEGY_NOT_APPLICABLE_LABEL = "Весы не применяются"
+PROFILE_MODE_EXCLUDED_FEATURES = {"Число пожаров"}
+PROFILE_MODE_SCORE_TOLERANCE = 0.01
+PROFILE_MODE_SILHOUETTE_TOLERANCE = 0.015
+VOLUME_DOMINANCE_RATIO = 1.35
+VOLUME_DOMINANCE_MIN_SCORE_DELTA = 0.01
+RATE_SMOOTHING_PRIOR_STRENGTH = 3.0
+MEAN_SMOOTHING_PRIOR_STRENGTH = 2.0
+LOW_SUPPORT_TERRITORY_THRESHOLD = 2
+STABILITY_RESAMPLE_RATIO = 0.8
+STABILITY_RANDOM_SEEDS = [7, 21, 42, 84, 126]
 
 FEATURE_METADATA = {
     "Число пожаров": {

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections import Counter
-from statistics import mean
+from statistics import mean, median
 from typing import Any, Dict, List, Sequence
+
+import pandas as pd
 
 from app.services.forecast_risk.utils import (
     _clamp,
@@ -10,20 +11,41 @@ from app.services.forecast_risk.utils import (
     _format_integer,
     _format_number,
     _format_percent,
-    _is_rural_label,
-    _normalize_match_text,
-    _unique_non_empty,
 )
 
 from .constants import (
-    GENERIC_OBJECT_TOKENS,
-    HIGH_RISK_THRESHOLD,
+    DEFAULT_ACCESS_POINT_FEATURES,
     LONG_RESPONSE_THRESHOLD_MINUTES,
     MAX_INCOMPLETE_POINTS,
-    REVIEW_RISK_THRESHOLD,
     TOP_POINT_CARD_COUNT,
-    WATCH_RISK_THRESHOLD,
 )
+from .point_data import _build_point_entity_frames
+
+DISTANCE_CODE = "DISTANCE_TO_STATION"
+RESPONSE_CODE = "RESPONSE_TIME"
+LONG_ARRIVAL_CODE = "LONG_ARRIVAL_SHARE"
+WATER_CODE = "NO_WATER"
+SEVERITY_CODE = "SEVERE_CONSEQUENCES"
+RECURRENCE_CODE = "REPEAT_FIRES"
+NIGHT_CODE = "NIGHT_PROFILE"
+HEATING_CODE = "HEATING_SEASON"
+UNCERTAINTY_CODE = "DATA_UNCERTAINTY"
+
+FACTOR_WEIGHTS = {
+    DISTANCE_CODE: 16.0,
+    RESPONSE_CODE: 14.0,
+    LONG_ARRIVAL_CODE: 10.0,
+    WATER_CODE: 12.0,
+    SEVERITY_CODE: 18.0,
+    RECURRENCE_CODE: 14.0,
+    NIGHT_CODE: 6.0,
+    HEATING_CODE: 4.0,
+}
+UNCERTAINTY_PENALTY_MAX = 6.0
+CRITICAL_THRESHOLD = 75.0
+HIGH_THRESHOLD = 55.0
+MEDIUM_THRESHOLD = 30.0
+WATCH_RISK_THRESHOLD = MEDIUM_THRESHOLD
 
 
 def _share(numerator: float, denominator: float) -> float:
@@ -32,35 +54,36 @@ def _share(numerator: float, denominator: float) -> float:
     return numerator / denominator
 
 
-def _safe_mean(total: float, count: int) -> float | None:
-    if count <= 0:
-        return None
-    return total / float(count)
-
-
-def _normalize_identity_token(value: Any) -> str:
-    return _normalize_match_text(_clean_text(value))
-
-
-def _is_generic_object_name(value: str) -> bool:
-    normalized = _normalize_identity_token(value)
-    if not normalized or len(normalized) < 4:
-        return True
-    return any(token in normalized for token in GENERIC_OBJECT_TOKENS)
-
-
 def _format_coordinate(value: float | None) -> str:
     if value is None:
         return ""
     return f"{value:.4f}".replace(".", ",")
 
 
+def _normalize_nullable_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except Exception:
+        return None
+    if pd.isna(numeric):
+        return None
+    return numeric
+
+
+def _normalize_selected_access_features(selected_features: Sequence[str] | None) -> List[str]:
+    allowed = set(DEFAULT_ACCESS_POINT_FEATURES)
+    normalized = [str(item).strip() for item in (selected_features or []) if str(item).strip() in allowed]
+    return normalized or list(DEFAULT_ACCESS_POINT_FEATURES)
+
+
 def _status_for_score(score: float) -> tuple[str, str]:
-    if score >= HIGH_RISK_THRESHOLD:
-        return "critical", "Критичный приоритет"
-    if score >= REVIEW_RISK_THRESHOLD:
+    if score >= CRITICAL_THRESHOLD:
+        return "critical", "Критический приоритет"
+    if score >= HIGH_THRESHOLD:
         return "warning", "Повышенный приоритет"
-    if score >= WATCH_RISK_THRESHOLD:
+    if score >= MEDIUM_THRESHOLD:
         return "watch", "Наблюдение"
     return "normal", "Контроль"
 
@@ -75,175 +98,53 @@ def _component_tone(score: float) -> str:
     return "normal"
 
 
-def _resolve_point_identity(record: Dict[str, Any]) -> Dict[str, Any]:
-    address = _clean_text(record.get("address"))
-    address_comment = _clean_text(record.get("address_comment"))
-    object_name = _clean_text(record.get("object_name"))
-    territory_label = _clean_text(record.get("territory_label"))
-    district = _clean_text(record.get("district"))
-    latitude = record.get("latitude")
-    longitude = record.get("longitude")
-    settlement_type = _clean_text(record.get("settlement_type"))
+def _severity_band_descriptor(score: float) -> Dict[str, str]:
+    tone, label = _status_for_score(score)
+    if tone == "critical":
+        return {"severity_band_code": "critical", "severity_band": "критический", "priority_label": label, "tone": tone}
+    if tone == "warning":
+        return {"severity_band_code": "high", "severity_band": "высокий", "priority_label": label, "tone": tone}
+    if tone == "watch":
+        return {"severity_band_code": "medium", "severity_band": "средний", "priority_label": label, "tone": tone}
+    return {"severity_band_code": "low", "severity_band": "низкий", "priority_label": label, "tone": tone}
 
-    normalized_address = _normalize_identity_token(address)
-    normalized_comment = _normalize_identity_token(address_comment)
-    normalized_object = _normalize_identity_token(object_name)
 
-    if address:
-        label = address
-        if object_name and not _is_generic_object_name(object_name) and normalized_object not in normalized_address:
-            label = f"{object_name}, {address}"
-        if address_comment and normalized_comment not in normalized_address:
-            label = f"{label} ({address_comment})"
-        return {
-            "point_id": f"address:{normalized_address}|{normalized_object}",
-            "label": label,
-            "entity_type": "Объект / адрес",
-            "entity_code": "address",
-            "granularity_rank": 5,
-        }
-
-    if object_name and not _is_generic_object_name(object_name):
-        return {
-            "point_id": f"object:{normalized_object}",
-            "label": object_name,
-            "entity_type": "Объект",
-            "entity_code": "object",
-            "granularity_rank": 4,
-        }
-
-    if latitude is not None and longitude is not None:
-        rounded_lat = round(float(latitude), 3)
-        rounded_lon = round(float(longitude), 3)
-        base_label = territory_label or district or "Координатная точка"
-        return {
-            "point_id": f"coords:{rounded_lat:.3f}:{rounded_lon:.3f}",
-            "label": f"{base_label} ({rounded_lat:.3f}, {rounded_lon:.3f})",
-            "entity_type": "Координатная точка",
-            "entity_code": "coordinates",
-            "granularity_rank": 3,
-        }
-
-    if territory_label:
-        return {
-            "point_id": f"territory:{_normalize_identity_token(territory_label)}",
-            "label": territory_label,
-            "entity_type": "Населённый пункт" if settlement_type else "Территория",
-            "entity_code": "territory",
-            "granularity_rank": 2,
-        }
-
-    if district:
-        return {
-            "point_id": f"district:{_normalize_identity_token(district)}",
-            "label": district,
-            "entity_type": "Район",
-            "entity_code": "district",
-            "granularity_rank": 1,
-        }
-
+def _factor_label(reason_code: str) -> str:
     return {
-        "point_id": "unknown:unresolved",
-        "label": "Неуточнённая точка",
-        "entity_type": "Неуточнённая локация",
-        "entity_code": "unknown",
-        "granularity_rank": 0,
+        DISTANCE_CODE: "Удалённость до ПЧ",
+        RESPONSE_CODE: "Среднее время прибытия",
+        LONG_ARRIVAL_CODE: "Доля долгих прибытий",
+        WATER_CODE: "Отсутствие воды",
+        SEVERITY_CODE: "Тяжёлые последствия",
+        RECURRENCE_CODE: "Повторяемость пожаров",
+        NIGHT_CODE: "Ночной профиль",
+        HEATING_CODE: "Отопительный сезон",
+        UNCERTAINTY_CODE: "Неполнота данных",
+    }.get(reason_code, reason_code)
+
+
+def _make_decomposition_item(
+    *,
+    code: str,
+    factor_score: float,
+    weight_points: float,
+    contribution_points: float,
+    value_display: str,
+    is_penalty: bool = False,
+) -> Dict[str, Any]:
+    return {
+        "code": code,
+        "label": _factor_label(code),
+        "factor_score": round(factor_score, 1),
+        "factor_score_display": _format_number(factor_score),
+        "weight_points": round(weight_points, 2),
+        "weight_points_display": _format_number(weight_points),
+        "contribution_points": round(contribution_points, 2),
+        "contribution_display": f"+{_format_number(contribution_points)}",
+        "value_display": value_display,
+        "is_penalty": is_penalty,
+        "tone": _component_tone(contribution_points * 5.0),
     }
-
-
-def _typology_for_row(row: Dict[str, Any]) -> tuple[str, str]:
-    if row["missing_data_priority"]:
-        return "needs_data", "Данные неполные"
-    components = {
-        "access": row["access_score"],
-        "water": row["water_score"],
-        "severity": row["severity_score"],
-        "recurrence": row["recurrence_score"],
-    }
-    dominant = max(components, key=components.get)
-    if dominant == "access" and row["access_score"] >= 45.0:
-        return "access", "Дальний выезд"
-    if dominant == "water" and row["water_score"] >= 40.0:
-        return "water", "Дефицит воды"
-    if dominant == "severity" and row["severity_score"] >= 40.0:
-        return "severity", "Тяжёлые последствия"
-    if dominant == "recurrence" and row["recurrence_score"] >= 35.0:
-        return "recurrence", "Повторяющийся очаг"
-    return "mixed", "Комбинированный риск"
-
-
-def _reason_candidates(row: Dict[str, Any]) -> List[tuple[float, str]]:
-    reasons: List[tuple[float, str]] = []
-
-    average_distance = row.get("average_distance_km")
-    average_response = row.get("average_response_minutes")
-    long_arrival_share = float(row.get("long_arrival_share") or 0.0)
-    no_water_share = float(row.get("no_water_share") or 0.0)
-    water_unknown_share = float(row.get("water_unknown_share") or 0.0)
-    severe_share = float(row.get("severe_share") or 0.0)
-    night_share = float(row.get("night_share") or 0.0)
-    heating_share = float(row.get("heating_share") or 0.0)
-    rural_share = float(row.get("rural_share") or 0.0)
-    completeness_share = float(row.get("completeness_share") or 0.0)
-
-    if row["access_score"] >= 35.0:
-        parts: List[str] = []
-        if average_distance is not None and average_distance >= 8.0:
-            parts.append(f"средняя удалённость до ПЧ {_format_number(average_distance)} км")
-        if average_response is not None and average_response >= LONG_RESPONSE_THRESHOLD_MINUTES:
-            parts.append(f"среднее прибытие {_format_number(average_response)} мин")
-        if long_arrival_share >= 0.25:
-            parts.append(f"долгое прибытие в {_format_percent(long_arrival_share * 100.0)} случаев")
-        if rural_share >= 0.55:
-            parts.append("преимущественно сельский контекст")
-        if parts:
-            reasons.append((row["access_score"], "; ".join(parts)))
-
-    if row["water_score"] >= 30.0:
-        water_parts: List[str] = []
-        if no_water_share > 0:
-            water_parts.append(f"водоснабжение не подтверждено в {_format_percent(no_water_share * 100.0)} подтверждённых кейсов")
-        if water_unknown_share >= 0.2:
-            water_parts.append(f"по воде пропуски в {_format_percent(water_unknown_share * 100.0)} инцидентов")
-        if water_parts:
-            reasons.append((row["water_score"], "; ".join(water_parts)))
-
-    if row["severity_score"] >= 30.0:
-        severity_parts: List[str] = []
-        if severe_share > 0:
-            severity_parts.append(f"тяжёлые последствия в {_format_percent(severe_share * 100.0)} случаев")
-        if row.get("victims_count", 0) > 0:
-            severity_parts.append(f"есть пострадавшие/погибшие: {_format_integer(row['victims_count'])}")
-        if row.get("major_damage_count", 0) > 0:
-            severity_parts.append(f"материальный ущерб/разрушения в {_format_integer(row['major_damage_count'])} инцидентах")
-        if severity_parts:
-            reasons.append((row["severity_score"], "; ".join(severity_parts)))
-
-    if row["recurrence_score"] >= 28.0:
-        recurrence_parts = [
-            f"{_format_integer(row['incident_count'])} пожаров за период",
-        ]
-        if night_share >= 0.25:
-            recurrence_parts.append(f"ночные инциденты {_format_percent(night_share * 100.0)}")
-        if heating_share >= 0.4:
-            recurrence_parts.append(f"отопительный сезон {_format_percent(heating_share * 100.0)}")
-        reasons.append((row["recurrence_score"], "; ".join(recurrence_parts)))
-
-    if row["data_gap_score"] >= 35.0:
-        missing_parts: List[str] = []
-        if float(row.get("arrival_missing_share") or 0.0) >= 0.25:
-            missing_parts.append("не хватает времени прибытия")
-        if float(row.get("distance_missing_share") or 0.0) >= 0.25:
-            missing_parts.append("не хватает дистанции до ПЧ")
-        if water_unknown_share >= 0.25:
-            missing_parts.append("не хватает сведений о воде")
-        if missing_parts:
-            reasons.append((row["data_gap_score"], "; ".join(missing_parts)))
-
-    if not reasons:
-        reasons.append((0.0, f"сводная полнота данных {_format_percent(completeness_share * 100.0)}"))
-    reasons.sort(key=lambda item: item[0], reverse=True)
-    return reasons
 
 
 def _build_component_scores(row: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -251,275 +152,271 @@ def _build_component_scores(row: Dict[str, Any]) -> List[Dict[str, Any]]:
         {
             "key": "access",
             "label": "Доступность ПЧ",
-            "score": round(float(row["access_score"]), 1),
-            "score_display": _format_number(row["access_score"]),
-            "tone": _component_tone(float(row["access_score"])),
+            "score": round(float(row.get("access_score") or 0.0), 1),
+            "score_display": _format_number(float(row.get("access_score") or 0.0)),
+            "tone": _component_tone(float(row.get("access_score") or 0.0)),
         },
         {
             "key": "water",
             "label": "Водоснабжение",
-            "score": round(float(row["water_score"]), 1),
-            "score_display": _format_number(row["water_score"]),
-            "tone": _component_tone(float(row["water_score"])),
+            "score": round(float(row.get("water_score") or 0.0), 1),
+            "score_display": _format_number(float(row.get("water_score") or 0.0)),
+            "tone": _component_tone(float(row.get("water_score") or 0.0)),
         },
         {
             "key": "severity",
             "label": "Последствия",
-            "score": round(float(row["severity_score"]), 1),
-            "score_display": _format_number(row["severity_score"]),
-            "tone": _component_tone(float(row["severity_score"])),
+            "score": round(float(row.get("severity_score") or 0.0), 1),
+            "score_display": _format_number(float(row.get("severity_score") or 0.0)),
+            "tone": _component_tone(float(row.get("severity_score") or 0.0)),
         },
         {
             "key": "recurrence",
             "label": "Частота и контекст",
-            "score": round(float(row["recurrence_score"]), 1),
-            "score_display": _format_number(row["recurrence_score"]),
-            "tone": _component_tone(float(row["recurrence_score"])),
+            "score": round(float(row.get("recurrence_score") or 0.0), 1),
+            "score_display": _format_number(float(row.get("recurrence_score") or 0.0)),
+            "tone": _component_tone(float(row.get("recurrence_score") or 0.0)),
         },
         {
             "key": "data_gap",
             "label": "Неполнота данных",
-            "score": round(float(row["data_gap_score"]), 1),
-            "score_display": _format_number(row["data_gap_score"]),
-            "tone": _component_tone(float(row["data_gap_score"])),
+            "score": round(float(row.get("data_gap_score") or 0.0), 1),
+            "score_display": _format_number(float(row.get("data_gap_score") or 0.0)),
+            "tone": _component_tone(float(row.get("data_gap_score") or 0.0)),
         },
     ]
 
 
-def _build_access_point_rows(records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    if not records:
+def _build_reason_details_from_decomposition(row: Dict[str, Any]) -> List[Dict[str, Any]]:
+    decomposition = list(row.get("score_decomposition") or [])
+    ranked = sorted(
+        decomposition,
+        key=lambda item: float(item.get("contribution_points") or 0.0),
+        reverse=True,
+    )
+    details = [
+        {
+            "code": str(item["code"]),
+            "label": str(item["label"]),
+            "contribution_points": round(float(item.get("contribution_points") or 0.0), 2),
+            "contribution_display": str(item.get("contribution_display") or "0"),
+            "value_display": str(item.get("value_display") or ""),
+        }
+        for item in ranked
+        if float(item.get("contribution_points") or 0.0) > 0
+    ]
+    return details[:4]
+
+
+def _build_human_readable_explanation(row: Dict[str, Any]) -> str:
+    details = list(row.get("reason_details") or [])
+    if not details:
+        return "Точка включена в рейтинг по сумме факторов риска."
+
+    lead = f"{row.get('label') or 'Точка'} получает {row.get('severity_band') or 'средний'} риск {row.get('total_score_display') or '0'} из 100."
+    drivers = [item for item in details if item["code"] != UNCERTAINTY_CODE][:2]
+    if drivers:
+        lead += " Основной вклад дали " + ", ".join(
+            f"{item['label'].lower()} ({item['contribution_display']})" for item in drivers
+        ) + "."
+    if row.get("uncertainty_flag"):
+        lead += f" Неопределённость добавляет {row.get('uncertainty_penalty_display') or '0'} п. и требует верификации."
+    elif row.get("low_support"):
+        lead += " Точка низкой опоры: долевые признаки сглажены, а итоговый score ослаблен."
+    return lead
+
+
+def _typology_for_row(row: Dict[str, Any]) -> tuple[str, str]:
+    if row.get("uncertainty_flag") and str(row.get("severity_band_code") or "") in {"low", "medium"}:
+        return "needs_data", "Данные неполные"
+    components = {
+        "access": float(row.get("access_score") or 0.0),
+        "water": float(row.get("water_score") or 0.0),
+        "severity": float(row.get("severity_score") or 0.0),
+        "recurrence": float(row.get("recurrence_score") or 0.0),
+    }
+    dominant = max(components, key=components.get)
+    if dominant == "access" and components["access"] >= 35.0:
+        return "access", "Дальний выезд"
+    if dominant == "water" and components["water"] >= 30.0:
+        return "water", "Дефицит воды"
+    if dominant == "severity" and components["severity"] >= 30.0:
+        return "severity", "Тяжёлые последствия"
+    if dominant == "recurrence" and components["recurrence"] >= 28.0:
+        return "recurrence", "Повторяющийся очаг"
+    return "mixed", "Комбинированный риск"
+
+
+def _build_access_point_rows_from_entity_frame(
+    entity_frame: pd.DataFrame,
+    feature_frame: pd.DataFrame | None = None,
+    selected_features: Sequence[str] | None = None,
+) -> List[Dict[str, Any]]:
+    if entity_frame is None or entity_frame.empty:
         return []
 
-    buckets: Dict[str, Dict[str, Any]] = {}
-    for record in records:
-        identity = _resolve_point_identity(record)
-        point_id = identity["point_id"]
-        bucket = buckets.get(point_id)
-        if bucket is None:
-            bucket = {
-                **identity,
-                "incident_count": 0,
-                "response_total": 0.0,
-                "response_count": 0,
-                "distance_total": 0.0,
-                "distance_count": 0,
-                "long_arrival_count": 0,
-                "water_yes_count": 0,
-                "water_no_count": 0,
-                "water_unknown_count": 0,
-                "severe_count": 0,
-                "victims_count": 0,
-                "major_damage_count": 0,
-                "night_count": 0,
-                "heating_count": 0,
-                "rural_count": 0,
-                "arrival_missing_count": 0,
-                "distance_missing_count": 0,
-                "years": Counter(),
-                "districts": Counter(),
-                "territories": Counter(),
-                "object_categories": Counter(),
-                "source_tables": Counter(),
-                "latitude_values": [],
-                "longitude_values": [],
-            }
-            buckets[point_id] = bucket
+    normalized_selected_features = _normalize_selected_access_features(selected_features)
+    active_reason_codes = set(normalized_selected_features)
+    selected_weight_sum = sum(float(FACTOR_WEIGHTS[code]) for code in normalized_selected_features if code in FACTOR_WEIGHTS)
+    normalized_factor_weights = {
+        code: (94.0 * float(weight) / selected_weight_sum) if code in active_reason_codes and selected_weight_sum > 0 else 0.0
+        for code, weight in FACTOR_WEIGHTS.items()
+    }
 
-        bucket["incident_count"] += 1
-        bucket["years"][int(record.get("year") or record["date"].year)] += 1
+    working_frame = entity_frame.copy().reset_index(drop=True)
+    if feature_frame is not None and not feature_frame.empty:
+        aligned_features = feature_frame.reset_index(drop=True)
+        for column in aligned_features.columns:
+            working_frame[column] = aligned_features[column]
 
-        district = _clean_text(record.get("district"))
-        territory_label = _clean_text(record.get("territory_label"))
-        object_category = _clean_text(record.get("object_category"))
-        source_table = _clean_text(record.get("source_table"))
-
-        if district:
-            bucket["districts"][district] += 1
-        if territory_label:
-            bucket["territories"][territory_label] += 1
-        if object_category:
-            bucket["object_categories"][object_category] += 1
-        if source_table:
-            bucket["source_tables"][source_table] += 1
-
-        response_minutes = record.get("response_minutes")
-        if response_minutes is None:
-            bucket["arrival_missing_count"] += 1
-        else:
-            bucket["response_total"] += float(response_minutes)
-            bucket["response_count"] += 1
-
-        distance_km = record.get("fire_station_distance")
-        if distance_km is None:
-            bucket["distance_missing_count"] += 1
-        else:
-            bucket["distance_total"] += float(distance_km)
-            bucket["distance_count"] += 1
-
-        if record.get("long_arrival"):
-            bucket["long_arrival_count"] += 1
-
-        has_water_supply = record.get("has_water_supply")
-        if has_water_supply is True:
-            bucket["water_yes_count"] += 1
-        elif has_water_supply is False:
-            bucket["water_no_count"] += 1
-        else:
-            bucket["water_unknown_count"] += 1
-
-        if record.get("severe_consequence"):
-            bucket["severe_count"] += 1
-        if record.get("victims_present"):
-            bucket["victims_count"] += 1
-        if record.get("major_damage"):
-            bucket["major_damage_count"] += 1
-        if record.get("night_incident"):
-            bucket["night_count"] += 1
-        if record.get("heating_season"):
-            bucket["heating_count"] += 1
-
-        rural_hint = _clean_text(record.get("settlement_type")) or territory_label or _clean_text(record.get("address"))
-        if _is_rural_label(rural_hint):
-            bucket["rural_count"] += 1
-
-        latitude = record.get("latitude")
-        longitude = record.get("longitude")
-        if latitude is not None:
-            bucket["latitude_values"].append(float(latitude))
-        if longitude is not None:
-            bucket["longitude_values"].append(float(longitude))
-
-    normalized_rows: List[Dict[str, Any]] = []
-    max_incidents = max(bucket["incident_count"] for bucket in buckets.values())
-    max_incidents_per_year = max(
-        bucket["incident_count"] / max(1, len(bucket["years"]))
-        for bucket in buckets.values()
-    )
-    distance_scale = max(
-        12.0,
-        max((_safe_mean(bucket["distance_total"], bucket["distance_count"]) or 0.0) for bucket in buckets.values()),
-    )
+    max_incidents = max(1.0, float(pd.to_numeric(working_frame["incident_count"], errors="coerce").max() or 1.0))
+    max_incidents_per_year = max(1.0, float(pd.to_numeric(working_frame["incidents_per_year"], errors="coerce").max() or 1.0))
+    distance_scale = max(12.0, float(pd.to_numeric(working_frame["average_distance_km"], errors="coerce").max(skipna=True) or 0.0))
     response_scale = max(
         LONG_RESPONSE_THRESHOLD_MINUTES,
-        max((_safe_mean(bucket["response_total"], bucket["response_count"]) or 0.0) for bucket in buckets.values()),
+        float(pd.to_numeric(working_frame["average_response_minutes"], errors="coerce").max(skipna=True) or 0.0),
     )
 
-    for bucket in buckets.values():
-        incident_count = int(bucket["incident_count"])
-        years_observed = max(1, len(bucket["years"]))
-        incidents_per_year = incident_count / float(years_observed)
-        average_distance = _safe_mean(bucket["distance_total"], bucket["distance_count"])
-        average_response = _safe_mean(bucket["response_total"], bucket["response_count"])
-
-        long_arrival_share = _share(bucket["long_arrival_count"], incident_count)
-        known_water_count = bucket["water_yes_count"] + bucket["water_no_count"]
-        no_water_share = _share(bucket["water_no_count"], known_water_count)
-        water_unknown_share = _share(bucket["water_unknown_count"], incident_count)
-        severe_share = _share(bucket["severe_count"], incident_count)
-        victim_share = _share(bucket["victims_count"], incident_count)
-        major_damage_share = _share(bucket["major_damage_count"], incident_count)
-        night_share = _share(bucket["night_count"], incident_count)
-        heating_share = _share(bucket["heating_count"], incident_count)
-        rural_share = _share(bucket["rural_count"], incident_count)
-        arrival_missing_share = _share(bucket["arrival_missing_count"], incident_count)
-        distance_missing_share = _share(bucket["distance_missing_count"], incident_count)
-        completeness_share = max(
-            0.0,
-            1.0 - mean([arrival_missing_share, distance_missing_share, water_unknown_share]),
+    normalized_rows: List[Dict[str, Any]] = []
+    for record in working_frame.to_dict("records"):
+        incident_count = int(record.get("incident_count") or 0)
+        years_observed = max(1, int(record.get("years_observed") or 1))
+        incidents_per_year = float(record.get("incidents_per_year") or (incident_count / float(years_observed)))
+        average_distance = _normalize_nullable_float(record.get("average_distance_km"))
+        average_response = _normalize_nullable_float(record.get("average_response_minutes"))
+        long_arrival_share = float(record.get("long_arrival_share") or 0.0)
+        no_water_share = float(record.get("no_water_share") or 0.0)
+        water_unknown_share = float(
+            record.get("water_unknown_share") or max(0.0, 1.0 - float(record.get("water_coverage_share") or 0.0))
         )
-
-        distance_norm = 0.0 if average_distance is None else _clamp(average_distance / distance_scale, 0.0, 1.0)
-        response_norm = 0.0 if average_response is None else _clamp(average_response / response_scale, 0.0, 1.0)
-        frequency_norm = _clamp(incidents_per_year / max(1.0, max_incidents_per_year), 0.0, 1.0)
-        incidents_norm = _clamp(incident_count / max(1.0, max_incidents), 0.0, 1.0)
-
-        access_score = 100.0 * _clamp(
-            0.34 * distance_norm
-            + 0.30 * response_norm
-            + 0.24 * long_arrival_share
-            + 0.12 * rural_share,
-            0.0,
-            1.0,
+        severe_share = float(record.get("severe_share") or 0.0)
+        victim_share = float(record.get("victim_share") or _share(float(record.get("victims_count") or 0.0), max(1, incident_count)))
+        major_damage_share = float(
+            record.get("major_damage_share") or _share(float(record.get("major_damage_count") or 0.0), max(1, incident_count))
         )
-        water_score = 100.0 * _clamp(0.72 * no_water_share + 0.28 * water_unknown_share, 0.0, 1.0)
-        severity_score = 100.0 * _clamp(
-            0.52 * severe_share + 0.24 * victim_share + 0.24 * major_damage_share,
-            0.0,
-            1.0,
-        )
-        recurrence_score = 100.0 * _clamp(
-            0.38 * frequency_norm
-            + 0.22 * incidents_norm
-            + 0.16 * night_share
-            + 0.14 * heating_share
-            + 0.10 * rural_share,
+        night_share = float(record.get("night_share") or 0.0)
+        heating_share = float(record.get("heating_share") or 0.0)
+        rural_share = float(record.get("rural_share") or 0.0)
+        response_coverage_share = float(record.get("response_coverage_share") or 0.0)
+        distance_coverage_share = float(record.get("distance_coverage_share") or 0.0)
+
+        arrival_missing_share = max(0.0, 1.0 - response_coverage_share)
+        distance_missing_share = max(0.0, 1.0 - distance_coverage_share)
+        completeness_share = max(0.0, 1.0 - mean([arrival_missing_share, distance_missing_share, water_unknown_share]))
+
+        distance_norm = 0.0 if average_distance is None else _clamp(float(average_distance) / distance_scale, 0.0, 1.0)
+        response_norm = 0.0 if average_response is None else _clamp(float(average_response) / response_scale, 0.0, 1.0)
+        frequency_norm = _clamp(incidents_per_year / max_incidents_per_year, 0.0, 1.0)
+        incidents_norm = _clamp(incident_count / max_incidents, 0.0, 1.0)
+
+        support_weight = float(record.get("support_weight") or 1.0)
+        severity_factor = _clamp((0.58 * severe_share) + (0.24 * victim_share) + (0.18 * major_damage_share), 0.0, 1.0)
+        recurrence_factor = _clamp((0.70 * frequency_norm) + (0.30 * incidents_norm), 0.0, 1.0)
+        uncertainty_factor = _clamp(
+            (0.35 * arrival_missing_share)
+            + (0.30 * water_unknown_share)
+            + (0.20 * distance_missing_share)
+            + (0.15 * (1.0 - support_weight)),
             0.0,
             1.0,
         )
-        data_gap_score = 100.0 * _clamp(
-            0.42 * arrival_missing_share + 0.33 * water_unknown_share + 0.25 * distance_missing_share,
+
+        access_weight_sum = 0.0
+        access_factor_sum = 0.0
+        for component_weight, code, factor_value in (
+            (0.42, DISTANCE_CODE, distance_norm),
+            (0.34, RESPONSE_CODE, response_norm),
+            (0.24, LONG_ARRIVAL_CODE, long_arrival_share),
+        ):
+            if code in active_reason_codes:
+                access_weight_sum += component_weight
+                access_factor_sum += component_weight * factor_value
+        access_score = 100.0 * _clamp((access_factor_sum / access_weight_sum) if access_weight_sum else 0.0, 0.0, 1.0)
+
+        water_score = 100.0 * (_clamp(no_water_share, 0.0, 1.0) if WATER_CODE in active_reason_codes else 0.0)
+        severity_score = 100.0 * (severity_factor if SEVERITY_CODE in active_reason_codes else 0.0)
+
+        recurrence_weight_sum = 0.0
+        recurrence_factor_sum = 0.0
+        for component_weight, code, factor_value in (
+            (0.72, RECURRENCE_CODE, recurrence_factor),
+            (0.18, NIGHT_CODE, night_share),
+            (0.10, HEATING_CODE, heating_share),
+        ):
+            if code in active_reason_codes:
+                recurrence_weight_sum += component_weight
+                recurrence_factor_sum += component_weight * factor_value
+        recurrence_score = 100.0 * _clamp((recurrence_factor_sum / recurrence_weight_sum) if recurrence_weight_sum else 0.0, 0.0, 1.0)
+        data_gap_score = 100.0 * uncertainty_factor
+
+        score_decomposition: List[Dict[str, Any]] = []
+        for code, factor_score, factor_value, value_display in (
+            (DISTANCE_CODE, distance_norm * 100.0, distance_norm, "н/д" if average_distance is None else f"{_format_number(average_distance)} км"),
+            (RESPONSE_CODE, response_norm * 100.0, response_norm, "н/д" if average_response is None else f"{_format_number(average_response)} мин"),
+            (LONG_ARRIVAL_CODE, long_arrival_share * 100.0, long_arrival_share, _format_percent(long_arrival_share * 100.0)),
+            (WATER_CODE, no_water_share * 100.0, no_water_share, _format_percent(no_water_share * 100.0)),
+            (SEVERITY_CODE, severity_factor * 100.0, severity_factor, _format_percent(severe_share * 100.0)),
+            (RECURRENCE_CODE, recurrence_factor * 100.0, recurrence_factor, f"{_format_number(incidents_per_year)} в год"),
+            (NIGHT_CODE, night_share * 100.0, night_share, _format_percent(night_share * 100.0)),
+            (HEATING_CODE, heating_share * 100.0, heating_share, _format_percent(heating_share * 100.0)),
+        ):
+            if code not in active_reason_codes:
+                continue
+            score_decomposition.append(
+                _make_decomposition_item(
+                    code=code,
+                    factor_score=factor_score,
+                    weight_points=normalized_factor_weights[code],
+                    contribution_points=normalized_factor_weights[code] * factor_value * support_weight,
+                    value_display=value_display,
+                )
+            )
+        score_decomposition.append(
+            _make_decomposition_item(
+                code=UNCERTAINTY_CODE,
+                factor_score=uncertainty_factor * 100.0,
+                weight_points=UNCERTAINTY_PENALTY_MAX,
+                contribution_points=UNCERTAINTY_PENALTY_MAX * uncertainty_factor,
+                value_display=f"полнота {_format_percent(completeness_share * 100.0)}",
+                is_penalty=True,
+            )
+        )
+
+        total_score = sum(float(item.get("contribution_points") or 0.0) for item in score_decomposition)
+        uncertainty_penalty = next(
+            (float(item.get("contribution_points") or 0.0) for item in score_decomposition if item.get("code") == UNCERTAINTY_CODE),
             0.0,
-            1.0,
         )
-        score = (
-            0.36 * access_score
-            + 0.18 * water_score
-            + 0.22 * severity_score
-            + 0.18 * recurrence_score
-            + 0.06 * data_gap_score
-        )
-        investigation_score = (
-            0.18 * access_score
-            + 0.10 * water_score
-            + 0.14 * severity_score
-            + 0.12 * recurrence_score
-            + 0.46 * data_gap_score
-        )
-        missing_data_priority = (
-            data_gap_score >= 45.0
-            and investigation_score >= REVIEW_RISK_THRESHOLD
-            and score < REVIEW_RISK_THRESHOLD
-        )
+        investigation_score = min(100.0, (0.72 * total_score) + (0.28 * (uncertainty_penalty * 100.0 / UNCERTAINTY_PENALTY_MAX)))
+        uncertainty_flag = bool(uncertainty_penalty >= 2.5 or bool(record.get("low_support")) or completeness_share < 0.6)
+        missing_data_priority = uncertainty_flag and total_score < HIGH_THRESHOLD
 
-        district_label = bucket["districts"].most_common(1)[0][0] if bucket["districts"] else ""
-        territory_label = bucket["territories"].most_common(1)[0][0] if bucket["territories"] else ""
-        object_category = bucket["object_categories"].most_common(1)[0][0] if bucket["object_categories"] else ""
-        latitude = round(mean(bucket["latitude_values"]), 5) if bucket["latitude_values"] else None
-        longitude = round(mean(bucket["longitude_values"]), 5) if bucket["longitude_values"] else None
-        location_parts = _unique_non_empty(
-            [
-                territory_label if territory_label and territory_label != bucket["label"] else "",
-                district_label if district_label and district_label != territory_label else "",
-            ]
-        )
-        location_hint = " | ".join(location_parts) if location_parts else "Локация определяется по лучшей доступной сущности"
-
+        latitude = _normalize_nullable_float(record.get("latitude"))
+        longitude = _normalize_nullable_float(record.get("longitude"))
         row: Dict[str, Any] = {
-            "point_id": bucket["point_id"],
-            "label": bucket["label"],
-            "entity_type": bucket["entity_type"],
-            "entity_code": bucket["entity_code"],
-            "granularity_rank": bucket["granularity_rank"],
-            "district": district_label,
-            "territory_label": territory_label,
-            "location_hint": location_hint,
-            "object_category": object_category,
+            **record,
+            "label": _clean_text(record.get("label")) or "Точка",
+            "location_hint": _clean_text(record.get("location_hint")) or "Локация определена по лучшей доступной сущности",
             "incident_count": incident_count,
             "incident_count_display": _format_integer(incident_count),
             "years_observed": years_observed,
             "years_observed_display": _format_integer(years_observed),
             "incidents_per_year": round(incidents_per_year, 2),
             "incidents_per_year_display": _format_number(incidents_per_year),
-            "average_distance_km": None if average_distance is None else round(average_distance, 2),
+            "average_distance_km": None if average_distance is None else round(float(average_distance), 2),
             "average_distance_display": "н/д" if average_distance is None else f"{_format_number(average_distance)} км",
-            "average_response_minutes": None if average_response is None else round(average_response, 1),
+            "average_response_minutes": None if average_response is None else round(float(average_response), 1),
             "average_response_display": "н/д" if average_response is None else f"{_format_number(average_response)} мин",
+            "response_coverage_share": round(response_coverage_share, 4),
+            "response_coverage_display": _format_percent(response_coverage_share * 100.0),
             "long_arrival_share": round(long_arrival_share, 4),
             "long_arrival_share_display": _format_percent(long_arrival_share * 100.0),
             "no_water_share": round(no_water_share, 4),
             "no_water_share_display": _format_percent(no_water_share * 100.0),
             "water_unknown_share": round(water_unknown_share, 4),
             "water_unknown_share_display": _format_percent(water_unknown_share * 100.0),
+            "water_coverage_share": round(float(record.get("water_coverage_share") or 0.0), 4),
+            "water_coverage_display": _format_percent(float(record.get("water_coverage_share") or 0.0) * 100.0),
             "severe_share": round(severe_share, 4),
             "severe_share_display": _format_percent(severe_share * 100.0),
             "night_share": round(night_share, 4),
@@ -537,15 +434,25 @@ def _build_access_point_rows(records: Sequence[Dict[str, Any]]) -> List[Dict[str
             "severity_score": round(severity_score, 1),
             "recurrence_score": round(recurrence_score, 1),
             "data_gap_score": round(data_gap_score, 1),
-            "score": round(score, 1),
-            "score_display": _format_number(score),
+            "score": round(total_score, 1),
+            "score_display": _format_number(total_score),
+            "total_score": round(total_score, 1),
+            "total_score_display": _format_number(total_score),
+            "uncertainty_penalty": round(uncertainty_penalty, 2),
+            "uncertainty_penalty_display": _format_number(uncertainty_penalty),
             "investigation_score": round(investigation_score, 1),
             "investigation_score_display": _format_number(investigation_score),
             "missing_data_priority": missing_data_priority,
-            "victims_count": int(bucket["victims_count"]),
-            "major_damage_count": int(bucket["major_damage_count"]),
-            "source_tables": list(bucket["source_tables"].keys()),
-            "source_tables_display": ", ".join(bucket["source_tables"].keys()),
+            "uncertainty_flag": uncertainty_flag,
+            "low_support": bool(record.get("low_support")),
+            "low_support_note": (
+                f"Точка собрана всего по {_format_integer(incident_count)} пожарам, долевые признаки сглажены."
+                if bool(record.get("low_support"))
+                else ""
+            ),
+            "selected_feature_columns": list(normalized_selected_features),
+            "selected_feature_count": len(normalized_selected_features),
+            "score_decomposition": score_decomposition,
             "latitude": latitude,
             "longitude": longitude,
             "coordinates_display": (
@@ -554,23 +461,30 @@ def _build_access_point_rows(records: Sequence[Dict[str, Any]]) -> List[Dict[str
                 else ""
             ),
         }
-        row["tone"], row["priority_label"] = _status_for_score(float(row["score"]))
+        row.update(_severity_band_descriptor(float(row["total_score"])))
         row["component_scores"] = _build_component_scores(row)
         row["typology_code"], row["typology_label"] = _typology_for_row(row)
-        reason_pairs = _reason_candidates(row)
-        row["reasons"] = [text for _score, text in reason_pairs[:4]]
-        row["reason_chips"] = row["reasons"][:3]
-        row["explanation"] = ". ".join(row["reasons"][:2]) if row["reasons"] else "Точка включена в рейтинг по сумме факторов."
+        row["reason_details"] = _build_reason_details_from_decomposition(row)
+        row["top_reason_codes"] = [item["code"] for item in row["reason_details"][:3]]
+        row["reasons"] = [f"{item['label']}: {item['value_display']}" for item in row["reason_details"][:4]]
+        row["reason_chips"] = [f"{item['label']}: {item['contribution_display']}" for item in row["reason_details"][:3]]
+        row["human_readable_explanation"] = _build_human_readable_explanation(row)
+        row["explanation"] = row["human_readable_explanation"]
         row["incomplete_note"] = (
             "Высокий приоритет проверки связан прежде всего с пропусками по доступности, воде или времени прибытия."
             if missing_data_priority
-            else ""
+            else row["low_support_note"]
         )
+        if uncertainty_flag:
+            row["incomplete_note"] = (
+                f"Неопределённость добавляет {row['uncertainty_penalty_display']} п. "
+                "и требует верификации воды, времени прибытия и дистанции."
+            )
         normalized_rows.append(row)
 
     normalized_rows.sort(
         key=lambda item: (
-            float(item["score"]),
+            float(item["total_score"]),
             float(item["severity_score"]),
             float(item["access_score"]),
             int(item["incident_count"]),
@@ -582,6 +496,14 @@ def _build_access_point_rows(records: Sequence[Dict[str, Any]]) -> List[Dict[str
         row["rank"] = index
         row["rank_display"] = str(index)
     return normalized_rows
+
+
+def _build_access_point_rows(
+    records: Sequence[Dict[str, Any]],
+    selected_features: Sequence[str] | None = None,
+) -> List[Dict[str, Any]]:
+    entity_frame, feature_frame = _build_point_entity_frames(records)
+    return _build_access_point_rows_from_entity_frame(entity_frame, feature_frame, selected_features=selected_features)
 
 
 def _select_top_points(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -602,7 +524,7 @@ def _select_incomplete_points(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, 
         key=lambda item: (
             float(item.get("investigation_score") or 0.0),
             float(item.get("data_gap_score") or 0.0),
-            float(item.get("score") or 0.0),
+            float(item.get("total_score") or 0.0),
         ),
         reverse=True,
     )
@@ -616,25 +538,25 @@ def _build_typology_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]
     grouped: Dict[str, Dict[str, Any]] = {}
     for row in rows:
         code = str(row.get("typology_code") or "mixed")
-        bucket = grouped.get(code)
-        if bucket is None:
-            bucket = {
+        bucket = grouped.setdefault(
+            code,
+            {
                 "code": code,
                 "label": row.get("typology_label") or "Комбинированный риск",
                 "count": 0,
                 "max_score": 0.0,
                 "lead_label": "",
-            }
-            grouped[code] = bucket
+            },
+        )
         bucket["count"] += 1
-        if float(row.get("score") or 0.0) >= float(bucket["max_score"]):
-            bucket["max_score"] = float(row.get("score") or 0.0)
+        if float(row.get("total_score") or 0.0) >= float(bucket["max_score"]):
+            bucket["max_score"] = float(row.get("total_score") or 0.0)
             bucket["lead_label"] = str(row.get("label") or "")
 
     total = max(1, len(rows))
-    summary_rows = []
+    result = []
     for bucket in grouped.values():
-        summary_rows.append(
+        result.append(
             {
                 "code": bucket["code"],
                 "label": bucket["label"],
@@ -646,5 +568,107 @@ def _build_typology_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]
                 "lead_label": bucket["lead_label"] or "-",
             }
         )
-    summary_rows.sort(key=lambda item: (item["count"], item["max_score"]), reverse=True)
-    return summary_rows
+    result.sort(key=lambda item: (item["count"], item["max_score"]), reverse=True)
+    return result
+
+
+def _build_score_distribution(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    if not rows:
+        return {"average_score_display": "0", "median_score_display": "0", "bands": [], "buckets": []}
+
+    scores = [float(row.get("total_score") or 0.0) for row in rows]
+    bands = []
+    for code, label in (("low", "Низкий"), ("medium", "Средний"), ("high", "Высокий"), ("critical", "Критический")):
+        count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == code)
+        bands.append(
+            {
+                "code": code,
+                "label": label,
+                "count": count,
+                "count_display": _format_integer(count),
+                "share_display": _format_percent(_share(count, len(rows)) * 100.0),
+            }
+        )
+
+    buckets = []
+    for start, end in ((0, 25), (25, 50), (50, 75), (75, 101)):
+        count = sum(1 for score in scores if start <= score < end)
+        buckets.append({"label": f"{start}-{min(100, end - 1)}", "count": count, "count_display": _format_integer(count)})
+
+    return {
+        "average_score_display": _format_number(mean(scores)),
+        "median_score_display": _format_number(median(scores)),
+        "bands": bands,
+        "buckets": buckets,
+    }
+
+
+def _build_reason_breakdown(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        for detail in list(row.get("reason_details") or [])[:3]:
+            code = str(detail.get("code") or "")
+            if not code:
+                continue
+            bucket = buckets.setdefault(
+                code,
+                {
+                    "code": code,
+                    "label": str(detail.get("label") or code),
+                    "count": 0,
+                    "total_contribution": 0.0,
+                    "max_contribution": 0.0,
+                    "lead_label": "",
+                },
+            )
+            contribution = float(detail.get("contribution_points") or 0.0)
+            bucket["count"] += 1
+            bucket["total_contribution"] += contribution
+            if contribution >= bucket["max_contribution"]:
+                bucket["max_contribution"] = contribution
+                bucket["lead_label"] = str(row.get("label") or "")
+
+    total = max(1, len(rows))
+    result = []
+    for bucket in buckets.values():
+        average_contribution = bucket["total_contribution"] / max(1, bucket["count"])
+        result.append(
+            {
+                "code": bucket["code"],
+                "label": bucket["label"],
+                "count": int(bucket["count"]),
+                "count_display": _format_integer(bucket["count"]),
+                "share_display": _format_percent(_share(bucket["count"], total) * 100.0),
+                "average_contribution": round(average_contribution, 2),
+                "average_contribution_display": _format_number(average_contribution),
+                "max_contribution_display": _format_number(bucket["max_contribution"]),
+                "lead_label": bucket["lead_label"] or "-",
+            }
+        )
+    result.sort(key=lambda item: (item["count"], item["average_contribution"]), reverse=True)
+    return result
+
+
+def _build_uncertainty_notes(rows: Sequence[Dict[str, Any]]) -> List[str]:
+    if not rows:
+        return ["Неопределённость будет оценена после расчёта рейтинга."]
+
+    low_support_count = sum(1 for row in rows if row.get("low_support"))
+    uncertainty_count = sum(1 for row in rows if row.get("uncertainty_flag"))
+    high_penalty_count = sum(1 for row in rows if float(row.get("uncertainty_penalty") or 0.0) >= 3.0)
+    notes = [
+        "Неполнота данных даёт отдельный penalty, но не является главным драйвером риска: её вклад ограничен 6 баллами.",
+    ]
+    if low_support_count:
+        notes.append(
+            f"Для {_format_integer(low_support_count)} точек опора ниже минимального порога, поэтому долевые признаки сглажены, а итоговый риск ослаблен коэффициентом поддержки."
+        )
+    if uncertainty_count:
+        notes.append(
+            f"У {_format_integer(uncertainty_count)} точек есть uncertainty flag из-за пропусков по воде, времени прибытия, дистанции до ПЧ или малого числа пожаров."
+        )
+    if high_penalty_count:
+        notes.append(
+            f"У {_format_integer(high_penalty_count)} точек penalty за неполноту данных уже заметен и требует управленческой верификации."
+        )
+    return notes[:4]

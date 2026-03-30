@@ -128,7 +128,8 @@ def _build_distribution_chart(
 
 def _build_diagnostics_chart(
     rows: Sequence[Dict[str, Any]],
-    requested_cluster_count: int,
+    current_cluster_count: int,
+    recommended_cluster_count: int | None,
     best_silhouette_k: int | None,
     elbow_k: int | None,
 ) -> Dict[str, Any]:
@@ -174,8 +175,8 @@ def _build_diagnostics_chart(
             "yaxis": {"title": "Коэффициент силуэта", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
             "yaxis2": {"title": "Инерция", "overlaying": "y", "side": "right", "showgrid": False},
             "legend": {"orientation": "h", "y": 1.12, "x": 0},
-            "shapes": _diagnostic_shapes(x, requested_cluster_count, best_silhouette_k, elbow_k),
-            "annotations": _diagnostic_annotations(rows, requested_cluster_count, best_silhouette_k, elbow_k),
+            "shapes": _diagnostic_shapes(x, current_cluster_count, recommended_cluster_count, best_silhouette_k, elbow_k),
+            "annotations": _diagnostic_annotations(rows, current_cluster_count, recommended_cluster_count, best_silhouette_k, elbow_k),
         }
     )
     figure.update_layout(**layout)
@@ -243,7 +244,8 @@ def _figure_to_dict(figure: Any) -> Dict[str, Any]:
 
 def _diagnostic_shapes(
     x_values: Sequence[int],
-    requested_cluster_count: int,
+    current_cluster_count: int,
+    recommended_cluster_count: int | None,
     best_silhouette_k: int | None,
     elbow_k: int | None,
 ) -> list[Dict[str, Any]]:
@@ -252,7 +254,8 @@ def _diagnostic_shapes(
     lines = []
     seen = set()
     for value, color in [
-        (requested_cluster_count, PLOTLY_PALETTE["sky"]),
+        (current_cluster_count, PLOTLY_PALETTE["sky"]),
+        (recommended_cluster_count, PLOTLY_PALETTE["sand"]),
         (best_silhouette_k, PLOTLY_PALETTE["forest"]),
         (elbow_k, PLOTLY_PALETTE["fire"]),
     ]:
@@ -277,7 +280,8 @@ def _diagnostic_shapes(
 
 def _diagnostic_annotations(
     rows: Sequence[Dict[str, Any]],
-    requested_cluster_count: int,
+    current_cluster_count: int,
+    recommended_cluster_count: int | None,
     best_silhouette_k: int | None,
     elbow_k: int | None,
 ) -> list[Dict[str, Any]]:
@@ -287,7 +291,8 @@ def _diagnostic_annotations(
     y_anchor = max(0.05, top_silhouette) if top_silhouette is not None else 0.05
     annotations = []
     for value, text, color in [
-        (requested_cluster_count, "Текущий k", PLOTLY_PALETTE["sky"]),
+        (current_cluster_count, "Рабочий k", PLOTLY_PALETTE["sky"]),
+        (recommended_cluster_count, "Рекомендуемый k", PLOTLY_PALETTE["sand"]),
         (best_silhouette_k, "Лучший silhouette", PLOTLY_PALETTE["forest"]),
         (elbow_k, "Локоть", PLOTLY_PALETTE["fire"]),
     ]:

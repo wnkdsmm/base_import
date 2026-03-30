@@ -5,7 +5,7 @@ import logging
 import os
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, File, Form, Request, UploadFile
+from fastapi import APIRouter, Body, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response
 
 from app.db_views import create_modified_table, delete_table, delete_tables, get_table_columns, get_table_page, get_table_preview
@@ -298,6 +298,7 @@ def forecasting_decision_support_job_status_endpoint(request: Request, job_id: s
 
 @router.get("/api/clustering-data")
 def clustering_data_endpoint(
+    request: Request,
     table_name: str = "",
     cluster_count: str = "4",
     sample_limit: str = "1000",
@@ -311,6 +312,7 @@ def clustering_data_endpoint(
             sample_limit=sample_limit,
             sampling_strategy=sampling_strategy,
             feature_columns=feature_columns or [],
+            cluster_count_is_explicit="cluster_count" in request.query_params,
         )
     except ValueError as exc:
         return analytics_exception_response(
@@ -334,6 +336,7 @@ def access_points_data_endpoint(
     district: str = "all",
     year: str = "all",
     limit: str = "25",
+    feature_columns: list[str] | None = Query(None),
 ):
     try:
         return get_access_points_data(
@@ -341,6 +344,7 @@ def access_points_data_endpoint(
             district=district,
             year=year,
             limit=limit,
+            feature_columns=feature_columns or [],
         )
     except ValueError as exc:
         return analytics_exception_response(
@@ -369,6 +373,7 @@ def start_clustering_job_endpoint(request: Request, payload: dict = Body(...)):
             sample_limit=str(payload.get("sample_limit") or "1000"),
             sampling_strategy=str(payload.get("sampling_strategy") or "stratified"),
             feature_columns=_coerce_string_list(payload.get("feature_columns")),
+            cluster_count_is_explicit="cluster_count" in payload,
         )
         return utf8_json(result, session_id=session_id)
     except ValueError as exc:

@@ -34,12 +34,82 @@ OBJECT_CATEGORY_COLUMN_CANDIDATES = [OBJECT_CATEGORY_COLUMN, "Категория
 ADDRESS_COLUMN_CANDIDATES = ["Адрес", "Адрес пожара", "Место пожара", "Адрес объекта"]
 ADDRESS_COMMENT_COLUMN_CANDIDATES = ["Комментарий к адресу"]
 OBJECT_NAME_COLUMN_CANDIDATES = ["Наименование объекта", "Вид объекта", "Объект"]
+SETTLEMENT_COLUMN_CANDIDATES = [
+    "Населенный пункт",
+    "Населённый пункт",
+    "Наименование населенного пункта",
+    "Наименование населённого пункта",
+    "Нас. пункт",
+    "Поселение",
+    "Местность",
+    "locality",
+]
 
 ACCESS_POINT_LIMIT_OPTIONS = [10, 25, 50, 100]
 DEFAULT_ACCESS_POINT_LIMIT = 25
+MIN_ACCESS_POINT_SUPPORT = 3
 TOP_POINT_CARD_COUNT = 5
 MAX_INCOMPLETE_POINTS = 6
 MAX_NOTES = 7
+MAX_ACCESS_POINT_FEATURE_OPTIONS = 10
+
+ACCESS_POINT_FEATURE_METADATA = {
+    "DISTANCE_TO_STATION": {
+        "label": "Удалённость до ПЧ",
+        "description": "Средняя дистанция до пожарной части по точке.",
+    },
+    "RESPONSE_TIME": {
+        "label": "Среднее время прибытия",
+        "description": "Насколько долго в среднем подразделения добираются до точки.",
+    },
+    "LONG_ARRIVAL_SHARE": {
+        "label": "Доля долгих прибытий",
+        "description": "Как часто прибытие превышает порог долгого выезда.",
+    },
+    "NO_WATER": {
+        "label": "Отсутствие воды",
+        "description": "Доля случаев без подтверждённого водоснабжения.",
+    },
+    "SEVERE_CONSEQUENCES": {
+        "label": "Тяжёлые последствия",
+        "description": "Комбинация тяжёлых последствий, пострадавших и крупного ущерба.",
+    },
+    "REPEAT_FIRES": {
+        "label": "Повторяемость пожаров",
+        "description": "Частота пожаров по точке с поправкой на период наблюдения.",
+    },
+    "NIGHT_PROFILE": {
+        "label": "Ночной профиль",
+        "description": "Доля инцидентов, произошедших ночью.",
+    },
+    "HEATING_SEASON": {
+        "label": "Отопительный сезон",
+        "description": "Доля пожаров в отопительный сезон.",
+    },
+}
+DEFAULT_ACCESS_POINT_FEATURES = tuple(ACCESS_POINT_FEATURE_METADATA.keys())
+
+POINT_FEATURE_COLUMNS = (
+    "incident_count",
+    "incidents_per_year",
+    "average_response_minutes",
+    "response_coverage_share",
+    "long_arrival_share",
+    "average_distance_km",
+    "distance_coverage_share",
+    "no_water_share",
+    "water_coverage_share",
+    "water_unknown_share",
+    "severe_share",
+    "victim_share",
+    "major_damage_share",
+    "night_share",
+    "heating_share",
+    "rural_share",
+    "rural_flag",
+    "low_support",
+    "support_weight",
+)
 
 GENERIC_OBJECT_TOKENS = (
     "жилой дом",

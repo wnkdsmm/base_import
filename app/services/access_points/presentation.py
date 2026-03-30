@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
-from app.services.forecast_risk.utils import _clean_text, _format_integer, _format_number, _unique_non_empty
+from app.services.forecast_risk.utils import _clean_text, _format_integer, _unique_non_empty
 
 from .constants import ACCESS_POINTS_DESCRIPTION, ACCESS_POINTS_TITLE, MAX_NOTES
 
@@ -27,14 +27,16 @@ def _build_filter_description(selected_table_label: str, selected_district_label
 def _build_top_point_lead(top_point: Dict[str, Any] | None) -> str:
     if not top_point:
         return "Недостаточно данных, чтобы выделить проблемную точку."
-    lead = (
-        f"{top_point.get('label') or 'Точка'} получает {top_point.get('score_display') or '0'} балла"
-        f" и попадает в верх рейтинга как {top_point.get('typology_label') or 'приоритетная точка'}."
-    )
-    explanation = _clean_text(top_point.get("explanation"))
+
+    explanation = _clean_text(top_point.get("human_readable_explanation") or top_point.get("explanation"))
     if explanation:
-        return f"{lead} {explanation}"
-    return lead
+        return explanation
+
+    label = _clean_text(top_point.get("label")) or "Точка"
+    severity_band = _clean_text(top_point.get("severity_band")) or "средний"
+    score_display = str(top_point.get("total_score_display") or top_point.get("score_display") or "0")
+    typology_label = _clean_text(top_point.get("typology_label")) or "приоритетная точка"
+    return f"{label} получает {severity_band} риск со score {score_display} из 100 и попадает в верх рейтинга как {typology_label}."
 
 
 def _build_summary(
@@ -48,8 +50,10 @@ def _build_summary(
     incomplete_points: Sequence[Dict[str, Any]],
 ) -> Dict[str, Any]:
     top_point = rows[0] if rows else None
-    critical_count = sum(1 for row in rows if float(row.get("score") or 0.0) >= 70.0)
-    review_count = sum(1 for row in rows if float(row.get("score") or 0.0) >= 55.0)
+    critical_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == "critical")
+    high_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") in {"high", "critical"})
+    medium_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == "medium")
+    uncertainty_count = sum(1 for row in rows if row.get("uncertainty_flag"))
     return {
         "selected_table_label": selected_table_label,
         "selected_district_label": selected_district_label,
@@ -58,10 +62,14 @@ def _build_summary(
         "total_points_display": _format_integer(len(rows)),
         "total_incidents_display": _format_integer(total_incidents),
         "critical_points_display": _format_integer(critical_count),
-        "review_points_display": _format_integer(review_count),
+        "high_points_display": _format_integer(high_count),
+        "medium_points_display": _format_integer(medium_count),
+        "review_points_display": _format_integer(high_count),
         "incomplete_points_display": _format_integer(len(incomplete_points)),
+        "uncertainty_points_display": _format_integer(uncertainty_count),
         "top_point_label": str((top_point or {}).get("label") or "-"),
-        "top_point_score_display": str((top_point or {}).get("score_display") or "0"),
+        "top_point_score_display": str((top_point or {}).get("total_score_display") or (top_point or {}).get("score_display") or "0"),
+        "top_point_severity_band": str((top_point or {}).get("severity_band") or "нет оценки"),
         "top_point_priority_label": str((top_point or {}).get("priority_label") or "Нет оценки"),
         "filter_description": _build_filter_description(
             selected_table_label=selected_table_label,
@@ -78,9 +86,10 @@ def _build_summary_cards(
     incomplete_points: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     top_point = rows[0] if rows else None
-    critical_count = sum(1 for row in rows if float(row.get("score") or 0.0) >= 70.0)
-    review_count = sum(1 for row in rows if float(row.get("score") or 0.0) >= 55.0)
-    cards = [
+    high_or_above_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") in {"high", "critical"})
+    critical_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == "critical")
+    uncertainty_count = sum(1 for row in rows if row.get("uncertainty_flag"))
+    return [
         {
             "label": "Уникальные точки",
             "value": _format_integer(len(rows)),
@@ -88,25 +97,24 @@ def _build_summary_cards(
             "tone": "normal",
         },
         {
-            "label": "Высокий приоритет",
-            "value": _format_integer(critical_count),
-            "meta": f"Повышенный и выше: {_format_integer(review_count)}",
-            "tone": "critical" if critical_count else ("warning" if review_count else "normal"),
+            "label": "Высокий риск",
+            "value": _format_integer(high_or_above_count),
+            "meta": f"Критических: {_format_integer(critical_count)}",
+            "tone": "critical" if critical_count else ("warning" if high_or_above_count else "normal"),
         },
         {
             "label": "Точка №1",
-            "value": str((top_point or {}).get("score_display") or "0"),
+            "value": str((top_point or {}).get("total_score_display") or (top_point or {}).get("score_display") or "0"),
             "meta": str((top_point or {}).get("label") or "Рейтинг появится после расчёта"),
             "tone": str((top_point or {}).get("tone") or "normal"),
         },
         {
             "label": "Нужна верификация",
-            "value": _format_integer(len(incomplete_points)),
-            "meta": "Точки, где риск проверки растёт из-за пропусков",
-            "tone": "watch" if incomplete_points else "normal",
+            "value": _format_integer(max(len(incomplete_points), uncertainty_count)),
+            "meta": "Точки, где risk score требует проверки полноты данных",
+            "tone": "watch" if incomplete_points or uncertainty_count else "normal",
         },
     ]
-    return cards
 
 
 def _build_notes(
@@ -117,18 +125,27 @@ def _build_notes(
 ) -> List[str]:
     notes: List[str] = []
     if rows:
+        notes.append(
+            "Score 0-100 строится как explainable model: вклад каждого фактора виден отдельно, а неполнота данных даёт ограниченный penalty и не должна доминировать над реальным риском."
+        )
         broad_points = sum(1 for row in rows if str(row.get("entity_code") or "") in {"territory", "district", "unknown"})
         if broad_points:
             notes.append(
                 f"Для {_format_integer(broad_points)} точек рейтинг построен на fallback-сущности уровня населённого пункта, территории или района, потому что более точный адрес/объект не найден."
             )
         if len(rows) < 5:
-            notes.append("После выбранных фильтров осталось мало уникальных точек, поэтому ranking стоит трактовать как ориентир для просмотра, а не как стабильную типологию.")
+            notes.append(
+                "После выбранных фильтров осталось мало уникальных точек, поэтому ranking стоит трактовать как ориентир для просмотра, а не как устойчивую типологию."
+            )
         if incomplete_points:
-            notes.append("Блок «Данные неполные» показывает точки, где нужны уточнения по воде, времени прибытия или дистанции до ПЧ, прежде чем принимать жёсткие управленческие меры.")
-        max_score = max(float(row.get("score") or 0.0) for row in rows)
+            notes.append(
+                "Блок «Данные неполные» показывает точки, где нужны уточнения по воде, времени прибытия или дистанции до ПЧ, прежде чем принимать жёсткие управленческие меры."
+            )
+        max_score = max(float(row.get("total_score") or row.get("score") or 0.0) for row in rows)
         if max_score < 40.0:
-            notes.append("Даже верхняя часть рейтинга сейчас скорее про наблюдение, чем про критическое перераспределение сил: явных выбросов по score не видно.")
+            notes.append(
+                "Даже верхняя часть рейтинга сейчас скорее про наблюдение, чем про критическое перераспределение сил: явных выбросов по score не видно."
+            )
     else:
         notes.append("По выбранному срезу не нашлось инцидентов для построения рейтинга проблемных точек.")
 
@@ -166,7 +183,15 @@ def _empty_access_points_data(
         "top_point_explanation": "Недостаточно данных для выделения приоритетных точек.",
         "points": [],
         "top_points": [],
+        "score_distribution": {
+            "average_score_display": "0",
+            "median_score_display": "0",
+            "bands": [],
+            "buckets": [],
+        },
+        "reason_breakdown": [],
         "incomplete_points": [],
         "typology": [],
+        "uncertainty_notes": [],
         "notes": resolved_notes,
     }

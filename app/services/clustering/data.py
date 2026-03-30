@@ -13,15 +13,64 @@ from app.services.forecast_risk.data import _collect_risk_inputs
 from app.services.forecast_risk.utils import _counter_top_label, _is_rural_label
 
 from .constants import (
+    AUTO_DEFAULT_EXCLUDED_FEATURES,
     CLUSTER_COUNT_OPTIONS,
     DEFAULT_CLUSTER_FEATURES,
     FEATURE_METADATA,
     MAX_FEATURE_OPTIONS,
+    MEAN_SMOOTHING_PRIOR_STRENGTH,
+    RATE_SMOOTHING_PRIOR_STRENGTH,
     SAMPLE_LIMIT_OPTIONS,
     SAMPLING_STRATEGY_OPTIONS,
     TABLE_EXCLUDED_PREFIXES,
 )
 from .utils import _format_number, _format_percent
+
+INCIDENT_COUNT_COLUMN = "Число пожаров"
+AREA_SUPPORT_COLUMN = "__area_count"
+RESPONSE_SUPPORT_COLUMN = "__response_count"
+WATER_SUPPORT_COLUMN = "__water_known_count"
+DISTANCE_SUPPORT_COLUMN = "__distance_count"
+
+
+def _shrink_rate(
+    successes: float,
+    support: float,
+    prior_rate: float | None,
+    prior_strength: float,
+) -> float:
+    if support <= 0:
+        return np.nan
+    raw_rate = float(successes) / float(support)
+    if prior_rate is None or prior_strength <= 0:
+        return raw_rate
+    return float((float(successes) + (prior_rate * prior_strength)) / (float(support) + prior_strength))
+
+
+def _shrink_mean(total: float, support: float, prior_mean: float | None, prior_strength: float) -> float:
+    if support <= 0:
+        return np.nan
+    raw_mean = float(total) / float(support)
+    if prior_mean is None or prior_strength <= 0:
+        return raw_mean
+    return float((float(total) + (prior_mean * prior_strength)) / (float(support) + prior_strength))
+
+
+def _summarize_support(entity_frame: pd.DataFrame) -> Dict[str, float]:
+    if entity_frame.empty or INCIDENT_COUNT_COLUMN not in entity_frame.columns:
+        return {
+            "territory_count": 0.0,
+            "low_support_share": 0.0,
+            "single_incident_share": 0.0,
+            "median_incidents": 0.0,
+        }
+    counts = pd.to_numeric(entity_frame[INCIDENT_COUNT_COLUMN], errors="coerce").fillna(0.0)
+    return {
+        "territory_count": float(len(counts)),
+        "low_support_share": float((counts <= 2).mean()),
+        "single_incident_share": float((counts == 1).mean()),
+        "median_incidents": float(counts.median()),
+    }
 
 
 def _build_table_options() -> List[Dict[str, str]]:
@@ -94,25 +143,52 @@ def _load_territory_dataset(table_name: str, sample_limit: int, sampling_strateg
         "total_incidents": len(records),
         "total_entities": len(territory_frame),
         "sampled_entities": len(sampled_frame),
+        "support_summary": _summarize_support(sampled_frame),
         "sampling_note": sampling_note,
         "notes": [note for note in notes if note],
     }
 
 
 
-def _resolve_selected_features(available_features: Sequence[str], requested_features: Sequence[str]) -> Tuple[List[str], str]:
+def _resolve_selected_features(
+    available_features: Sequence[str],
+    requested_features: Sequence[str],
+    feature_frame: pd.DataFrame | None = None,
+    entity_frame: pd.DataFrame | None = None,
+    cluster_count: int = 4,
+) -> Tuple[List[str], str]:
     allowed = set(available_features)
     normalized_requested = [item for item in requested_features if item in allowed]
     if len(normalized_requested) >= 2:
         return normalized_requested, ""
 
-    fallback = [item for item in DEFAULT_CLUSTER_FEATURES if item in allowed]
+    fallback: List[str] = []
+    if feature_frame is not None and entity_frame is not None and len(available_features) >= 2:
+        from .analysis import _select_default_cluster_features
+
+        auto_default_candidates = [
+            item for item in available_features if item not in AUTO_DEFAULT_EXCLUDED_FEATURES
+        ] or list(available_features)
+        fallback = _select_default_cluster_features(
+            feature_frame=feature_frame,
+            entity_frame=entity_frame,
+            available_features=auto_default_candidates,
+            cluster_count=cluster_count,
+        )
+    if len(fallback) < 2:
+        fallback = [item for item in DEFAULT_CLUSTER_FEATURES if item in allowed]
     if len(fallback) < 2:
         fallback = list(available_features[: max(2, min(len(available_features), 6))])
 
     if requested_features:
-        return fallback, "Часть выбранных агрегированных признаков недоступна, поэтому страница вернулась к базовому профилю территории риска."
-    return fallback, "По умолчанию выбраны агрегированные признаки, которые лучше всего описывают тип территории риска, а не отдельный инцидент."
+        return (
+            fallback,
+            "Часть выбранных агрегированных признаков недоступна, поэтому страница вернулась к базовому набору, собранному по вкладу признаков в качество кластеризации.",
+        )
+    return (
+        fallback,
+        "Базовый набор подобран автоматически: в него попадают признаки, которые на текущем срезе реально улучшают разделимость кластеров, а шумные признаки исключаются.",
+    )
 
 
 
@@ -217,9 +293,55 @@ def _aggregate_territory_frame(records: Sequence[Dict[str, Any]]) -> pd.DataFram
             bucket["distance_sum"] += float(distance_value)
             bucket["distance_count"] += 1
 
+    total_incidents = sum(int(bucket["incidents"]) for bucket in buckets.values())
+    total_area_count = sum(int(bucket["area_count"]) for bucket in buckets.values())
+    total_response_count = sum(int(bucket["response_count"]) for bucket in buckets.values())
+    total_water_known = sum(int(bucket["water_known"]) for bucket in buckets.values())
+    total_distance_count = sum(int(bucket["distance_count"]) for bucket in buckets.values())
+    global_area_mean = (
+        float(sum(float(bucket["area_sum"]) for bucket in buckets.values()) / total_area_count) if total_area_count else None
+    )
+    global_response_mean = (
+        float(sum(float(bucket["response_sum"]) for bucket in buckets.values()) / total_response_count)
+        if total_response_count
+        else None
+    )
+    global_distance_mean = (
+        float(sum(float(bucket["distance_sum"]) for bucket in buckets.values()) / total_distance_count)
+        if total_distance_count
+        else None
+    )
+    global_night_rate = (
+        float(sum(int(bucket["night_incidents"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
+    )
+    global_severe_rate = (
+        float(sum(int(bucket["severe"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
+    )
+    global_heating_rate = (
+        float(sum(int(bucket["heating_incidents"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
+    )
+    global_response_coverage_rate = float(total_response_count / total_incidents) if total_incidents else None
+    global_water_coverage_rate = float(total_water_known / total_incidents) if total_incidents else None
+    global_long_arrival_rate = (
+        float(sum(int(bucket["long_arrivals"]) for bucket in buckets.values()) / total_response_count)
+        if total_response_count
+        else None
+    )
+    global_no_water_rate = (
+        float(
+            sum(int(bucket["water_known"]) - int(bucket["water_available"]) for bucket in buckets.values()) / total_water_known
+        )
+        if total_water_known
+        else None
+    )
+
     rows: List[Dict[str, Any]] = []
     for bucket in buckets.values():
         incidents = max(1, int(bucket["incidents"]))
+        area_count = int(bucket["area_count"])
+        response_count = int(bucket["response_count"])
+        water_known_count = int(bucket["water_known"])
+        distance_count = int(bucket["distance_count"])
         dominant_district = _counter_top_label(bucket["districts"], bucket["label"]) or bucket["label"]
         dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано") or "Не указано"
         is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
@@ -230,18 +352,70 @@ def _aggregate_territory_frame(records: Sequence[Dict[str, Any]]) -> pd.DataFram
                 "Тип территории": "Сельская территория" if is_rural else "Территория без выраженного сельского профиля",
                 "Доминирующий тип населенного пункта": dominant_settlement_type,
                 "Число пожаров": incidents,
-                "Средняя площадь пожара": bucket["area_sum"] / bucket["area_count"] if bucket["area_count"] else np.nan,
-                "Доля ночных пожаров": bucket["night_incidents"] / incidents,
-                "Среднее время прибытия, мин": bucket["response_sum"] / bucket["response_count"] if bucket["response_count"] else np.nan,
-                "Доля тяжелых последствий": bucket["severe"] / incidents,
-                "Доля без подтвержденного водоснабжения": (
-                    (bucket["water_known"] - bucket["water_available"]) / bucket["water_known"] if bucket["water_known"] else np.nan
+                "Средняя площадь пожара": _shrink_mean(
+                    bucket["area_sum"],
+                    area_count,
+                    global_area_mean,
+                    MEAN_SMOOTHING_PRIOR_STRENGTH,
                 ),
-                "Доля долгих прибытий": bucket["long_arrivals"] / bucket["response_count"] if bucket["response_count"] else np.nan,
-                "Средняя удаленность до ПЧ, км": bucket["distance_sum"] / bucket["distance_count"] if bucket["distance_count"] else np.nan,
-                "Доля пожаров в отопительный сезон": bucket["heating_incidents"] / incidents,
-                "Покрытие данных по водоснабжению": bucket["water_known"] / incidents,
-                "Покрытие данных по времени прибытия": bucket["response_count"] / incidents,
+                "Доля ночных пожаров": _shrink_rate(
+                    bucket["night_incidents"],
+                    incidents,
+                    global_night_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Среднее время прибытия, мин": _shrink_mean(
+                    bucket["response_sum"],
+                    response_count,
+                    global_response_mean,
+                    MEAN_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Доля тяжелых последствий": _shrink_rate(
+                    bucket["severe"],
+                    incidents,
+                    global_severe_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Доля без подтвержденного водоснабжения": _shrink_rate(
+                    bucket["water_known"] - bucket["water_available"],
+                    water_known_count,
+                    global_no_water_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Доля долгих прибытий": _shrink_rate(
+                    bucket["long_arrivals"],
+                    response_count,
+                    global_long_arrival_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Средняя удаленность до ПЧ, км": _shrink_mean(
+                    bucket["distance_sum"],
+                    distance_count,
+                    global_distance_mean,
+                    MEAN_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Доля пожаров в отопительный сезон": _shrink_rate(
+                    bucket["heating_incidents"],
+                    incidents,
+                    global_heating_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Покрытие данных по водоснабжению": _shrink_rate(
+                    water_known_count,
+                    incidents,
+                    global_water_coverage_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                "Покрытие данных по времени прибытия": _shrink_rate(
+                    response_count,
+                    incidents,
+                    global_response_coverage_rate,
+                    RATE_SMOOTHING_PRIOR_STRENGTH,
+                ),
+                AREA_SUPPORT_COLUMN: area_count,
+                RESPONSE_SUPPORT_COLUMN: response_count,
+                WATER_SUPPORT_COLUMN: water_known_count,
+                DISTANCE_SUPPORT_COLUMN: distance_count,
             }
         )
 
@@ -330,7 +504,7 @@ def _discover_candidate_features(feature_frame: pd.DataFrame) -> List[Dict[str, 
                 "variance": variance,
                 "variance_display": _format_number(variance, 3),
                 "is_default": column in DEFAULT_CLUSTER_FEATURES,
-                "score": (1000.0 if column in DEFAULT_CLUSTER_FEATURES else 0.0) + (coverage * 100.0) - order,
+                "score": (coverage * 100.0) + math.log1p(max(variance, 0.0)) - (order / 100.0),
             }
         )
 

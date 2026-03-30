@@ -43,7 +43,10 @@
         var errorNode = byId('accessPointsErrorState');
         setAsyncVisible(true);
         setText('accessPointsLoadingLead', 'Готовим рейтинг проблемных точек');
-        setText('accessPointsLoadingMessage', message || 'Собираем incidents по точкам, считаем score доступности и объяснения.');
+        setText(
+            'accessPointsLoadingMessage',
+            message || 'Собираем incidents по точкам, считаем explainable score, причины попадания в топ и uncertainty notes.'
+        );
         if (loadingNode) {
             loadingNode.classList.remove('is-hidden', 'is-ready');
             loadingNode.classList.add('is-pending');
@@ -97,6 +100,7 @@
 
     function renderHero(data) {
         var summary = data.summary || {};
+        var severityBand = summary.top_point_severity_band || 'нет оценки';
         setText('accessPointsLead', data.top_point_explanation || 'Недостаточно данных для выделения приоритетных точек.');
         setText('accessPointsTableLabel', summary.selected_table_label || 'Все таблицы');
         setText('accessPointsDistrictLabel', summary.selected_district_label || 'Все районы');
@@ -105,16 +109,17 @@
         setText('accessPointsHeroLabel', data.top_point_label || '-');
         setText(
             'accessPointsHeroMeta',
-            (summary.top_point_priority_label || 'Нет оценки') + ' | score ' + (summary.top_point_score_display || '0')
+            severityBand + ' риск | score ' + (summary.top_point_score_display || '0')
         );
-        setText('accessPointsIncompleteCount', summary.incomplete_points_display || '0');
+        setText('accessPointsIncompleteCount', summary.uncertainty_points_display || summary.incomplete_points_display || '0');
     }
 
     function renderSummaryLine(data) {
         var summary = data.summary || {};
         var line = (summary.filter_description || 'Срез не выбран')
             + ' | точек в рейтинге: ' + (summary.total_points_display || '0')
-            + ' | критичный приоритет: ' + (summary.critical_points_display || '0');
+            + ' | высокий и выше: ' + (summary.high_points_display || summary.review_points_display || '0')
+            + ' | критический: ' + (summary.critical_points_display || '0');
         setText('accessPointsSummaryLine', line);
     }
 
@@ -161,6 +166,25 @@
         window.Plotly.react(chartNode, figure.data || [], figure.layout || {}, figure.config || { responsive: true });
     }
 
+    function buildReasonBadges(point) {
+        var chips = [];
+        if (point.severity_band) {
+            chips.push('<span class="point-chip">' + escapeHtml(point.severity_band) + '</span>');
+        }
+        if (point.typology_label) {
+            chips.push('<span class="point-chip">' + escapeHtml(point.typology_label) + '</span>');
+        }
+        chips.push('<span class="point-chip">Пожаров: ' + escapeHtml(point.incident_count_display || '0') + '</span>');
+        chips.push('<span class="point-chip">Полнота: ' + escapeHtml(point.completeness_display || '0%') + '</span>');
+        (Array.isArray(point.reason_chips) ? point.reason_chips : []).slice(0, 2).forEach(function (reason) {
+            chips.push('<span class="point-chip point-chip-soft">' + escapeHtml(reason) + '</span>');
+        });
+        if (!chips.length) {
+            chips.push('<span class="point-chip">Точка</span>');
+        }
+        return chips.join('');
+    }
+
     function renderTopPoints(data) {
         var node = byId('accessPointsTopList');
         var points = Array.isArray(data.top_points) ? data.top_points : [];
@@ -172,22 +196,32 @@
             return;
         }
         node.innerHTML = points.map(function (point) {
-            var chips = [];
-            chips.push('<span class="point-chip">' + escapeHtml(point.typology_label || 'Комбинированный риск') + '</span>');
-            chips.push('<span class="point-chip">Пожаров: ' + escapeHtml(point.incident_count_display || '0') + '</span>');
-            chips.push('<span class="point-chip">Полнота: ' + escapeHtml(point.completeness_display || '0%') + '</span>');
-            (Array.isArray(point.reason_chips) ? point.reason_chips : []).slice(0, 2).forEach(function (reason) {
-                chips.push('<span class="point-chip point-chip-soft">' + escapeHtml(reason) + '</span>');
-            });
+            var explanation = point.human_readable_explanation || point.explanation || '';
             return ''
                 + '<article class="point-card tone-' + escapeHtml(point.tone || 'normal') + '">'
-                + '<div class="point-card-head"><span class="point-rank">#' + escapeHtml(point.rank || '') + '</span><span class="point-score">' + escapeHtml(point.score_display || '0') + '</span></div>'
+                + '<div class="point-card-head"><span class="point-rank">#' + escapeHtml(point.rank || '') + '</span><span class="point-score">' + escapeHtml(point.total_score_display || point.score_display || '0') + '</span></div>'
                 + '<strong class="point-label">' + escapeHtml(point.label || '-') + '</strong>'
                 + '<span class="point-meta">' + escapeHtml(point.entity_type || 'Точка') + (point.location_hint ? ' | ' + escapeHtml(point.location_hint) : '') + '</span>'
-                + '<div class="point-chip-row">' + chips.join('') + '</div>'
-                + '<p class="point-explanation">' + escapeHtml(point.explanation || '') + '</p>'
+                + '<div class="point-chip-row">' + buildReasonBadges(point) + '</div>'
+                + '<p class="point-explanation">' + escapeHtml(explanation) + '</p>'
                 + '</article>';
         }).join('');
+    }
+
+    function formatReasonDetails(point) {
+        var details = Array.isArray(point.reason_details) ? point.reason_details : [];
+        if (details.length) {
+            return details.slice(0, 3).map(function (detail) {
+                var label = detail.label || detail.code || '';
+                var contribution = detail.contribution_display || '';
+                return escapeHtml(label + ' ' + contribution);
+            }).join('<br>');
+        }
+        var codes = Array.isArray(point.top_reason_codes) ? point.top_reason_codes : [];
+        if (codes.length) {
+            return escapeHtml(codes.slice(0, 3).join(', '));
+        }
+        return '-';
     }
 
     function renderRankingTable(data) {
@@ -203,26 +237,29 @@
         node.innerHTML = ''
             + '<table class="data-table table-sticky-first access-points-table">'
             + '<thead><tr>'
-            + '<th>#</th><th>Точка</th><th>Тип</th><th>Район</th><th>Score</th><th>Типология</th><th>Пожары</th><th>Удалённость</th><th>Прибытие</th><th>Вода</th><th>Полнота</th><th>Почему в топе</th>'
+            + '<th>#</th><th>Точка</th><th>Тип</th><th>Район</th><th>Score</th><th>Band</th><th>Типология</th><th>Пожары</th><th>Удалённость</th><th>Прибытие</th><th>Вода</th><th>Полнота</th><th>Драйверы</th><th>Почему в топе</th>'
             + '</tr></thead>'
             + '<tbody>'
             + points.map(function (point) {
+                var explanation = point.human_readable_explanation || point.explanation || '';
                 return ''
                     + '<tr>'
                     + '<td>' + escapeHtml(point.rank || '') + '</td>'
                     + '<td><strong>' + escapeHtml(point.label || '-') + '</strong>'
                     + (point.coordinates_display ? '<div class="table-subnote">' + escapeHtml(point.coordinates_display) + '</div>' : '')
                     + '</td>'
-                    + '<td>' + escapeHtml(point.entity_type || '—') + '</td>'
-                    + '<td>' + escapeHtml(point.district || '—') + '</td>'
-                    + '<td><span class="score-pill tone-' + escapeHtml(point.tone || 'normal') + '">' + escapeHtml(point.score_display || '0') + '</span></td>'
+                    + '<td>' + escapeHtml(point.entity_type || '-') + '</td>'
+                    + '<td>' + escapeHtml(point.district || '-') + '</td>'
+                    + '<td><span class="score-pill tone-' + escapeHtml(point.tone || 'normal') + '">' + escapeHtml(point.total_score_display || point.score_display || '0') + '</span></td>'
+                    + '<td>' + escapeHtml(point.severity_band || '-') + '</td>'
                     + '<td>' + escapeHtml(point.typology_label || 'Комбинированный риск') + '</td>'
                     + '<td>' + escapeHtml(point.incident_count_display || '0') + '</td>'
                     + '<td>' + escapeHtml(point.average_distance_display || 'н/д') + '</td>'
                     + '<td>' + escapeHtml(point.average_response_display || 'н/д') + '</td>'
                     + '<td>нет воды: ' + escapeHtml(point.no_water_share_display || '0%') + '<br>пропуски: ' + escapeHtml(point.water_unknown_share_display || '0%') + '</td>'
                     + '<td>' + escapeHtml(point.completeness_display || '0%') + '</td>'
-                    + '<td>' + escapeHtml(point.explanation || '') + '</td>'
+                    + '<td>' + formatReasonDetails(point) + '</td>'
+                    + '<td>' + escapeHtml(explanation) + '</td>'
                     + '</tr>';
             }).join('')
             + '</tbody></table>';
@@ -249,6 +286,62 @@
         }).join('');
     }
 
+    function renderScoreDistribution(data) {
+        var node = byId('accessPointsDistributionShell');
+        var distribution = data.score_distribution || {};
+        var bands = Array.isArray(distribution.bands) ? distribution.bands : [];
+        var buckets = Array.isArray(distribution.buckets) ? distribution.buckets : [];
+        if (!node) {
+            return;
+        }
+        if (!bands.length && !buckets.length) {
+            node.innerHTML = '<div class="mini-empty">Распределение score появится после расчёта рейтинга.</div>';
+            return;
+        }
+        var cards = [
+            '<article class="typology-card"><strong>Средний score</strong><span>' + escapeHtml(distribution.average_score_display || '0') + '</span></article>',
+            '<article class="typology-card"><strong>Медианный score</strong><span>' + escapeHtml(distribution.median_score_display || '0') + '</span></article>'
+        ];
+        bands.forEach(function (item) {
+            cards.push(
+                '<article class="typology-card">'
+                + '<strong>' + escapeHtml(item.label || '') + '</strong>'
+                + '<span>' + escapeHtml(item.count_display || '0') + ' точек | ' + escapeHtml(item.share_display || '0%') + '</span>'
+                + '</article>'
+            );
+        });
+        buckets.forEach(function (item) {
+            cards.push(
+                '<article class="typology-card">'
+                + '<strong>Bucket ' + escapeHtml(item.label || '') + '</strong>'
+                + '<span>' + escapeHtml(item.count_display || '0') + ' точек</span>'
+                + '</article>'
+            );
+        });
+        node.innerHTML = cards.join('');
+    }
+
+    function renderReasonBreakdown(data) {
+        var node = byId('accessPointsReasonBreakdownShell');
+        var items = Array.isArray(data.reason_breakdown) ? data.reason_breakdown : [];
+        if (!node) {
+            return;
+        }
+        if (!items.length) {
+            node.innerHTML = '<div class="mini-empty">Сводка по драйверам появится после расчёта рейтинга.</div>';
+            return;
+        }
+        node.innerHTML = items.map(function (item) {
+            return ''
+                + '<article class="typology-card">'
+                + '<strong>' + escapeHtml(item.label || '') + '</strong>'
+                + '<span>' + escapeHtml(item.count_display || '0') + ' точек | ' + escapeHtml(item.share_display || '0%') + '</span>'
+                + '<span>Средний вклад: ' + escapeHtml(item.average_contribution_display || '0') + '</span>'
+                + '<span>Лидер: ' + escapeHtml(item.lead_label || '-') + '</span>'
+                + '</article>';
+        }).join('');
+    }
+
     function renderIncomplete(data) {
         var node = byId('accessPointsIncompleteShell');
         var points = Array.isArray(data.incomplete_points) ? data.incomplete_points : [];
@@ -260,29 +353,69 @@
             return;
         }
         node.innerHTML = points.map(function (point) {
+            var explanation = point.human_readable_explanation || point.explanation || '';
             return ''
                 + '<article class="incomplete-card">'
                 + '<strong>' + escapeHtml(point.label || '-') + '</strong>'
                 + '<span>' + escapeHtml(point.incomplete_note || 'Нужна проверка полноты данных.') + '</span>'
                 + '<span>Investigation score: ' + escapeHtml(point.investigation_score_display || '0') + ' | Полнота: ' + escapeHtml(point.completeness_display || '0%') + '</span>'
-                + '<span>' + escapeHtml(point.explanation || '') + '</span>'
+                + '<span>' + escapeHtml(explanation) + '</span>'
                 + '</article>';
         }).join('');
     }
 
-    function renderNotes(data) {
-        var node = byId('accessPointsNotes');
-        var notes = Array.isArray(data.notes) ? data.notes : [];
+    function renderNoteList(id, items, emptyMessage) {
+        var node = byId(id);
+        var safeItems = Array.isArray(items) ? items : [];
         if (!node) {
             return;
         }
-        if (!notes.length) {
-            node.innerHTML = '<li>Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.</li>';
+        if (!safeItems.length) {
+            node.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
             return;
         }
-        node.innerHTML = notes.map(function (note) {
-            return '<li>' + escapeHtml(note) + '</li>';
+        node.innerHTML = safeItems.map(function (item) {
+            return '<li>' + escapeHtml(item) + '</li>';
         }).join('');
+    }
+
+    function renderFeaturePicker(filters) {
+        var container = byId('accessPointsFeaturePicker');
+        if (!container) {
+            return;
+        }
+
+        var items = Array.isArray(filters.available_features) ? filters.available_features : [];
+        var selectedValues = Array.isArray(filters.feature_columns)
+            ? filters.feature_columns.map(function (item) { return String(item); })
+            : [];
+        var body;
+
+        if (items.length) {
+            body = '<div class="access-point-feature-grid">' + items.map(function (feature) {
+                var checked = feature.is_selected || selectedValues.indexOf(String(feature.name)) >= 0 ? ' checked' : '';
+                return ''
+                    + '<label class="access-point-feature-option">'
+                    + '<input type="checkbox" name="feature_columns" value="' + escapeHtml(feature.name) + '"' + checked + '>'
+                    + '<span class="access-point-feature-copy">'
+                    + '<strong class="access-point-feature-name">' + escapeHtml(feature.label || feature.name || '') + '</strong>'
+                    + '<span class="access-point-feature-meta">' + escapeHtml(feature.description || '')
+                    + ' Заполненность: ' + escapeHtml(feature.coverage_display || '0%')
+                    + ' | Дисперсия: ' + escapeHtml(feature.variance_display || '0') + '</span>'
+                    + '</span>'
+                    + '</label>';
+            }).join('') + '</div>';
+        } else {
+            body = '<div class="mini-empty">После загрузки данных здесь появятся explainable-факторы, которые можно включать и исключать из scoring-модели проблемных точек.</div>'
+                + selectedValues.map(function (value) {
+                    return '<input type="hidden" name="feature_columns" value="' + escapeHtml(value) + '">';
+                }).join('');
+        }
+
+        container.innerHTML = ''
+            + '<span>Факторы explainable-score</span>'
+            + body
+            + '<span class="access-point-feature-help">Выбранные факторы напрямую участвуют в итоговом access risk score, разложении по причинам и в ранжировании top-N.</span>';
     }
 
     function renderFilters(data) {
@@ -291,6 +424,7 @@
         setSelectOptions('accessPointsDistrictFilter', filters.available_districts, filters.district, 'Все районы');
         setSelectOptions('accessPointsYearFilter', filters.available_years, filters.year, 'Все годы');
         setSelectOptions('accessPointsLimitFilter', filters.available_limits, filters.limit, 'Top 25');
+        renderFeaturePicker(filters);
     }
 
     function render(data) {
@@ -300,27 +434,50 @@
         renderHero(data);
         renderSummaryLine(data);
         renderCards(data);
-        setText('accessPointsScatterTitle', charts.scatter ? charts.scatter.title : 'Проблемные точки на проекции доступности и последствий');
+        setText(
+            'accessPointsScatterTitle',
+            charts.scatter ? charts.scatter.title : 'Проблемные точки на двумерной проекции риска'
+        );
         renderChart(charts.scatter, 'accessPointsScatterChart', 'accessPointsScatterChartFallback');
         renderTopPoints(data);
         renderRankingTable(data);
         renderTypology(data);
+        renderScoreDistribution(data);
+        renderReasonBreakdown(data);
         renderIncomplete(data);
-        renderNotes(data);
+        renderNoteList('accessPointsUncertaintyNotes', data.uncertainty_notes, 'Здесь появятся пояснения по uncertainty penalty и low support.');
+        renderNoteList('accessPointsNotes', data.notes, 'Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.');
         hideLoading();
     }
 
     function getFormParams() {
+        var form = byId('accessPointsForm');
+        var formData = form ? new FormData(form) : new FormData();
         return {
-            table_name: (byId('accessPointsTableFilter') || {}).value || 'all',
-            district: (byId('accessPointsDistrictFilter') || {}).value || 'all',
-            year: (byId('accessPointsYearFilter') || {}).value || 'all',
-            limit: (byId('accessPointsLimitFilter') || {}).value || '25'
+            table_name: String(formData.get('table_name') || 'all'),
+            district: String(formData.get('district') || 'all'),
+            year: String(formData.get('year') || 'all'),
+            limit: String(formData.get('limit') || '25'),
+            feature_columns: formData.getAll('feature_columns').map(function (value) {
+                return String(value || '').trim();
+            }).filter(Boolean)
         };
     }
 
+    function buildAccessPointsQuery(params) {
+        var query = new URLSearchParams();
+        query.set('table_name', params.table_name || 'all');
+        query.set('district', params.district || 'all');
+        query.set('year', params.year || 'all');
+        query.set('limit', params.limit || '25');
+        (Array.isArray(params.feature_columns) ? params.feature_columns : []).forEach(function (value) {
+            query.append('feature_columns', value);
+        });
+        return query;
+    }
+
     function updateUrl(params) {
-        var query = new URLSearchParams(params);
+        var query = buildAccessPointsQuery(params);
         window.history.replaceState({}, '', '/access-points?' + query.toString());
     }
 
@@ -332,8 +489,22 @@
     }
 
     var currentController = null;
+    var latestRequestId = 0;
+
+    function validateFeatureSelection(params) {
+        if (Array.isArray(params.feature_columns) && params.feature_columns.length) {
+            return true;
+        }
+        showError('Выберите хотя бы один фактор scoring, чтобы пересчитать рейтинг проблемных точек.');
+        return false;
+    }
 
     async function fetchAccessPoints(params) {
+        if (!validateFeatureSelection(params)) {
+            return;
+        }
+
+        var requestId = ++latestRequestId;
         if (currentController) {
             currentController.abort();
         }
@@ -343,14 +514,17 @@
         if (refreshButton) {
             refreshButton.disabled = true;
         }
-        showLoading('Собираем incidents по точкам, считаем score доступности и объяснения.');
+        showLoading('Собираем incidents по точкам, считаем explainable score, decomposition и uncertainty notes.');
         try {
-            var query = new URLSearchParams(params);
+            var query = buildAccessPointsQuery(params);
             var response = await fetch('/api/access-points-data?' + query.toString(), {
                 headers: { Accept: 'application/json' },
                 signal: controller.signal
             });
             var payload = await response.json();
+            if (requestId !== latestRequestId) {
+                return;
+            }
             if (!response.ok || payload.ok === false) {
                 throw new Error(decodeErrorMessage(payload, 'Не удалось построить рейтинг проблемных точек.'));
             }
@@ -358,6 +532,9 @@
             updateUrl(params);
         } catch (error) {
             if (error && error.name === 'AbortError') {
+                return;
+            }
+            if (requestId !== latestRequestId) {
                 return;
             }
             showError(error && error.message ? error.message : 'Не удалось построить рейтинг проблемных точек.');

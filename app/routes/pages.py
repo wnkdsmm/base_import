@@ -208,6 +208,7 @@ def clustering_page(
         sample_limit=sample_limit,
         sampling_strategy=sampling_strategy,
         feature_columns=feature_columns or [],
+        cluster_count_is_explicit="cluster_count" in request.query_params,
     )
     return templates.TemplateResponse(
         "clustering.html",
@@ -227,12 +228,14 @@ def access_points_page(
     district: str = "all",
     year: str = "all",
     limit: str = "25",
+    feature_columns: list[str] | None = Query(None),
 ):
     access_points = get_access_points_shell_context(
         table_name=table_name,
         district=district,
         year=year,
         limit=limit,
+        feature_columns=feature_columns or [],
     )
     return templates.TemplateResponse(
         "access_points.html",
