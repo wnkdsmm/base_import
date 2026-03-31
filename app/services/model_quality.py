@@ -20,6 +20,10 @@ def _as_float_array(values: Sequence[float]) -> np.ndarray:
     return np.asarray(list(values), dtype=float)
 
 
+def _has_both_classes(actual: np.ndarray) -> bool:
+    return np.unique(actual).size > 1
+
+
 def relative_delta(value: Optional[float], baseline: Optional[float]) -> Optional[float]:
     if value is None or baseline is None or baseline == 0:
         return None
@@ -93,10 +97,19 @@ def compute_classification_metrics(
             'f1': None,
             'baseline_f1': None,
         }
+    if not _has_both_classes(actual):
+        return {
+            'available': False,
+            'brier_score': None,
+            'baseline_brier_score': None,
+            'roc_auc': None,
+            'f1': None,
+            'baseline_f1': None,
+        }
 
     predicted_labels = (predicted_probabilities >= float(threshold)).astype(int)
     roc_auc = None
-    if len(np.unique(actual)) > 1:
+    if _has_both_classes(actual):
         roc_auc = float(roc_auc_score(actual, predicted_probabilities))
 
     baseline_brier = None

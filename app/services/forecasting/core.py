@@ -20,7 +20,7 @@ from config.db import engine
 
 from .charts import _build_forecast_breakdown_chart, _build_forecast_chart, _build_geo_chart, _build_weekday_chart, _empty_chart_bundle
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS
-from .data import _build_daily_history_sql, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog_sql, _build_weekday_profile, _collect_forecasting_metadata, _count_forecasting_records_sql, _resolve_forecasting_selection, _selected_source_tables, _table_selection_label, clear_forecasting_sql_cache
+from .data import _build_daily_history_sql, _build_forecast_rows, _build_forecasting_table_options, _build_option_catalog_sql, _build_weekday_profile, _collect_forecasting_metadata, _count_forecasting_records_sql, _resolve_forecasting_selection, _selected_source_table_notes, _selected_source_tables, _table_selection_label, _temperature_quality_from_daily_history, clear_forecasting_sql_cache
 from .utils import (
     _forecast_level_label,
     _forecast_stability_hint,
@@ -94,6 +94,7 @@ def _build_forecasting_request_state(
     table_options = _build_forecasting_table_options()
     selected_table = _resolve_forecasting_selection(table_options, table_name)
     source_tables = _selected_source_tables(table_options, selected_table)
+    source_table_notes = _selected_source_table_notes(table_options, selected_table)
     days_ahead = _parse_forecast_days(forecast_days)
     selected_history_window = _parse_history_window(history_window)
     cache_key = _build_forecasting_cache_key(
@@ -111,6 +112,7 @@ def _build_forecasting_request_state(
         "table_options": table_options,
         "selected_table": selected_table,
         "source_tables": source_tables,
+        "source_table_notes": source_table_notes,
         "days_ahead": days_ahead,
         "history_window": selected_history_window,
         "cache_key": cache_key,
@@ -505,6 +507,7 @@ def _build_forecasting_shell_data(
     table_options = _build_forecasting_table_options()
     selected_table = _resolve_forecasting_selection(table_options, table_name)
     source_tables = _selected_source_tables(table_options, selected_table)
+    source_table_notes = _selected_source_table_notes(table_options, selected_table)
     days_ahead = _parse_forecast_days(forecast_days)
     selected_history_window = _parse_history_window(history_window)
     temperature_value = _parse_float(temperature)
@@ -520,6 +523,7 @@ def _build_forecasting_shell_data(
         history_window=selected_history_window,
     )
     if not source_tables:
+        shell_data["notes"].extend(source_table_notes)
         shell_data["notes"].append("Нет доступных таблиц для прогнозирования.")
         return shell_data
 
@@ -581,7 +585,7 @@ def _build_forecasting_shell_data(
         message=metadata_message,
     )
     shell_data["executive_brief"] = _build_pending_executive_brief(metadata_message)
-    shell_data["executive_brief"]["notes"] = [metadata_message, base_loading_message, followup_message]
+    shell_data["executive_brief"]["notes"] = source_table_notes + [metadata_message, base_loading_message, followup_message]
     shell_data["executive_brief"]["export_excerpt"] = metadata_message
     shell_data["charts"] = {
         "daily": _empty_chart_bundle("Что было и что ожидается", "Базовый прогноз появится после загрузки фильтров и признаков."),
@@ -589,7 +593,7 @@ def _build_forecasting_shell_data(
         "weekday": _empty_chart_bundle("В какие дни недели пожары случаются чаще", "Недельный профиль появится после базового прогноза."),
         "geo": _empty_chart_bundle("Карта блока поддержки решений", "Карта риска появится на третьем этапе после блока поддержки решений."),
     }
-    shell_data["notes"] = [metadata_message, base_loading_message, followup_message]
+    shell_data["notes"] = source_table_notes + [metadata_message, base_loading_message, followup_message]
     shell_data["filters"] = {
         "table_name": selected_table,
         "district": requested_district,
@@ -629,6 +633,10 @@ def get_forecasting_metadata(
             forecast_days=forecast_days,
             history_window=history_window,
         )
+        source_table_notes = _selected_source_table_notes(
+            metadata_payload["filters"]["available_tables"],
+            metadata_payload["filters"]["table_name"],
+        )
         source_tables = _selected_source_tables(
             metadata_payload["filters"]["available_tables"],
             metadata_payload["filters"]["table_name"],
@@ -664,7 +672,17 @@ def get_forecasting_metadata(
     selected_district = _resolve_option_value(option_catalog["districts"], metadata_payload["filters"]["district"])
     selected_cause = _resolve_option_value(option_catalog["causes"], metadata_payload["filters"]["cause"])
     selected_object_category = _resolve_option_value(option_catalog["object_categories"], metadata_payload["filters"]["object_category"])
-    feature_cards = _build_feature_cards(metadata_items)
+    temperature_quality = _temperature_quality_from_daily_history(
+        _build_daily_history_sql(
+            source_tables,
+            history_window=selected_history_window,
+            district=selected_district,
+            cause=selected_cause,
+            object_category=selected_object_category,
+            metadata_items=metadata_items,
+        )
+    )
+    feature_cards = _build_feature_cards_with_quality(metadata_items, temperature_quality=temperature_quality)
     base_loading_message = "Фильтры и признаки готовы. Запускаем базовый прогноз."
     followup_message = _build_decision_support_followup_message()
 
@@ -704,17 +722,23 @@ def get_forecasting_metadata(
         message=base_loading_message,
     )
     metadata_payload["executive_brief"] = _build_pending_executive_brief(base_loading_message)
-    metadata_payload["executive_brief"]["notes"] = [
+    metadata_payload["executive_brief"]["notes"] = source_table_notes + [
         metadata_payload["metadata_status_message"],
         base_loading_message,
         followup_message,
     ]
     metadata_payload["executive_brief"]["export_excerpt"] = base_loading_message
-    metadata_payload["notes"] = preload_notes + [
-        metadata_payload["metadata_status_message"],
-        base_loading_message,
-        followup_message,
-    ]
+    metadata_payload["notes"] = list(
+        dict.fromkeys(
+            source_table_notes
+            + preload_notes
+            + [
+                metadata_payload["metadata_status_message"],
+                base_loading_message,
+                followup_message,
+            ]
+        )
+    )
     metadata_payload["filters"].update(
         {
             "district": selected_district,
@@ -743,6 +767,7 @@ def get_forecasting_data(
     table_options = _build_forecasting_table_options()
     selected_table = _resolve_forecasting_selection(table_options, table_name)
     source_tables = _selected_source_tables(table_options, selected_table)
+    source_table_notes = _selected_source_table_notes(table_options, selected_table)
     days_ahead = _parse_forecast_days(forecast_days)
     selected_history_window = _parse_history_window(history_window)
     temperature_value = _parse_float(temperature)
@@ -806,7 +831,7 @@ def get_forecasting_data(
 
     with (perf.span("filter_prep") if perf is not None else nullcontext()):
         metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
-        feature_cards = _build_feature_cards(metadata_items)
+        feature_cards = _build_feature_cards_with_quality(metadata_items)
         option_catalog = _build_option_catalog_sql(
             source_tables,
             history_window=selected_history_window,
@@ -841,6 +866,8 @@ def get_forecasting_data(
             object_category=selected_object_category,
             metadata_items=metadata_items,
         )
+        temperature_quality = _temperature_quality_from_daily_history(daily_history)
+        feature_cards = _build_feature_cards_with_quality(metadata_items, temperature_quality=temperature_quality)
         scenario_backtest = _run_scenario_backtesting(daily_history)
         quality_assessment = _build_scenario_quality_assessment(scenario_backtest)
         forecast_rows = _build_forecast_rows(daily_history, days_ahead, temperature_value)
@@ -876,6 +903,7 @@ def get_forecasting_data(
             history_window=selected_history_window,
             planning_horizon_days=days_ahead,
         )
+        risk_prediction["feature_cards"] = feature_cards
         geo_prediction = risk_prediction.get("geo_prediction") or {}
         decision_support_ready = True
         decision_support_status_message = "Блок поддержки решений и рекомендации готовы."
@@ -924,11 +952,17 @@ def get_forecasting_data(
             risk_prediction["notes"].append(f"Техническая причина: {exc}")
     with (perf.span("payload_render") if perf is not None else nullcontext()):
         charts["geo"] = _build_geo_chart(geo_prediction)
-        notes = preload_notes + _build_notes(
-            metadata=metadata_items,
-            filtered_records_count=filtered_records_count,
-            daily_history=daily_history,
-            temperature_value=temperature_value,
+        notes = list(
+            dict.fromkeys(
+                source_table_notes
+                + preload_notes
+                + _build_notes(
+                    metadata=metadata_items,
+                    filtered_records_count=filtered_records_count,
+                    daily_history=daily_history,
+                    temperature_value=temperature_value,
+                )
+            )
         )
         features = risk_prediction["feature_cards"] or feature_cards
         insights = _build_insights(daily_history, forecast_rows, weekday_profile)
@@ -1531,6 +1565,110 @@ def _build_feature_cards(metadata: Any) -> List[Dict[str, str]]:
         )
     return cards
 
+
+def _build_feature_cards_with_quality(
+    metadata: Any,
+    temperature_quality: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    metadata_items = metadata if isinstance(metadata, list) else [metadata]
+    metadata_items = [item for item in metadata_items if item]
+    if not metadata_items:
+        return []
+
+    total_tables = len(metadata_items)
+    feature_config = [
+        ("date", "Дата возникновения пожара", "Нужна для построения дневного временного ряда."),
+        ("temperature", "Температура", "Используется для температурной поправки, если колонка найдена."),
+        ("cause", "Причина", "Позволяет строить сценарий по конкретной причине пожара."),
+        ("object_category", "Категория объекта", "Позволяет строить сценарий по типу объекта."),
+    ]
+    cards: List[Dict[str, Any]] = []
+    for key, label, base_description in feature_config:
+        description = base_description
+        sources: List[str] = []
+        found = 0
+        quality_items: List[Dict[str, Any]] = []
+        for item in metadata_items:
+            source_column = (item.get("resolved_columns") or {}).get(key)
+            if not source_column:
+                continue
+            found += 1
+            quality = ((item.get("column_quality") or {}).get(key) or {}) if key == "temperature" else {}
+            coverage_suffix = ""
+            if key == "temperature" and temperature_quality is None:
+                non_null_days = int(quality.get("non_null_days", 0) or 0)
+                total_days = int(quality.get("total_days", 0) or 0)
+                coverage_value = float(quality.get("coverage", 0.0) or 0.0)
+                coverage_suffix = f" | покрытие: {non_null_days}/{total_days} дней ({_format_percent(coverage_value * 100.0)})"
+            if key == "temperature":
+                quality_items.append(quality)
+            sources.append(f"{item['table_name']}: {source_column}{coverage_suffix}")
+
+        coverage_display = None
+        quality_status = None
+        quality_label = None
+        usable = found == total_tables and found > 0
+        if key == "temperature" and found > 0:
+            non_null_days = sum(int(item.get("non_null_days", 0) or 0) for item in quality_items)
+            total_days = sum(int(item.get("total_days", 0) or 0) for item in quality_items)
+            coverage_value = (float(non_null_days) / float(total_days)) if total_days > 0 else 0.0
+            coverage_display = f"{non_null_days}/{total_days} дней ({_format_percent(coverage_value * 100.0)})"
+            usable = all(bool(item.get("usable")) for item in quality_items) and len(quality_items) == found
+            quality_status = "good" if usable else ("missing" if non_null_days <= 0 else "sparse")
+            quality_label = "Достаточное покрытие" if usable else ("Нет измерений" if non_null_days <= 0 else "Низкое покрытие")
+            if not usable:
+                description = (
+                    "Колонка температуры найдена, но покрытие низкое: температурный признак нельзя считать надёжным для ML и температурной поправки."
+                )
+
+        if key == "temperature" and found > 0 and temperature_quality is not None:
+            non_null_days = int(temperature_quality.get("non_null_days", 0) or 0)
+            total_days = int(temperature_quality.get("total_days", 0) or 0)
+            coverage_value = float(temperature_quality.get("coverage", 0.0) or 0.0)
+            coverage_display = f"{non_null_days}/{total_days} \u0434\u043d\u0435\u0439 ({_format_percent(coverage_value * 100.0)})"
+            usable = bool(temperature_quality.get("usable")) and found == total_tables
+            quality_status = str(temperature_quality.get("quality_key") or ("missing" if non_null_days <= 0 else "sparse"))
+            quality_label = str(
+                temperature_quality.get("quality_label")
+                or ("\u041d\u0435\u0442 \u0438\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u0439" if non_null_days <= 0 else "\u041d\u0438\u0437\u043a\u043e\u0435 \u043f\u043e\u043a\u0440\u044b\u0442\u0438\u0435")
+            )
+            if not usable:
+                description = (
+                    "\u041a\u043e\u043b\u043e\u043d\u043a\u0430 \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u044b \u043d\u0430\u0439\u0434\u0435\u043d\u0430, \u043d\u043e \u043f\u043e\u043a\u0440\u044b\u0442\u0438\u0435 \u043d\u0438\u0437\u043a\u043e\u0435: \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u043d\u044b\u0439 \u043f\u0440\u0438\u0437\u043d\u0430\u043a \u043d\u0435\u043b\u044c\u0437\u044f \u0441\u0447\u0438\u0442\u0430\u0442\u044c \u043d\u0430\u0434\u0451\u0436\u043d\u044b\u043c \u0434\u043b\u044f ML \u0438 \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u043d\u043e\u0439 \u043f\u043e\u043f\u0440\u0430\u0432\u043a\u0438."
+                )
+            if sources:
+                base_sources = [source.split(" | ", 1)[0] for source in sources[:3]]
+                sources = [f"{'; '.join(base_sources)} | \u043f\u043e\u043a\u0440\u044b\u0442\u0438\u0435 \u043f\u043e \u0434\u043d\u0435\u0432\u043d\u043e\u0439 \u0438\u0441\u0442\u043e\u0440\u0438\u0438: {coverage_display}"]
+
+        if found == 0:
+            status = "missing"
+            status_label = "Не найдена"
+            usable = False
+        elif key == "temperature" and quality_label is not None:
+            status = "used" if usable and found == total_tables else "partial"
+            status_label = f"{quality_label} ({coverage_display})"
+        elif found == total_tables:
+            status = "used"
+            status_label = "Используется"
+        else:
+            status = "partial"
+            status_label = f"Частично ({found}/{total_tables})"
+
+        cards.append(
+            {
+                "label": label,
+                "status": status,
+                "status_label": status_label,
+                "source": "; ".join(sources[:3]) if sources else "Не найдена",
+                "description": description,
+                "quality_status": quality_status,
+                "quality_label": quality_label,
+                "coverage_display": coverage_display,
+                "usable": usable,
+            }
+        )
+    return cards
+
 def _build_insights(
     daily_history: List[Dict[str, Any]],
     forecast_rows: List[Dict[str, Any]],
@@ -1606,7 +1744,7 @@ def _build_notes(
     if filtered_records_count <= 0:
         notes.append("По выбранным фильтрам нет пожаров в истории. Попробуйте снять часть ограничений.")
     elif len(daily_history) < 14:
-        notes.append("??????? ????????, ??????? ??????? ????? ???? ???? ??????.")
+        notes.append("История короткая, поэтому сценарный прогноз может быть менее устойчивым.")
 
     if temperature_value is not None and not any(item["resolved_columns"].get("temperature") for item in metadata_items):
         notes.append("Температурный сценарий задан, но колонка температуры не найдена ни в одной таблице.")

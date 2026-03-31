@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from app.db_metadata import get_table_columns_cached
 from app.runtime_cache import CopyingTtlCache
+from app.services.ml_model.constants import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
 from app.services.table_options import get_fire_map_table_options
 from config.db import engine
 
@@ -71,6 +72,68 @@ def _build_forecasting_table_options() -> List[Dict[str, str]]:
     return [{"value": "all", "label": "\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"}] + options
 
 
+def _normalize_source_table_name(table_name: str) -> str:
+    return str(table_name or "").strip()
+
+
+def _is_clean_source_table(table_name: str) -> bool:
+    normalized = _normalize_source_table_name(table_name)
+    return normalized.casefold().startswith("clean_") and len(normalized) > len("clean_")
+
+
+def _source_table_canonical_key(table_name: str) -> str:
+    normalized = _normalize_source_table_name(table_name)
+    if _is_clean_source_table(normalized):
+        normalized = normalized[len("clean_") :]
+    return normalized.casefold()
+
+
+def _source_table_deduplication_note(raw_table: str, clean_table: str) -> str:
+    return (
+        f"\u0422\u0430\u0431\u043b\u0438\u0446\u0430 '{raw_table}' \u0438\u0441\u043a\u043b\u044e\u0447\u0435\u043d\u0430 \u043a\u0430\u043a \u0434\u0443\u0431\u043b\u0438\u043a\u0430\u0442 clean-\u0432\u0435\u0440\u0441\u0438\u0438 "
+        f"'{clean_table}', \u0447\u0442\u043e\u0431\u044b \u0438\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u0443\u0447\u0438\u0442\u044b\u0432\u0430\u043b\u0430\u0441\u044c \u0434\u0432\u0430\u0436\u0434\u044b."
+    )
+
+
+def _unique_notes(notes: Sequence[str]) -> List[str]:
+    seen = set()
+    unique: List[str] = []
+    for note in notes:
+        normalized = str(note or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(normalized)
+    return unique
+
+
+def _canonicalize_source_tables(source_tables: Sequence[str]) -> tuple[List[str], List[str]]:
+    selected_by_key: Dict[str, str] = {}
+    deduplication_notes: List[str] = []
+    for source_table in source_tables:
+        normalized = _normalize_source_table_name(source_table)
+        if not normalized:
+            continue
+        canonical_key = _source_table_canonical_key(normalized)
+        current = selected_by_key.get(canonical_key)
+        if current is None:
+            selected_by_key[canonical_key] = normalized
+            continue
+        if current == normalized:
+            continue
+
+        current_is_clean = _is_clean_source_table(current)
+        normalized_is_clean = _is_clean_source_table(normalized)
+        if normalized_is_clean and not current_is_clean:
+            selected_by_key[canonical_key] = normalized
+            deduplication_notes.append(_source_table_deduplication_note(current, normalized))
+            continue
+        if current_is_clean and not normalized_is_clean:
+            deduplication_notes.append(_source_table_deduplication_note(normalized, current))
+
+    return list(selected_by_key.values()), _unique_notes(deduplication_notes)
+
+
 def _resolve_forecasting_selection(table_options: List[Dict[str, str]], table_name: str) -> str:
     values = {option["value"] for option in table_options}
     if table_name in values:
@@ -78,17 +141,24 @@ def _resolve_forecasting_selection(table_options: List[Dict[str, str]], table_na
     return "all" if table_options else ""
 
 
+def _selected_source_table_notes(table_options: List[Dict[str, str]], selected_table: str) -> List[str]:
+    concrete = [option["value"] for option in table_options if option.get("value") and option["value"] != "all"]
+    if selected_table != "all":
+        return []
+    return _canonicalize_source_tables(concrete)[1]
+
+
 def _selected_source_tables(table_options: List[Dict[str, str]], selected_table: str) -> List[str]:
     concrete = [option["value"] for option in table_options if option.get("value") and option["value"] != "all"]
     if selected_table == "all":
-        return concrete
+        return _canonicalize_source_tables(concrete)[0]
     return [selected_table] if selected_table in concrete else []
 
 
 def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
     metadata_items: List[Dict[str, Any]] = []
-    notes: List[str] = []
-    for source_table in source_tables:
+    normalized_tables, notes = _canonicalize_source_tables(source_tables)
+    for source_table in normalized_tables:
         try:
             metadata = _load_table_metadata(source_table)
             metadata_items.append(metadata)
@@ -130,6 +200,81 @@ def _table_selection_label(selected_table: str) -> str:
         return "\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"
     return selected_table or "\u041d\u0435\u0442 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"
 
+
+def _build_temperature_quality(non_null_days: int, total_days: int) -> Dict[str, Any]:
+    normalized_non_null_days = max(0, int(non_null_days))
+    normalized_total_days = max(0, int(total_days))
+    coverage = (float(normalized_non_null_days) / float(normalized_total_days)) if normalized_total_days > 0 else 0.0
+    usable = (
+        normalized_total_days > 0
+        and normalized_non_null_days >= MIN_TEMPERATURE_NON_NULL_DAYS
+        and coverage >= MIN_TEMPERATURE_COVERAGE
+    )
+    if normalized_non_null_days <= 0:
+        quality_key = "missing"
+        quality_label = "Нет измерений"
+    elif usable:
+        quality_key = "good"
+        quality_label = "Достаточное покрытие"
+    else:
+        quality_key = "sparse"
+        quality_label = "Низкое покрытие"
+    return {
+        "non_null_days": normalized_non_null_days,
+        "total_days": normalized_total_days,
+        "coverage": coverage,
+        "usable": usable,
+        "quality_key": quality_key,
+        "quality_label": quality_label,
+    }
+
+
+def _temperature_quality_from_daily_history(daily_history: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    normalized_history = [item for item in daily_history if item]
+    total_days = len(normalized_history)
+    non_null_days = sum(
+        1
+        for item in normalized_history
+        if _to_float_or_none(item.get("avg_temperature", item.get("temperature"))) is not None
+    )
+    return _build_temperature_quality(non_null_days, total_days)
+
+
+def _temperature_quality_from_daily_rows(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    normalized_rows = [item for item in rows if item and item.get("date") is not None]
+    if not normalized_rows:
+        return _build_temperature_quality(0, 0)
+
+    min_date = min(item["date"] for item in normalized_rows)
+    max_date = max(item["date"] for item in normalized_rows)
+    total_days = (max_date - min_date).days + 1
+    non_null_days = sum(
+        1
+        for item in normalized_rows
+        if _to_float_or_none(item.get("avg_temperature", item.get("temperature"))) is not None
+    )
+    return _build_temperature_quality(non_null_days, total_days)
+
+
+def _load_temperature_quality(table_name: str, resolved_columns: Dict[str, str]) -> Dict[str, Any]:
+    date_column = resolved_columns.get("date")
+    temperature_column = resolved_columns.get("temperature")
+    if not date_column or not temperature_column:
+        return _build_temperature_quality(0, 0)
+
+    cache_key = _build_sql_cache_key("temperature_quality", [table_name], date_column, temperature_column)
+    cached_quality = _FORECASTING_SQL_CACHE.get(cache_key)
+    if isinstance(cached_quality, dict):
+        return dict(cached_quality)
+
+    try:
+        quality = _temperature_quality_from_daily_rows(_load_daily_history_rows(table_name, resolved_columns))
+    except Exception:
+        quality = _build_temperature_quality(0, 0)
+    _FORECASTING_SQL_CACHE.set(cache_key, quality)
+    return quality
+
+
 def _load_table_metadata(table_name: str) -> Dict[str, Any]:
     try:
         columns = get_table_columns_cached(table_name)
@@ -148,6 +293,9 @@ def _load_table_metadata(table_name: str) -> Dict[str, Any]:
         "table_name": table_name,
         "columns": columns,
         "resolved_columns": resolved_columns,
+        "column_quality": {
+            "temperature": _load_temperature_quality(table_name, resolved_columns),
+        },
     }
 
 def _resolve_history_window_min_year(metadata_items: Sequence[Dict[str, Any]], history_window: str) -> Optional[int]:
@@ -291,7 +439,8 @@ def prepare_forecasting_materialized_views(
 
     table_options = _build_forecasting_table_options()
     available_tables = [option["value"] for option in table_options if option.get("value") and option["value"] != "all"]
-    target_tables = [table_name for table_name in (source_tables or available_tables) if table_name in available_tables]
+    requested_tables = [table_name for table_name in (source_tables or available_tables) if table_name in available_tables]
+    target_tables = _canonicalize_source_tables(requested_tables)[0]
     metadata_items, _notes = _collect_forecasting_metadata(target_tables)
     prepared_views: List[str] = []
 
@@ -508,7 +657,7 @@ def _build_option_catalog_sql(
     history_window: str = "all",
     metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, List[Dict[str, str]]]:
-    normalized_tables = [str(table_name) for table_name in source_tables if str(table_name or "").strip()]
+    normalized_tables = _canonicalize_source_tables(source_tables)[0]
     cache_key = _build_sql_cache_key("option_catalog", normalized_tables, history_window)
     cached_catalog = _FORECASTING_SQL_CACHE.get(cache_key)
     if cached_catalog is not None:
@@ -691,7 +840,7 @@ def _build_daily_history_sql(
     object_category: str = "all",
     metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    normalized_tables = [str(table_name) for table_name in source_tables if str(table_name or "").strip()]
+    normalized_tables = _canonicalize_source_tables(source_tables)[0]
     cache_key = _build_sql_cache_key(
         "daily_history",
         normalized_tables,
@@ -790,7 +939,7 @@ def _count_forecasting_records_sql(
     object_category: str = "all",
     metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> int:
-    normalized_tables = [str(table_name) for table_name in source_tables if str(table_name or "").strip()]
+    normalized_tables = _canonicalize_source_tables(source_tables)[0]
     cache_key = _build_sql_cache_key(
         "filtered_record_count",
         normalized_tables,

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
-from app.services.forecasting.core import _build_feature_cards
+from app.services.forecasting.core import _build_feature_cards_with_quality
 from app.services.forecasting.data import (
     _build_daily_history_sql,
     _build_forecasting_table_options,
@@ -15,7 +15,9 @@ from app.services.forecasting.data import (
     _collect_forecasting_metadata,
     _count_forecasting_records_sql,
     _resolve_forecasting_selection,
+    _selected_source_table_notes,
     _selected_source_tables,
+    _temperature_quality_from_daily_history,
     clear_forecasting_sql_cache,
 )
 from app.services.forecasting.utils import (
@@ -130,6 +132,7 @@ def get_ml_model_shell_context(
         selected_history_window,
     )
     initial_data['bootstrap_mode'] = 'deferred'
+    initial_data['notes'].extend(request_state['source_table_notes'])
     initial_data['filters']['cause'] = cause or 'all'
     initial_data['filters']['object_category'] = object_category or 'all'
     return {
@@ -162,6 +165,7 @@ def get_ml_model_data(
     table_options = request_state['table_options']
     selected_table = request_state['selected_table']
     source_tables = request_state['source_tables']
+    source_table_notes = request_state['source_table_notes']
     days_ahead = request_state['days_ahead']
     selected_history_window = request_state['selected_history_window']
     scenario_temperature = request_state['scenario_temperature']
@@ -187,6 +191,7 @@ def get_ml_model_data(
         perf.update(cache_hit=False)
     base = _empty_ml_model_data(table_options, selected_table, days_ahead, temperature, selected_history_window)
     if not source_tables:
+        base['notes'].extend(source_table_notes)
         base['notes'].append('Нет доступных таблиц для ML-модели.')
         if perf is not None:
             perf.update(payload_has_data=False, payload_notes=len(base['notes']))
@@ -241,6 +246,7 @@ def get_ml_model_data(
             scenario_temperature,
             progress_callback=progress_callback,
         )
+        temperature_quality = _temperature_quality_from_daily_history(daily_history)
     _emit_progress(progress_callback, 'ml_model.running', 'Формируем итоговые метрики, графики и таблицы ML-блока.')
     payload_render_context = perf.span('payload_render') if perf is not None else nullcontext()
     with payload_render_context:
@@ -261,14 +267,27 @@ def get_ml_model_data(
             'model_description': ML_PREDICTIVE_BLOCK_DESCRIPTION,
             'summary': summary,
             'quality_assessment': _build_quality_assessment(ml_result),
-            'features': _build_feature_cards(metadata_items),
+            'features': _build_feature_cards_with_quality(metadata_items, temperature_quality=temperature_quality),
             'charts': {
                 'forecast': _build_forecast_chart(daily_history, ml_result),
                 'importance': _build_importance_chart(ml_result.get('feature_importance', [])),
             },
             'forecast_rows': ml_result.get('forecast_rows', []),
             'feature_importance': ml_result.get('feature_importance', []),
-            'notes': _build_notes(preload_notes, metadata_items, filtered_records_count, daily_history, ml_result, scenario_temperature, source_tables),
+            'notes': list(
+                dict.fromkeys(
+                    source_table_notes
+                    + _build_notes(
+                        preload_notes,
+                        metadata_items,
+                        filtered_records_count,
+                        daily_history,
+                        ml_result,
+                        scenario_temperature,
+                        source_tables,
+                    )
+                )
+            ),
             'filters': {
                 'table_name': selected_table,
                 'cause': selected_cause,
@@ -320,6 +339,7 @@ def _build_ml_request_state(
     table_options = _build_forecasting_table_options()
     selected_table = _resolve_forecasting_selection(table_options, table_name)
     source_tables = _selected_source_tables(table_options, selected_table)
+    source_table_notes = _selected_source_table_notes(table_options, selected_table)
     days_ahead = _parse_forecast_days(forecast_days)
     selected_history_window = _parse_history_window(history_window)
     scenario_temperature = _parse_float(temperature)
@@ -335,6 +355,7 @@ def _build_ml_request_state(
         'table_options': table_options,
         'selected_table': selected_table,
         'source_tables': source_tables,
+        'source_table_notes': source_table_notes,
         'days_ahead': days_ahead,
         'selected_history_window': selected_history_window,
         'scenario_temperature': scenario_temperature,

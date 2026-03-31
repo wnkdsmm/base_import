@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.responses import Response
+from starlette.requests import Request
 
 from app.routes.api import (
     access_points_data_endpoint,
@@ -19,6 +20,18 @@ class AnalyticsApiContractTests(unittest.TestCase):
     @staticmethod
     def _decode_response(response: Response) -> dict:
         return json.loads(response.body.decode("utf-8"))
+
+    @staticmethod
+    def _build_request(*, query_string: bytes = b"") -> Request:
+        return Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/api/clustering-data",
+                "headers": [],
+                "query_string": query_string,
+            }
+        )
 
     def test_forecasting_api_returns_resolved_payload_on_success(self) -> None:
         resolved_payload = {
@@ -117,10 +130,40 @@ class AnalyticsApiContractTests(unittest.TestCase):
         self.assertNotIn("detail", payload["error"])
         self.assertTrue(any("metadata exploded" in message for message in captured_logs.output))
 
+    def test_ml_model_api_returns_resolved_payload_on_success(self) -> None:
+        resolved_payload = {
+            "generated_at": "31.03.2026 09:00",
+            "summary": {
+                "selected_table_label": "Все таблицы",
+                "event_backtest_model_label": "Не показан",
+            },
+            "notes": [
+                "Вероятностный блок события пожара скрыт: все 45 evaluation-окон rolling-origin backtesting относятся к одному классу (только дни с пожаром), поэтому вероятностная валидация некорректна."
+            ],
+            "features": [
+                {
+                    "label": "Температура",
+                    "status_label": "Низкое покрытие (3/365 дней (0,8%))",
+                }
+            ],
+            "quality_assessment": {
+                "event_table": {
+                    "title": "Сравнение по вероятности события пожара",
+                    "rows": [],
+                    "empty_message": "Вероятностный блок события пожара скрыт: все 45 evaluation-окон rolling-origin backtesting относятся к одному классу (только дни с пожаром), поэтому вероятностная валидация некорректна.",
+                }
+            },
+        }
+
+        with patch("app.routes.api.get_ml_model_data", return_value=resolved_payload):
+            response = ml_model_data_endpoint()
+
+        self.assertEqual(response, resolved_payload)
+
     def test_clustering_api_returns_400_for_invalid_request(self) -> None:
         with self.assertLogs("app.routes.api", level="WARNING") as captured_logs:
             with patch("app.routes.api.get_clustering_data", side_effect=ValueError("bad cluster params")):
-                response = clustering_data_endpoint()
+                response = clustering_data_endpoint(self._build_request())
 
         payload = self._decode_response(response)
         self.assertEqual(response.status_code, 400)
@@ -135,7 +178,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
     def test_clustering_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
             with patch("app.routes.api.get_clustering_data", side_effect=RuntimeError("clustering exploded")):
-                response = clustering_data_endpoint()
+                response = clustering_data_endpoint(self._build_request())
 
         payload = self._decode_response(response)
         self.assertEqual(response.status_code, 500)

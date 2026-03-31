@@ -37,6 +37,9 @@ MIN_DAILY_HISTORY = 60
 MIN_FEATURE_ROWS = 24
 MIN_BACKTEST_POINTS = 8
 MIN_EVENT_CLASS_COUNT = 8
+EVENT_RATE_SATURATION_MARGIN = 0.05
+MIN_TEMPERATURE_NON_NULL_DAYS = 30
+MIN_TEMPERATURE_COVERAGE = 0.20
 MAX_HISTORY_POINTS = 900
 MAX_BACKTEST_POINTS = 45
 PERMUTATION_REPEATS = 8
@@ -47,14 +50,14 @@ _CACHE_LIMIT = 12
 _ML_CACHE: 'OrderedDict[Tuple[str, str, str, str, int, str], Dict[str, Any]]' = OrderedDict()
 
 _POISSON_PARAMS = {
-    'alpha': 0.15,
-    'max_iter': 500,
+    'alpha': 0.40,
+    'max_iter': 2000,
 }
 
 _TWEEDIE_PARAMS = {
     'power': 1.5,
-    'alpha': 0.08,
-    'max_iter': 500,
+    'alpha': 0.20,
+    'max_iter': 2000,
 }
 
 _LOGISTIC_PARAMS = {
