@@ -44,6 +44,7 @@ def _build_management_snapshot(
     if not selected_tables:
         return _empty_management_snapshot()
 
+    planning_horizon_days = 14
     tone_map = {"high": "fire", "medium": "sand", "low": "sky"}
     try:
         risk_payload = build_decision_support_payload(
@@ -52,13 +53,13 @@ def _build_management_snapshot(
             selected_cause="all",
             selected_object_category="all",
             history_window="all",
-            planning_horizon_days=14,
+            planning_horizon_days=planning_horizon_days,
             selected_year=selected_year,
         )
     except Exception as exc:
         fallback = _empty_management_snapshot()
-        fallback["summary_line"] = "Управленческий бриф временно недоступен; ниже остаются базовые показатели и графики."
-        fallback["notes"] = [f"Управленческий бриф временно недоступен: {exc}"]
+        fallback["summary_line"] = "Короткий вывод временно недоступен; ниже остаются базовые показатели и графики."
+        fallback["notes"] = [f"Короткий вывод временно недоступен: {exc}"]
         fallback["brief"]["notes"] = list(fallback["notes"])
         return fallback
 
@@ -129,15 +130,23 @@ def _build_management_snapshot(
         )
 
     confidence_summary = passport.get("validation_summary") or "После загрузки данных здесь появится уровень доверия к сводке."
+    horizon_note = f"Важно: первый приоритет и действия ниже рассчитаны на ближайшие {planning_horizon_days} дней."
     notes: List[str] = []
     for note in (risk_payload.get("notes") or [])[:3]:
         text = str(note or "").strip()
         if text and text not in notes:
             notes.append(text)
-    if not notes:
+    if horizon_note not in notes:
+        notes.insert(0, horizon_note)
+    if len(notes) == 1 and confidence_summary not in notes:
         notes.append(confidence_summary)
 
     brief = build_executive_brief_from_risk_payload(risk_payload, notes=notes)
+    if horizon_note not in brief["notes"]:
+        brief["notes"] = [horizon_note, *list(brief["notes"] or [])][:3]
+    brief["export_excerpt"] = (
+        f"{brief['export_excerpt']} Приоритет и действия рассчитаны на ближайшие {planning_horizon_days} дней."
+    )
     brief["export_text"] = ""
 
     return {

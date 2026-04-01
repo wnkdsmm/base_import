@@ -7,7 +7,7 @@
     var progressSteps = [
         {
             label: 'Загрузка данных',
-            lead: 'Загружаем данные ML-блока',
+            lead: 'Загружаем данные ML-прогноза',
             message: 'Получаем выбранный срез и обновляем параметры страницы.'
         },
         {
@@ -44,6 +44,13 @@
         var node = byId(id);
         if (node) {
             node.textContent = value == null ? '' : value;
+        }
+    }
+
+    function setHref(id, href) {
+        var node = byId(id);
+        if (node && href) {
+            node.setAttribute('href', href);
         }
     }
 
@@ -313,9 +320,9 @@
         if (data && data.error_message) {
             badgeLabel = 'Требуется повторный расчет';
         } else if (isFetching || (data && data.bootstrap_mode === 'deferred')) {
-            badgeLabel = 'Подготовка ML-блока';
+            badgeLabel = 'Собираем ML-прогноз';
         } else if (data && data.has_data) {
-            badgeLabel = 'ML-блок собран';
+            badgeLabel = 'ML-прогноз готов';
         }
 
         container.innerHTML = ''
@@ -328,15 +335,15 @@
 
     function renderHero(data) {
         var summary = data.summary || {};
-        setText('mlModelDescription', data.model_description || 'После загрузки здесь появится описание ML-блока и качества модели.');
+        setText('mlModelDescription', data.model_description || 'После загрузки здесь появится объяснение, сколько пожаров ожидается и насколько можно доверять расчету.');
 
         var heroTags = byId('mlHeroTags');
         if (heroTags) {
             heroTags.innerHTML = ''
                 + '<span class="hero-tag">Таблица: <strong>' + escapeHtml(summary.selected_table_label || 'Нет таблицы') + '</strong></span>'
-                + '<span class="hero-tag">История: <strong>' + escapeHtml(summary.history_window_label || 'Все годы') + '</strong></span>'
-                + '<span class="hero-tag">Топ-признак: <strong>' + escapeHtml(summary.top_feature_label || '-') + '</strong></span>'
-                + '<span class="hero-tag">Температура: <strong>' + escapeHtml(summary.temperature_scenario_display || 'Историческая температура') + '</strong></span>'
+                + '<span class="hero-tag">История для расчёта: <strong>' + escapeHtml(summary.history_window_label || 'Все годы') + '</strong></span>'
+                + '<span class="hero-tag">Главный фактор модели: <strong>' + escapeHtml(summary.top_feature_label || '-') + '</strong></span>'
+                + '<span class="hero-tag">Температурный сценарий: <strong>' + escapeHtml(summary.temperature_scenario_display || 'Историческая температура') + '</strong></span>'
                 + '<span class="hero-tag">'
                 + (summary.event_probability_enabled
                     ? 'Средняя вероятность P(>=1 пожара): <strong>' + escapeHtml(summary.average_event_probability_display || '—') + '</strong>'
@@ -348,12 +355,12 @@
         if (heroStats) {
             heroStats.innerHTML = ''
                 + '<article class="hero-stat-card">'
-                + '<span class="hero-stat-label">Среднее ожидаемое число пожаров</span>'
+                + '<span class="hero-stat-label">Средний ожидаемый день</span>'
                 + '<strong class="hero-stat-value">' + escapeHtml(summary.average_expected_count_display || '0') + '</strong>'
                 + '<span class="hero-stat-foot">Средняя дневная интенсивность на выбранном горизонте прогноза.</span>'
                 + '</article>'
                 + '<article class="hero-stat-card hero-stat-card-soft">'
-                + '<span class="hero-stat-label">Пиковый день</span>'
+                + '<span class="hero-stat-label">День с максимальной нагрузкой</span>'
                 + '<strong class="hero-stat-value">' + escapeHtml(summary.peak_expected_count_display || '0') + '</strong>'
                 + '<span class="hero-stat-foot">Максимальное ожидаемое число пожаров: ' + escapeHtml(summary.peak_expected_count_day_display || '-') + '.</span>'
                 + '</article>';
@@ -373,17 +380,17 @@
             + '<span class="stat-foot">После выбранных фильтров.</span>'
             + '</article>'
             + '<article class="stat-card">'
-            + '<span class="stat-label">Дней истории</span>'
+            + '<span class="stat-label">Длина истории</span>'
             + '<strong class="stat-value">' + escapeHtml(summary.history_days_display || '0') + '</strong>'
             + '<span class="stat-foot">Непрерывный дневной ряд с нулями между пожарами.</span>'
             + '</article>'
             + '<article class="stat-card">'
-            + '<span class="stat-label">Сумма прогноза</span>'
+            + '<span class="stat-label">Ожидаемо на всём горизонте</span>'
             + '<strong class="stat-value">' + escapeHtml(summary.predicted_total_display || '0') + '</strong>'
             + '<span class="stat-foot">Ожидаемое число пожаров на всем горизонте.</span>'
             + '</article>'
             + '<article class="stat-card">'
-            + '<span class="stat-label">Дней с повышенным индексом</span>'
+            + '<span class="stat-label">Дней с повышенной нагрузкой</span>'
             + '<strong class="stat-value">' + escapeHtml(summary.elevated_risk_days_display || '0') + '</strong>'
             + '<span class="stat-foot">Количество дней, где риск-индекс не ниже 75/100.</span>'
             + '</article>';
@@ -410,45 +417,19 @@
         }).join('');
     }
 
-    function renderNoticeList(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        if (!container) {
+    function renderCriticalNotes(items) {
+        var panel = byId('mlNotesPanel');
+        var container = byId('mlNotesList');
+        var notes = Array.isArray(items)
+            ? items.filter(function (item) { return item != null && String(item).trim(); }).slice(0, 2)
+            : [];
+        if (!panel || !container) {
             return;
         }
 
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
+        panel.classList.toggle('is-hidden', !notes.length);
+        container.innerHTML = notes.map(function (item) {
             return '<li>' + escapeHtml(item) + '</li>';
-        }).join('');
-    }
-
-    function renderModelChoice(modelChoice) {
-        var safeChoice = modelChoice || {};
-        setText('mlModelChoiceTitle', safeChoice.title || 'Почему выбрана лучшая модель');
-        setText('mlModelChoiceLead', safeChoice.lead || 'После валидации здесь появится краткое объяснение выбора модели.');
-        setText('mlModelChoiceBody', safeChoice.body || 'Недостаточно данных, чтобы обосновать выбор count-модели.');
-
-        var factsContainer = byId('mlModelChoiceFacts');
-        if (!factsContainer) {
-            return;
-        }
-
-        var facts = Array.isArray(safeChoice.facts) ? safeChoice.facts : [];
-        if (!facts.length) {
-            factsContainer.innerHTML = '<div class="mini-empty">После проверки здесь появятся факты по выбранной модели.</div>';
-            return;
-        }
-
-        factsContainer.innerHTML = facts.map(function (item) {
-            return ''
-                + '<article class="stat-card">'
-                + '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>'
-                + '<strong class="stat-value">' + escapeHtml(item.value || '-') + '</strong>'
-                + '</article>';
         }).join('');
     }
 
@@ -546,7 +527,7 @@
         }
 
         if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">После выбора таблицы здесь появятся признаки модели.</div>';
+            container.innerHTML = '<div class="mini-empty">После расчета здесь появятся данные, на которых реально держится модель.</div>';
             return;
         }
 
@@ -557,7 +538,6 @@
                 + '<strong>' + escapeHtml(feature.label || '-') + '</strong>'
                 + '<span class="forecast-badge">' + escapeHtml(feature.status_label || '-') + '</span>'
                 + '</div>'
-                + '<div class="forecast-feature-source">Источник: ' + escapeHtml(feature.source || '-') + '</div>'
                 + '<p>' + escapeHtml(feature.description || '') + '</p>'
                 + '</article>';
         }).join('');
@@ -595,19 +575,6 @@
                 + '</article>');
         }
         container.innerHTML = items.join('');
-    }
-
-    function renderModelChoiceSkeleton() {
-        setText('mlModelChoiceTitle', 'Почему выбрана лучшая модель');
-        setText('mlModelChoiceLead', 'Готовим объяснение выбора модели по rolling-origin backtesting.');
-        var bodyNode = byId('mlModelChoiceBody');
-        if (bodyNode) {
-            bodyNode.innerHTML = ''
-                + '<span class="ml-skeleton-line long"></span>'
-                + '<span class="ml-skeleton-line long"></span>'
-                + '<span class="ml-skeleton-line medium"></span>';
-        }
-        renderCardSkeletons('mlModelChoiceFacts', 3);
     }
 
     function renderTableSkeleton(containerId, columns, rows) {
@@ -657,32 +624,16 @@
             + '</div>';
     }
 
-    function renderListSkeleton(containerId, count) {
-        var container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        var items = [];
-        for (var index = 0; index < count; index += 1) {
-            items.push('<li><span class="ml-skeleton-line long"></span></li>');
-        }
-        container.innerHTML = items.join('');
-    }
-
     function showInitialSkeletons() {
         renderStatsSkeletons();
         renderCardSkeletons('mlQualityMetricCards', 4);
-        renderCardSkeletons('mlQualityMethodology', 5);
-        renderModelChoiceSkeleton();
         renderTableSkeleton('mlCountTableShell', 8, 4);
         renderTableSkeleton('mlEventTableShell', 6, 3);
-        renderListSkeleton('mlDissertationPoints', 5);
         renderChartSkeleton('mlForecastChart', 'mlForecastChartFallback');
         renderTableSkeleton('mlForecastTableShell', 6, 4);
         renderChartSkeleton('mlImportanceChart', 'mlImportanceChartFallback');
         renderFeatureSkeleton();
-        renderListSkeleton('mlNotesList', 5);
+        renderCriticalNotes([]);
     }
 
     function applyMlModelData(data) {
@@ -708,25 +659,30 @@
         setSelectOptions('mlForecastDaysFilter', filters.available_forecast_days, filters.forecast_days, '14 дней');
         setValue('mlTemperatureInput', filters.temperature || '');
 
-        setText('mlQualityTitle', quality.title || 'Оценка качества ML-блока');
-        setText('mlQualitySubtitle', quality.subtitle || 'На одной и той же истории сравниваются baseline, сценарная эвристика и интерпретируемые count-модели; основной критерий — rolling-origin backtesting.');
-        renderMetricCards('mlQualityMetricCards', quality.metric_cards || [], 'После расчета здесь появятся метрики качества ML-блока.');
-        renderMetricCards('mlQualityMethodology', quality.methodology_items || [], 'Параметры валидации появятся после проверки на истории.');
-        renderModelChoice(quality.model_choice || {});
-        setText('mlCountTableTitle', quality.count_table && quality.count_table.title ? quality.count_table.title : 'Сравнение по числу пожаров');
+        setText('mlQualityTitle', 'Насколько можно доверять ML-прогнозу');
+        setText('mlQualitySubtitle', quality.subtitle || 'Зачем нужен блок: сравнить модель с более простыми вариантами на одной и той же истории.');
+        renderMetricCards('mlQualityMetricCards', quality.metric_cards || [], 'После расчета здесь появятся метрики качества ML-прогноза.');
+        setText('mlCountTableTitle', 'Сравнение моделей по числу пожаров');
         renderCountTable(quality.count_table || {});
-        setText('mlEventTableTitle', quality.event_table && quality.event_table.title ? quality.event_table.title : 'Сравнение по вероятности события пожара');
+        setText('mlEventTableTitle', 'Сравнение моделей по вероятности хотя бы одного пожара');
         renderEventTable(quality.event_table || {});
-        renderNoticeList('mlDissertationPoints', quality.dissertation_points || [], 'После проверки на истории здесь появятся готовые формулировки для раздела «оценка качества».');
 
-        setText('mlForecastTitle', charts.forecast && charts.forecast.title ? charts.forecast.title : 'ML-прогноз ожидаемого числа пожаров');
+        setText('mlForecastTitle', 'Сколько пожаров ожидается по дням');
         renderLineChart(charts.forecast, 'mlForecastChart', 'mlForecastChartFallback');
         renderForecastTable(data.forecast_rows || []);
 
-        setText('mlImportanceTitle', charts.importance && charts.importance.title ? charts.importance.title : 'Важность признаков ML-блока');
+        setText('mlImportanceTitle', 'Что сильнее всего влияет на прогноз');
         renderBarsChart(charts.importance, 'mlImportanceChart', 'mlImportanceChartFallback');
         renderFeatureCards(data.features || []);
-        renderNoticeList('mlNotesList', data.notes || [], 'Замечаний пока нет.');
+        renderCriticalNotes(data.notes || []);
+        updateMlScreenLinks({
+            table_name: filters.table_name || 'all',
+            cause: filters.cause || 'all',
+            object_category: filters.object_category || 'all',
+            temperature: filters.temperature || '',
+            forecast_days: filters.forecast_days || '14',
+            history_window: filters.history_window || 'all'
+        });
     }
 
     function clearProgressTimers() {
@@ -904,6 +860,45 @@
         };
     }
 
+    function collectMlFiltersFromForm() {
+        return {
+            table_name: byId('mlTableFilter') ? byId('mlTableFilter').value : 'all',
+            cause: byId('mlCauseFilter') ? byId('mlCauseFilter').value : 'all',
+            object_category: byId('mlObjectCategoryFilter') ? byId('mlObjectCategoryFilter').value : 'all',
+            temperature: byId('mlTemperatureInput') ? byId('mlTemperatureInput').value : '',
+            forecast_days: byId('mlForecastDaysFilter') ? byId('mlForecastDaysFilter').value : '14',
+            history_window: byId('mlHistoryWindowFilter') ? byId('mlHistoryWindowFilter').value : 'all'
+        };
+    }
+
+    function buildMlNavigationHref(path, filters, options) {
+        var safeFilters = filters || {};
+        var settings = options || {};
+        var params = new URLSearchParams();
+
+        if (safeFilters.table_name && safeFilters.table_name !== 'all') {
+            params.set('table_name', safeFilters.table_name);
+        }
+        if (!settings.onlyTable) {
+            ['cause', 'object_category', 'temperature', 'forecast_days', 'history_window'].forEach(function (key) {
+                var value = safeFilters[key];
+                if (value != null && value !== '' && value !== 'all') {
+                    params.set(key, value);
+                }
+            });
+        }
+
+        var query = params.toString();
+        return path + (query ? '?' + query : '') + (settings.hash || '');
+    }
+
+    function updateMlScreenLinks(filters) {
+        var safeFilters = filters || collectMlFiltersFromForm();
+        setHref('mlPanelLink', buildMlNavigationHref('/', safeFilters, { onlyTable: true }));
+        setHref('mlScenarioLink', buildMlNavigationHref('/forecasting', safeFilters));
+        setHref('mlDecisionLink', buildMlNavigationHref('/forecasting', safeFilters, { hash: '#forecastDetails' }));
+    }
+
     function buildRequestPayload(options) {
         var settings = options || {};
         var query = settings.useLocationSearch && window.location.search
@@ -922,39 +917,6 @@
         }
     }
 
-    function renderJobRuntime(jobPayload) {
-        var runtimeNode = byId('mlJobRuntime');
-        var statusNode = byId('mlJobStatusLabel');
-        var metaNode = byId('mlJobMeta');
-        var backtestNode = byId('mlBacktestMeta');
-        var logsNode = byId('mlJobLogOutput');
-        var safeJob = jobPayload || {};
-        var backtestJob = safeJob.backtest_job || null;
-        var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
-        if (!runtimeNode || !statusNode || !metaNode || !backtestNode || !logsNode) {
-            return;
-        }
-
-        if (!safeJob.job_id) {
-            runtimeNode.classList.add('is-hidden');
-            statusNode.textContent = '';
-            metaNode.textContent = '';
-            backtestNode.textContent = '';
-            logsNode.textContent = '';
-            return;
-        }
-
-        runtimeNode.classList.remove('is-hidden');
-        statusNode.textContent = 'Статус ML-job: ' + String(safeJob.status || 'pending');
-        metaNode.textContent = 'job_id: ' + String(safeJob.job_id || '');
-        if (backtestJob && backtestJob.job_id) {
-            backtestNode.textContent = 'Backtesting: ' + String(backtestJob.status || 'pending') + ' (' + backtestJob.job_id + ')';
-        } else {
-            backtestNode.textContent = 'Backtesting будет создан после старта основного ML-job.';
-        }
-        logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
-    }
-
     function updateAsyncStateForJob(jobPayload) {
         var safeJob = jobPayload || {};
         var backtestJob = safeJob.backtest_job || null;
@@ -966,7 +928,7 @@
         if (safeJob.status === 'running') {
             activeIndex = 1;
             lead = 'Агрегируем историю и признаки';
-            message = 'Собираем SQL-агрегаты, фильтры и дневной ряд для ML-блока.';
+            message = 'Собираем SQL-агрегаты, фильтры и дневной ряд для ML-прогноза.';
         }
         if (backtestJob && (backtestJob.status === 'running' || backtestJob.status === 'completed')) {
             activeIndex = 2;
@@ -990,7 +952,6 @@
             lead: lead,
             message: message
         });
-        renderJobRuntime(safeJob);
     }
 
     async function pollMlJob(jobId) {
@@ -1099,11 +1060,20 @@
     document.addEventListener('DOMContentLoaded', function () {
         var form = byId('mlModelForm');
         var initialData = window.__FIRE_ML_INITIAL__ || null;
+        var syncScreenLinks = function () {
+            updateMlScreenLinks(collectMlFiltersFromForm());
+        };
 
         if (form) {
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
                 startMlModelJob();
+            });
+            Array.prototype.forEach.call(form.querySelectorAll('select, input'), function (field) {
+                field.addEventListener('change', syncScreenLinks);
+                if (field.tagName === 'INPUT') {
+                    field.addEventListener('input', syncScreenLinks);
+                }
             });
         }
         var retryButton = byId('mlRetryButton');
@@ -1113,6 +1083,7 @@
             });
         }
 
+        syncScreenLinks();
         if (initialData && initialData.bootstrap_mode !== 'deferred') {
             applyMlModelData(initialData);
         } else {

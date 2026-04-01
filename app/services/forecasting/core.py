@@ -40,8 +40,9 @@ from .utils import (
 )
 
 SCENARIO_FORECAST_DESCRIPTION = (
-    "Это эвристический сценарный прогноз: оценка по исторической частоте, сезонности и повторяющимся паттернам. "
-    "Блок не обучается как ML-модель и нужен для ориентира по нагрузке, а не для точного обещания числа пожаров по дням."
+    "Сценарный прогноз открывают, когда нужно понять, в какие ближайшие дни может вырасти вероятность пожара. "
+    "Он показывает сценарий по дням и помогает перейти к приоритету территорий. "
+    "Это не ML-прогноз числа пожаров: экран отвечает на вопрос «когда готовиться», а не «сколько пожаров ожидается»."
 )
 
 _FORECASTING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
@@ -165,7 +166,8 @@ def get_forecasting_page_context(
         )
         initial_data["notes"].append(f"Техническая причина: {exc}")
         initial_data["model_description"] = (
-            "Эвристический сценарный прогноз временно открыт без полного набора расчётов, чтобы интерфейс оставался доступен даже при внутренней ошибке."
+            "Сценарный прогноз временно открыт без части расчётов, чтобы экран оставался доступен. "
+            "Его задача по-прежнему та же: показать ближайшие дни риска и не подменять ML-прогноз количества пожаров."
         )
     return {
         "generated_at": _format_datetime(datetime.now()),
@@ -356,7 +358,7 @@ def _build_pending_executive_brief(message: str) -> Dict[str, Any]:
     executive_brief["top_territory_label"] = "Подготавливается"
     executive_brief["priority_reason"] = message
     executive_brief["why_value"] = "Идет фоновый расчет"
-    executive_brief["why_meta"] = "Причина приоритета появится после догрузки ranking-блока."
+    executive_brief["why_meta"] = "Причина приоритета появится после догрузки блока поддержки решений."
     executive_brief["action_label"] = "Подготавливается"
     executive_brief["action_detail"] = "Рекомендации появятся сразу после завершения фонового расчета."
     executive_brief["confidence_label"] = "Подготавливается"
@@ -365,19 +367,19 @@ def _build_pending_executive_brief(message: str) -> Dict[str, Any]:
     executive_brief["confidence_summary"] = "Паспорт качества и доверие к данным догружаются фоном."
     executive_brief["cards"] = [
         {
-            "label": "Где риск выше",
+            "label": "Куда смотреть сначала",
             "value": "Подготавливается",
             "meta": message,
             "tone": "sky",
         },
         {
-            "label": "Почему нужен приоритет",
+            "label": "Почему именно сюда",
             "value": "Идет фоновый расчет",
-            "meta": "Причина приоритета появится после догрузки ranking-блока.",
+            "meta": "Причина приоритета появится после догрузки блока поддержки решений.",
             "tone": "sand",
         },
         {
-            "label": "Доверие к данным",
+            "label": "Насколько можно доверять",
             "value": "Подготавливается",
             "meta": "Паспорт качества догружается фоном.",
             "tone": "sand",
@@ -917,7 +919,7 @@ def get_forecasting_data(
         )["risk_prediction"]
         risk_prediction["feature_cards"] = feature_cards
         risk_prediction["notes"] = [
-            "Блок поддержки решений по территории временно недоступен, поэтому страница показывает только эвристический сценарный прогноз.",
+            "Блок поддержки решений по территориям временно недоступен, поэтому сейчас показан только сценарный прогноз по дням.",
             f"Техническая причина: {exc}",
         ]
         if str(exc) == "__decision_support_deferred__":
@@ -979,7 +981,7 @@ def get_forecasting_data(
         )
         generated_at = _format_datetime(datetime.now())
         executive_brief = _build_pending_executive_brief(
-            decision_support_status_message or "Управленческий бриф будет доступен после расчета ranking-блока."
+            decision_support_status_message or "Короткий вывод будет доступен после расчета блока поддержки решений."
         )
         if decision_support_ready:
             executive_brief = build_executive_brief_from_risk_payload(
@@ -1126,7 +1128,7 @@ def get_forecasting_decision_support_data(
     _emit_forecasting_progress(
         progress_callback,
         "forecasting_decision_support.render",
-        "Обновляем управленческий бриф, рекомендации и карту риска.",
+        "Обновляем короткий вывод, рекомендации и карту риска.",
     )
     payload = copy.deepcopy(base_payload)
     generated_at = _format_datetime(datetime.now())
@@ -1303,7 +1305,7 @@ def _build_scenario_quality_assessment(backtest: Dict[str, Any]) -> Dict[str, An
     return {
         "ready": True,
         "title": "Оценка качества сценарного прогноза",
-        "subtitle": "Эвристический сценарный прогноз проверяется через скользящую одношаговую проверку на истории без использования будущих наблюдений.",
+        "subtitle": "Сценарный прогноз проверяется через скользящую одношаговую проверку на истории без использования будущих наблюдений.",
         "metric_cards": [
             {"label": "MAE", "value": _format_number(model_metrics.get("mae")), "meta": f"базовая модель: {_format_number(baseline_metrics.get('mae'))}"},
             {"label": "RMSE", "value": _format_number(model_metrics.get("rmse")), "meta": f"базовая модель: {_format_number(baseline_metrics.get('rmse'))}"},
@@ -1378,7 +1380,7 @@ def _empty_forecasting_data(
         "risk_prediction": {
             "has_data": False,
             "title": "Блок поддержки решений: ранжирование территорий",
-            "model_description": "Это отдельный блок поддержки решений: он прозрачно раскладывает риск территории на частоту пожаров, тяжесть последствий, долгое прибытие и дефицит водоснабжения, а логистический блок объясняет travel-time, покрытие ПЧ и сервисную зону.",
+            "model_description": "Блок поддержки решений ранжирует территории по сочетанию частоты пожаров, тяжести последствий, логистики прибытия и обеспеченности водой. Он не считает число пожаров по дням, а помогает выбрать, какие территории брать в работу первыми.",
             "coverage_display": "0 из 0",
             "quality_passport": {
                 "title": "Паспорт качества данных",
@@ -1438,7 +1440,7 @@ def _empty_forecasting_data(
                 "has_coordinates": False,
                 "has_map_points": False,
                 "compact_message": "В выбранном срезе нет координат, поэтому карта блока поддержки решений сейчас не строится.",
-                "model_description": "Если в данных есть координаты, карта блока поддержки решений показывает зоны, где пожары повторялись чаще и ближе по времени.",
+                "model_description": "Если в данных есть координаты, карта блока поддержки решений помогает увидеть зоны, где стоит в первую очередь проверить территории из верхних позиций ranking.",
                 "coverage_display": "0 с координатами",
                 "top_zone_label": "-",
                 "top_risk_display": "0 / 100",

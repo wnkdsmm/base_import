@@ -15,10 +15,15 @@ from app.services.forecasting.utils import (
 from .constants import MODEL_NAME
 
 MISSING_DISPLAY = '—'
-INTERVAL_METHOD_LABEL_FALLBACK = 'Adaptive conformal interval with predicted-count bins'
-INTERVAL_METHOD_LABEL_UNAVAILABLE = (
-    'Adaptive conformal interval with predicted-count bins (validated out-of-sample coverage unavailable)'
-)
+INTERVAL_METHOD_LABEL_FALLBACK = 'Адаптивный интервал неопределенности'
+INTERVAL_METHOD_LABEL_UNAVAILABLE = 'Адаптивный интервал неопределенности'
+INTERVAL_SCHEME_LABELS = {
+    'Forward rolling split conformal': 'скользящая проверка по истории',
+    'Blocked forward CV conformal': 'блочная проверка по истории',
+    'Fixed 60/40 chrono split conformal': 'фиксированное хронологическое разбиение',
+    'Jackknife+ for time series': 'jackknife+ для временного ряда',
+    'validated out-of-sample coverage unavailable': 'проверка покрытия пока недоступна',
+}
 
 
 def _empty_light_chart(title: str, empty_message: str, kind: str = 'line') -> Dict[str, Any]:
@@ -105,42 +110,27 @@ def _selection_label(is_selected: Any) -> str:
     return 'Рабочий метод' if bool(is_selected) else 'Сравнение'
 
 
-def _count_candidate_model_labels(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> List[str]:
-    comparison_labels = [
-        str(row.get('method_label')).strip()
-        for row in ml_result.get('count_comparison_rows', [])
-        if not _is_missing_metric(row.get('method_label'))
-    ]
-    if comparison_labels:
-        return comparison_labels
-    return [
-        str(label).strip()
-        for label in (overview.get('candidate_model_labels') or [])
-        if not _is_missing_metric(label)
-    ]
-
-
-def _count_candidate_models_display(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> str:
-    labels = _count_candidate_model_labels(ml_result, overview)
-    return ', '.join(labels) if labels else MISSING_DISPLAY
+def _prediction_interval_scheme_label(overview: Dict[str, Any]) -> str:
+    raw_label = overview.get('prediction_interval_validation_scheme_label')
+    if _is_missing_metric(raw_label):
+        return ''
+    normalized_label = str(raw_label).strip()
+    return INTERVAL_SCHEME_LABELS.get(normalized_label, normalized_label)
 
 
 def _prediction_interval_method_label(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> str:
+    if overview.get('prediction_interval_validation_scheme_key') == 'not_validated':
+        return INTERVAL_METHOD_LABEL_UNAVAILABLE
+
+    scheme_label = _prediction_interval_scheme_label(overview)
+    if scheme_label:
+        return INTERVAL_METHOD_LABEL_FALLBACK
+
     explicit_label = _first_present(
         ml_result.get('prediction_interval_method_label'),
         overview.get('prediction_interval_method_label'),
     )
     if not _is_missing_metric(explicit_label):
-        return str(explicit_label).strip()
-
-    scheme_label = overview.get('prediction_interval_validation_scheme_label')
-    if not _is_missing_metric(scheme_label) and overview.get('prediction_interval_coverage_validated'):
-        return f'{INTERVAL_METHOD_LABEL_FALLBACK}; validated by {str(scheme_label).strip()}'
-
-    if overview.get('prediction_interval_validation_scheme_key') == 'not_validated':
-        return INTERVAL_METHOD_LABEL_UNAVAILABLE
-
-    if not _is_missing_metric(scheme_label):
         return INTERVAL_METHOD_LABEL_FALLBACK
 
     return MISSING_DISPLAY
@@ -201,7 +191,7 @@ def _comparison_metric_card(
     return {
         'label': label,
         'value': formatter(value),
-        'meta': f"seasonal baseline: {formatter(baseline_value)}; heuristic forecast: {formatter(heuristic_value)}",
+        'meta': f"Сезонная база: {formatter(baseline_value)}; эвристика: {formatter(heuristic_value)}",
     }
 
 
@@ -235,41 +225,27 @@ def _prediction_interval_quality_note(
     overview: Dict[str, Any],
     interval_coverage_display: str,
 ) -> str:
-    explicit_note = overview.get('prediction_interval_coverage_note')
-    explicit_explanation = overview.get('prediction_interval_validation_explanation')
-    if explicit_note:
-        return str(explicit_note)
-    if explicit_explanation:
-        return str(explicit_explanation)
     validated_flag = overview.get('prediction_interval_coverage_validated')
     is_validated = (
         bool(validated_flag)
         if validated_flag is not None
         else interval_coverage_display not in {MISSING_DISPLAY, '-'}
     )
-    calibration_range = overview.get('prediction_interval_calibration_range_label') or 'ранних окнах'
-    evaluation_range = overview.get('prediction_interval_evaluation_range_label') or 'evaluation-окнах'
-    fallback_note = overview.get('prediction_interval_coverage_note')
-
-    if is_validated:
-        return (
-            f'Квантили абсолютной ошибки откалиброваны по prediction-level bins на {calibration_range}; '
-            f'out-of-sample coverage посчитан только на {evaluation_range}: {interval_coverage_display}.'
-        )
+    scheme_label = _prediction_interval_scheme_label(overview) or 'проверка на истории'
     calibration_windows = int(overview.get('prediction_interval_calibration_windows') or 0)
     evaluation_windows = int(overview.get('prediction_interval_evaluation_windows') or 0)
+
+    if is_validated:
+        if calibration_windows and evaluation_windows:
+            return (
+                f'{scheme_label.capitalize()}, {evaluation_windows} окон оценки '
+                f'после {calibration_windows} калибровочных.'
+            )
+        return f'{scheme_label.capitalize()} на истории.'
+
     if calibration_windows or evaluation_windows:
-        return (
-            'Окон backtesting пока недостаточно для честного разделения на calibration и evaluation по времени '
-            f'(доступно {calibration_windows} для калибровки и {evaluation_windows} для оценки), '
-            'поэтому validated out-of-sample coverage не показывается.'
-        )
-    if fallback_note:
-        return str(fallback_note)
-    return (
-        'Окон backtesting пока недостаточно для честного разделения на calibration и evaluation по времени, '
-        'поэтому validated out-of-sample coverage не показывается.'
-    )
+        return 'Для отдельной проверки покрытия пока недостаточно окон истории.'
+    return 'Покрытие на истории пока недоступно.'
 
 
 def _build_forecast_chart(daily_history: List[Dict[str, Any]], ml_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -473,7 +449,6 @@ def _build_summary(
 def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
     overview = ml_result.get('backtest_overview', {}) or {}
     interval_context = _prediction_interval_display_context(ml_result, overview)
-    event_context = _event_probability_context(ml_result, overview)
     count_rows = [_count_comparison_row(row) for row in ml_result.get('count_comparison_rows', [])]
     event_rows = [_event_comparison_row(row) for row in ml_result.get('event_comparison_rows', [])]
 
@@ -507,7 +482,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             _format_optional_number,
         ),
         {
-            'label': f"Out-of-sample coverage {interval_context['level_display']} интервала",
+            'label': f"Покрытие {interval_context['level_display']} интервала на истории",
             'value': interval_context['coverage_display'],
             'meta': f"{interval_context['method_label']}; {interval_context['quality_note']}",
         },
@@ -546,126 +521,20 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             ]
         )
 
-    candidate_models_display = _count_candidate_models_display(ml_result, overview)
-    methodology_items = [
-        {
-            'label': 'Схема валидации',
-            'value': ml_result.get('backtest_method_label') or 'Проверка на истории не выполнена',
-            'meta': 'expanding window, одношаговый rolling-origin backtesting',
-        },
-        {
-            'label': 'Минимум обучающего окна',
-            'value': _format_optional_integer(overview.get('min_train_rows') or None),
-            'meta': 'дней истории на одно окно',
-        },
-        {
-            'label': 'Сравниваемые count-методы',
-            'value': candidate_models_display,
-            'meta': 'seasonal baseline, heuristic forecast и обучаемые count-model',
-        },
-        {
-            'label': 'Индекс пере-дисперсии',
-            'value': _format_optional_number(overview.get('dispersion_ratio')),
-            'meta': 'variance / mean для счётного ряда',
-        },
-        {
-            'label': 'Правило выбора',
-            'value': str(overview.get('selection_rule') or 'Минимум Poisson deviance, затем MAE и RMSE'),
-            'meta': 'лучший кандидат выбирается только по окнам backtesting',
-        },
-        {
-            'label': 'Интервал прогноза',
-            'value': interval_context['level_display'],
-            'meta': f"{interval_context['method_label']}; {interval_context['quality_note']}",
-        },
-    ]
-    if overview.get('event_selection_rule'):
-        methodology_items.append(
-            {
-                'label': 'Правило для бинарного блока',
-                'value': str(overview.get('event_selection_rule')),
-                'meta': 'используется только если достаточно окон для события',
-            }
-        )
-
-    model_choice = {
-        'title': 'Почему выбран рабочий метод',
-        'lead': ml_result.get('selected_count_model_reason_short') or 'После валидации здесь появится краткое объяснение выбора рабочего метода.',
-        'body': ml_result.get('selected_count_model_reason') or 'Недостаточно данных, чтобы обосновать выбор рабочего count-метода.',
-        'facts': [
-            {
-                'label': 'Рабочий count-метод',
-                'value': _format_optional_text(ml_result.get('count_model_label')),
-            },
-            {
-                'label': 'Сравниваемые count-методы',
-                'value': candidate_models_display,
-            },
-            {
-                'label': 'Топ-признак',
-                'value': _format_optional_text(ml_result.get('top_feature_label')),
-            },
-        ],
-    }
-
-    dissertation_points: List[str] = []
-    if ml_result.get('is_ready'):
-        folds = int(overview.get('folds') or 0)
-        min_train_rows = int(overview.get('min_train_rows') or 0)
-        dissertation_points.append(
-            f"Качество ML-блока подтверждено по схеме rolling-origin backtesting: {folds} одношаговых окон, минимальное обучающее окно {min_train_rows} дней."
-        )
-        dissertation_points.append(
-            f"В count-сравнение включены seasonal baseline, heuristic forecast и интерпретируемые count-model: {candidate_models_display}."
-        )
-        dissertation_points.append(
-            f"Seasonal baseline на тех же окнах дал MAE {_format_optional_number(ml_result.get('baseline_count_mae'))}, RMSE {_format_optional_number(ml_result.get('baseline_count_rmse'))}, sMAPE {_format_optional_percent(ml_result.get('baseline_count_smape'))} и Poisson deviance {_format_optional_number(ml_result.get('baseline_count_poisson_deviance'))}."
-        )
-        dissertation_points.append(
-            f"Heuristic forecast на тех же окнах дал MAE {_format_optional_number(ml_result.get('heuristic_count_mae'))}, RMSE {_format_optional_number(ml_result.get('heuristic_count_rmse'))}, sMAPE {_format_optional_percent(ml_result.get('heuristic_count_smape'))} и Poisson deviance {_format_optional_number(ml_result.get('heuristic_count_poisson_deviance'))}."
-        )
-        dissertation_points.append(
-            f"Рабочим count-методом выбран {ml_result.get('count_model_label') or 'метод'}: MAE {_format_optional_number(ml_result.get('count_mae'))}, RMSE {_format_optional_number(ml_result.get('count_rmse'))}, sMAPE {_format_optional_percent(ml_result.get('count_smape'))}, Poisson deviance {_format_optional_number(ml_result.get('count_poisson_deviance'))}."
-        )
-        if ml_result.get('selected_count_model_reason'):
-            dissertation_points.append(str(ml_result.get('selected_count_model_reason')))
-        if ml_result.get('event_backtest_available'):
-            dissertation_points.append(
-                f"Для бинарного события «пожар / нет пожара» рабочий метод ({ml_result.get('selected_event_model_label') or 'метод'}) дал Brier score {_format_optional_number(ml_result.get('brier_score'))}, ROC-AUC {_format_optional_number(ml_result.get('roc_auc'))} и F1 {_format_optional_number(ml_result.get('f1_score'))}."
-            )
-            if event_context['note'] and not ml_result.get('event_probability_enabled'):
-                dissertation_points.append(str(event_context['note']))
-        else:
-            dissertation_points.append(
-                str(event_context['note'])
-                if event_context['note']
-                else 'Для бинарного события «пожар / нет пожара» история пока не дала достаточно окон, чтобы корректно сравнить вероятностные методы.'
-            )
-    else:
-        dissertation_points.append('Качество ML-блока пока не подтверждено: истории недостаточно для корректной проверки на истории.')
-
     return {
-        'ready': bool(ml_result.get('is_ready')),
         'title': 'Оценка качества ML-блока',
-        'subtitle': 'На одной и той же истории сравниваются seasonal baseline, heuristic forecast и интерпретируемые count-model; основной критерий — rolling-origin backtesting.',
-        'methodology_items': methodology_items,
+        'subtitle': 'Ключевые метрики и сравнение методов на одной и той же истории.',
         'metric_cards': metric_cards,
-        'model_choice': model_choice,
-        'event_probability_note': event_context['note'],
-        'event_probability_reason_code': event_context['reason_code'],
         'count_table': {
             'title': 'Сравнение по числу пожаров',
             'rows': count_rows,
-            'empty_message': 'Сравнение seasonal baseline, heuristic forecast и count-model появится после проверки на истории.',
+            'empty_message': 'Сравнение сезонной базы, эвристики и ML-модели появится после проверки на истории.',
         },
         'event_table': {
             'title': 'Сравнение по вероятности события пожара',
             'rows': event_rows,
-            'empty_message': event_context['note'] or 'Недостаточно окон для сравнения вероятности события пожара.',
-            'note': event_context['note'],
-            'reason_code': event_context['reason_code'],
+            'empty_message': _event_probability_context(ml_result, overview)['note'] or 'Недостаточно окон для сравнения вероятности события пожара.',
         },
-        'dissertation_points': dissertation_points,
     }
 
 def _build_notes(
@@ -677,86 +546,41 @@ def _build_notes(
     scenario_temperature: Optional[float],
     source_tables: List[str],
 ) -> List[str]:
-    notes = list(preload_notes)
-    if len(source_tables) > 1:
-        notes.append(f'ML-модель обучается сразу по {len(source_tables)} таблицам.')
+    notes: List[str] = []
+
+    def append_note(value: Any) -> None:
+        if value is None:
+            return
+        text = str(value).strip()
+        if not text or text in notes:
+            return
+        notes.append(text)
+
+    for note in preload_notes:
+        append_note(note)
+
     if filtered_records_count <= 0:
-        notes.append('После выбранных фильтров не осталось исторических пожаров для обучения ML-модели.')
+        append_note('После выбранных фильтров не осталось исторических пожаров для обучения ML-модели.')
     if ml_result.get('message'):
-        notes.append(str(ml_result['message']))
-    if ml_result.get('temperature_note'):
-        notes.append(str(ml_result['temperature_note']))
+        append_note(ml_result['message'])
+    if not ml_result.get('is_ready') and filtered_records_count > 0:
+        append_note('Истории пока недостаточно, чтобы показать устойчивый ML-прогноз и проверку качества.')
+    if len(daily_history) < 60:
+        append_note('Истории меньше 60 дней: для корректной ML-валидации этого обычно недостаточно.')
     if scenario_temperature is not None and not any(item['resolved_columns'].get('temperature') for item in metadata_items):
-        notes.append(
+        append_note(
             'Температура задана вручную, но температурная колонка в таблицах не найдена: '
             'сценарное значение используется только для будущих дат.'
         )
+    if ml_result.get('temperature_note'):
+        append_note(ml_result['temperature_note'])
 
-    if ml_result.get('is_ready'):
-        overview = ml_result.get('backtest_overview', {}) or {}
-        candidate_models = _count_candidate_model_labels(ml_result, overview)
-        interval_validation_explanation = overview.get('prediction_interval_validation_explanation')
-        interval_scheme_label = overview.get('prediction_interval_validation_scheme_label')
-        event_context = _event_probability_context(ml_result, overview)
+    overview = ml_result.get('backtest_overview', {}) or {}
+    event_context = _event_probability_context(ml_result, overview)
+    if event_context['note'] and not ml_result.get('event_probability_enabled'):
+        append_note(event_context['note'])
 
-        if candidate_models:
-            notes.append(
-                f"Для count-задачи сравниваются seasonal baseline, heuristic forecast и count-model: {', '.join(candidate_models)}."
-            )
-        notes.append(
-            'Основная ML-задача сформулирована как прогноз ожидаемого числа пожаров в день, '
-            'а не как псевдовероятность из регрессии по числу пожаров.'
-        )
-        notes.append(
-            'Rolling-origin backtesting стал основной схемой проверки: каждое окно обучается только на прошлом '
-            'и не использует будущие наблюдения.'
-        )
-        if ml_result.get('selected_count_model_reason_short'):
-            notes.append(str(ml_result.get('selected_count_model_reason_short')))
-        notes.append(
-            'В интерфейсе одновременно показываются MAE, RMSE, sMAPE и Poisson deviance, '
-            'чтобы сравнение рабочего метода, seasonal baseline, heuristic forecast и count-model '
-            'оставалось методологически корректным для счётных данных.'
-        )
-        notes.append(
-            'Интерпретируемость сохраняется за счёт GLM-подхода и явного списка признаков: '
-            'день недели, месяц, температура, лаги и скользящие средние.'
-        )
-        if interval_validation_explanation:
-            notes.append(str(interval_validation_explanation))
-        elif interval_scheme_label:
-            notes.append(
-                'Интервалы неопределённости строятся как adaptive conformal interval с predicted-count bins; '
-                f'validated out-of-sample coverage проверяется по схеме {interval_scheme_label}.'
-            )
-        else:
-            notes.append('Интервалы неопределённости строятся как adaptive conformal interval с predicted-count bins.')
-        if ml_result.get('event_backtest_available'):
-            notes.append(
-                'Для бинарного события «пожар / нет пожара» дополнительно считаются Brier score, ROC-AUC, F1 и log-loss '
-                'для seasonal baseline, heuristic forecast и логистической регрессии, если она реально доступна в backtesting.'
-            )
-            if event_context['note'] and not ml_result.get('event_probability_enabled'):
-                notes.append(str(event_context['note']))
-        else:
-            notes.append(
-                str(event_context['note'])
-                if event_context['note']
-                else 'Для бинарного события «пожар / нет пожара» пока недостаточно одношаговых окон, '
-                'поэтому блок не делает сильных выводов по вероятностной части.'
-            )
-        if not ml_result.get('classifier_ready') and not event_context['note']:
-            notes.append(
-                'Отдельный классификатор события не используется для будущих дат, '
-                'если он не подтвердил качество на rolling-origin backtesting.'
-            )
-    else:
-        notes.append(
-            'Пока данных недостаточно для корректной проверки на истории, '
-            'поэтому ML-блок остаётся в безопасном режиме без прогноза.'
-        )
+    if len(source_tables) > 1 and not notes:
+        append_note(f'ML-модель собирает общий прогноз сразу по {len(source_tables)} таблицам.')
 
-    if len(daily_history) < 60:
-        notes.append('Истории меньше 60 дней: для корректной ML-валидации этого обычно недостаточно.')
-
-    return notes
+    return notes[:2]

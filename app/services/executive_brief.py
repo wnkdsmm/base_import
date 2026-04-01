@@ -29,7 +29,7 @@ def _unique_notes(notes: Iterable[Any]) -> List[str]:
 
 def empty_executive_brief() -> Dict[str, Any]:
     return {
-        "lead": "После расчета здесь появится короткий управленческий бриф: где риск, почему риск и что делать первым.",
+        "lead": "После расчета здесь появится короткий вывод: где ситуация напряжённее, что проверить сначала и насколько можно доверять данным.",
         "top_territory_label": "-",
         "priority_reason": "Недостаточно данных, чтобы выделить территорию первого приоритета.",
         "priority_tone": "sky",
@@ -43,19 +43,19 @@ def empty_executive_brief() -> Dict[str, Any]:
         "confidence_summary": "После расчета здесь появится оценка доверия к данным.",
         "cards": [
             {
-                "label": "Где риск выше",
+                "label": "Куда смотреть сначала",
                 "value": "-",
                 "meta": "Недостаточно данных для приоритета.",
                 "tone": "sky",
             },
             {
-                "label": "Почему нужен приоритет",
+                "label": "Почему именно сюда",
                 "value": "Недостаточно данных",
                 "meta": "Причина приоритета появится после расчета.",
                 "tone": "sand",
             },
             {
-                "label": "Доверие к данным",
+                "label": "Насколько можно доверять",
                 "value": "Ограниченная",
                 "meta": "0 / 100. После расчета здесь появится оценка доверия к данным.",
                 "tone": "fire",
@@ -69,8 +69,8 @@ def empty_executive_brief() -> Dict[str, Any]:
         ],
         "territories": [],
         "notes": [],
-        "export_title": "Краткая экспортируемая справка",
-        "export_excerpt": "После расчета здесь появится короткая справка, которую можно приложить к сообщению или отчету.",
+        "export_title": "Коротко для передачи дальше",
+        "export_excerpt": "После расчета здесь появится короткая справка для руководителя, смены или дежурного.",
         "export_text": "",
     }
 
@@ -128,15 +128,15 @@ def build_executive_brief_from_risk_payload(
     priority_tone = _normalize_tone(lead.get("risk_tone"), "sky")
 
     lead_line = (
-        f"{top_territory_label}: {priority_reason} "
+        f"Сначала проверьте {top_territory_label}: {priority_reason} "
         f"Первое действие: {action_label}. "
-        f"Доверие к данным: {confidence_label} ({confidence_score_display})."
+        f"Доверие к выводу: {confidence_label} ({confidence_score_display})."
     )
     export_excerpt = (
         f"{top_territory_label} сейчас в первом приоритете. "
         f"{priority_reason} "
         f"Рекомендуемое действие: {action_label}. {action_detail} "
-        f"Доверие к данным: {confidence_label} ({confidence_score_display})."
+        f"Доверие к выводу: {confidence_label} ({confidence_score_display})."
     )
 
     simplified_territories: List[Dict[str, str]] = []
@@ -174,19 +174,19 @@ def build_executive_brief_from_risk_payload(
         "confidence_summary": confidence_summary,
         "cards": [
             {
-                "label": "Где риск выше",
+                "label": "Куда смотреть сначала",
                 "value": top_territory_label,
                 "meta": priority_reason,
                 "tone": priority_tone,
             },
             {
-                "label": "Почему нужен приоритет",
+                "label": "Почему именно сюда",
                 "value": why_value,
                 "meta": why_meta,
                 "tone": "sand",
             },
             {
-                "label": "Доверие к данным",
+                "label": "Насколько можно доверять",
                 "value": confidence_label,
                 "meta": f"{confidence_score_display}. {confidence_summary}",
                 "tone": confidence_tone,
@@ -200,7 +200,7 @@ def build_executive_brief_from_risk_payload(
         ],
         "territories": simplified_territories,
         "notes": brief_notes[:3],
-        "export_title": "Краткая экспортируемая справка",
+        "export_title": "Коротко для передачи дальше",
         "export_excerpt": export_excerpt,
         "export_text": "",
     }
@@ -216,7 +216,7 @@ def compose_executive_brief_text(
     notes = list(safe_brief.get("notes") or [])
     territories = list(safe_brief.get("territories") or [])
 
-    lines = ["Управленческий бриф"]
+    lines = ["Короткий вывод по приоритетам"]
     if _safe_text(generated_at):
         lines.append(f"Сформировано: {_safe_text(generated_at)}")
     if _safe_text(scope_label):
@@ -225,14 +225,14 @@ def compose_executive_brief_text(
     lines.extend(
         [
             "",
-            f"Где риск выше: {_safe_text(safe_brief.get('top_territory_label'), '-')}",
-            f"Почему приоритет: {_safe_text(safe_brief.get('priority_reason'), 'Недостаточно данных для объяснения приоритета.')}",
-            f"Доверие к данным: {_safe_text(safe_brief.get('confidence_label'), 'Ограниченная')} ({_safe_text(safe_brief.get('confidence_score_display'), '0 / 100')})",
-            f"Пояснение по доверию: {_safe_text(safe_brief.get('confidence_summary'), 'Пояснение по надежности вывода появится после расчета.')}",
+            f"Куда смотреть сначала: {_safe_text(safe_brief.get('top_territory_label'), '-')}",
+            f"Почему именно туда: {_safe_text(safe_brief.get('priority_reason'), 'Недостаточно данных для объяснения приоритета.')}",
+            f"Насколько можно доверять: {_safe_text(safe_brief.get('confidence_label'), 'Ограниченная')} ({_safe_text(safe_brief.get('confidence_score_display'), '0 / 100')})",
+            f"Почему уровень доверия такой: {_safe_text(safe_brief.get('confidence_summary'), 'Пояснение по надежности вывода появится после расчета.')}",
             f"Что сделать первым: {_safe_text(safe_brief.get('action_label'), 'Плановое наблюдение')}",
             f"Деталь действия: {_safe_text(safe_brief.get('action_detail'), 'Детализация действия появится после расчета.')}",
             "",
-            "Краткая справка:",
+            "Коротко для передачи дальше:",
             _safe_text(
                 safe_brief.get("export_excerpt"),
                 "После расчета здесь появится короткая справка для передачи в смену или руководителю.",

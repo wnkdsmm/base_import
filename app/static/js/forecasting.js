@@ -38,6 +38,13 @@
         }
     }
 
+    function setHref(id, href) {
+        var node = byId(id);
+        if (node && href) {
+            node.setAttribute('href', href);
+        }
+    }
+
     function setValue(id, value) {
         var node = byId(id);
         if (node) {
@@ -120,8 +127,8 @@
         var tableContainer = byId('scenarioQualityTableShell');
         var rows = Array.isArray(safeQuality.comparison_rows) ? safeQuality.comparison_rows : [];
 
-        setText('scenarioQualityTitle', safeQuality.title || 'Оценка качества сценарного прогноза');
-        setText('scenarioQualitySubtitle', safeQuality.subtitle || 'После накопления истории здесь появится проверка на истории и сравнение с базовой моделью.');
+        setText('scenarioQualityTitle', 'Насколько прогноз по дням попадает в историю');
+        setText('scenarioQualitySubtitle', safeQuality.subtitle || 'Зачем нужен блок: понять, можно ли опираться на сценарий, и где он ошибается относительно прошлых данных.');
         renderScenarioQualityCards('scenarioQualityMetrics', safeQuality.metric_cards || [], 'После расчёта здесь появятся метрики качества сценарного прогноза.');
         renderScenarioQualityCards('scenarioQualityMethodology', safeQuality.methodology_items || [], 'Параметры валидации появятся после проверки на истории.');
 
@@ -145,7 +152,7 @@
             }
         }
 
-        renderNotes('scenarioQualityDissertation', safeQuality.dissertation_points || [], 'После расчета здесь появятся формулировки для раздела “оценка качества”.');
+        renderNotes('scenarioQualityDissertation', safeQuality.dissertation_points || [], 'После расчета здесь появятся короткие выводы о точности прогноза.');
     }
     function renderForecastTable(rows) {
         var container = byId('forecastTableShell');
@@ -154,7 +161,7 @@
         }
 
         if (!Array.isArray(rows) || !rows.length) {
-            container.innerHTML = '<div class="mini-empty">После расчета здесь появятся будущие даты и ожидаемое количество пожаров.</div>';
+            container.innerHTML = '<div class="mini-empty">После расчета здесь появятся ближайшие даты и вероятность пожара по сценарию.</div>';
             return;
         }
 
@@ -280,13 +287,13 @@
                 '</div>' +
                 '<div class="risk-score-bar"><span data-bar-width="' + escapeHtml(item.bar_width || '10%') + '"></span></div>' +
                 '<div class="risk-territory-callout">' +
-                    '<span>Что сделать первым</span>' +
+                    '<span>Что проверить первым</span>' +
                     '<strong>' + escapeHtml(item.action_label || 'Оставить территорию в плановом наблюдении') + '</strong>' +
                     '<p>' + escapeHtml(item.action_hint || '') + '</p>' +
                 '</div>' +
                 '<div class="risk-metrics-grid">' + metricsHtml + '</div>' +
                 '<div class="risk-components-grid">' + componentsHtml + '</div>' +
-                '<p class="risk-formula"><strong>Формула риска:</strong> ' + escapeHtml(item.risk_formula_display || '') + '</p>' +
+                '<p class="risk-formula"><strong>Как сложился итоговый балл:</strong> ' + escapeHtml(item.risk_formula_display || '') + '</p>' +
                 '<div class="risk-recommendation-list">' + recommendationsHtml + '</div>' +
                 '<div class="risk-territory-meta">' +
                     '<span>Контекст: <strong>' + escapeHtml(item.settlement_context_label || 'Не указан') + '</strong></span>' +
@@ -300,8 +307,8 @@
                     '<span>Вода: <strong>' + escapeHtml(item.water_supply_display || 'Нет данных') + '</strong></span>' +
                     '<span>Объекты: <strong>' + escapeHtml(item.dominant_object_category || 'Не указано') + '</strong></span>' +
                 '</div>' +
-                '<p class="risk-drivers"><strong>Почему территория наверху:</strong> ' + escapeHtml(whyText) + '</p>' +
-                '<p class="risk-drivers"><strong>Надёжность вывода:</strong> ' + escapeHtml(reliabilityText) + '</p>' +
+                '<p class="risk-drivers"><strong>Почему именно эта территория:</strong> ' + escapeHtml(whyText) + '</p>' +
+                '<p class="risk-drivers"><strong>Почему уровень доверия такой:</strong> ' + escapeHtml(reliabilityText) + '</p>' +
             '</article>';
         }).join('');
     }
@@ -714,9 +721,9 @@
         if (data && data.loading && data.loading_status_message) {
             return data.loading_status_message;
         }
-        return (safeSummary.slice_label || 'Все пожары') +
-            ' | Средняя вероятность: ' + (safeSummary.average_probability_display || '0%') +
-            ' | Максимум: ' + (safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
+        return 'Сейчас показано: ' + (safeSummary.slice_label || 'Все пожары') +
+            ' | Типичный день: ' + (safeSummary.average_probability_display || '0%') +
+            ' | Пик: ' + (safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
             ' | К последним 4 неделям: ' + (safeSummary.forecast_vs_recent_display || '0%');
     }
 
@@ -973,13 +980,13 @@
         var notes = [];
         var components = Array.isArray(safeProfile.components) ? safeProfile.components : [];
 
-        setText('forecastWeightProfileDescription', safeProfile.description || 'После расчета здесь появится прозрачная схема компонентных весов.');
+        setText('forecastWeightProfileDescription', safeProfile.description || 'После расчета здесь появится понятное объяснение, какие факторы сильнее всего двигают территорию вверх или вниз.');
         setText('forecastWeightModeBadge', safeProfile.status_label || 'Активный профиль');
         applyToneClass(byId('forecastWeightModeBadge'), safeProfile.status_tone || 'forest');
 
         if (cardsContainer) {
             if (!components.length) {
-                cardsContainer.innerHTML = '<div class="mini-empty">Компоненты и веса появятся после расчета.</div>';
+                cardsContainer.innerHTML = '<div class="mini-empty">После расчета здесь появится список факторов, которые больше всего влияют на итоговый балл.</div>';
             } else {
                 cardsContainer.innerHTML = components.map(function (item) {
                     return '<article class="risk-weight-card">' +
@@ -1002,7 +1009,7 @@
                 notes.push(text);
             }
         });
-        renderNotes('forecastWeightProfileNotes', notes, 'После расчета здесь появятся пояснения по профилю весов.');
+        renderNotes('forecastWeightProfileNotes', notes, 'После расчета здесь появятся пояснения, почему профиль весов выглядит именно так.');
     }
 
     function renderHistoricalValidation(validation) {
@@ -1012,7 +1019,7 @@
         var metricCards = Array.isArray(safeValidation.metric_cards) ? safeValidation.metric_cards : [];
         var windows = Array.isArray(safeValidation.recent_windows) ? safeValidation.recent_windows : [];
 
-        setText('forecastValidationSummary', safeValidation.summary || 'После расчёта здесь появится заготовка под историческую проверку ранжирования.');
+        setText('forecastValidationSummary', safeValidation.summary || 'После расчёта здесь появится проверка, насколько блок поддержки решений поднимает важные территории по историческим данным.');
         setText('forecastHistoryValidationBadge', safeValidation.status_label || 'Пока без проверки');
         applyToneClass(byId('forecastHistoryValidationBadge'), safeValidation.status_tone || 'fire');
 
@@ -1043,7 +1050,7 @@
             }
         }
 
-        renderNotes('forecastValidationNotes', safeValidation.notes || [], 'После расчёта здесь появятся примечания по исторической проверке ранжирования.');
+        renderNotes('forecastValidationNotes', safeValidation.notes || [], 'После расчёта здесь появятся замечания по исторической проверке ранжирования.');
     }
     function renderCommandCards(brief) {
         var container = byId('forecastCommandCards');
@@ -1054,7 +1061,7 @@
         }
 
         if (!cards.length) {
-            container.innerHTML = '<div class="mini-empty">Управленческий бриф появится после расчёта.</div>';
+            container.innerHTML = '<div class="mini-empty">Короткий вывод появится после расчёта.</div>';
             return;
         }
 
@@ -1105,6 +1112,33 @@
         );
     }
 
+    function buildForecastNavigationHref(path, filters, options) {
+        var safeFilters = filters || {};
+        var settings = options || {};
+        var params = new URLSearchParams();
+
+        if (safeFilters.table_name && safeFilters.table_name !== 'all') {
+            params.set('table_name', safeFilters.table_name);
+        }
+        if (!settings.onlyTable) {
+            ['cause', 'object_category', 'temperature', 'forecast_days', 'history_window'].forEach(function (key) {
+                var value = safeFilters[key];
+                if (value != null && value !== '' && value !== 'all') {
+                    params.set(key, value);
+                }
+            });
+        }
+
+        var query = params.toString();
+        return path + (query ? '?' + query : '') + (settings.hash || '');
+    }
+
+    function updateForecastScreenLinks(filters) {
+        var safeFilters = filters || collectForecastFiltersFromForm();
+        setHref('forecastPanelLink', buildForecastNavigationHref('/', safeFilters, { onlyTable: true }));
+        setHref('forecastMlLink', buildForecastNavigationHref('/ml-model', safeFilters));
+    }
+
     function collectForecastFiltersFromForm() {
         return {
             table_name: byId('forecastTableFilter') ? byId('forecastTableFilter').value : '',
@@ -1138,7 +1172,7 @@
         });
 
         var lines = [
-            'Краткая справка: сценарный прогноз и блок поддержки решений',
+            'Краткая справка: сценарный прогноз и поддержка решений',
             'Сформировано: ' + (data.generated_at || '-'),
             '',
             'Срез анализа',
@@ -1147,11 +1181,11 @@
             'Срез: ' + (summary.slice_label || 'Все пожары'),
             'Горизонт прогноза: ' + (summary.forecast_days_display || '0') + ' дней',
             '',
-            'Оценка качества сценарного прогноза',
-            'Статус: ' + (quality.title || 'Оценка качества сценарного прогноза'),
+            'Насколько прогноз по дням попадает в историю',
+            'Статус: ' + (quality.title || 'Проверка на истории'),
             'Комментарий: ' + (quality.subtitle || 'Недостаточно данных для оценки качества.'),
             '',
-            'Профиль весов',
+            'Почему территория поднялась вверх в приоритете',
             'Режим: ' + (weightProfile.mode_label || 'Экспертные веса'),
             'Описание: ' + (weightProfile.description || 'Нет описания.'),
         ];
@@ -1169,14 +1203,14 @@
             });
         }
 
-        lines.push('', 'Паспорт качества данных');
+        lines.push('', 'Можно ли доверять рекомендации и почему');
         lines.push('Статус валидации данных: ' + (passport.validation_label || 'Валидация данных ограничена'));
         lines.push('Надёжность данных: ' + (passport.confidence_label || 'Ограниченная') + ' (' + (passport.confidence_score_display || '0 / 100') + ')');
         lines.push('Комментарий: ' + (passport.validation_summary || 'Оценка качества не сформирована.'));
         lines.push('Надёжность вывода по территории-лидеру: ' + ((risk.top_territory_confidence_label || (territories[0] && territories[0].ranking_confidence_label) || 'Ограниченная')) + ' (' + ((risk.top_territory_confidence_score_display || (territories[0] && territories[0].ranking_confidence_display) || '0 / 100')) + ')');
         lines.push('Пояснение: ' + ((risk.top_territory_confidence_note || (territories[0] && territories[0].ranking_confidence_note) || 'Нет пояснения по надёжности вывода.')));
 
-        lines.push('', 'Историческая проверка ranking-блока');
+        lines.push('', 'Насколько ranking работает на истории');
         lines.push('Статус: ' + (validation.status_label || 'Пока без проверки'));
         lines.push('Комментарий: ' + (validation.summary || 'Нет данных для проверки.'));
         (validation.metric_cards || []).forEach(function (item) {
@@ -1202,7 +1236,7 @@
             lines.push('Нет данных для ранжирования территорий.');
         }
 
-        lines.push('', 'Карта риска');
+        lines.push('', 'Где зоны внимания на карте');
         lines.push('Зона внимания: ' + (geo.top_zone_label || '-'));
         lines.push('Пиковый риск на карте: ' + (geo.top_risk_display || '0 / 100'));
         lines.push('Зон выделено: ' + (geo.hotspots_count_display || '0'));
@@ -1263,7 +1297,7 @@
         setValue('forecastTemperatureInput', filters.temperature || '');
 
         setText('forecastModelDescription', data.model_description || '');
-        setText('forecastLeadSummary', executiveBrief.lead || risk.top_territory_explanation || 'После расчёта здесь появится краткое управленческое объяснение.');
+        setText('forecastLeadSummary', executiveBrief.lead || risk.top_territory_explanation || 'После расчёта здесь появится короткое объяснение, где и когда стоит готовиться заранее.');
         setText('forecastTableLabel', summary.selected_table_label || 'Нет таблицы');
         setText('forecastHistoryMode', summary.history_window_label || 'Все годы');
         setText('forecastSliceLabel', summary.slice_label || 'Все пожары');
@@ -1292,14 +1326,14 @@
         applyToneClass(byId('forecastHeroPriorityCard'), normalizeTone(executiveBrief.priority_tone || leadTerritory.risk_tone || 'low'));
         applyToneClass(byId('forecastHeroConfidenceCard'), normalizeTone(executiveBrief.confidence_tone || risk.top_territory_confidence_tone || leadTerritory.ranking_confidence_tone || passport.confidence_tone || 'fire'));
 
-        setText('forecastDailyChartTitle', charts.daily ? charts.daily.title : 'Что было и что ожидается');
-        setText('forecastWeekdayChartTitle', charts.weekday ? charts.weekday.title : 'В какие дни недели пожары случаются чаще');
-        setText('forecastGeoChartTitle', charts.geo ? charts.geo.title : 'Карта зон риска');
+        setText('forecastDailyChartTitle', 'Что ожидается по дням');
+        setText('forecastWeekdayChartTitle', 'Какие дни недели чаще напряжённее');
+        setText('forecastGeoChartTitle', 'Где зоны внимания на карте');
 
         setText('forecastRiskDescription', risk.model_description || '');
         setText('forecastRiskTopLabel', risk.top_territory_label || '-');
         setText('forecastRiskTopExplanation', risk.top_territory_explanation || 'Недостаточно данных для лидирующей территории.');
-        setText('forecastGeoDescription', geo.model_description || '');
+        setText('forecastGeoDescription', geo.model_description || 'Зачем нужен блок: увидеть зоны внимания на карте и сверить их с приоритетом территорий.');
         setText('forecastGeoCoverage', geo.coverage_display || '0 с координатами');
         setText('forecastGeoTopZone', geo.top_zone_label || '-');
         setText('forecastGeoTopRisk', geo.top_risk_display || '0 / 100');
@@ -1339,6 +1373,14 @@
         updateForecastBriefExport({
             table_name: filters.table_name || '',
             district: filters.district || 'all',
+            cause: filters.cause || 'all',
+            object_category: filters.object_category || 'all',
+            temperature: filters.temperature || '',
+            forecast_days: filters.forecast_days || '',
+            history_window: filters.history_window || ''
+        });
+        updateForecastScreenLinks({
+            table_name: filters.table_name || '',
             cause: filters.cause || 'all',
             object_category: filters.object_category || 'all',
             temperature: filters.temperature || '',
@@ -1512,6 +1554,7 @@
         var initialData = window.__FIRE_FORECAST_INITIAL__ || null;
         var syncBriefLink = function () {
             updateForecastBriefExport(collectForecastFiltersFromForm());
+            updateForecastScreenLinks(collectForecastFiltersFromForm());
         };
 
         applyProgressBars(document);

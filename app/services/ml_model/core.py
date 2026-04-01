@@ -45,12 +45,22 @@ from .training import _empty_ml_result, _train_ml_model
 MlProgressCallback = Optional[Callable[[str, str], None]]
 
 ML_PREDICTIVE_BLOCK_DESCRIPTION = (
-    'Это отдельный ML-блок для временного ряда пожаров. '
-    'Основная модель прогнозирует ожидаемое число пожаров по дням, а не превращает прогноз по числу пожаров в псевдовероятность. '
-    'Панель качества напрямую сравнивает сезонную базу, текущий сценарный прогноз и обучаемые count-модели через rolling-origin backtesting. '
-    'Если данных хватает, дополнительно показывается отдельная вероятность события «пожар / нет пожара» из бинарного классификатора. '
-    'Все проверки обучаются только на прошлом и не используют будущие наблюдения.'
+    'ML-прогноз открывают, когда нужно оценить ожидаемое число пожаров по дням для выбранного среза. '
+    'Ниже показаны прогноз количества, качество модели и факторы, которые сильнее всего влияют на результат. '
+    'Этот экран не ранжирует территории и не заменяет сценарный прогноз по вероятности пожара.'
 )
+
+
+def _compact_ui_notes(items: List[Any], limit: int = 2) -> List[str]:
+    notes: List[str] = []
+    for item in items:
+        text = str(item).strip() if item is not None else ''
+        if not text or text in notes:
+            continue
+        notes.append(text)
+        if len(notes) >= limit:
+            break
+    return notes
 
 
 def get_ml_model_page_context(
@@ -84,8 +94,10 @@ def get_ml_model_page_context(
         )
         initial_data['notes'].append('ML-страница открыта в безопасном режиме: обучение временно отключено из-за внутренней ошибки.')
         initial_data['notes'].append(f'Техническая причина: {exc}')
+        initial_data['notes'] = _compact_ui_notes(initial_data['notes'])
         initial_data['model_description'] = (
-            'ML-блок открыт без обучения, чтобы интерфейс оставался доступен даже при проблеме в данных или признаках.'
+            'ML-прогноз временно открыт без обучения, чтобы экран оставался доступен даже при проблеме в данных или признаках. '
+            'Его задача не меняется: оценить ожидаемое число пожаров по дням, а не ранжировать территории.'
         )
     return {
         'generated_at': _format_datetime(datetime.now()),
@@ -133,6 +145,7 @@ def get_ml_model_shell_context(
     )
     initial_data['bootstrap_mode'] = 'deferred'
     initial_data['notes'].extend(request_state['source_table_notes'])
+    initial_data['notes'] = _compact_ui_notes(initial_data['notes'])
     initial_data['filters']['cause'] = cause or 'all'
     initial_data['filters']['object_category'] = object_category or 'all'
     return {
@@ -193,11 +206,12 @@ def get_ml_model_data(
     if not source_tables:
         base['notes'].extend(source_table_notes)
         base['notes'].append('Нет доступных таблиц для ML-модели.')
+        base['notes'] = _compact_ui_notes(base['notes'])
         if perf is not None:
             perf.update(payload_has_data=False, payload_notes=len(base['notes']))
         return _cache_store(cache_key, base)
 
-    _emit_progress(progress_callback, 'ml_model.running', 'Собираем SQL-агрегаты и доступные фильтры для ML-блока.')
+    _emit_progress(progress_callback, 'ml_model.running', 'Собираем SQL-агрегаты и доступные фильтры для ML-прогноза.')
     filter_prep_context = perf.span('filter_prep') if perf is not None else nullcontext()
     with filter_prep_context:
         metadata_items, preload_notes = _collect_forecasting_metadata(source_tables)
@@ -247,7 +261,7 @@ def get_ml_model_data(
             progress_callback=progress_callback,
         )
         temperature_quality = _temperature_quality_from_daily_history(daily_history)
-    _emit_progress(progress_callback, 'ml_model.running', 'Формируем итоговые метрики, графики и таблицы ML-блока.')
+    _emit_progress(progress_callback, 'ml_model.running', 'Формируем итоговые метрики, графики и таблицы ML-прогноза.')
     payload_render_context = perf.span('payload_render') if perf is not None else nullcontext()
     with payload_render_context:
         summary = _build_summary(
@@ -274,18 +288,16 @@ def get_ml_model_data(
             },
             'forecast_rows': ml_result.get('forecast_rows', []),
             'feature_importance': ml_result.get('feature_importance', []),
-            'notes': list(
-                dict.fromkeys(
-                    source_table_notes
-                    + _build_notes(
-                        preload_notes,
-                        metadata_items,
-                        filtered_records_count,
-                        daily_history,
-                        ml_result,
-                        scenario_temperature,
-                        source_tables,
-                    )
+            'notes': _compact_ui_notes(
+                source_table_notes
+                + _build_notes(
+                    preload_notes,
+                    metadata_items,
+                    filtered_records_count,
+                    daily_history,
+                    ml_result,
+                    scenario_temperature,
+                    source_tables,
                 )
             ),
             'filters': {
@@ -443,7 +455,7 @@ def _empty_ml_model_data(
         'features': [],
         'charts': {
             'forecast': _empty_light_chart('ML-прогноз ожидаемого числа пожаров', 'Недостаточно данных для обучения модели.'),
-            'importance': _empty_light_chart('Важность признаков ML-блока', 'Модель пока не обучена.', kind='bars'),
+            'importance': _empty_light_chart('Что сильнее всего влияет на ML-прогноз', 'Модель пока не обучена.', kind='bars'),
         },
         'forecast_rows': [],
         'feature_importance': [],

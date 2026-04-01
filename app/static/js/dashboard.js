@@ -27,19 +27,26 @@
         }
 
         if (labels) {
-            summaryNode.textContent = 'Таблица: ' + labels.table + ' | Год: ' + labels.year + ' | Разрез: ' + labels.group;
+            summaryNode.textContent = 'Сейчас на панели: таблица ' + labels.table + ' | год ' + labels.year + ' | разрез ' + labels.group;
             return;
         }
 
-        summaryNode.textContent = 'Таблица: ' + getSelectedText(byId('tableFilter'), 'Все таблицы') +
-            ' | Год: ' + getSelectedText(byId('yearFilter'), 'Все годы') +
-            ' | Разрез: ' + getSelectedText(byId('groupColumnFilter'), 'Категория риска');
+        summaryNode.textContent = 'Сейчас на панели: таблица ' + getSelectedText(byId('tableFilter'), 'Все таблицы') +
+            ' | год ' + getSelectedText(byId('yearFilter'), 'Все годы') +
+            ' | разрез ' + getSelectedText(byId('groupColumnFilter'), 'Категория риска');
     }
 
     function setText(id, value) {
         const node = byId(id);
         if (node) {
             node.textContent = value == null ? '' : value;
+        }
+    }
+
+    function setHref(id, href) {
+        const node = byId(id);
+        if (node && href) {
+            node.setAttribute('href', href);
         }
     }
 
@@ -363,6 +370,25 @@
         );
     }
 
+    function buildDashboardScreenHref(path, filters, hash) {
+        const params = new URLSearchParams();
+        const safeFilters = filters || {};
+
+        if (safeFilters.table_name && safeFilters.table_name !== 'all') {
+            params.set('table_name', safeFilters.table_name);
+        }
+
+        const query = params.toString();
+        return path + (query ? '?' + query : '') + (hash || '');
+    }
+
+    function updateDashboardScreenLinks(filters) {
+        const safeFilters = filters || collectDashboardFiltersFromForm();
+        setHref('dashboardScenarioLink', buildDashboardScreenHref('/forecasting', safeFilters, ''));
+        setHref('dashboardMlLink', buildDashboardScreenHref('/ml-model', safeFilters, ''));
+        setHref('dashboardDecisionLink', buildDashboardScreenHref('/forecasting', safeFilters, '#forecastDetails'));
+    }
+
     function buildDashboardPageHref(filters, mode) {
         const params = new URLSearchParams();
         const safeFilters = filters || {};
@@ -413,12 +439,12 @@
         setText('heroTableLabel', scope.table_label || 'Все таблицы');
         setText('heroYearLabel', scope.year_label || 'Все годы');
         setText('heroGroupLabel', scope.group_label || 'Нет данных');
-        setText('dashboardLeadSummary', brief.lead || management.summary_line || 'После загрузки данных здесь появится управленческая сводка.');
+        setText('dashboardLeadSummary', brief.lead || management.summary_line || 'После загрузки данных здесь появится короткий вывод по ситуации и первому приоритету.');
         setText('managementHeroPriority', brief.top_territory_label || management.priority_territory_label || '-');
         setText('managementHeroPriorityMeta', brief.priority_reason || management.priority_reason || 'Недостаточно данных для определения первого приоритета.');
         setText('managementHeroConfidence', brief.confidence_label || management.confidence_label || 'Ограниченная');
         setText('managementHeroConfidenceScore', brief.confidence_score_display || management.confidence_score_display || '0 / 100');
-        setText('managementHeroConfidenceMeta', brief.confidence_summary || management.confidence_summary || 'После загрузки данных здесь появится уровень доверия к сводке.');
+        setText('managementHeroConfidenceMeta', brief.confidence_summary || management.confidence_summary || 'После загрузки данных здесь появится пояснение, почему уровню доверия можно или нельзя верить.');
         setText('dashboardExportBriefExcerpt', brief.export_excerpt || management.export_excerpt || 'Краткая экспортируемая справка появится после загрузки данных.');
         renderFilterSummary({
             table: scope.table_label || 'Все таблицы',
@@ -437,8 +463,11 @@
             year: filters.year || 'all',
             group_column: filters.group_column || ''
         });
+        updateDashboardScreenLinks({
+            table_name: filters.table_name || ''
+        });
 
-        setText('trendTitle', trend.title || 'Динамика последнего года');
+        setText('trendTitle', trend.title || 'Как менялась ситуация');
         setText('trendCurrentValue', trend.current_value_display || '0');
         setText('trendCurrentYear', trend.current_year || '-');
         setText('trendDeltaValue', trend.delta_display || 'Нет базы сравнения');
@@ -467,10 +496,10 @@
         setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия пожара');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
-        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Распределение по выбранному разрезу.');
-        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Последствия пожара, эвакуация и влияние на население.');
-        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Сезонная динамика пожаров по месяцам.');
-        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Распределение по диапазонам площади пожара.');
+        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Зачем нужен блок: посмотреть, как пожары распределяются по выбранной группе.');
+        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Зачем нужен блок: оценить тяжесть последствий и влияние пожаров на людей.');
+        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Зачем нужен блок: увидеть сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
+        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Зачем нужен блок: понять, преобладают ли небольшие или крупные пожары.');
 
         renderPlotlyChart(charts.yearly_fires, 'yearlyFiresChart');
         renderPlotlyChart(charts.distribution, 'distributionChart');
@@ -530,6 +559,7 @@
         const groupColumnSelect = byId('groupColumnFilter');
         const syncBriefLink = function () {
             updateDashboardBriefExport(collectDashboardFiltersFromForm());
+            updateDashboardScreenLinks(collectDashboardFiltersFromForm());
         };
 
         [tableSelect, yearSelect, groupColumnSelect].forEach(function (selectNode) {
