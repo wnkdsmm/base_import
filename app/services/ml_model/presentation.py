@@ -376,10 +376,18 @@ def _build_summary(
     backtest_overview = ml_result.get('backtest_overview', {}) or {}
     interval_context = _prediction_interval_display_context(ml_result, backtest_overview)
     event_context = _event_probability_context(ml_result, backtest_overview)
+    hero_summary = (
+        f"Пик по горизонту ожидается {_format_optional_text(peak_row.get('date_display'))}: "
+        f"ожидаемое число пожаров — {_format_row_display(peak_row, 'forecast_value_display', 'forecast_value', _format_optional_number)}. "
+        f"Среднее ожидаемое значение по дням — {_format_optional_number(average_expected_count)}."
+        if peak_row
+        else 'После расчета здесь появится краткий вывод по ожидаемому числу пожаров на ближайшие даты.'
+    )
 
     return {
         'selected_table_label': 'Все таблицы' if selected_table == 'all' else (selected_table or 'Нет таблицы'),
         'slice_label': ' | '.join(slice_parts) if slice_parts else 'Все пожары выбранной истории',
+        'hero_summary': hero_summary,
         'history_period_label': _format_period(history_dates),
         'history_window_label': _history_window_label(history_window),
         'model_label': MODEL_NAME,
@@ -523,7 +531,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         'title': 'Оценка качества ML-блока',
-        'subtitle': 'Ключевые метрики и сравнение методов на одной и той же истории.',
+        'subtitle': 'Ключевые метрики и сравнение методов на одной и той же истории. Блок проверяет именно прогноз числа пожаров, а не приоритет территорий.',
         'metric_cards': metric_cards,
         'count_table': {
             'title': 'Сравнение по числу пожаров',
@@ -582,5 +590,7 @@ def _build_notes(
 
     if len(source_tables) > 1 and not notes:
         append_note(f'ML-модель собирает общий прогноз сразу по {len(source_tables)} таблицам.')
+
+    append_note('ML-экран показывает ожидаемое число пожаров по датам и не заменяет сценарный прогноз по вероятности пожара или ранжирование территорий.')
 
     return notes[:2]

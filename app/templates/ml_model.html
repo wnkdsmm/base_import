@@ -29,7 +29,7 @@
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
         <h2>ML-прогноз</h2>
-        <p>Прогноз ожидаемого числа пожаров по дням. Нужен, когда важно понять нагрузку, а не только вероятность пожара.</p>
+        <p>ML-оценка ожидаемого числа пожаров по дням. Нужна, когда важна нагрузка в штуках, а не только вероятность напряженного дня.</p>
     </div>
 
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
@@ -71,11 +71,11 @@
 <main class="main dashboard-main ml-model-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">ML-прогноз по дням</span>
-            <h1>Сколько пожаров ожидается по дням</h1>
-            <p class="subtitle">Открывайте этот экран, когда нужно оценить ожидаемое число пожаров и возможную нагрузку по датам, а не только вероятность напряжённого дня.</p>
-            <p class="hero-live-summary" id="mlModelDescription">{{ data.model_description or 'После загрузки здесь появится объяснение, сколько пожаров ожидается и насколько можно доверять расчёту.' }}</p>
-            <p class="hero-context-note">ML-прогноз оценивает ожидаемое количество пожаров по дням. Он не ранжирует территории и не заменяет сценарный календарь вероятностей: для территориального приоритета используйте блок поддержки решений.</p>
+            <span class="eyebrow">ML-прогноз | количество по дням</span>
+            <h1>Сколько пожаров может быть по датам</h1>
+            <p class="subtitle">Открывайте этот экран, когда нужно оценить ожидаемое число пожаров по дням и возможную нагрузку на систему.</p>
+            <p class="hero-live-summary" id="mlModelDescription">{{ summary.hero_summary or data.model_description or 'После загрузки здесь появится объяснение, сколько пожаров ожидается и насколько можно доверять расчету.' }}</p>
+            <p class="hero-context-note">Здесь единица прогноза — ожидаемое число пожаров на дату. Экран не ранжирует территории и не заменяет сценарный календарь вероятности пожара.</p>
             <div class="hero-tags" id="mlHeroTags">
                 <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
                 <span class="hero-tag">История для расчёта: <strong>{{ summary.history_window_label }}</strong></span>
@@ -86,12 +86,12 @@
         </div>
         <div class="hero-side" id="mlHeroStats">
             <article class="hero-stat-card">
-                <span class="hero-stat-label">Средний ожидаемый день</span>
+                <span class="hero-stat-label">Среднее ожидаемое число в день</span>
                 <strong class="hero-stat-value">{{ summary.average_expected_count_display }}</strong>
                 <span class="hero-stat-foot">Средняя дневная интенсивность на выбранном горизонте прогноза.</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">День с максимальной нагрузкой</span>
+                <span class="hero-stat-label">Пик по горизонту</span>
                 <strong class="hero-stat-value">{{ summary.peak_expected_count_display }}</strong>
                 <span class="hero-stat-foot">Максимальное ожидаемое число пожаров: {{ summary.peak_expected_count_day_display }}.</span>
             </article>
@@ -107,20 +107,20 @@
         </a>
         <a id="mlScenarioLink" class="orientation-link is-scenario" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}">
             <span class="orientation-kicker">Сценарный прогноз</span>
-            <strong>Что ожидается в ближайшие дни</strong>
-            <p>Прогноз вероятности пожара по дням и переход к приоритету территорий.</p>
+            <strong>В какие даты вероятность пожара выше</strong>
+            <p>Вероятность пожара по дням и переход к приоритету территорий.</p>
             <span class="orientation-cta">Открыть прогноз на дни</span>
         </a>
         <a class="orientation-link is-ml is-current" href="#mlForecastSection" aria-current="page">
             <span class="orientation-kicker">ML-прогноз</span>
-            <strong>Сколько пожаров ожидается по дням</strong>
-            <p>Отдельный экран для ожидаемого числа пожаров и дневной нагрузки.</p>
+            <strong>Сколько пожаров может быть по датам</strong>
+            <p>Ожидаемое число пожаров и нагрузка по дням.</p>
             <span class="orientation-cta">Вы уже в ML-прогнозе</span>
         </a>
         <a id="mlDecisionLink" class="orientation-link is-decision" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}#forecastDetails">
             <span class="orientation-kicker">Поддержка решений</span>
-            <strong>Какие территории взять в работу первыми</strong>
-            <p>Полное ранжирование территорий, причины приоритета и пояснения по доверию.</p>
+            <strong>Какие территории ставить первыми</strong>
+            <p>Полное ранжирование территорий, причины приоритета и доверие к нему.</p>
             <span class="orientation-cta">Открыть приоритет территорий</span>
         </a>
     </nav>
@@ -128,25 +128,31 @@
     <section class="screen-guide" aria-label="Как читать ML-прогноз">
         <article class="screen-guide-card">
             <span class="screen-guide-label">Когда открывать</span>
-            <strong>Когда нужен прогноз нагрузки</strong>
+            <strong>Когда нужна оценка нагрузки</strong>
             <p>Используйте ML-прогноз, если важно оценить ожидаемое число пожаров по датам и понять возможную нагрузку на систему.</p>
         </article>
         <article class="screen-guide-card">
             <span class="screen-guide-label">Что показывает</span>
-            <strong>Количество пожаров по дням</strong>
-            <p>Экран показывает прогноз количества, проверку качества модели и факторы, которые сильнее всего влияют на расчёт.</p>
+            <strong>Ожидаемое число пожаров по датам</strong>
+            <p>Экран показывает прогноз количества, проверку качества модели и факторы, которые сильнее всего влияют на расчет.</p>
         </article>
         <article class="screen-guide-card">
             <span class="screen-guide-label">Чем отличается</span>
-            <strong>Не ранжирует территории</strong>
-            <p>ML-прогноз не выдаёт список территорий первого внимания и не заменяет сценарный прогноз по вероятности пожара.</p>
+            <strong>Экран отвечает на вопрос «сколько»</strong>
+            <p>Вероятность по дням смотрите в сценарном прогнозе, территориальный приоритет — в блоке поддержки решений.</p>
         </article>
+    </section>
+
+    <section class="clarity-note" aria-label="Как читать ML-прогноз">
+        <span class="clarity-note-label">Как читать экран</span>
+        <strong>Число, а не приоритет территорий</strong>
+        <p>График и таблица ниже показывают ожидаемое количество пожаров по датам. Интервалы и метрики качества объясняют надежность расчета, но не заменяют территориальный приоритет.</p>
     </section>
 
     <section class="panel filters-panel">
         <div class="panel-head">
             <h2>Задайте условия ML-прогноза</h2>
-            <span class="panel-meta">Зачем нужен блок: выбрать данные и сценарий, для которых модель оценит ожидаемое число пожаров по дням.</span>
+            <span class="panel-meta">Что показывает блок: для каких данных и условий модель считает ожидаемое число пожаров по дням.</span>
         </div>
         <form class="filters-grid ml-form-grid" id="mlModelForm" method="get" action="/ml-model">
             <label class="filter-field">
@@ -268,8 +274,8 @@
     <article id="mlNotesPanel" class="panel insight-panel{% if data.notes %}{% else %} is-hidden{% endif %}">
         <div class="panel-head">
             <div>
-                <h2>Что важно перед чтением результата</h2>
-                <span class="panel-meta">Зачем нужен блок: увидеть только те замечания, которые реально меняют трактовку прогноза.</span>
+                <h2>Что может изменить чтение прогноза количества</h2>
+                <span class="panel-meta">Что показывает блок: только те замечания, которые действительно меняют трактовку прогноза по числу пожаров.</span>
             </div>
         </div>
         <ul class="notice-list forecast-note-list" id="mlNotesList">
@@ -283,7 +289,7 @@
         <div class="panel-head">
             <div>
                 <h2 id="mlQualityTitle">Насколько можно доверять ML-прогнозу</h2>
-                <span class="panel-meta" id="mlQualitySubtitle">{{ quality.subtitle or 'Зачем нужен блок: сравнить модель с более простыми вариантами на одной и той же истории.' }}</span>
+                <span class="panel-meta" id="mlQualitySubtitle">{{ quality.subtitle or 'Что показывает блок: насколько модель предсказывала именно число пожаров на прошлой истории и чем она лучше простых подходов.' }}</span>
             </div>
         </div>
         <div class="stats-grid" id="mlQualityMetricCards">
@@ -303,7 +309,7 @@
         <div class="ml-table-shell">
             <div class="panel-head">
                 <h2 id="mlCountTableTitle">{{ quality.count_table.title }}</h2>
-                <span class="panel-meta">Зачем нужен блок: понять, лучше ли рабочая модель предсказывает число пожаров, чем более простые подходы.</span>
+                <span class="panel-meta">Что показывает блок: лучше ли рабочая модель предсказывает число пожаров, чем более простые подходы.</span>
             </div>
             <div id="mlCountTableShell">
                 {% if quality.count_table.rows %}
@@ -344,7 +350,7 @@
         <div class="ml-table-shell">
             <div class="panel-head">
                 <h2 id="mlEventTableTitle">{{ quality.event_table.title }}</h2>
-                <span class="panel-meta">Зачем нужен блок: показать, насколько модель справляется с вероятностью хотя бы одного пожара, если истории хватает.</span>
+                <span class="panel-meta">Что показывает блок: насколько модель оценивает вероятность хотя бы одного пожара; это дополнительный индикатор, а не приоритет территорий.</span>
             </div>
             <div id="mlEventTableShell">
                 {% if quality.event_table.rows %}
@@ -385,7 +391,7 @@
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
                     <h2 id="mlForecastTitle">{{ charts.forecast.title }}</h2>
-                    <span class="panel-meta">Зачем нужен блок: увидеть историю, проверку на истории и будущие даты в одной шкале.</span>
+                    <span class="panel-meta">Что показывает блок: историю, проверку на истории и будущие значения числа пожаров на одной шкале.</span>
                 </div>
                 <div id="mlForecastChart" class="plotly-chart ml-plot"></div>
                 <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
@@ -394,7 +400,7 @@
             <article class="panel ml-table-panel">
                 <div class="panel-head">
                     <h2>Прогноз по дням</h2>
-                    <span class="panel-meta">Зачем нужен блок: посмотреть ожидаемое число пожаров по каждой дате и диапазон неопределённости.</span>
+                    <span class="panel-meta">Что показывает блок: ожидаемое число пожаров по каждой дате и диапазон неопределенности.</span>
                 </div>
                 <div class="ml-table-shell" id="mlForecastTableShell">
                     {% if data.forecast_rows %}
@@ -433,7 +439,7 @@
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2 id="mlImportanceTitle">{{ charts.importance.title }}</h2>
-                    <span class="panel-meta">Зачем нужен блок: понять, какие факторы сильнее всего двигают прогноз.</span>
+                    <span class="panel-meta">Что показывает блок: какие факторы сильнее всего меняют прогноз количества.</span>
                 </div>
                 <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small"></div>
                 <div id="mlImportanceChartFallback" class="chart-empty{% if charts.importance.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.importance.empty_message }}</div>
@@ -442,7 +448,7 @@
             <article id="mlFeatureSection" class="panel insight-panel">
                 <div class="panel-head">
                     <h2>Какие данные модель реально использовала</h2>
-                    <span class="panel-meta">Зачем нужен блок: понять, на каких факторах держится расчёт.</span>
+                    <span class="panel-meta">Что показывает блок: какие данные действительно вошли в расчет количества пожаров.</span>
                 </div>
                 <div class="forecast-feature-list" id="mlFeatureCards">
                     {% if data.features %}

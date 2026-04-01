@@ -128,7 +128,7 @@
         var rows = Array.isArray(safeQuality.comparison_rows) ? safeQuality.comparison_rows : [];
 
         setText('scenarioQualityTitle', 'Насколько прогноз по дням попадает в историю');
-        setText('scenarioQualitySubtitle', safeQuality.subtitle || 'Зачем нужен блок: понять, можно ли опираться на сценарий, и где он ошибается относительно прошлых данных.');
+        setText('scenarioQualitySubtitle', safeQuality.subtitle || 'Что показывает блок: насколько календарь сценария совпадал с прошлой историей. Это проверка именно прогноза по дням.');
         renderScenarioQualityCards('scenarioQualityMetrics', safeQuality.metric_cards || [], 'После расчёта здесь появятся метрики качества сценарного прогноза.');
         renderScenarioQualityCards('scenarioQualityMethodology', safeQuality.methodology_items || [], 'Параметры валидации появятся после проверки на истории.');
 
@@ -1297,7 +1297,7 @@
         setValue('forecastTemperatureInput', filters.temperature || '');
 
         setText('forecastModelDescription', data.model_description || '');
-        setText('forecastLeadSummary', executiveBrief.lead || risk.top_territory_explanation || 'После расчёта здесь появится короткое объяснение, где и когда стоит готовиться заранее.');
+        setText('forecastLeadSummary', summary.hero_summary || executiveBrief.lead || risk.top_territory_explanation || 'После расчёта здесь появится краткий вывод по датам, где сценарий выглядит напряжённее.');
         setText('forecastTableLabel', summary.selected_table_label || 'Нет таблицы');
         setText('forecastHistoryMode', summary.history_window_label || 'Все годы');
         setText('forecastSliceLabel', summary.slice_label || 'Все пожары');
@@ -1305,10 +1305,10 @@
         setText('forecastAverageValue', summary.average_probability_display || '0%');
         setText('forecastDaysTotal', (summary.forecast_days_display || '0') + ' дней');
         setText('forecastHeroPriority', executiveBrief.top_territory_label || risk.top_territory_label || '-');
-        setText('forecastHeroPriorityMeta', executiveBrief.priority_reason || risk.top_territory_explanation || 'Недостаточно данных для определения первого приоритета.');
+        setText('forecastHeroPriorityMeta', executiveBrief.priority_reason || risk.top_territory_explanation || 'Недостаточно данных для определения территории первого внимания.');
         setText('forecastHeroConfidence', executiveBrief.confidence_label || risk.top_territory_confidence_label || leadTerritory.ranking_confidence_label || passport.confidence_label || 'Ограниченная');
         setText('forecastHeroConfidenceScore', executiveBrief.confidence_score_display || risk.top_territory_confidence_score_display || leadTerritory.ranking_confidence_display || passport.confidence_score_display || '0 / 100');
-        setText('forecastHeroConfidenceMeta', executiveBrief.confidence_summary || risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'Пояснение по надёжности вывода появится после расчёта.');
+        setText('forecastHeroConfidenceMeta', executiveBrief.confidence_summary || risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'Пояснение по надежности территориального вывода появится после расчета.');
         setText('forecastCommandExportExcerpt', executiveBrief.export_excerpt || 'Краткая экспортируемая справка появится после расчёта.');
         setText('forecastFiresCount', summary.fires_count_display || '0');
         setText('forecastHistoryDays', summary.history_days_display || '0');
@@ -1333,7 +1333,7 @@
         setText('forecastRiskDescription', risk.model_description || '');
         setText('forecastRiskTopLabel', risk.top_territory_label || '-');
         setText('forecastRiskTopExplanation', risk.top_territory_explanation || 'Недостаточно данных для лидирующей территории.');
-        setText('forecastGeoDescription', geo.model_description || 'Зачем нужен блок: увидеть зоны внимания на карте и сверить их с приоритетом территорий.');
+        setText('forecastGeoDescription', geo.model_description || 'Что показывает блок: пространственные зоны внимания для территориального приоритета. Карта не заменяет календарь по дням.');
         setText('forecastGeoCoverage', geo.coverage_display || '0 с координатами');
         setText('forecastGeoTopZone', geo.top_zone_label || '-');
         setText('forecastGeoTopRisk', geo.top_risk_display || '0 / 100');
@@ -1351,7 +1351,7 @@
         renderCommandCards(executiveBrief);
         renderCommandNotes(executiveBrief);
         renderNotes('forecastNotesList', data.notes || [], 'Замечаний пока нет.');
-        renderNotes('forecastRiskNotes', risk.notes || [], 'После расчёта здесь появятся примечания по блоку поддержки решений.');
+        renderNotes('forecastRiskNotes', risk.notes || [], 'После расчёта здесь появятся примечания о границах между сценарным прогнозом, ML-прогнозом и территориальным приоритетом.');
         renderQualityPassport(passport);
         renderWeightProfile(risk.weight_profile || {});
         renderHistoricalValidation(risk.historical_validation || {});

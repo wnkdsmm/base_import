@@ -45,7 +45,7 @@ from .training import _empty_ml_result, _train_ml_model
 MlProgressCallback = Optional[Callable[[str, str], None]]
 
 ML_PREDICTIVE_BLOCK_DESCRIPTION = (
-    'ML-прогноз открывают, когда нужно оценить ожидаемое число пожаров по дням для выбранного среза. '
+    'ML-прогноз открывают, когда нужно оценить ожидаемое число пожаров по датам для выбранного среза. '
     'Ниже показаны прогноз количества, качество модели и факторы, которые сильнее всего влияют на результат. '
     'Этот экран не ранжирует территории и не заменяет сценарный прогноз по вероятности пожара.'
 )
@@ -97,7 +97,7 @@ def get_ml_model_page_context(
         initial_data['notes'] = _compact_ui_notes(initial_data['notes'])
         initial_data['model_description'] = (
             'ML-прогноз временно открыт без обучения, чтобы экран оставался доступен даже при проблеме в данных или признаках. '
-            'Его задача не меняется: оценить ожидаемое число пожаров по дням, а не ранжировать территории.'
+            'Его задача не меняется: оценить ожидаемое число пожаров по датам, а не ранжировать территории.'
         )
     return {
         'generated_at': _format_datetime(datetime.now()),
@@ -405,6 +405,7 @@ def _empty_ml_model_data(
         'summary': {
             'selected_table_label': 'Все таблицы' if selected_table == 'all' else (selected_table or 'Нет таблицы'),
             'slice_label': 'Все пожары',
+            'hero_summary': 'После расчета здесь появится краткий вывод по ожидаемому числу пожаров на ближайшие даты.',
             'history_period_label': 'Нет данных',
             'history_window_label': _history_window_label(history_window),
             'model_label': MODEL_NAME,

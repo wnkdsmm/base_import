@@ -58,7 +58,7 @@ def _build_management_snapshot(
         )
     except Exception as exc:
         fallback = _empty_management_snapshot()
-        fallback["summary_line"] = "Короткий вывод временно недоступен; ниже остаются базовые показатели и графики."
+        fallback["summary_line"] = "Краткий территориальный вывод временно недоступен; ниже остаются базовые показатели и графики по выбранному срезу."
         fallback["notes"] = [f"Короткий вывод временно недоступен: {exc}"]
         fallback["brief"]["notes"] = list(fallback["notes"])
         return fallback
@@ -130,7 +130,10 @@ def _build_management_snapshot(
         )
 
     confidence_summary = passport.get("validation_summary") or "После загрузки данных здесь появится уровень доверия к сводке."
-    horizon_note = f"Важно: первый приоритет и действия ниже рассчитаны на ближайшие {planning_horizon_days} дней."
+    horizon_note = (
+        f"Важно: это краткий территориальный приоритет на ближайшие {planning_horizon_days} дней, "
+        "а не календарь риска по датам и не прогноз ожидаемого числа пожаров."
+    )
     notes: List[str] = []
     for note in (risk_payload.get("notes") or [])[:3]:
         text = str(note or "").strip()

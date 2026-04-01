@@ -29,7 +29,7 @@ def _unique_notes(notes: Iterable[Any]) -> List[str]:
 
 def empty_executive_brief() -> Dict[str, Any]:
     return {
-        "lead": "После расчета здесь появится короткий вывод: где ситуация напряжённее, что проверить сначала и насколько можно доверять данным.",
+        "lead": "После расчета здесь появится краткий территориальный вывод: какая территория идет первой в приоритете, что проверить сначала и насколько надежен этот вывод.",
         "top_territory_label": "-",
         "priority_reason": "Недостаточно данных, чтобы выделить территорию первого приоритета.",
         "priority_tone": "sky",
@@ -43,19 +43,19 @@ def empty_executive_brief() -> Dict[str, Any]:
         "confidence_summary": "После расчета здесь появится оценка доверия к данным.",
         "cards": [
             {
-                "label": "Куда смотреть сначала",
+                "label": "Какая территория первая",
                 "value": "-",
                 "meta": "Недостаточно данных для приоритета.",
                 "tone": "sky",
             },
             {
-                "label": "Почему именно сюда",
+                "label": "Почему она выше",
                 "value": "Недостаточно данных",
                 "meta": "Причина приоритета появится после расчета.",
                 "tone": "sand",
             },
             {
-                "label": "Насколько можно доверять",
+                "label": "Насколько надежен приоритет",
                 "value": "Ограниченная",
                 "meta": "0 / 100. После расчета здесь появится оценка доверия к данным.",
                 "tone": "fire",
@@ -128,15 +128,15 @@ def build_executive_brief_from_risk_payload(
     priority_tone = _normalize_tone(lead.get("risk_tone"), "sky")
 
     lead_line = (
-        f"Сначала проверьте {top_territory_label}: {priority_reason} "
+        f"Территория первого внимания: {top_territory_label}. {priority_reason} "
         f"Первое действие: {action_label}. "
-        f"Доверие к выводу: {confidence_label} ({confidence_score_display})."
+        f"Надежность приоритета: {confidence_label} ({confidence_score_display})."
     )
     export_excerpt = (
-        f"{top_territory_label} сейчас в первом приоритете. "
+        f"{top_territory_label} сейчас идет первой в территориальном приоритете. "
         f"{priority_reason} "
         f"Рекомендуемое действие: {action_label}. {action_detail} "
-        f"Доверие к выводу: {confidence_label} ({confidence_score_display})."
+        f"Надежность приоритета: {confidence_label} ({confidence_score_display})."
     )
 
     simplified_territories: List[Dict[str, str]] = []
@@ -174,19 +174,19 @@ def build_executive_brief_from_risk_payload(
         "confidence_summary": confidence_summary,
         "cards": [
             {
-                "label": "Куда смотреть сначала",
+                "label": "Какая территория первая",
                 "value": top_territory_label,
                 "meta": priority_reason,
                 "tone": priority_tone,
             },
             {
-                "label": "Почему именно сюда",
+                "label": "Почему она выше",
                 "value": why_value,
                 "meta": why_meta,
                 "tone": "sand",
             },
             {
-                "label": "Насколько можно доверять",
+                "label": "Насколько надежен приоритет",
                 "value": confidence_label,
                 "meta": f"{confidence_score_display}. {confidence_summary}",
                 "tone": confidence_tone,
@@ -216,7 +216,7 @@ def compose_executive_brief_text(
     notes = list(safe_brief.get("notes") or [])
     territories = list(safe_brief.get("territories") or [])
 
-    lines = ["Короткий вывод по приоритетам"]
+    lines = ["Короткий вывод по территориальному приоритету"]
     if _safe_text(generated_at):
         lines.append(f"Сформировано: {_safe_text(generated_at)}")
     if _safe_text(scope_label):
@@ -225,9 +225,9 @@ def compose_executive_brief_text(
     lines.extend(
         [
             "",
-            f"Куда смотреть сначала: {_safe_text(safe_brief.get('top_territory_label'), '-')}",
-            f"Почему именно туда: {_safe_text(safe_brief.get('priority_reason'), 'Недостаточно данных для объяснения приоритета.')}",
-            f"Насколько можно доверять: {_safe_text(safe_brief.get('confidence_label'), 'Ограниченная')} ({_safe_text(safe_brief.get('confidence_score_display'), '0 / 100')})",
+            f"Какая территория первая: {_safe_text(safe_brief.get('top_territory_label'), '-')}",
+            f"Почему она выше: {_safe_text(safe_brief.get('priority_reason'), 'Недостаточно данных для объяснения приоритета.')}",
+            f"Насколько надежен приоритет: {_safe_text(safe_brief.get('confidence_label'), 'Ограниченная')} ({_safe_text(safe_brief.get('confidence_score_display'), '0 / 100')})",
             f"Почему уровень доверия такой: {_safe_text(safe_brief.get('confidence_summary'), 'Пояснение по надежности вывода появится после расчета.')}",
             f"Что сделать первым: {_safe_text(safe_brief.get('action_label'), 'Плановое наблюдение')}",
             f"Деталь действия: {_safe_text(safe_brief.get('action_detail'), 'Детализация действия появится после расчета.')}",
@@ -242,7 +242,7 @@ def compose_executive_brief_text(
 
     if territories:
         lines.append("")
-        lines.append("Следом в приоритете:")
+        lines.append("Следующие территории в приоритете:")
         for index, item in enumerate(territories[:3], start=1):
             lines.append(
                 f"{index}. {_safe_text(item.get('label'), 'Территория')} | "

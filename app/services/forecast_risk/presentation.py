@@ -160,7 +160,7 @@ def _build_geo_summary(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
         "has_coordinates": has_coordinates,
         "has_map_points": has_map_points,
         "compact_message": compact_message,
-        "model_description": geo_prediction.get("model_description") or "Карта блока поддержки решений показывает зоны, где исторически чаще повторялись очаги и где пространственный риск остается выше.",
+        "model_description": geo_prediction.get("model_description") or "Карта блока поддержки решений показывает пространственные зоны внимания для территориального приоритета. Она не заменяет календарь риска по дням.",
         "coverage_display": geo_prediction.get("coverage_display") or "0 с координатами",
         "top_zone_label": geo_prediction.get("top_zone_label") or "-",
         "top_risk_display": geo_prediction.get("top_risk_display") or "0 / 100",
@@ -206,5 +206,8 @@ def _build_risk_notes(
     notes.append(
         f"Историческая проверка ранжирования: {historical_validation.get('status_label') or 'пока без проверки'}. Это rolling-origin backtesting по историческим окнам, а не ручная экспертная оценка."
     )
-    notes.append("Компонентный балл риска не равен ни сценарному прогнозу по дням, ни ML-предсказанию; он показывает управленческий приоритет территории и причину ее положения в ranking-списке.")
+    notes.append(
+        "Компонентный балл риска не равен ни сценарию по дням, ни ML-прогнозу количества пожаров. "
+        "Он показывает управленческий приоритет территории и объясняет, почему она стоит выше или ниже в списке."
+    )
     return _unique_non_empty(notes)[:7]

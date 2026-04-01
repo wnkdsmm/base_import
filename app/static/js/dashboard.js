@@ -439,12 +439,12 @@
         setText('heroTableLabel', scope.table_label || 'Все таблицы');
         setText('heroYearLabel', scope.year_label || 'Все годы');
         setText('heroGroupLabel', scope.group_label || 'Нет данных');
-        setText('dashboardLeadSummary', brief.lead || management.summary_line || 'После загрузки данных здесь появится короткий вывод по ситуации и первому приоритету.');
+        setText('dashboardLeadSummary', brief.lead || management.summary_line || 'После загрузки данных здесь появится краткий территориальный вывод и первая территория для проверки.');
         setText('managementHeroPriority', brief.top_territory_label || management.priority_territory_label || '-');
-        setText('managementHeroPriorityMeta', brief.priority_reason || management.priority_reason || 'Недостаточно данных для определения первого приоритета.');
+        setText('managementHeroPriorityMeta', brief.priority_reason || management.priority_reason || 'Недостаточно данных для определения первой территории.');
         setText('managementHeroConfidence', brief.confidence_label || management.confidence_label || 'Ограниченная');
         setText('managementHeroConfidenceScore', brief.confidence_score_display || management.confidence_score_display || '0 / 100');
-        setText('managementHeroConfidenceMeta', brief.confidence_summary || management.confidence_summary || 'После загрузки данных здесь появится пояснение, почему уровню доверия можно или нельзя верить.');
+        setText('managementHeroConfidenceMeta', brief.confidence_summary || management.confidence_summary || 'После загрузки данных здесь появится пояснение, насколько надежен территориальный приоритет.');
         setText('dashboardExportBriefExcerpt', brief.export_excerpt || management.export_excerpt || 'Краткая экспортируемая справка появится после загрузки данных.');
         renderFilterSummary({
             table: scope.table_label || 'Все таблицы',
@@ -457,7 +457,7 @@
         renderManagementCards(brief.cards || management.brief_cards || []);
         renderManagementTerritories(management.territories || []);
         renderManagementActions(management.actions || []);
-        renderSimpleNotes('managementNotesList', brief.notes || management.notes || [], 'Ограничения и примечания появятся после загрузки данных.');
+        renderSimpleNotes('managementNotesList', brief.notes || management.notes || [], 'Ограничения и примечания к территориальному выводу появятся после загрузки данных.');
         updateDashboardBriefExport({
             table_name: filters.table_name || '',
             year: filters.year || 'all',
@@ -496,10 +496,10 @@
         setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия пожара');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
-        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Зачем нужен блок: посмотреть, как пожары распределяются по выбранной группе.');
-        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Зачем нужен блок: оценить тяжесть последствий и влияние пожаров на людей.');
-        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Зачем нужен блок: увидеть сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
-        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Зачем нужен блок: понять, преобладают ли небольшие или крупные пожары.');
+        setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Что показывает блок: как пожары распределяются по выбранной группе.');
+        setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Что показывает блок: тяжесть последствий и влияние пожаров на людей.');
+        setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
+        setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Что показывает блок: преобладают ли небольшие или крупные пожары.');
 
         renderPlotlyChart(charts.yearly_fires, 'yearlyFiresChart');
         renderPlotlyChart(charts.distribution, 'distributionChart');

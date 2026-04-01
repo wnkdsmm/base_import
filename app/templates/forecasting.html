@@ -33,7 +33,7 @@
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
         <h2>Сценарный прогноз</h2>
-        <p>Прогноз на ближайшие дни: помогает заранее увидеть напряжённые даты и перевести их в приоритет территорий.</p>
+        <p>Календарь вероятности пожарной активности по ближайшим дням. Помогает понять, когда готовиться, а затем перейти к территориальному приоритету.</p>
     </div>
 
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
@@ -69,27 +69,27 @@
 <main class="main dashboard-main forecasting-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Сценарный прогноз</span>
-            <h1>Что ожидается в ближайшие дни</h1>
-            <p class="subtitle">Открывайте этот экран, когда нужно заранее увидеть напряжённые даты на ближайшие дни и подготовить меры до ухудшения обстановки.</p>
-            <p class="hero-live-summary" id="forecastLeadSummary">{{ risk.top_territory_explanation }}</p>
-            <p class="hero-context-note">Сценарный прогноз показывает вероятность напряжённых дней и помогает перейти к приоритету территорий. Это не ML-прогноз числа пожаров: он отвечает на вопрос «когда готовиться», а не «сколько пожаров ожидается».</p>
+            <span class="eyebrow">Сценарный прогноз | календарь по дням</span>
+            <h1>В какие дни сценарий выглядит напряжённее</h1>
+            <p class="subtitle">Открывайте этот экран, когда нужно заранее понять даты роста пожарной активности и подготовиться до ухудшения обстановки.</p>
+            <p class="hero-live-summary" id="forecastLeadSummary">{{ summary.hero_summary }}</p>
+            <p class="hero-context-note">Здесь единица прогноза — день: экран оценивает вероятность пожара и выделяет пики сценария. Он не считает ожидаемое число пожаров по датам; для этого есть ML-прогноз. Территории ниже — это уже отдельный шаг интерпретации сценария.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="forecastTableLabel">{{ summary.selected_table_label }}</strong></span>
                 <span class="hero-tag">История для расчёта: <strong id="forecastHistoryMode">{{ summary.history_window_label }}</strong></span>
                 <span class="hero-tag">Срез: <strong id="forecastSliceLabel">{{ summary.slice_label }}</strong></span>
-                <span class="hero-tag">Сколько дней вперёд: <strong id="forecastDaysTotal">{{ summary.forecast_days_display }} дней</strong></span>
+                <span class="hero-tag">Горизонт сценария: <strong id="forecastDaysTotal">{{ summary.forecast_days_display }} дней</strong></span>
             </div>
         </div>
 
         <div class="hero-side">
             <article class="hero-stat-card" id="forecastHeroPriorityCard">
-                <span class="hero-stat-label">Где готовиться в первую очередь</span>
+                <span class="hero-stat-label">Территория первого внимания по сценарию</span>
                 <strong class="hero-stat-value" id="forecastHeroPriority">{{ risk.top_territory_label }}</strong>
                 <span class="hero-stat-foot" id="forecastHeroPriorityMeta">{{ risk.top_territory_explanation }}</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft" id="forecastHeroConfidenceCard">
-                <span class="hero-stat-label">Можно ли доверять выводу</span>
+                <span class="hero-stat-label">Надежность территориального вывода</span>
                 <strong class="hero-stat-value"><span id="forecastHeroConfidence">{{ risk.top_territory_confidence_label or passport.confidence_label or 'Ограниченная' }}</span> <small id="forecastHeroConfidenceScore">{{ risk.top_territory_confidence_score_display or passport.confidence_score_display or '0 / 100' }}</small></strong>
                 <span class="hero-stat-foot" id="forecastHeroConfidenceMeta">{{ risk.top_territory_confidence_note or passport.validation_summary or 'Паспорт качества появится после расчёта.' }}</span>
             </article>
@@ -100,25 +100,25 @@
         <a id="forecastPanelLink" class="orientation-link is-primary" href="/{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
             <span class="orientation-kicker">Панель</span>
             <strong>Что происходит сейчас в выбранном срезе</strong>
-            <p>Общий обзор и первый приоритет без полного прогноза по дням.</p>
+            <p>Общий срез и краткий территориальный ориентир без календаря по дням.</p>
             <span class="orientation-cta">Открыть панель</span>
         </a>
         <a class="orientation-link is-scenario is-current" href="#forecastScenarioSection" aria-current="page">
             <span class="orientation-kicker">Сценарный прогноз</span>
-            <strong>Что ожидается в ближайшие дни</strong>
-            <p>Календарь вероятных напряжённых дат и общая картина по сценарию.</p>
+            <strong>В какие даты вероятность пожара выше</strong>
+            <p>Вероятность пожара и пики пожарной активности по датам.</p>
             <span class="orientation-cta">Вы уже в прогнозе</span>
         </a>
         <a id="forecastMlLink" class="orientation-link is-ml" href="/ml-model{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}">
             <span class="orientation-kicker">ML-прогноз</span>
-            <strong>Сколько пожаров ожидается по дням</strong>
-            <p>Отдельный экран для расчёта ожидаемого числа пожаров и дневной нагрузки.</p>
+            <strong>Сколько пожаров может быть по датам</strong>
+            <p>Ожидаемое число пожаров по дням, если нужен прогноз нагрузки.</p>
             <span class="orientation-cta">Открыть прогноз количества</span>
         </a>
         <a class="orientation-link is-decision" href="#forecastDetails">
             <span class="orientation-kicker">Поддержка решений</span>
-            <strong>Какие территории взять в работу первыми</strong>
-            <p>Полное ранжирование территорий, причины приоритета и карта зон внимания.</p>
+            <strong>Какие территории ставить первыми</strong>
+            <p>Ранжирование территорий по итогам сценария и исторических факторов.</p>
             <span class="orientation-cta">Открыть приоритет территорий</span>
         </a>
     </nav>
@@ -127,24 +127,30 @@
         <article class="screen-guide-card">
             <span class="screen-guide-label">Когда открывать</span>
             <strong>Когда планируете ближайшие дни</strong>
-            <p>Экран нужен, если важно заранее понять, в какие даты и по каким территориям обстановка может стать напряжённее.</p>
+            <p>Экран нужен, если важно заранее понять, в какие даты сценарий усиливается и когда стоит готовить меры заранее.</p>
         </article>
         <article class="screen-guide-card">
             <span class="screen-guide-label">Что показывает</span>
-            <strong>Сценарий по дням</strong>
-            <p>Здесь показаны вероятности пожара по ближайшим дням, пики сценария и переход к блоку поддержки решений по территориям.</p>
+            <strong>Вероятность и пики по календарю</strong>
+            <p>График и таблица показывают, в какие даты вероятность пожара выше и где сценарий выбивается из недавней истории.</p>
         </article>
         <article class="screen-guide-card">
             <span class="screen-guide-label">Чем отличается</span>
-            <strong>Не считает точное число пожаров</strong>
-            <p>Сценарный прогноз оценивает вероятность напряжённого дня. Если нужен прогноз ожидаемого количества пожаров, открывайте ML-прогноз.</p>
+            <strong>Экран отвечает на вопрос «когда»</strong>
+            <p>За ожидаемым числом пожаров идите в ML-прогноз, за полным приоритетом территорий — в блок поддержки решений ниже.</p>
         </article>
+    </section>
+
+    <section class="clarity-note" aria-label="Как читать сценарный прогноз">
+        <span class="clarity-note-label">Как читать экран</span>
+        <strong>Сначала даты, потом территории</strong>
+        <p>Верхняя часть экрана отвечает на вопрос, в какие дни готовиться. Блок поддержки решений ниже использует этот сценарий, но решает уже другой вопрос: какие территории ставить первыми.</p>
     </section>
 
     {% set brief = data.executive_brief %}
     {% set section_id = 'decisionSupportPanel' %}
-    {% set brief_heading = 'Сначала вывод по сценарию: где готовиться и что делать' %}
-    {% set brief_purpose = 'Зачем нужен блок: быстро увидеть, какие территории брать в работу первыми, почему и насколько надёжен ranking.' %}
+    {% set brief_heading = 'Переход от сценария к решениям' %}
+    {% set brief_purpose = 'Что показывает блок: краткий территориальный вывод по итогам сценария, а не еще один календарь по дням.' %}
     {% set brief_summary_title = 'Что можно быстро передать дальше' %}
     {% set brief_trust_title = 'Можно ли опираться на рекомендацию' %}
     {% set export_href = '/brief/forecasting.txt?table_name=' ~ filters.table_name ~ '&district=' ~ filters.district ~ '&cause=' ~ filters.cause ~ '&object_category=' ~ filters.object_category ~ '&temperature=' ~ filters.temperature ~ '&forecast_days=' ~ filters.forecast_days ~ '&history_window=' ~ filters.history_window %}
@@ -156,7 +162,7 @@
     <section id="forecastFilters" class="panel filters-panel">
         <div class="panel-head">
             <h2>Задайте условия сценария</h2>
-            <span class="panel-meta">Зачем нужен блок: выбрать, для каких условий пересчитать прогноз на дни и приоритет территорий.</span>
+            <span class="panel-meta">Что показывает блок: для каких условий пересчитывается календарь вероятности по дням; территориальный приоритет ниже обновится вслед за сценарием.</span>
         </div>
         <form class="filters-grid forecast-form-grid" id="forecastForm" method="get" action="/forecasting">
             <label class="filter-field">
@@ -300,7 +306,7 @@
             <summary class="panel-head quality-disclosure-summary">
                 <div>
                     <h2 id="scenarioQualityTitle">Насколько прогноз по дням попадает в историю</h2>
-                    <span id="scenarioQualitySubtitle" class="panel-meta">{{ quality.subtitle or 'Зачем нужен блок: понять, можно ли опираться на сценарий, и где он ошибается относительно прошлых данных.' }}</span>
+                    <span id="scenarioQualitySubtitle" class="panel-meta">{{ quality.subtitle or 'Что показывает блок: насколько календарь сценария совпадал с прошлой историей. Это проверка именно прогноза по дням.' }}</span>
                 </div>
                 <span class="quality-disclosure-toggle">Показать проверку на истории</span>
             </summary>
@@ -365,7 +371,7 @@
         <article class="panel ranking-panel">
             <div class="panel-head">
                 <h2>Короткие выводы о точности</h2>
-                <span class="panel-meta">Зачем нужен блок: получить короткие формулировки о качестве прогноза без чтения всех метрик.</span>
+                <span class="panel-meta">Что показывает блок: короткие выводы по календарю ближайших дней без чтения всех метрик.</span>
             </div>
             <ul id="scenarioQualityDissertation" class="notice-list forecast-note-list">
                 {% if quality.dissertation_points %}
@@ -384,7 +390,7 @@
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
                     <h2 id="forecastDailyChartTitle">{{ charts.daily.title }}</h2>
-                    <span class="panel-meta">Зачем нужен блок: увидеть, в какие даты сценарий становится напряжённее и насколько это выбивается из истории.</span>
+                    <span class="panel-meta">Что показывает блок: в какие даты вероятность пожара выше и насколько сценарий отклоняется от недавней истории.</span>
                 </div>
                 <div id="forecastDailyChart" class="plotly-chart forecast-plot"></div>
                 <div id="forecastDailyChartFallback" class="chart-empty{% if charts.daily.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.daily.empty_message }}</div>
@@ -394,7 +400,7 @@
             <article class="panel forecast-table-panel">
                 <div class="panel-head">
                 <h2>Что ожидается по дням</h2>
-                <span class="panel-meta">Зачем нужен блок: посмотреть ближайшие даты и вероятность пожара без чтения графика.</span>
+                <span class="panel-meta">Что показывает блок: даты, вероятность пожара и уровень напряжения без чтения графика.</span>
                 </div>
                 <div id="forecastTableShell" class="forecast-table-shell">
                     {% if data.forecast_rows %}
@@ -432,7 +438,7 @@
             <article class="panel insight-panel">
                 <div class="panel-head">
                     <h2>Короткие выводы по прогнозу</h2>
-                    <span class="panel-meta">Зачем нужен блок: быстро понять сценарий без чтения всех графиков.</span>
+                    <span class="panel-meta">Что показывает блок: краткие выводы именно по сценарию по дням.</span>
                 </div>
                 <div id="forecastInsights" class="insight-grid">
                     {% if data.insights %}
@@ -452,7 +458,7 @@
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2 id="forecastWeekdayChartTitle">{{ charts.weekday.title }}</h2>
-                    <span class="panel-meta">Зачем нужен блок: увидеть, есть ли выраженные дни недели с более напряжённой историей.</span>
+                    <span class="panel-meta">Что показывает блок: есть ли в истории устойчивые дни недели с более высокой пожарной активностью.</span>
                 </div>
                 <div id="forecastWeekdayChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
                 <div id="forecastWeekdayChartFallback" class="chart-empty{% if charts.weekday.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.weekday.empty_message }}</div>
@@ -461,7 +467,7 @@
             <article class="panel ranking-panel">
                 <div class="panel-head">
                     <h2>Что важно не забыть про сценарий</h2>
-                    <span class="panel-meta">Зачем нужен блок: увидеть ограничения, которые могут изменить трактовку прогноза.</span>
+                    <span class="panel-meta">Что показывает блок: ограничения данных и условий, которые меняют чтение прогноза по дням.</span>
                 </div>
                 <ul id="forecastNotesList" class="notice-list forecast-note-list">
                     {% if data.notes %}
@@ -480,9 +486,9 @@
         <article class="panel ranking-panel risk-ranking-panel">
             <div class="panel-head">
                 <h2>Поддержка решений: какие территории взять в работу первыми</h2>
-                <span class="panel-meta">Зачем нужен блок: перевести прогноз по дням в список территорий и действий.</span>
+                <span class="panel-meta">Что показывает блок: управленческий приоритет территорий при текущем сценарии.</span>
             </div>
-            <p class="section-helper">Этот блок не строит новый прогноз по дням. Он переводит сценарный прогноз и исторические факторы риска в список территорий первого внимания.</p>
+            <p class="section-helper">Этот блок не предсказывает новые даты и не считает количество пожаров. Он объединяет сценарий по дням с историей, последствиями и логистикой, чтобы выстроить список территорий первого внимания.</p>
             <div id="forecastRiskTerritories" class="risk-territory-list">
                 {% if risk.territories %}
                     {% for item in risk.territories %}
@@ -563,7 +569,7 @@
                 <div class="panel-head">
                     <div>
                         <h2>Можно ли доверять рекомендации и почему</h2>
-                        <span class="panel-meta">Зачем нужен блок: понять, хватает ли данных для уверенных рекомендаций и чего именно не хватает.</span>
+                        <span class="panel-meta">Что показывает блок: насколько надежен именно территориальный приоритет и каких данных ему не хватает.</span>
                     </div>
                     <span id="forecastValidationBadge" class="forecast-badge risk-badge tone-{{ passport.confidence_tone | default('fire') }}">{{ passport.validation_label }}</span>
                 </div>
@@ -611,7 +617,7 @@
                 <div class="panel-head">
                     <div>
                         <h2>Почему территория поднялась вверх в приоритете</h2>
-                        <span class="panel-meta">Зачем нужен блок: увидеть, какие факторы сильнее всего толкают территорию вверх или вниз.</span>
+                        <span class="panel-meta">Что показывает блок: какие компоненты поднимают территорию вверх или вниз в списке приоритета.</span>
                     </div>
                     <span id="forecastWeightModeBadge" class="forecast-badge risk-badge tone-{{ risk.weight_profile.status_tone | default('forest') }}">{{ risk.weight_profile.status_label | default('Активный профиль') }}</span>
                 </div>
@@ -656,8 +662,8 @@
             <article class="panel">
                 <div class="panel-head">
                     <div>
-                        <h2>{{ risk.historical_validation.title | default('Насколько ranking работает на истории') }}</h2>
-                        <span class="panel-meta">Зачем нужен блок: проверить, поднимает ли блок поддержки решений важные территории по прошлым данным.</span>
+                        <h2>{{ risk.historical_validation.title | default('Насколько ранжирование работает на истории') }}</h2>
+                        <span class="panel-meta">Что показывает блок: насколько ранжирование территорий подтверждалось на прошлых исторических окнах.</span>
                     </div>
                     <span id="forecastHistoryValidationBadge" class="forecast-badge risk-badge tone-{{ risk.historical_validation.status_tone | default('fire') }}">{{ risk.historical_validation.status_label | default('Пока без проверки') }}</span>
                 </div>
@@ -704,7 +710,7 @@
             <article class="panel">
                 <div class="panel-head">
                     <h2>Какие данные реально учтены</h2>
-                    <span class="panel-meta">Зачем нужен блок: понять, на каких данных держится итоговый балл территории.</span>
+                    <span class="panel-meta">Что показывает блок: какие данные вошли в расчет итогового балла территории.</span>
                 </div>
                 <div id="forecastFeatureCards" class="forecast-feature-list risk-feature-list">
                     {% if risk.feature_cards %}
@@ -727,7 +733,7 @@
             <article id="forecastGeoPanel" class="panel chart-panel risk-map-panel{% if geo.compact_message %} is-compact{% endif %}">
                 <div class="panel-head">
                     <h2 id="forecastGeoChartTitle">{{ charts.geo.title }}</h2>
-                    <span class="panel-meta" id="forecastGeoDescription">{{ geo.model_description or 'Зачем нужен блок: увидеть зоны внимания на карте и сверить их с приоритетом территорий.' }}</span>
+                    <span class="panel-meta" id="forecastGeoDescription">{{ geo.model_description or 'Что показывает блок: пространственные зоны внимания для территориального приоритета. Карта не заменяет календарь по дням.' }}</span>
                 </div>
                 <div class="risk-meta-grid">
                     <div class="risk-meta-item">
@@ -794,7 +800,7 @@
             <article class="panel ranking-panel">
                 <div class="panel-head">
                     <h2>Как не перепутать этот блок с другими экранами</h2>
-                    <span class="panel-meta">Зачем нужен блок: не путать приоритет территорий с прогнозом по дням и ML-прогнозом количества пожаров.</span>
+                    <span class="panel-meta">Что показывает блок: границы между календарем по дням, ML-количеством и территориальным приоритетом.</span>
                 </div>
                 <ul id="forecastRiskNotes" class="notice-list forecast-note-list">
                     {% if risk.notes %}

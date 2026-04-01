@@ -2,11 +2,11 @@
     <div class="panel-head executive-panel-head">
         <div>
             <h2>{{ brief_heading | default('Короткий вывод') }}</h2>
-            <span class="panel-meta">{{ brief_purpose | default('Зачем нужен блок: быстро понять первый приоритет, действие и уровень доверия к выводу.') }}</span>
+            <span class="panel-meta">{{ brief_purpose | default('Что показывает блок: краткий территориальный приоритет, первое действие и уровень доверия к выводу.') }}</span>
             <p class="executive-brief-lead">{{ brief.lead }}</p>
         </div>
         {% if export_href %}
-        <a id="{{ export_link_id | default('executiveBriefExportLink') }}" class="primary-action executive-brief-download" href="{{ export_href }}">Скачать короткую справку</a>
+        <a id="{{ export_link_id | default('executiveBriefExportLink') }}" class="primary-action executive-brief-download" href="{{ export_href }}">Скачать краткий вывод</a>
         {% endif %}
     </div>
     <div id="{{ cards_id | default('executiveBriefCards') }}" class="executive-brief-grid">

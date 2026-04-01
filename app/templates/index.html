@@ -34,7 +34,7 @@
     <div class="brand-block">
         <span class="brand-kicker">Монитор пожаров</span>
         <h2>Панель: общий срез</h2>
-        <p>Общий обзор по пожарам и первый приоритет на ближайшие 14 дней без погружения в технические детали.</p>
+        <p>Быстрый обзор по выбранному срезу: ключевые показатели, краткий вывод и первая территория для проверки. Не заменяет прогноз по датам и прогноз ожидаемого числа пожаров.</p>
     </div>
 
     <nav class="sidebar-actions" aria-label="Разделы мониторинга">
@@ -72,27 +72,27 @@
 <main class="main dashboard-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Панель: общий срез + первый приоритет</span>
-            <h1>Что происходит в выбранном срезе и что делать первым</h1>
-            <p class="subtitle">Открывайте этот экран, когда нужно за минуту понять общую картину по выбранному срезу и увидеть первый рабочий приоритет.</p>
+            <span class="eyebrow">Панель | обзор выбранного среза</span>
+            <h1>Общая картина по выбранному срезу</h1>
+            <p class="subtitle">Открывайте этот экран, когда нужно за минуту понять масштаб ситуации, увидеть ключевые показатели и получить первый территориальный ориентир.</p>
             <p class="hero-live-summary" id="dashboardLeadSummary">{{ management.summary_line }}</p>
-            <p class="hero-context-note">Панель собирает общий срез по выбранным данным. Приоритет территорий и действия ниже рассчитываются на ближайшие 14 дней, поэтому это обзор с первым ориентиром, а не полный прогноз по дням.</p>
+            <p class="hero-context-note">Панель показывает уже накопленную картину по выбранным данным и краткий приоритет территорий на ближайшие 14 дней. Она не отвечает на вопросы «в какие даты риск выше» и «сколько пожаров ожидается по дням».</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
                 <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
                 <span class="hero-tag">Разрез: <strong id="heroGroupLabel">{{ scope.group_label }}</strong></span>
-                <span class="hero-tag">Блок действий: <strong>14 дней</strong></span>
+                <span class="hero-tag">Горизонт приоритета: <strong>14 дней</strong></span>
             </div>
         </div>
 
         <div class="hero-side">
             <article class="hero-stat-card" id="dashboardPriorityCard">
-                <span class="hero-stat-label">С чего начать</span>
+                <span class="hero-stat-label">Первая территория для проверки</span>
                 <strong class="hero-stat-value" id="managementHeroPriority">{{ management.priority_territory_label }}</strong>
                 <span class="hero-stat-foot" id="managementHeroPriorityMeta">{{ management.priority_reason }}</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft" id="dashboardConfidenceCard">
-                <span class="hero-stat-label">Можно ли доверять выводу</span>
+                <span class="hero-stat-label">Надежность краткого вывода</span>
                 <strong class="hero-stat-value"><span id="managementHeroConfidence">{{ management.confidence_label }}</span> <small id="managementHeroConfidenceScore">{{ management.confidence_score_display }}</small></strong>
                 <span class="hero-stat-foot" id="managementHeroConfidenceMeta">{{ management.confidence_summary }}</span>
             </article>
@@ -103,25 +103,25 @@
         <a class="orientation-link is-primary is-current" href="#dashboardBrief" aria-current="page">
             <span class="orientation-kicker">Панель</span>
             <strong>Что происходит сейчас в выбранном срезе</strong>
-            <p>Общий обзор и первый приоритет без полного погружения в аналитику.</p>
+            <p>Исторический и текущий срез, ключевые показатели и сокращенный вывод без календаря по датам.</p>
             <span class="orientation-cta">Вы уже на панели</span>
         </a>
         <a id="dashboardScenarioLink" class="orientation-link is-scenario" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
             <span class="orientation-kicker">Сценарный прогноз</span>
-            <strong>Что ожидается в ближайшие дни</strong>
-            <p>Прогноз по дням: где ситуация может стать напряжённее уже скоро.</p>
+            <strong>В какие даты вероятность пожара выше</strong>
+            <p>Календарь вероятности пожарной активности по ближайшим дням.</p>
             <span class="orientation-cta">Открыть прогноз на дни</span>
         </a>
         <a id="dashboardMlLink" class="orientation-link is-ml" href="/ml-model{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
             <span class="orientation-kicker">ML-прогноз</span>
-            <strong>Сколько пожаров ожидается по дням</strong>
-            <p>Отдельный экран для ожидаемого числа пожаров и общей нагрузки по датам.</p>
+            <strong>Сколько пожаров может быть по датам</strong>
+            <p>Ожидаемое число пожаров и нагрузка по дням.</p>
             <span class="orientation-cta">Открыть прогноз количества</span>
         </a>
         <a id="dashboardDecisionLink" class="orientation-link is-decision" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}#forecastDetails">
             <span class="orientation-kicker">Поддержка решений</span>
-            <strong>Какие территории взять в работу первыми</strong>
-            <p>Полное ранжирование территорий, причины приоритета и пояснения по доверию.</p>
+            <strong>Какие территории ставить первыми</strong>
+            <p>Полное ранжирование территорий, причины приоритета и доверие к нему.</p>
             <span class="orientation-cta">Открыть приоритет территорий</span>
         </a>
     </nav>
@@ -129,25 +129,31 @@
     <section class="screen-guide" aria-label="Как читать панель">
         <article class="screen-guide-card">
             <span class="screen-guide-label">Когда открывать</span>
-            <strong>Когда нужен быстрый обзор</strong>
-            <p>Используйте панель, если нужно быстро понять масштаб ситуации и не уходить сразу в детальную аналитику.</p>
+            <strong>Когда нужен быстрый вход в обстановку</strong>
+            <p>Используйте панель, если нужно быстро понять масштаб ситуации и не уходить сразу в детальный прогноз по датам или моделям.</p>
         </article>
         <article class="screen-guide-card">
             <span class="screen-guide-label">Что показывает</span>
-            <strong>Общий срез + первый приоритет</strong>
-            <p>Здесь собраны ключевые показатели по пожарам, последствиям и сокращённая подсказка, с какой территории начать работу.</p>
+            <strong>Срез, динамику и короткий приоритет</strong>
+            <p>Здесь собраны ключевые показатели, графики по выбранному срезу и сокращенный вывод, какую территорию проверить первой.</p>
         </article>
         <article class="screen-guide-card">
             <span class="screen-guide-label">Чем отличается</span>
-            <strong>Не прогнозирует день и количество</strong>
-            <p>Панель не строит календарь вероятностей по дням и не считает ожидаемое число пожаров. Для этого есть сценарный и ML-прогноз.</p>
+            <strong>Это обзор, а не отдельный прогноз</strong>
+            <p>За датами переходите в сценарный прогноз, за ожидаемым числом пожаров в сутки — в ML-прогноз, за полным ранжированием территорий — в блок поддержки решений.</p>
         </article>
+    </section>
+
+    <section class="clarity-note" aria-label="Как читать панель">
+        <span class="clarity-note-label">Как читать экран</span>
+        <strong>Панель помогает выбрать следующий шаг</strong>
+        <p>Если краткого обзора достаточно, можно остановиться здесь. Если нужно понять даты роста риска, откройте сценарный прогноз; если нужна нагрузка в штуках по дням, откройте ML-прогноз; если нужен полный список территорий, смотрите блок поддержки решений.</p>
     </section>
 
     {% set brief = management.brief %}
     {% set section_id = 'dashboardBrief' %}
-    {% set brief_heading = 'Сначала главное: что происходит и что делать первым' %}
-    {% set brief_purpose = 'Зачем нужен блок: за минуту понять первый приоритет, причину, действие и насколько можно доверять выводу.' %}
+    {% set brief_heading = 'Короткий вывод по территориям на панели' %}
+    {% set brief_purpose = 'Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней, причину выбора и уровень доверия к выводу.' %}
     {% set brief_summary_title = 'Что можно быстро передать дальше' %}
     {% set brief_trust_title = 'Можно ли опираться на вывод' %}
     {% set export_href = '/brief/dashboard.txt?table_name=' ~ filters.table_name ~ '&year=' ~ filters.year ~ '&group_column=' ~ filters.group_column %}
@@ -163,10 +169,10 @@
                     <div class="panel-head">
                         <div>
                             <h2>Срез и опорные показатели</h2>
-                            <span class="panel-meta">Зачем нужен блок: быстро сверить масштаб ситуации и при необходимости пересобрать обзор под другой срез.</span>
+                            <span class="panel-meta">Что показывает блок: базовый контекст по выбранному срезу без прогноза по датам.</span>
                         </div>
                     </div>
-                    <p class="section-helper">Используйте этот столбец как контекст: справа главное решение, а здесь цифры и настройки, которые помогают его проверить и уточнить.</p>
+                    <p class="section-helper">Сначала смотрите справа краткий территориальный вывод, а этот столбец используйте как фактическую опору: здесь масштабы, фильтры и показатели, которые его объясняют.</p>
                 </article>
                 <section class="stats-grid dashboard-stats">
                     <article class="stat-card stat-card-accent stat-card-wide">
@@ -194,7 +200,7 @@
                 <section id="dashboardFilters" class="panel filters-panel">
                     <div class="panel-head">
                         <h2>Уточните срез панели</h2>
-                        <span class="panel-meta">Зачем нужен блок: выбрать, по каким данным смотреть общий обзор и первый приоритет.</span>
+                        <span class="panel-meta">Что показывает блок: по каким данным строится обзор панели и короткий территориальный приоритет.</span>
                     </div>
                     <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
                         <label class="filter-field">
@@ -243,7 +249,7 @@
                 <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
                     <div class="panel-head">
                         <h2>Что может снижать доверие к выводу</h2>
-                        <span class="panel-meta">Зачем нужен блок: быстро увидеть проблемы в данных или чтении таблиц, которые могут исказить обзор.</span>
+                        <span class="panel-meta">Что показывает блок: проблемы данных и чтения таблиц, которые могут исказить именно обзор панели.</span>
                     </div>
                     <ul class="notice-list" id="dashboardNotesList">
                         {% for error in dashboard.errors %}
@@ -260,15 +266,15 @@
                 <div class="panel-head">
                     <div>
                         <h2>Поддержка решений: куда смотреть сначала</h2>
-                        <span class="panel-meta">Зачем нужен блок: увидеть территории первого внимания и рекомендуемые действия. Приоритет ниже рассчитан на ближайшие 14 дней.</span>
+                        <span class="panel-meta">Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней и первые действия по нему.</span>
                     </div>
                 </div>
-                <p class="section-helper">На панели это сокращённая версия блока поддержки решений. Если нужен полный разбор ranking территорий, карта зон внимания и подробные причины приоритета, откройте сценарный прогноз.</p>
+                <p class="section-helper">На панели показана только короткая версия ранжирования территорий. Полный список, карта зон внимания и разбор компонент риска открываются в блоке поддержки решений на экране сценарного прогноза.</p>
                 <div class="executive-layout">
                     <div>
                         <div class="executive-section-head">
                             <h3>Территории первого внимания</h3>
-                            <span>Top-3 по приоритету на ближайшие 14 дней</span>
+                            <span>Top-3 территорий по управленческому приоритету на ближайшие 14 дней</span>
                         </div>
                         <div id="managementTerritories" class="executive-territory-list">
                             {% if management.territories %}
@@ -302,7 +308,7 @@
                         <article class="executive-side-card">
                             <div class="executive-section-head">
                                 <h3>Что сделать в первую очередь</h3>
-                                <span>Короткий список действий без технических деталей</span>
+                                <span>Короткий список действий по территориям выше</span>
                             </div>
                             <div id="managementActionList" class="executive-action-list">
                                 {% if management.actions %}
@@ -326,16 +332,16 @@
                         <div class="panel-head">
                             <div>
                                 <h2>Что показывает срез в цифрах и графиках</h2>
-                                <span class="panel-meta">Зачем нужен блок: подтвердить решение сверху данными и увидеть, что стоит перепроверить глубже.</span>
+                                <span class="panel-meta">Что показывает блок: на каких фактах держится обзор панели и что стоит проверить глубже.</span>
                             </div>
                         </div>
-                        <p class="section-helper">Эти блоки нужны как подтверждение: они помогают объяснить и защитить вывод, а не собирать его с нуля по отдельным графикам.</p>
+                        <p class="section-helper">Эти графики объясняют текущий срез. Они не заменяют прогноз по дням и не строят отдельное ранжирование территорий.</p>
                     </article>
                     <div class="dashboard-grid dashboard-grid-three">
                         <article class="panel ranking-panel">
                             <div class="panel-head">
                                 <h2>Что чаще всего попадает в срез</h2>
-                                <span class="panel-meta">Зачем нужен блок: быстро увидеть, какие категории или типы сейчас формируют основную картину.</span>
+                                <span class="panel-meta">Что показывает блок: какие категории или типы сейчас формируют основную картину по выбранному срезу.</span>
                             </div>
                             <div id="topDistributionList" class="ranking-list">
                                 {% if rankings.top_distribution %}
@@ -354,7 +360,7 @@
                         <article class="panel ranking-panel">
                             <div class="panel-head">
                                 <h2>Как менялась ситуация по годам</h2>
-                                <span class="panel-meta">Зачем нужен блок: быстро понять, усиливается ли проблема или остаётся примерно на том же уровне.</span>
+                                <span class="panel-meta">Что показывает блок: усиливается ли проблема по годам или остается примерно на том же уровне.</span>
                             </div>
                             <div id="recentYearsList" class="ranking-list">
                                 {% if rankings.recent_years %}
@@ -373,7 +379,7 @@
                         <article class="panel ranking-panel">
                             <div class="panel-head">
                                 <h2>На каких таблицах держится обзор</h2>
-                                <span class="panel-meta">Зачем нужен блок: видеть, какие источники данных сильнее всего влияют на текущий вывод.</span>
+                                <span class="panel-meta">Что показывает блок: какие источники данных сильнее всего влияют на текущий обзор.</span>
                             </div>
                             <div id="topTablesList" class="ranking-list">
                                 {% if rankings.top_tables %}
@@ -393,7 +399,7 @@
                     <article class="panel chart-panel chart-panel-large chart-panel-causes">
                         <div class="panel-head">
                             <h2 id="yearlyFiresTitle">{{ charts.yearly_fires.title }}</h2>
-                            <span class="panel-meta">Зачем нужен блок: увидеть, какие причины чаще всего формируют ситуацию в выбранном срезе.</span>
+                            <span class="panel-meta">Что показывает блок: какие причины чаще всего формируют ситуацию в выбранном срезе.</span>
                         </div>
                         {{ render_plotly_chart('yearlyFiresChart') }}
                     </article>
@@ -402,7 +408,7 @@
                         <article class="panel chart-panel chart-panel-large">
                             <div class="panel-head">
                                 <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
-                                <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Зачем нужен блок: посмотреть, как пожары распределяются по выбранной группе.' }}</span>
+                                <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Что показывает блок: как пожары распределяются по выбранной группе.' }}</span>
                             </div>
                             {{ render_plotly_chart('distributionChart') }}
                         </article>
@@ -410,7 +416,7 @@
                         <article class="panel chart-panel chart-panel-large">
                             <div class="panel-head">
                                 <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
-                                <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Зачем нужен блок: оценить тяжесть последствий и влияние пожаров на людей.' }}</span>
+                                <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Что показывает блок: тяжесть последствий и влияние пожаров на людей.' }}</span>
                             </div>
                             {{ render_plotly_chart('yearlyAreaChart') }}
                         </article>
@@ -420,7 +426,7 @@
                         <article class="panel chart-panel">
                             <div class="panel-head">
                                 <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
-                                <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Зачем нужен блок: увидеть сезонный рисунок пожаров, если нужно планировать профилактику заранее.' }}</span>
+                                <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.' }}</span>
                             </div>
                             {{ render_plotly_chart('monthlyProfileChart') }}
                         </article>
@@ -428,7 +434,7 @@
                         <article class="panel chart-panel">
                             <div class="panel-head">
                                 <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
-                                <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Зачем нужен блок: понять, преобладают ли небольшие или крупные пожары.' }}</span>
+                                <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Что показывает блок: преобладают ли небольшие или крупные пожары.' }}</span>
                             </div>
                             {{ render_plotly_chart('areaBucketsChart') }}
                         </article>

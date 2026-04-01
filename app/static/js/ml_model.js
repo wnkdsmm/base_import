@@ -335,7 +335,7 @@
 
     function renderHero(data) {
         var summary = data.summary || {};
-        setText('mlModelDescription', data.model_description || 'После загрузки здесь появится объяснение, сколько пожаров ожидается и насколько можно доверять расчету.');
+        setText('mlModelDescription', summary.hero_summary || data.model_description || 'После загрузки здесь появится краткий вывод по ожидаемому числу пожаров и надежности расчета.');
 
         var heroTags = byId('mlHeroTags');
         if (heroTags) {
@@ -660,7 +660,7 @@
         setValue('mlTemperatureInput', filters.temperature || '');
 
         setText('mlQualityTitle', 'Насколько можно доверять ML-прогнозу');
-        setText('mlQualitySubtitle', quality.subtitle || 'Зачем нужен блок: сравнить модель с более простыми вариантами на одной и той же истории.');
+        setText('mlQualitySubtitle', quality.subtitle || 'Что показывает блок: насколько модель предсказывала именно число пожаров на прошлой истории и чем она лучше простых подходов.');
         renderMetricCards('mlQualityMetricCards', quality.metric_cards || [], 'После расчета здесь появятся метрики качества ML-прогноза.');
         setText('mlCountTableTitle', 'Сравнение моделей по числу пожаров');
         renderCountTable(quality.count_table || {});

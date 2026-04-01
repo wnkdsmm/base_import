@@ -40,9 +40,9 @@ from .utils import (
 )
 
 SCENARIO_FORECAST_DESCRIPTION = (
-    "Сценарный прогноз открывают, когда нужно понять, в какие ближайшие дни может вырасти вероятность пожара. "
-    "Он показывает сценарий по дням и помогает перейти к приоритету территорий. "
-    "Это не ML-прогноз числа пожаров: экран отвечает на вопрос «когда готовиться», а не «сколько пожаров ожидается»."
+    "Сценарный прогноз открывают, когда нужно понять, в какие ближайшие дни вероятность пожара выше и когда стоит готовиться заранее. "
+    "Он показывает календарь по дням и затем помогает перейти к территориальному приоритету. "
+    "Это не ML-прогноз ожидаемого числа пожаров: экран отвечает на вопрос «когда готовиться», а не «сколько пожаров может быть по датам»."
 )
 
 _FORECASTING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
@@ -167,7 +167,7 @@ def get_forecasting_page_context(
         initial_data["notes"].append(f"Техническая причина: {exc}")
         initial_data["model_description"] = (
             "Сценарный прогноз временно открыт без части расчётов, чтобы экран оставался доступен. "
-            "Его задача по-прежнему та же: показать ближайшие дни риска и не подменять ML-прогноз количества пожаров."
+            "Его задача по-прежнему та же: показать ближайшие дни риска и не подменять ML-прогноз ожидаемого числа пожаров."
         )
     return {
         "generated_at": _format_datetime(datetime.now()),
@@ -1113,7 +1113,7 @@ def get_forecasting_decision_support_data(
     _emit_forecasting_progress(
         progress_callback,
         "forecasting_decision_support.aggregation",
-        "Собираем ranking территорий, паспорт качества и историческую валидацию.",
+        "Собираем ранжирование территорий, паспорт качества и историческую валидацию.",
     )
     risk_prediction = build_decision_support_payload(
         source_tables=source_tables,
@@ -1263,7 +1263,7 @@ def _empty_forecast_quality_assessment() -> Dict[str, Any]:
     return {
         "ready": False,
         "title": "Оценка качества сценарного прогноза",
-        "subtitle": "После накопления истории здесь появится проверка на истории и сравнение с базовой моделью.",
+        "subtitle": "После накопления истории здесь появится проверка именно прогноза по дням и сравнение с базовой моделью.",
         "metric_cards": [],
         "methodology_items": [],
         "comparison_rows": [],
@@ -1305,7 +1305,7 @@ def _build_scenario_quality_assessment(backtest: Dict[str, Any]) -> Dict[str, An
     return {
         "ready": True,
         "title": "Оценка качества сценарного прогноза",
-        "subtitle": "Сценарный прогноз проверяется через скользящую одношаговую проверку на истории без использования будущих наблюдений.",
+        "subtitle": "Сценарный прогноз проверяется по историческим окнам без использования будущих наблюдений. Это проверка календаря по дням, а не территориального приоритета.",
         "metric_cards": [
             {"label": "MAE", "value": _format_number(model_metrics.get("mae")), "meta": f"базовая модель: {_format_number(baseline_metrics.get('mae'))}"},
             {"label": "RMSE", "value": _format_number(model_metrics.get("rmse")), "meta": f"базовая модель: {_format_number(baseline_metrics.get('rmse'))}"},
@@ -1355,6 +1355,7 @@ def _empty_forecasting_data(
         "summary": {
             "selected_table_label": _table_selection_label(selected_table),
             "slice_label": "Все пожары",
+            "hero_summary": "После расчета здесь появится краткий вывод по датам, где сценарий выглядит напряжённее.",
             "history_period_label": "Нет данных",
             "history_window_label": _history_window_label(history_window),
             "fires_count_display": "0",
@@ -1380,7 +1381,7 @@ def _empty_forecasting_data(
         "risk_prediction": {
             "has_data": False,
             "title": "Блок поддержки решений: ранжирование территорий",
-            "model_description": "Блок поддержки решений ранжирует территории по сочетанию частоты пожаров, тяжести последствий, логистики прибытия и обеспеченности водой. Он не считает число пожаров по дням, а помогает выбрать, какие территории брать в работу первыми.",
+            "model_description": "Блок поддержки решений ранжирует территории по сочетанию частоты пожаров, тяжести последствий, логистики прибытия и обеспеченности водой. Он не показывает календарь по дням и не считает ожидаемое число пожаров, а помогает выбрать, какие территории брать в работу первыми.",
             "coverage_display": "0 из 0",
             "quality_passport": {
                 "title": "Паспорт качества данных",
@@ -1440,7 +1441,7 @@ def _empty_forecasting_data(
                 "has_coordinates": False,
                 "has_map_points": False,
                 "compact_message": "В выбранном срезе нет координат, поэтому карта блока поддержки решений сейчас не строится.",
-                "model_description": "Если в данных есть координаты, карта блока поддержки решений помогает увидеть зоны, где стоит в первую очередь проверить территории из верхних позиций ranking.",
+                "model_description": "Если в данных есть координаты, карта блока поддержки решений помогает увидеть пространственные зоны внимания для территорий из верхних позиций приоритета.",
                 "coverage_display": "0 с координатами",
                 "top_zone_label": "-",
                 "top_risk_display": "0 / 100",
@@ -1500,10 +1501,17 @@ def _build_summary(
     delta_ratio = ((predicted_average - recent_average) / recent_average) if recent_average > 0 else 0.0
     scenario_label, _scenario_tone = _forecast_level_label(predicted_average, recent_average if recent_average > 0 else historical_average)
     peak_row = max(forecast_rows, key=lambda item: float(item["forecast_value"])) if forecast_rows else None
+    hero_summary = (
+        f"Пиковая дата сценария: {peak_row.get('date_display', '-')} — вероятность пожара {peak_row.get('fire_probability_display', '0%')}. "
+        f"Средняя вероятность по выбранному горизонту: {_format_probability(average_probability)}."
+        if peak_row
+        else "После расчета здесь появится краткий вывод по датам, где сценарий выглядит напряжённее."
+    )
 
     return {
         "selected_table_label": _table_selection_label(selected_table),
         "slice_label": _build_slice_label(selected_district, selected_cause, selected_object_category),
+        "hero_summary": hero_summary,
         "history_period_label": _format_period(history_dates),
         "history_window_label": _history_window_label(history_window),
         "fires_count_display": _format_integer(filtered_records_count),
@@ -1755,6 +1763,9 @@ def _build_notes(
     if any(not item["resolved_columns"].get("object_category") for item in metadata_items):
         notes.append("Не во всех таблицах найдена категория объекта, поэтому этот фильтр работает частично.")
 
-    notes.append("Сценарный прогноз лучше читать как ориентир по уровню нагрузки и приоритетам, а не как точное обещание числа пожаров в каждый день.")
+    notes.append(
+        "Сценарный прогноз лучше читать как календарь вероятности пожара по дням, а не как точное обещание числа пожаров. "
+        "Если нужен прогноз количества, используйте ML-прогноз."
+    )
 
     return notes

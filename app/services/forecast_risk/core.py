@@ -20,7 +20,7 @@ from .validation import (
 DECISION_SUPPORT_TITLE = "Блок поддержки решений: ранжирование территорий"
 DECISION_SUPPORT_DESCRIPTION = (
     "Блок поддержки решений открывают после сценарного прогноза, когда нужно понять, какие территории брать в работу первыми. "
-    "Он не показывает календарь по дням и не оценивает число пожаров: его задача — ранжировать территории по сочетанию "
+    "Он не показывает календарь по дням и не оценивает ожидаемое число пожаров: его задача — ранжировать территории по сочетанию "
     "частоты пожаров, тяжести последствий, логистики прибытия и обеспеченности водой. "
     "Компоненты показаны прозрачно, чтобы решение можно было объяснить без черного ящика."
 )
@@ -76,7 +76,7 @@ def build_decision_support_payload(
 
         with perf.span("aggregation"):
             if progress_callback is not None:
-                progress_callback("decision_support.aggregation", "Строим ranking территорий, паспорт качества и геосводку.")
+                progress_callback("decision_support.aggregation", "Строим ранжирование территорий, паспорт качества и геосводку.")
             if geo_prediction is None and filtered_records:
                 from app.services.forecasting.geo import _build_geo_prediction
 
@@ -124,7 +124,7 @@ def build_decision_support_payload(
 
         with perf.span("aggregation"):
             if progress_callback is not None:
-                progress_callback("decision_support.training", "Оцениваем устойчивость ranking и проверяем историческую валидацию.")
+                progress_callback("decision_support.training", "Оцениваем устойчивость ранжирования и проверяем историческую валидацию.")
             resolved_profile = resolve_weight_profile_for_records(
                 filtered_records,
                 planning_horizon_days,
@@ -332,7 +332,7 @@ def _build_summary_cards(
         {
             "label": "Надёжность вывода",
             "value": lead.get("ranking_confidence_label") or "Умеренная",
-            "meta": lead.get("ranking_confidence_note") or "После расчёта здесь появится оценка надёжности ranking-вывода.",
+            "meta": lead.get("ranking_confidence_note") or "После расчёта здесь появится оценка надежности вывода по ранжированию.",
             "tone": lead.get("ranking_confidence_tone") or "fire",
         },
         {
