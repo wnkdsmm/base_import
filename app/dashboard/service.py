@@ -8,38 +8,28 @@ from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
 from app.services.executive_brief import compose_executive_brief_text
 from config.db import engine
 
-from .aggregates import (
-    _build_area_buckets_chart,
-    _build_cause_chart,
-    _build_combined_impact_timeline_chart,
+from .cache import _collect_dashboard_metadata_cached, _get_dashboard_cache, _set_dashboard_cache
+from .charts import _finalize_chart
+from .distribution import (
     _build_damage_overview_chart,
     _build_damage_pairs_chart,
     _build_damage_share_chart,
     _build_damage_standalone_chart,
     _build_distribution_chart,
-    _build_highlights,
-    _build_monthly_profile_chart,
     _build_rankings,
-    _build_scope,
-    _build_sql_widgets,
-    _build_summary,
     _build_table_breakdown_chart,
-    _build_trend,
-    _build_yearly_chart,
 )
-from .charts import _finalize_chart
-from .data_access import (
-    _collect_dashboard_metadata_cached,
-    _collect_group_column_options,
-    _collect_year_options,
-    _get_dashboard_cache,
-    _is_damage_group_selection,
-    _resolve_group_column,
-    _resolve_selected_tables,
-    _set_dashboard_cache,
+from .impact import (
+    _build_area_buckets_chart,
+    _build_cause_chart,
+    _build_combined_impact_timeline_chart,
+    _build_monthly_profile_chart,
+    _build_sql_widgets,
 )
+from .metadata import _is_damage_group_selection, _resolve_dashboard_filters
 from .management import _build_management_snapshot, _empty_management_snapshot
-from .utils import _find_option_label, _format_datetime, _parse_year
+from .summary import _build_highlights, _build_scope, _build_summary, _build_trend, _build_yearly_chart
+from .utils import _find_option_label, _format_datetime
 
 def build_dashboard_context(
     table_name: str = "all",
@@ -88,11 +78,10 @@ def get_dashboard_data(
         try:
             with perf.span("filter_prep"):
                 metadata = metadata or _collect_dashboard_metadata_cached()
-                tables = metadata["tables"]
                 normalized_group_column = group_column or metadata["default_group_column"]
 
                 cache_key = (
-                    tuple(sorted(table["name"] for table in tables)),
+                    tuple(sorted(table["name"] for table in metadata["tables"])),
                     table_name,
                     year,
                     normalized_group_column,
@@ -107,21 +96,18 @@ def get_dashboard_data(
                     )
                     return cached
 
-                selected_tables = _resolve_selected_tables(tables, table_name)
-                available_years = _collect_year_options(selected_tables)
-                requested_year = _parse_year(year)
-                available_year_values = {item["value"] for item in available_years}
-                selected_year = requested_year if requested_year is not None and str(requested_year) in available_year_values else None
-
-                available_group_columns = _collect_group_column_options(selected_tables)
-
-                selected_group_column = _resolve_group_column(
-                    normalized_group_column,
-                    available_group_columns,
-                    metadata["default_group_column"],
+                filter_state = _resolve_dashboard_filters(
+                    metadata=metadata,
+                    table_name=table_name,
+                    year=year,
+                    group_column=normalized_group_column,
                 )
-
-                selected_table_name = table_name if any(item["value"] == table_name for item in metadata["table_options"]) else "all"
+                selected_tables = filter_state["selected_tables"]
+                available_years = filter_state["available_years"]
+                selected_year = filter_state["selected_year"]
+                available_group_columns = filter_state["available_group_columns"]
+                selected_group_column = filter_state["selected_group_column"]
+                selected_table_name = filter_state["selected_table_name"]
                 perf.update(
                     cache_hit=False,
                     selected_tables=len(selected_tables),
@@ -160,8 +146,8 @@ def get_dashboard_data(
                 scope = _build_scope(
                     summary=summary,
                     metadata=metadata,
-            selected_table_label=_find_option_label(metadata["table_options"], selected_table_name, "Все таблицы"),
-            selected_group_label=_find_option_label(available_group_columns, selected_group_column, "Нет доступных колонок"),
+                    selected_table_label=_find_option_label(metadata["table_options"], selected_table_name, "Все таблицы"),
+                    selected_group_label=_find_option_label(available_group_columns, selected_group_column, "Нет доступных колонок"),
                     available_years=available_years,
                 )
                 perf.update(input_rows=summary.get("fires_count"))

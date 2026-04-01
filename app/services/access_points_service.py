@@ -1,6 +1,15 @@
-from app.services.access_points.analysis import *
-from app.services.access_points.charts import *
-from app.services.access_points.constants import *
-from app.services.access_points.core import *
-from app.services.access_points.data import *
-from app.services.access_points.presentation import *
+"""Compatibility facade for legacy access-points imports."""
+
+from app.services.access_points.core import (
+    clear_access_points_cache,
+    get_access_points_data,
+    get_access_points_page_context,
+    get_access_points_shell_context,
+)
+
+__all__ = [
+    "clear_access_points_cache",
+    "get_access_points_data",
+    "get_access_points_page_context",
+    "get_access_points_shell_context",
+]

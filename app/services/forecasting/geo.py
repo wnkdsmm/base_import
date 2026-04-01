@@ -5,7 +5,7 @@ import math
 from datetime import timedelta
 from typing import Any, Dict, List, Sequence, Tuple
 
-from .constants import *
+from .constants import GEO_LOOKBACK_DAYS, MAX_GEO_CHART_POINTS, MAX_GEO_HOTSPOTS
 from .utils import _format_integer, _format_number
 def _build_geo_prediction(
     records: List[Dict[str, Any]],

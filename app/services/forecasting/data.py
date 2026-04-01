@@ -14,7 +14,17 @@ from app.services.ml_model.constants import MIN_TEMPERATURE_COVERAGE, MIN_TEMPER
 from app.services.table_options import get_fire_map_table_options
 from config.db import engine
 
-from .constants import *
+from .constants import (
+    CAUSE_COLUMN_CANDIDATES,
+    DATE_COLUMN,
+    DISTRICT_COLUMN_CANDIDATES,
+    LATITUDE_COLUMN_CANDIDATES,
+    LONGITUDE_COLUMN_CANDIDATES,
+    MONTH_LABELS,
+    OBJECT_CATEGORY_COLUMN,
+    TEMPERATURE_COLUMN_CANDIDATES,
+    WEEKDAY_LABELS,
+)
 from .utils import (
     _clean_coordinate,
     _clean_option_value,

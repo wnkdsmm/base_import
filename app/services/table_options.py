@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from app.dashboard.service import get_dashboard_data
 from app.db_views import get_all_tables
-from app.statistics import get_dashboard_data
 from app.statistics_constants import EXCLUDED_TABLE_PREFIXES
 
 

@@ -211,7 +211,7 @@ def invalidate_runtime_caches(on_warning: Callable[[str], None] | None = None) -
         warn(f"Предупреждение при обновлении кэша метаданных БД: {exc}")
 
     try:
-        from app.statistics import _invalidate_dashboard_caches
+        from app.dashboard.cache import _invalidate_dashboard_caches
 
         _invalidate_dashboard_caches()
     except Exception as exc:

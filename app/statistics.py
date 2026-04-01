@@ -1,19 +1,31 @@
 from __future__ import annotations
 
-from app.dashboard import aggregates as _aggregates
-from app.dashboard import charts as _charts
-from app.dashboard import data_access as _data_access
-from app.dashboard import management as _management
-from app.dashboard import service as _service
-from app.dashboard import utils as _utils
+"""Compatibility facade for legacy dashboard imports.
 
-_MODULES = (_service, _data_access, _aggregates, _management, _charts, _utils)
-__all__ = []
+Prefer direct imports from ``app.dashboard.service``, ``app.dashboard.cache``,
+``app.dashboard.metadata``, and ``app.dashboard.utils`` in new code.
+"""
 
-for _module in _MODULES:
-    for _name in getattr(_module, "__all__", ()):
-        globals()[_name] = getattr(_module, _name)
-        __all__.append(_name)
+from app.dashboard.cache import _collect_dashboard_metadata_cached, _invalidate_dashboard_caches
+from app.dashboard.metadata import (
+    _collect_group_column_options,
+    _collect_year_options,
+    _resolve_group_column,
+    _resolve_selected_tables,
+)
+from app.dashboard.service import _empty_dashboard_data, build_dashboard_context, get_dashboard_data
+from app.dashboard.utils import _find_option_label, _parse_year
 
-del _module
-del _name
+__all__ = [
+    "_collect_dashboard_metadata_cached",
+    "_collect_group_column_options",
+    "_collect_year_options",
+    "_empty_dashboard_data",
+    "_find_option_label",
+    "_invalidate_dashboard_caches",
+    "_parse_year",
+    "_resolve_group_column",
+    "_resolve_selected_tables",
+    "build_dashboard_context",
+    "get_dashboard_data",
+]

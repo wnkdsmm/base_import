@@ -10,6 +10,7 @@ from functools import wraps
 from typing import Any, Iterator
 
 from sqlalchemy import event
+from sqlalchemy.exc import InvalidRequestError
 
 _ACTIVE_TRACE: contextvars.ContextVar["PerformanceTrace | None"] = contextvars.ContextVar(
     "fire_monitor_active_perf_trace",
@@ -25,9 +26,15 @@ def ensure_sqlalchemy_timing(engine: Any) -> None:
     with _INSTRUMENTATION_LOCK:
         if engine_id in _INSTRUMENTED_ENGINES:
             return
-        event.listen(engine, "before_cursor_execute", _before_cursor_execute)
-        event.listen(engine, "after_cursor_execute", _after_cursor_execute)
-        event.listen(engine, "handle_error", _handle_error)
+        try:
+            event.listen(engine, "before_cursor_execute", _before_cursor_execute)
+            event.listen(engine, "after_cursor_execute", _after_cursor_execute)
+            event.listen(engine, "handle_error", _handle_error)
+        except (AttributeError, InvalidRequestError, TypeError):
+            # Test doubles and lightweight engine stubs may not expose SQLAlchemy's
+            # event registry; skip instrumentation for those objects.
+            _INSTRUMENTED_ENGINES.add(engine_id)
+            return
         _INSTRUMENTED_ENGINES.add(engine_id)
 
 

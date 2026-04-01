@@ -182,64 +182,6 @@ def _build_distribution_plotly(title: str, items: List[Dict[str, Any]], empty_me
     return _figure_to_dict(figure)
 
 
-def _build_compact_metric_plotly(title: str, items: List[Dict[str, Any]], empty_message: str, color_key: str, yaxis_title: str) -> Dict[str, Any]:
-    if not items:
-        return _build_empty_plotly_chart(title, empty_message)
-
-    palette = {
-        "fire": [PLOTLY_PALETTE["fire"], PLOTLY_PALETTE["fire_soft"]],
-        "sky": [PLOTLY_PALETTE["sky"], PLOTLY_PALETTE["sky_soft"]],
-        "forest": [PLOTLY_PALETTE["forest"], PLOTLY_PALETTE["forest_soft"]],
-    }
-    colors = palette.get(color_key, [PLOTLY_PALETTE["sand"], PLOTLY_PALETTE["sand_soft"]])
-    figure = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["label"] for item in items],
-                y=[item["value"] for item in items],
-                text=[item["value_display"] for item in items],
-                textposition="outside",
-                marker=dict(
-                    color=[colors[index % len(colors)] for index in range(len(items))],
-                    line=dict(color="rgba(255,255,255,0.5)", width=1.2),
-                ),
-                hovertemplate="<b>%{x}</b><br>Людей: %{text}<extra></extra>",
-            )
-        ]
-    )
-    figure.update_layout(**_plotly_layout(yaxis_title, showlegend=False))
-    return _figure_to_dict(figure)
-
-
-def _build_evacuation_children_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    if not items:
-        return _build_empty_plotly_chart(title, empty_message)
-
-    figure = go.Figure(
-        data=[
-            go.Pie(
-                labels=[item["label"] for item in items],
-                values=[item["value"] for item in items],
-                hole=0.5,
-                sort=False,
-                marker=dict(
-                    colors=[
-                        PLOTLY_PALETTE["sky"],
-                        PLOTLY_PALETTE["sky_soft"],
-                        PLOTLY_PALETTE["forest"],
-                        PLOTLY_PALETTE["forest_soft"],
-                    ][: len(items)]
-                ),
-                textinfo="label+value",
-                hovertemplate="<b>%{label}</b><br>Людей: %{value}<br>Доля: %{percent}<extra></extra>",
-            )
-        ]
-    )
-    figure.update_layout(**_plotly_layout("", showlegend=False))
-    figure.update_layout(margin=dict(l=24, r=24, t=12, b=12))
-    return _figure_to_dict(figure)
-
-
 def _build_combined_impact_timeline_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
         return _build_empty_plotly_chart(title, empty_message)
@@ -590,63 +532,6 @@ def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], emp
     return _figure_to_dict(figure)
 
 
-def _build_impact_yearly_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    if not PLOTLY_AVAILABLE or not items:
-        return _build_empty_plotly_chart(title, empty_message)
-
-    figure = go.Figure()
-    figure.add_trace(
-        go.Bar(
-            x=[item["label"] for item in items],
-            y=[item["deaths"] for item in items],
-            name="Погибшие",
-            marker=dict(color=PLOTLY_PALETTE["fire"]),
-            hovertemplate="<b>%{x}</b><br>Погибшие: %{y}<extra></extra>",
-        )
-    )
-    figure.add_trace(
-        go.Bar(
-            x=[item["label"] for item in items],
-            y=[item["injuries"] for item in items],
-            name="Травмированные",
-            marker=dict(color=PLOTLY_PALETTE["sand"]),
-            hovertemplate="<b>%{x}</b><br>Травмированные: %{y}<extra></extra>",
-        )
-    )
-    figure.add_trace(
-        go.Bar(
-            x=[item["label"] for item in items],
-            y=[item["evacuated"] for item in items],
-            name="Эвакуировано",
-            marker=dict(color=PLOTLY_PALETTE["sky"]),
-            hovertemplate="<b>%{x}</b><br>Эвакуировано: %{y}<extra></extra>",
-        )
-    )
-    figure.add_trace(
-        go.Scatter(
-            x=[item["label"] for item in items],
-            y=[item["evacuated_children"] for item in items],
-            name="Эвакуировано детей",
-            mode="lines+markers",
-            line=dict(color=PLOTLY_PALETTE["forest"], width=3),
-            marker=dict(size=8, color=PLOTLY_PALETTE["forest_soft"]),
-            yaxis="y2",
-            hovertemplate="<b>%{x}</b><br>Эвакуировано детей: %{y}<extra></extra>",
-        )
-    )
-    layout = _plotly_layout("Люди", showlegend=True)
-    layout["barmode"] = "group"
-    layout["legend"] = {"orientation": "h", "y": 1.12, "x": 0}
-    layout["yaxis2"] = {
-        "overlaying": "y",
-        "side": "right",
-        "showgrid": False,
-        "title": {"text": "Дети"},
-    }
-    figure.update_layout(**layout)
-    return _figure_to_dict(figure)
-
-
 def _build_empty_plotly_chart(title: str, message: str) -> Dict[str, Any]:
     if not PLOTLY_AVAILABLE:
         return empty_plotly_payload(message)
@@ -708,8 +593,6 @@ __all__ = [
     "_build_cause_plotly",
     "_build_distribution_pie_plotly",
     "_build_distribution_plotly",
-    "_build_compact_metric_plotly",
-    "_build_evacuation_children_plotly",
     "_build_combined_impact_timeline_plotly",
     "_build_damage_overview_plotly",
     "_build_damage_pairs_plotly",
@@ -720,7 +603,6 @@ __all__ = [
     "_build_area_bucket_plotly",
     "_build_sql_widget_bar_plotly",
     "_build_sql_widget_season_plotly",
-    "_build_impact_yearly_plotly",
     "_build_empty_plotly_chart",
     "_plotly_layout",
     "_figure_to_dict",

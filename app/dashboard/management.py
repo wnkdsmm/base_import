@@ -9,8 +9,14 @@ from app.services.executive_brief import (
 from app.services.forecast_risk.core import build_decision_support_payload
 
 
-def _empty_management_snapshot() -> Dict[str, Any]:
-    brief = empty_executive_brief()
+def _build_management_snapshot_payload(
+    brief: Dict[str, Any],
+    *,
+    territories: Optional[List[Dict[str, str]]] = None,
+    actions: Optional[List[Dict[str, str]]] = None,
+    notes: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    resolved_notes = list(notes if notes is not None else brief.get("notes") or [])
     return {
         "summary_line": brief["lead"],
         "priority_territory_label": brief["top_territory_label"],
@@ -24,13 +30,17 @@ def _empty_management_snapshot() -> Dict[str, Any]:
         "recommended_action_detail": brief["action_detail"],
         "brief_cards": list(brief["cards"]),
         "brief": brief,
-        "territories": [],
-        "actions": [],
-        "notes": [],
+        "territories": list(territories or []),
+        "actions": list(actions or []),
+        "notes": resolved_notes,
         "export_title": brief["export_title"],
         "export_excerpt": brief["export_excerpt"],
         "export_text": "",
     }
+
+
+def _empty_management_snapshot() -> Dict[str, Any]:
+    return _build_management_snapshot_payload(empty_executive_brief())
 
 
 def _build_management_snapshot(
@@ -152,26 +162,12 @@ def _build_management_snapshot(
     )
     brief["export_text"] = ""
 
-    return {
-        "summary_line": brief["lead"],
-        "priority_territory_label": brief["top_territory_label"],
-        "priority_reason": brief["priority_reason"],
-        "priority_tone": brief["priority_tone"],
-        "confidence_label": brief["confidence_label"],
-        "confidence_score_display": brief["confidence_score_display"],
-        "confidence_tone": brief["confidence_tone"],
-        "confidence_summary": brief["confidence_summary"],
-        "recommended_action_label": brief["action_label"],
-        "recommended_action_detail": brief["action_detail"],
-        "brief_cards": list(brief["cards"]),
-        "brief": brief,
-        "territories": territories,
-        "actions": actions[:3],
-        "notes": list(brief["notes"] or notes),
-        "export_title": brief["export_title"],
-        "export_excerpt": brief["export_excerpt"],
-        "export_text": "",
-    }
+    return _build_management_snapshot_payload(
+        brief,
+        territories=territories,
+        actions=actions[:3],
+        notes=list(brief["notes"] or notes),
+    )
 
 
 __all__ = ["_empty_management_snapshot", "_build_management_snapshot"]

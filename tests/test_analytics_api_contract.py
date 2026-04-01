@@ -42,7 +42,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
             "summary": {"selected_table_label": "fires"},
         }
 
-        with patch("app.routes.api.get_forecasting_data", return_value=resolved_payload):
+        with patch("app.routes.api_forecasting.get_forecasting_data", return_value=resolved_payload):
             response = forecasting_data_endpoint(include_decision_support=False)
 
         self.assertEqual(response, resolved_payload)
@@ -55,14 +55,14 @@ class AnalyticsApiContractTests(unittest.TestCase):
             "scope": {"table_label": "fires"},
         }
 
-        with patch("app.routes.api.get_dashboard_data", return_value=resolved_payload):
+        with patch("app.routes.api_dashboard.get_dashboard_data", return_value=resolved_payload):
             response = dashboard_data_endpoint()
 
         self.assertEqual(response, resolved_payload)
 
     def test_dashboard_api_returns_400_for_invalid_request(self) -> None:
         with self.assertLogs("app.routes.api", level="WARNING") as captured_logs:
-            with patch("app.routes.api.get_dashboard_data", side_effect=ValueError("bad dashboard params")):
+            with patch("app.routes.api_dashboard.get_dashboard_data", side_effect=ValueError("bad dashboard params")):
                 response = dashboard_data_endpoint()
 
         payload = self._decode_response(response)
@@ -77,7 +77,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
 
     def test_dashboard_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
-            with patch("app.routes.api.get_dashboard_data", side_effect=RuntimeError("dashboard exploded")):
+            with patch("app.routes.api_dashboard.get_dashboard_data", side_effect=RuntimeError("dashboard exploded")):
                 response = dashboard_data_endpoint()
 
         payload = self._decode_response(response)
@@ -91,7 +91,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
 
     def test_forecasting_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
-            with patch("app.routes.api.get_forecasting_data", side_effect=RuntimeError("forecast exploded")):
+            with patch("app.routes.api_forecasting.get_forecasting_data", side_effect=RuntimeError("forecast exploded")):
                 response = forecasting_data_endpoint(include_decision_support=False)
 
         payload = self._decode_response(response)
@@ -111,14 +111,14 @@ class AnalyticsApiContractTests(unittest.TestCase):
             "summary": {"selected_table_label": "fires"},
         }
 
-        with patch("app.routes.api.get_forecasting_metadata", return_value=resolved_payload):
+        with patch("app.routes.api_forecasting.get_forecasting_metadata", return_value=resolved_payload):
             response = forecasting_metadata_endpoint()
 
         self.assertEqual(response, resolved_payload)
 
     def test_forecasting_metadata_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
-            with patch("app.routes.api.get_forecasting_metadata", side_effect=RuntimeError("metadata exploded")):
+            with patch("app.routes.api_forecasting.get_forecasting_metadata", side_effect=RuntimeError("metadata exploded")):
                 response = forecasting_metadata_endpoint()
 
         payload = self._decode_response(response)
@@ -155,14 +155,14 @@ class AnalyticsApiContractTests(unittest.TestCase):
             },
         }
 
-        with patch("app.routes.api.get_ml_model_data", return_value=resolved_payload):
+        with patch("app.routes.api_ml_model.get_ml_model_data", return_value=resolved_payload):
             response = ml_model_data_endpoint()
 
         self.assertEqual(response, resolved_payload)
 
     def test_clustering_api_returns_400_for_invalid_request(self) -> None:
         with self.assertLogs("app.routes.api", level="WARNING") as captured_logs:
-            with patch("app.routes.api.get_clustering_data", side_effect=ValueError("bad cluster params")):
+            with patch("app.routes.api_clustering.get_clustering_data", side_effect=ValueError("bad cluster params")):
                 response = clustering_data_endpoint(self._build_request())
 
         payload = self._decode_response(response)
@@ -177,7 +177,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
 
     def test_clustering_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
-            with patch("app.routes.api.get_clustering_data", side_effect=RuntimeError("clustering exploded")):
+            with patch("app.routes.api_clustering.get_clustering_data", side_effect=RuntimeError("clustering exploded")):
                 response = clustering_data_endpoint(self._build_request())
 
         payload = self._decode_response(response)
@@ -197,14 +197,14 @@ class AnalyticsApiContractTests(unittest.TestCase):
             "points": [{"label": "Точка А", "score_display": "78"}],
         }
 
-        with patch("app.routes.api.get_access_points_data", return_value=resolved_payload):
+        with patch("app.routes.api_access_points.get_access_points_data", return_value=resolved_payload):
             response = access_points_data_endpoint()
 
         self.assertEqual(response, resolved_payload)
 
     def test_access_points_api_returns_400_for_invalid_request(self) -> None:
         with self.assertLogs("app.routes.api", level="WARNING") as captured_logs:
-            with patch("app.routes.api.get_access_points_data", side_effect=ValueError("bad access params")):
+            with patch("app.routes.api_access_points.get_access_points_data", side_effect=ValueError("bad access params")):
                 response = access_points_data_endpoint()
 
         payload = self._decode_response(response)
@@ -216,7 +216,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
 
     def test_access_points_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
-            with patch("app.routes.api.get_access_points_data", side_effect=RuntimeError("access exploded")):
+            with patch("app.routes.api_access_points.get_access_points_data", side_effect=RuntimeError("access exploded")):
                 response = access_points_data_endpoint()
 
         payload = self._decode_response(response)
@@ -230,7 +230,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
 
     def test_ml_model_api_returns_structured_http_error(self) -> None:
         with self.assertLogs("app.routes.api", level="ERROR") as captured_logs:
-            with patch("app.routes.api.get_ml_model_data", side_effect=RuntimeError("ml exploded")):
+            with patch("app.routes.api_ml_model.get_ml_model_data", side_effect=RuntimeError("ml exploded")):
                 response = ml_model_data_endpoint()
 
         payload = self._decode_response(response)
@@ -252,7 +252,7 @@ class AnalyticsApiContractTests(unittest.TestCase):
                 },
                 clear=False,
             ),
-            patch("app.routes.api.get_forecasting_data", side_effect=RuntimeError("forecast exploded")),
+            patch("app.routes.api_forecasting.get_forecasting_data", side_effect=RuntimeError("forecast exploded")),
         ):
             response = forecasting_data_endpoint(include_decision_support=False)
 

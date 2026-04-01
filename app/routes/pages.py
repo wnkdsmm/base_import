@@ -4,20 +4,20 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS, get_all_tables, get_table_page
+from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS, get_all_tables
 from app.plotly_bundle import get_plotly_bundle
-from app.services.access_points_service import get_access_points_shell_context
-from app.services.clustering_service import get_clustering_page_context
+from app.services.access_points.core import get_access_points_shell_context
+from app.services.clustering.core import get_clustering_page_context
 from app.services.dashboard_service import get_dashboard_page_context, get_dashboard_shell_context
 from app.services.fire_map_service import build_fire_map_html, get_fire_map_page_context
-from app.services.forecasting_service import get_forecasting_page_context, get_forecasting_shell_context
-from app.services.ml_model_service import get_ml_model_shell_context
+from app.services.forecasting.core import get_forecasting_page_context, get_forecasting_shell_context
+from app.services.ml_model.core import get_ml_model_shell_context
 from app.services.table_options import (
     get_column_search_table_options,
     get_fire_map_table_options,
     resolve_selected_table,
 )
-from app.services.table_summary import build_table_page_summary
+from app.services.table_workflows import build_table_page_bundle
 from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
 from config.paths import STATIC_DIR, TEMPLATES_DIR
 from core.processing.steps.keep_important_columns import get_mandatory_feature_catalog
@@ -335,22 +335,15 @@ async def view_table(
     page_size: int = Query(DEFAULT_TABLE_PAGE_SIZE, ge=1),
 ):
     try:
-        table_page = get_table_page(table_name, page=page, page_size=page_size)
+        table_bundle = build_table_page_bundle(table_name=table_name, page=page, page_size=page_size)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=404, detail="Table not found") from exc
 
+    table_page = table_bundle["table_page"]
     columns = table_page["columns"]
     rows = table_page["rows"]
-    table_summary = build_table_page_summary(
-        table_name=table_name,
-        columns=columns,
-        rows=rows,
-        total_rows=table_page["total_rows"],
-        page_row_start=table_page["page_row_start"],
-        page_row_end=table_page["page_row_end"],
-    )
 
     return templates.TemplateResponse(
         "table_view.html",
@@ -361,7 +354,7 @@ async def view_table(
             rows=rows,
             pagination=table_page,
             page_size_options=TABLE_PAGE_SIZE_OPTIONS,
-            table_summary=table_summary,
+            table_summary=table_bundle["table_summary"],
             table_view_js_version=_static_version("js/table_view.js"),
         ),
     )
