@@ -1,0 +1,79 @@
+<main class="main dashboard-main ml-model-main" id="page-content">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">ML-прогноз | количество по дням</span>
+            <h1>Сколько пожаров может быть по датам</h1>
+            <p class="subtitle">Открывайте этот экран, когда нужно оценить ожидаемое число пожаров по дням и возможную нагрузку на систему.</p>
+            <p class="hero-live-summary" id="mlModelDescription">{{ summary.hero_summary or data.model_description or 'После загрузки здесь появится объяснение, сколько пожаров ожидается и насколько можно доверять расчету.' }}</p>
+            <p class="hero-context-note">Здесь единица прогноза — ожидаемое число пожаров на дату. Экран не ранжирует территории и не заменяет сценарный календарь вероятности пожара.</p>
+            <div class="hero-tags" id="mlHeroTags">
+                <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
+                <span class="hero-tag">РСЃС‚РѕСЂРёСЏ РґР»СЏ СЂР°СЃС‡С‘С‚Р°: <strong>{{ summary.history_window_label }}</strong></span>
+                <span class="hero-tag">Главный фактор модели: <strong>{{ summary.top_feature_label }}</strong></span>
+                <span class="hero-tag">Температурный сценарий: <strong>{{ summary.temperature_scenario_display }}</strong></span>
+                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя вероятность P(&gt;=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Событие пожара: <strong>не показано</strong>{% endif %}</span>
+            </div>
+        </div>
+        <div class="hero-side" id="mlHeroStats">
+            <article class="hero-stat-card">
+                <span class="hero-stat-label">Среднее ожидаемое число в день</span>
+                <strong class="hero-stat-value">{{ summary.average_expected_count_display }}</strong>
+                <span class="hero-stat-foot">Средняя дневная интенсивность на выбранном горизонте прогноза.</span>
+            </article>
+            <article class="hero-stat-card hero-stat-card-soft">
+                <span class="hero-stat-label">Пик по горизонту</span>
+                <strong class="hero-stat-value">{{ summary.peak_expected_count_display }}</strong>
+                <span class="hero-stat-foot">Максимальное ожидаемое число пожаров: {{ summary.peak_expected_count_day_display }}.</span>
+            </article>
+        </div>
+    </section>
+
+    <nav class="orientation-strip" aria-label="Что показывает каждый экран">
+        <a id="mlPanelLink" class="orientation-link is-primary" href="/{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
+            <span class="orientation-kicker">Панель</span>
+            <strong>Что происходит сейчас в выбранном срезе</strong>
+            <p>Общий обзор по пожарам и первый приоритет без прогноза количества по датам.</p>
+            <span class="orientation-cta">Открыть панель</span>
+        </a>
+        <a id="mlScenarioLink" class="orientation-link is-scenario" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}">
+            <span class="orientation-kicker">Сценарный прогноз</span>
+            <strong>В какие даты вероятность пожара выше</strong>
+            <p>Вероятность пожара по дням и переход к приоритету территорий.</p>
+            <span class="orientation-cta">Открыть прогноз на дни</span>
+        </a>
+        <a class="orientation-link is-ml is-current" href="#mlForecastSection" aria-current="page">
+            <span class="orientation-kicker">ML-прогноз</span>
+            <strong>Сколько пожаров может быть по датам</strong>
+            <p>Ожидаемое число пожаров и нагрузка по дням.</p>
+            <span class="orientation-cta">Вы уже в ML-прогнозе</span>
+        </a>
+        <a id="mlDecisionLink" class="orientation-link is-decision" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}#forecastDetails">
+            <span class="orientation-kicker">Поддержка решений</span>
+            <strong>Какие территории ставить первыми</strong>
+            <p>Полное ранжирование территорий, причины приоритета и доверие к нему.</p>
+            <span class="orientation-cta">Открыть приоритет территорий</span>
+        </a>
+    </nav>
+
+    <section class="screen-guide" aria-label="Как читать ML-прогноз">
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Когда открывать</span>
+            <strong>Когда нужна оценка нагрузки</strong>
+            <p>РСЃРїРѕР»СЊР·СѓР№С‚Рµ ML-РїСЂРѕРіРЅРѕР·, РµСЃР»Рё РІР°Р¶РЅРѕ РѕС†РµРЅРёС‚СЊ РѕР¶РёРґР°РµРјРѕРµ С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ РїРѕ РґР°С‚Р°Рј Рё РїРѕРЅСЏС‚СЊ РІРѕР·РјРѕР¶РЅСѓСЋ РЅР°РіСЂСѓР·РєСѓ РЅР° СЃРёСЃС‚РµРјСѓ.</p>
+        </article>
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Что показывает</span>
+            <strong>Ожидаемое число пожаров по датам</strong>
+            <p>Экран показывает прогноз количества, проверку качества модели и факторы, которые сильнее всего влияют на расчет.</p>
+        </article>
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Чем отличается</span>
+            <strong>Экран отвечает на вопрос «сколько»</strong>
+            <p>Вероятность по дням смотрите в сценарном прогнозе, территориальный приоритет — в блоке поддержки решений.</p>
+        </article>
+    </section>
+
+    <section class="clarity-note" aria-label="Как читать ML-прогноз">
+        <span class="clarity-note-label">Как читать экран</span>
+        <strong>Число, а не приоритет территорий</strong>
+        <p>Р“СЂР°С„РёРє Рё С‚Р°Р±Р»РёС†Р° РЅРёР¶Рµ РїРѕРєР°Р·С‹РІР°СЋС‚ РѕР¶РёРґР°РµРјРѕРµ РєРѕР»РёС‡РµСЃС‚РІРѕ РїРѕР¶Р°СЂРѕРІ РїРѕ РґР°С‚Р°Рј. РРЅС‚РµСЂРІР°Р»С‹ Рё РјРµС‚СЂРёРєРё РєР°С‡РµСЃС‚РІР° РѕР±СЉСЏСЃРЅСЏСЋС‚ РЅР°РґРµР¶РЅРѕСЃС‚СЊ СЂР°СЃС‡РµС‚Р°, РЅРѕ РЅРµ Р·Р°РјРµРЅСЏСЋС‚ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Р№ РїСЂРёРѕСЂРёС‚РµС‚.</p>

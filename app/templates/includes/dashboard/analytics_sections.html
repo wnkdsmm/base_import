@@ -1,0 +1,122 @@
+                </div>
+            </section>
+            <section class="dashboard-layout dashboard-layout-focused">
+                <div class="dashboard-primary">
+                    <article class="panel dashboard-section-intro dashboard-section-intro-soft">
+                        <div class="panel-head">
+                            <div>
+                                <h2>Что показывает срез в цифрах и графиках</h2>
+                                <span class="panel-meta">Что показывает блок: на каких фактах держится обзор панели и что стоит проверить глубже.</span>
+                            </div>
+                        </div>
+                        <p class="section-helper">Эти графики объясняют текущий срез. Они не заменяют прогноз по дням и не строят отдельное ранжирование территорий.</p>
+                    </article>
+                    <div class="dashboard-grid dashboard-grid-three">
+                        <article class="panel ranking-panel">
+                            <div class="panel-head">
+                                <h2>Что чаще всего попадает в срез</h2>
+                                <span class="panel-meta">Что показывает блок: какие категории или типы сейчас формируют основную картину по выбранному срезу.</span>
+                            </div>
+                            <div id="topDistributionList" class="ranking-list">
+                                {% if rankings.top_distribution %}
+                                    {% for item in rankings.top_distribution %}
+                                    <div class="ranking-row ranking-row-fire" title="{{ item.label }}: {{ item.value_display }}">
+                                        <div class="ranking-label">{{ item.label }}</div>
+                                        <div class="ranking-meta">{{ item.value_display }}</div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Нет данных по распределению.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+
+                        <article class="panel ranking-panel">
+                            <div class="panel-head">
+                                <h2>Как менялась ситуация по годам</h2>
+                                <span class="panel-meta">Что показывает блок: усиливается ли проблема по годам или остается примерно на том же уровне.</span>
+                            </div>
+                            <div id="recentYearsList" class="ranking-list">
+                                {% if rankings.recent_years %}
+                                    {% for item in rankings.recent_years %}
+                                    <div class="ranking-row ranking-row-year" title="{{ item.label }}: {{ item.value_display }}">
+                                        <div class="ranking-label">{{ item.label }}</div>
+                                        <div class="ranking-meta">{{ item.value_display }}</div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Недостаточно годовых данных.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+
+                        <article class="panel ranking-panel">
+                            <div class="panel-head">
+                                <h2>На каких таблицах держится обзор</h2>
+                                <span class="panel-meta">Что показывает блок: какие источники данных сильнее всего влияют на текущий обзор.</span>
+                            </div>
+                            <div id="topTablesList" class="ranking-list">
+                                {% if rankings.top_tables %}
+                                    {% for item in rankings.top_tables %}
+                                    <div class="ranking-row ranking-row-table" title="{{ item.label }}: {{ item.value_display }}">
+                                        <div class="ranking-label">{{ item.label }}</div>
+                                        <div class="ranking-meta">{{ item.value_display }}</div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Нет таблиц в текущем фильтре.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+                    </div>
+
+                    <article class="panel chart-panel chart-panel-large chart-panel-causes">
+                        <div class="panel-head">
+                            <h2 id="yearlyFiresTitle">{{ charts.yearly_fires.title }}</h2>
+                            <span class="panel-meta">Что показывает блок: какие причины чаще всего формируют ситуацию в выбранном срезе.</span>
+                        </div>
+                        {{ render_plotly_chart('yearlyFiresChart') }}
+                    </article>
+
+                    <div class="dashboard-grid dashboard-grid-two">
+                        <article class="panel chart-panel chart-panel-large">
+                            <div class="panel-head">
+                                <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
+                                <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Что показывает блок: как пожары распределяются по выбранной группе.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('distributionChart') }}
+                        </article>
+
+                        <article class="panel chart-panel chart-panel-large">
+                            <div class="panel-head">
+                                <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
+                                <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Что показывает блок: тяжесть последствий и влияние пожаров на людей.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('yearlyAreaChart') }}
+                        </article>
+                    </div>
+
+                    <div class="dashboard-grid dashboard-grid-two">
+                        <article class="panel chart-panel">
+                            <div class="panel-head">
+                                <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
+                                <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('monthlyProfileChart') }}
+                        </article>
+
+                        <article class="panel chart-panel">
+                            <div class="panel-head">
+                                <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
+                                <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Что показывает блок: преобладают ли небольшие или крупные пожары.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('areaBucketsChart') }}
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </section>
+</main>
+
+<script>

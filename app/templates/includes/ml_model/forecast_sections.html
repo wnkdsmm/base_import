@@ -1,0 +1,88 @@
+
+    <section id="mlForecastSection" class="ml-layout">
+        <div class="ml-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2 id="mlForecastTitle">{{ charts.forecast.title }}</h2>
+                    <span class="panel-meta">Что показывает блок: историю, проверку на истории и будущие значения числа пожаров на одной шкале.</span>
+                </div>
+                <div id="mlForecastChart" class="plotly-chart ml-plot"></div>
+                <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
+            </article>
+
+            <article class="panel ml-table-panel">
+                <div class="panel-head">
+                    <h2>Прогноз по дням</h2>
+                    <span class="panel-meta">Что показывает блок: ожидаемое число пожаров по каждой дате и диапазон неопределенности.</span>
+                </div>
+                <div class="ml-table-shell" id="mlForecastTableShell">
+                    {% if data.forecast_rows %}
+                    <table class="forecast-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Ожидаемое число пожаров</th>
+                                <th>Диапазон</th>
+                                <th>РРЅРґРµРєСЃ СЂРёСЃРєР°</th>
+                                <th>P(&gt;=1 пожара)</th>
+                                <th>Температура</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in data.forecast_rows %}
+                            <tr>
+                                <td data-label="Дата">{{ row.date_display }}</td>
+                                <td data-label="Ожидаемое число пожаров">{{ row.forecast_value_display }}</td>
+                                <td data-label="Диапазон">{{ row.range_display }}</td>
+                                <td data-label="РРЅРґРµРєСЃ СЂРёСЃРєР°"><span class="ml-risk-pill ml-risk-{{ row.risk_level_tone }}">{{ row.risk_index_display }}</span></td>
+                                <td data-label="P(>=1 пожара)">{{ row.event_probability_display }}</td>
+                                <td data-label="Температура">{{ row.temperature_display }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="mini-empty">После обучения здесь появится прогноз по будущим датам.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="dashboard-secondary ml-secondary">
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2 id="mlImportanceTitle">{{ charts.importance.title }}</h2>
+                    <span class="panel-meta">Что показывает блок: какие факторы сильнее всего меняют прогноз количества.</span>
+                </div>
+                <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small"></div>
+                <div id="mlImportanceChartFallback" class="chart-empty{% if charts.importance.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.importance.empty_message }}</div>
+            </article>
+
+            <article id="mlFeatureSection" class="panel insight-panel">
+                <div class="panel-head">
+                    <h2>Какие данные модель реально использовала</h2>
+                    <span class="panel-meta">Что показывает блок: какие данные действительно вошли в расчет количества пожаров.</span>
+                </div>
+                <div class="forecast-feature-list" id="mlFeatureCards">
+                    {% if data.features %}
+                        {% for feature in data.features %}
+                        <article class="forecast-feature-card status-{{ feature.status }}">
+                            <div class="forecast-feature-head">
+                                <strong>{{ feature.label }}</strong>
+                                <span class="forecast-badge">{{ feature.status_label }}</span>
+                            </div>
+                            <p>{{ feature.description }}</p>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">После выбора таблицы здесь появятся признаки модели.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+        </aside>
+    </section>
+</main>
+
+<script>
+window.__FIRE_ML_INITIAL__ = {{ data | tojson }};

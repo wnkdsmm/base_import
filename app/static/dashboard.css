@@ -1,0 +1,119 @@
+/* Dashboard */
+
+.dashboard-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 420px);
+    gap: 18px;
+    align-items: start;
+}
+
+.dashboard-layout-focused {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-primary,
+.dashboard-secondary {
+    min-width: 0;
+}
+
+.dashboard-main > .hero-panel {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 430px);
+}
+
+.dashboard-secondary {
+    position: sticky;
+    top: 24px;
+}
+
+.dashboard-grid {
+    display: grid;
+    gap: 18px;
+}
+
+.dashboard-grid-two {
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+}
+
+
+@media (max-width: 1380px) {
+    .dashboard-shell {
+        grid-template-columns: 360px minmax(0, 1fr);
+    }
+
+    .dashboard-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-secondary {
+        position: static;
+    }
+
+    .forecast-layout,
+    .ml-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .forecast-secondary,
+    .ml-secondary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .dashboard-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-overview-sticky {
+        position: static;
+    }
+
+    .hero-panel,
+    .dashboard-grid-two,
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-field-wide {
+        grid-column: span 1;
+    }
+
+    .dashboard-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-overview-column .dashboard-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-overview-column .stat-card-wide {
+        grid-column: 1 / -1;
+    }
+
+    .column-search-builder-grid,
+    .forecast-explain-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .table-management-layout,
+    .table-import-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+.dashboard-grid-three {
+    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+}
+
+.dashboard-section-intro {
+    padding: 22px;
+}
+
+.dashboard-section-intro-soft {
+    margin-bottom: 18px;
+}
+
+.executive-detail-panel {
+    margin-bottom: 18px;
+}

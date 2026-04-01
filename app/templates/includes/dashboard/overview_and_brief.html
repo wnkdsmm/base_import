@@ -1,0 +1,174 @@
+    {% set brief = management.brief %}
+    {% set section_id = 'dashboardBrief' %}
+    {% set brief_heading = 'Короткий вывод по территориям на панели' %}
+    {% set brief_purpose = 'Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней, причину выбора и уровень доверия к выводу.' %}
+    {% set export_link_id = 'dashboardBriefExportLink' %}
+    {% set brief_trust_title = 'Можно ли опираться на вывод' %}
+    {% set export_href = '/brief/dashboard.txt?table_name=' ~ filters.table_name ~ '&year=' ~ filters.year ~ '&group_column=' ~ filters.group_column %}
+    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
+    {% set cards_id = 'managementBriefCards' %}
+    {% set excerpt_id = 'dashboardExportBriefExcerpt' %}
+    {% set notes_id = 'managementNotesList' %}
+
+    <section class="dashboard-shell">
+        <aside class="dashboard-overview-column">
+            <div class="dashboard-overview-sticky">
+                <article class="panel dashboard-section-intro">
+                    <div class="panel-head">
+                        <div>
+                            <h2>Срез и опорные показатели</h2>
+                            <span class="panel-meta">Что показывает блок: базовый контекст по выбранному срезу без прогноза по датам.</span>
+                        </div>
+                    </div>
+                    <p class="section-helper">Сначала смотрите справа краткий территориальный вывод, а этот столбец используйте как фактическую опору: здесь масштабы, фильтры и показатели, которые его объясняют.</p>
+                </article>
+                <section class="stats-grid dashboard-stats">
+                    <article class="stat-card stat-card-accent stat-card-wide">
+                        <span class="stat-label">Количество пожаров</span>
+                        <strong class="stat-value" id="firesCountValue">{{ summary.fires_count_display }}</strong>
+                        <span class="stat-foot">По фильтру: <span id="firesCountFoot">{{ scope.table_label }}</span></span>
+                    </article>
+                    <article class="stat-card">
+                        <span class="stat-label">Тяжёлые последствия</span>
+                        <strong class="stat-value" id="deathsValue">{{ summary.deaths_display }}</strong>
+                        <span class="stat-foot">Погибшие; травмировано: <span id="injuriesValue">{{ summary.injuries_display }}</span></span>
+                    </article>
+                    <article class="stat-card">
+                        <span class="stat-label">Эвакуация и спасение</span>
+                        <strong class="stat-value" id="evacuatedValue">{{ summary.evacuated_display }}</strong>
+                        <span class="stat-foot">Дети: <span id="childrenValue">{{ summary.evacuated_children_display }}</span> | Спасено детей: <span id="rescuedValue">{{ summary.rescued_children_display }}</span></span>
+                    </article>
+                    <article class="stat-card" id="trendCard">
+                        <span class="stat-label" id="trendTitle">{{ trend.title }}</span>
+                        <strong class="stat-value"><span id="trendCurrentValue">{{ trend.current_value_display }}</span> <small id="trendCurrentYear">{{ trend.current_year }}</small></strong>
+                        <span class="stat-foot"><span id="trendDeltaValue">{{ trend.delta_display }}</span> · <span id="trendDescription">{{ trend.description }}</span></span>
+                    </article>
+                </section>
+
+                <section id="dashboardFilters" class="panel filters-panel">
+                    <div class="panel-head">
+                        <h2>Уточните срез панели</h2>
+                        <span class="panel-meta">Что показывает блок: по каким данным строится обзор панели и короткий территориальный приоритет.</span>
+                    </div>
+                    <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
+                        <label class="filter-field">
+                            <span>Таблица</span>
+                            <select id="tableFilter" name="table_name">
+                                {% for option in filters.available_tables %}
+                                <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label class="filter-field">
+                            <span>Год</span>
+                            <select id="yearFilter" name="year">
+                                <option value="all" {% if filters.year in ["", "all"] %}selected{% endif %}>Все годы</option>
+                                {% for option in filters.available_years %}
+                                <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="filter-hint">РСЃРїРѕР»СЊР·СѓР№С‚Рµ, РµСЃР»Рё РЅСѓР¶РЅРѕ Р±С‹СЃС‚СЂРѕ РїРµСЂРµРєР»СЋС‡РёС‚СЊСЃСЏ РјРµР¶РґСѓ РіРѕРґРѕРј Рё РѕР±С‰РёРј РёСЃС‚РѕСЂРёС‡РµСЃРєРёРј РіРѕСЂРёР·РѕРЅС‚РѕРј.</small>
+                        </label>
+                        <label class="filter-field">
+                            <span>Разрез</span>
+                            <select id="groupColumnFilter" name="group_column">
+                                {% for option in filters.available_group_columns %}
+                                <option value="{{ option.value }}" {% if option.value == filters.group_column %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="filter-hint">Нужен, чтобы сравнить территории, причины или другие группы в графиках и списках ниже.</small>
+                        </label>
+                        <div class="filter-field filter-actions">
+                            <span>Действие</span>
+                            <button id="refreshDashboardButton" class="primary-action" type="submit">Показать обновлённый срез</button>
+                        </div>
+                    </form>
+                    <div class="filter-summary" id="filterSummary">Сейчас на панели: таблица {{ scope.table_label }} | год {{ scope.year_label }} | разрез {{ scope.group_label }}</div>
+                </section>
+
+                <div id="dashboardInlineError" class="analysis-error-card is-hidden" aria-live="polite">
+                    <div class="analysis-error-copy">
+                        <strong id="dashboardInlineErrorLead">Не удалось обновить панель</strong>
+                        <span id="dashboardInlineErrorMessage">Проверьте подключение и повторите запрос.</span>
+                    </div>
+                    <button id="dashboardInlineRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+                </div>
+
+                <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
+                    <div class="panel-head">
+                        <h2>Что может снижать доверие к выводу</h2>
+                        <span class="panel-meta">Что показывает блок: проблемы данных и чтения таблиц, которые могут исказить именно обзор панели.</span>
+                    </div>
+                    <ul class="notice-list" id="dashboardNotesList">
+                        {% for error in dashboard.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            </div>
+        </aside>
+
+        <section class="dashboard-content-column">
+            {% include 'includes/executive_brief.html' %}
+            <section id="dashboardDetails" class="panel executive-detail-panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>Поддержка решений: куда смотреть сначала</h2>
+                        <span class="panel-meta">Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней и первые действия по нему.</span>
+                    </div>
+                </div>
+                <p class="section-helper">На панели показана только короткая версия ранжирования территорий. Полный список, карта зон внимания и разбор компонент риска открываются в блоке поддержки решений на экране сценарного прогноза.</p>
+                <div class="executive-layout">
+                    <div>
+                        <div class="executive-section-head">
+                            <h3>Территории первого внимания</h3>
+                            <span>Top-3 территорий по управленческому приоритету на ближайшие 14 дней</span>
+                        </div>
+                        <div id="managementTerritories" class="executive-territory-list">
+                            {% if management.territories %}
+                                {% for item in management.territories %}
+                                <article class="executive-territory-card tone-{{ item.risk_tone }}">
+                                    <div class="executive-territory-head">
+                                        <strong>{{ item.label }}</strong>
+                                        <span class="executive-territory-score">{{ item.risk_display }}</span>
+                                    </div>
+                                    <div class="executive-territory-tags">
+                                        <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
+                                        <span class="forecast-badge risk-badge tone-sky">{{ item.priority_label }}</span>
+                                    </div>
+                                    <p class="executive-territory-reason">{{ item.drivers_display }}</p>
+                                    <div class="executive-territory-action">
+                                        <strong>{{ item.action_label }}</strong>
+                                        <span>{{ item.action_hint }}</span>
+                                    </div>
+                                    <div class="executive-territory-meta">
+                                        <span>{{ item.context_label }}</span>
+                                        <span>Последний пожар: {{ item.last_fire_display }}</span>
+                                    </div>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Территории первого внимания появятся после расчета.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <aside class="executive-side-stack">
+                        <article class="executive-side-card">
+                            <div class="executive-section-head">
+                                <h3>Что сделать в первую очередь</h3>
+                                <span>Короткий список действий по территориям выше</span>
+                            </div>
+                            <div id="managementActionList" class="executive-action-list">
+                                {% if management.actions %}
+                                    {% for item in management.actions %}
+                                    <article class="executive-action-item">
+                                        <strong>{{ item.label }}</strong>
+                                        <span>{{ item.detail }}</span>
+                                    </article>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="mini-empty">Рекомендации появятся после расчета.</div>
+                                {% endif %}
+                            </div>
+                        </article>
+                    </aside>

@@ -1,0 +1,237 @@
+    {% set brief = data.executive_brief %}
+    {% set section_id = 'decisionSupportPanel' %}
+    {% set brief_heading = 'Переход от сценария к решениям' %}
+    {% set brief_purpose = 'Что показывает блок: краткий территориальный вывод по итогам сценария, а не еще один календарь по дням.' %}
+    {% set export_link_id = 'forecastCommandExportLink' %}
+    {% set brief_trust_title = 'Можно ли опираться на рекомендацию' %}
+    {% set export_href = '/brief/forecasting.txt?table_name=' ~ filters.table_name ~ '&district=' ~ filters.district ~ '&cause=' ~ filters.cause ~ '&object_category=' ~ filters.object_category ~ '&temperature=' ~ filters.temperature ~ '&forecast_days=' ~ filters.forecast_days ~ '&history_window=' ~ filters.history_window %}
+    {% set brief_summary_title = 'Как читать этот вывод' %}
+    {% set cards_id = 'forecastCommandCards' %}
+    {% set excerpt_id = 'forecastCommandExportExcerpt' %}
+    {% set notes_id = 'forecastCommandNotes' %}
+    {% include 'includes/executive_brief.html' %}
+    <section id="forecastFilters" class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Задайте условия сценария</h2>
+            <span class="panel-meta">Что показывает блок: для каких условий пересчитывается календарь вероятности по дням; территориальный приоритет ниже обновится вслед за сценарием.</span>
+        </div>
+        <form class="filters-grid forecast-form-grid" id="forecastForm" method="get" action="/forecasting">
+            <label class="filter-field">
+                <span>Таблица</span>
+                <select id="forecastTableFilter" name="table_name">
+                    {% for option in filters.available_tables %}
+                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>РСЃС‚РѕСЂРёСЏ РґР»СЏ СЂР°СЃС‡С‘С‚Р°</span>
+                <select id="forecastHistoryWindowFilter" name="history_window">
+                    {% for option in filters.available_history_windows %}
+                    <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Район</span>
+                <select id="forecastDistrictFilter" name="district">
+                    {% for option in filters.available_districts %}
+                    <option value="{{ option.value }}" {% if option.value == filters.district %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Причина пожара</span>
+                <select id="forecastCauseFilter" name="cause">
+                    {% for option in filters.available_causes %}
+                    <option value="{{ option.value }}" {% if option.value == filters.cause %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Тип объекта</span>
+                <select id="forecastObjectCategoryFilter" name="object_category">
+                    {% for option in filters.available_object_categories %}
+                    <option value="{{ option.value }}" {% if option.value == filters.object_category %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Температура, °C</span>
+                <input id="forecastTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берется сезонная средняя">
+            </label>
+            <label class="filter-field">
+                <span>Сколько дней вперёд</span>
+                <select id="forecastDaysFilter" name="forecast_days">
+                    {% for option in filters.available_forecast_days %}
+                    <option value="{{ option.value }}" {% if option.value == filters.forecast_days %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="filter-field filter-actions forecast-actions">
+                <span>Действие</span>
+                <button id="forecastRefreshButton" class="primary-action" type="submit">Пересчитать прогноз на дни</button>
+            </div>
+        </form>
+        <div class="filter-summary" id="forecastSummaryLine">{% if data.loading and data.loading_status_message %}{{ data.loading_status_message }}{% else %}Сейчас показано: {{ summary.slice_label }} | Типичный день: {{ summary.average_probability_display }} | Пик: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | К последним 4 неделям: {{ summary.forecast_vs_recent_display }}{% endif %}</div>
+    </section>
+
+    <div id="forecastAsyncState" class="analysis-async{% if not (data.bootstrap_mode == 'deferred' or data.metadata_status_message or data.loading_status_message or data.decision_support_status_message) %} is-hidden{% endif %}">
+        <div id="forecastLoadingState" class="analysis-status-card{% if data.loading or data.decision_support_pending or data.bootstrap_mode == 'deferred' %} is-pending{% elif data.base_forecast_ready or data.decision_support_ready %} is-ready{% else %} is-hidden{% endif %}" aria-live="polite">
+            <div class="analysis-status-head">
+                <div class="analysis-status-copy">
+                    <strong id="forecastLoadingLead" class="analysis-status-lead">Подготавливаем прогноз по дням</strong>
+                    <span id="forecastLoadingMessage" class="analysis-status-message">{% if data.decision_support_pending and data.decision_support_status_message %}{{ data.decision_support_status_message }}{% elif data.loading_status_message %}{{ data.loading_status_message }}{% elif data.metadata_status_message %}{{ data.metadata_status_message }}{% else %}Сначала загружаем фильтры и признаки, затем считаем базовый прогноз и только третьим этапом догружаем поддержку решений.{% endif %}</span>
+                </div>
+            </div>
+            <div id="forecastProgressSteps" class="analysis-step-list">
+                <span class="analysis-step is-active">Загрузка данных</span>
+                <span class="analysis-step">Агрегация</span>
+                <span class="analysis-step">Обучение / валидация</span>
+                <span class="analysis-step">Построение визуализаций</span>
+            </div>
+            <div class="analysis-status-meta">
+                <div id="forecastMetadataStatus" class="analysis-status-line{% if not data.metadata_status_message %} is-hidden{% endif %}{% if data.metadata_error %} is-error{% elif data.metadata_pending %} is-pending{% elif data.metadata_ready %} is-ready{% endif %}" data-stage-label="Фильтры и признаки">{{ data.metadata_status_message }}</div>
+                <div id="forecastBootstrapStatus" class="analysis-status-line{% if not data.loading_status_message %} is-hidden{% endif %}{% if data.loading or data.bootstrap_mode == 'deferred' %} is-pending{% elif data.base_forecast_ready and data.loading_status_message %} is-ready{% endif %}" data-stage-label="Базовый прогноз">{{ data.loading_status_message }}</div>
+                <div id="forecastDecisionSupportStatus" class="analysis-status-line{% if not data.decision_support_status_message %} is-hidden{% endif %}{% if data.decision_support_error %} is-error{% elif data.decision_support_pending %} is-pending{% elif data.decision_support_ready %} is-ready{% endif %}" data-stage-label="Поддержка решений">{{ data.decision_support_status_message }}</div>
+            </div>
+            <div id="forecastLoadingSkeleton" class="analysis-skeleton-grid{% if data.base_forecast_ready and not data.decision_support_pending and not data.loading %} is-hidden{% endif %}">
+                <div class="analysis-skeleton-card">
+                    <span class="analysis-skeleton-line short"></span>
+                    <span class="analysis-skeleton-line value"></span>
+                    <span class="analysis-skeleton-line medium"></span>
+                </div>
+                <div class="analysis-skeleton-card">
+                    <span class="analysis-skeleton-line short"></span>
+                    <span class="analysis-skeleton-line value"></span>
+                    <span class="analysis-skeleton-line long"></span>
+                </div>
+                <div class="analysis-skeleton-card">
+                    <span class="analysis-skeleton-line short"></span>
+                    <span class="analysis-skeleton-line value"></span>
+                    <span class="analysis-skeleton-line medium"></span>
+                </div>
+            </div>
+        </div>
+        <div id="forecastErrorState" class="analysis-error-card is-hidden" aria-live="polite">
+            <div class="analysis-error-copy">
+                <strong>Не удалось пересчитать прогноз</strong>
+                <span id="forecastErrorMessage">Попробуйте еще раз с теми же фильтрами.</span>
+            </div>
+            <div class="analysis-inline-actions">
+                <button id="forecastRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+            </div>
+        </div>
+        <div id="forecastJobRuntime" class="analysis-runtime-card is-hidden" aria-live="polite">
+            <div class="analysis-runtime-head">
+                <strong id="forecastJobStatusLabel">Статус decision-support job</strong>
+                <span id="forecastJobMeta"></span>
+            </div>
+            <pre id="forecastJobLogOutput" class="analysis-job-log-output"></pre>
+        </div>
+    </div>
+    <section class="stats-grid forecast-stats">
+        <article class="stat-card stat-card-accent">
+            <span class="stat-label">Пожаров в истории</span>
+            <strong class="stat-value" id="forecastFiresCount">{{ summary.fires_count_display }}</strong>
+            <span class="stat-foot">После выбранных фильтров</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Дни с пожарами в истории</span>
+            <strong class="stat-value" id="forecastActiveDaysShare">{{ summary.active_days_share_display }}</strong>
+            <span class="stat-foot"><span id="forecastActiveDays">{{ summary.active_days_display }}</span> из <span id="forecastHistoryDays">{{ summary.history_days_display }}</span> дней</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Какой день в истории был типичным</span>
+            <strong class="stat-value" id="forecastRecentAverage">{{ summary.recent_average_display }}</strong>
+            <span class="stat-foot">РСЃС‚РѕСЂРёС‡РµСЃРєРё РІ СЃСЂРµРґРЅРµРј: <span id="forecastHistoricalAverage">{{ summary.historical_average_display }}</span></span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Где ожидается пик</span>
+            <strong class="stat-value" id="forecastPeakRiskValue">{{ summary.peak_forecast_probability_display }}</strong>
+            <span class="stat-foot">Дата: <span id="forecastPeakRiskDay">{{ summary.peak_forecast_day_display }}</span></span>
+        </article>
+    </section>
+
+        <details id="scenarioQualityPanel" class="panel ml-quality-panel quality-disclosure">
+            <summary class="panel-head quality-disclosure-summary">
+                <div>
+                    <h2 id="scenarioQualityTitle">Насколько прогноз по дням попадает в историю</h2>
+                    <span id="scenarioQualitySubtitle" class="panel-meta">{{ quality.subtitle or 'Что показывает блок: насколько календарь сценария совпадал с прошлой историей. Это проверка именно прогноза по дням.' }}</span>
+                </div>
+                <span class="quality-disclosure-toggle">Показать проверку на истории</span>
+            </summary>
+        <div id="scenarioQualityMetrics" class="stats-grid">
+            {% if quality.metric_cards %}
+                {% for item in quality.metric_cards %}
+                <article class="stat-card">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value">{{ item.value }}</strong>
+                    <span class="stat-foot">{{ item.meta }}</span>
+                </article>
+                {% endfor %}
+            {% else %}
+            <div class="mini-empty">После расчёта здесь появятся метрики качества сценарного прогноза.</div>
+            {% endif %}
+        </div>
+        <div id="scenarioQualityMethodology" class="stats-grid">
+            {% if quality.methodology_items %}
+                {% for item in quality.methodology_items %}
+                <article class="stat-card">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value">{{ item.value }}</strong>
+                    <span class="stat-foot">{{ item.meta }}</span>
+                </article>
+                {% endfor %}
+            {% else %}
+            <div class="mini-empty">Параметры валидации появятся после проверки на истории.</div>
+            {% endif %}
+        </div>
+        <div id="scenarioQualityTableShell" class="forecast-table-shell">
+            {% if quality.comparison_rows %}
+            <table class="forecast-table">
+                <thead>
+                    <tr>
+                        <th>Метод</th>
+                        <th>Роль</th>
+                        <th>MAE</th>
+                        <th>RMSE</th>
+                        <th>SMAPE</th>
+                        <th>MAE к базовой модели</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in quality.comparison_rows %}
+                    <tr>
+                        <td data-label="Метод">{{ row.method_label }}</td>
+                        <td data-label="Роль">{{ row.role_label }}</td>
+                        <td data-label="MAE">{{ row.mae_display }}</td>
+                        <td data-label="RMSE">{{ row.rmse_display }}</td>
+                        <td data-label="SMAPE">{{ row.smape_display }}</td>
+                        <td data-label="MAE к базовой модели">{{ row.mae_delta_display | default('—') }}</td>
+                        <td data-label="Статус">{{ row.selection_label }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="mini-empty">Сравнение сценарного прогноза и базовой модели появится после проверки на истории.</div>
+            {% endif %}
+        </div>
+        <article class="panel ranking-panel">
+            <div class="panel-head">
+                <h2>Короткие выводы о точности</h2>
+                <span class="panel-meta">Что показывает блок: короткие выводы по календарю ближайших дней без чтения всех метрик.</span>
+            </div>
+            <ul id="scenarioQualityDissertation" class="notice-list forecast-note-list">
+                {% if quality.dissertation_points %}
+                    {% for note in quality.dissertation_points %}
+                    <li>{{ note }}</li>
+                    {% endfor %}
+                {% else %}
+                <li>После расчета здесь появятся формулировки для раздела “оценка качества”.</li>
+                {% endif %}
+            </ul>
+        </article>
+    </details>

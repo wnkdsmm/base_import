@@ -1,0 +1,92 @@
+<main class="main dashboard-main forecasting-main" id="page-content">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">Сценарный прогноз | календарь по дням</span>
+            <h1>В какие дни сценарий выглядит напряжённее</h1>
+            <p class="subtitle">Открывайте этот экран, когда нужно заранее понять даты роста пожарной активности и подготовиться до ухудшения обстановки.</p>
+            <p class="hero-live-summary" id="forecastLeadSummary">{{ summary.hero_summary }}</p>
+            <p class="hero-context-note">Здесь единица прогноза — день: экран оценивает вероятность пожара и выделяет пики сценария. Он не считает ожидаемое число пожаров по датам; для этого есть ML-прогноз. Территории ниже — это уже отдельный шаг интерпретации сценария.</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Таблица: <strong id="forecastTableLabel">{{ summary.selected_table_label }}</strong></span>
+                <span class="hero-tag">РСЃС‚РѕСЂРёСЏ РґР»СЏ СЂР°СЃС‡С‘С‚Р°: <strong id="forecastHistoryMode">{{ summary.history_window_label }}</strong></span>
+                <span class="hero-tag">Срез: <strong id="forecastSliceLabel">{{ summary.slice_label }}</strong></span>
+                <span class="hero-tag">Горизонт сценария: <strong id="forecastDaysTotal">{{ summary.forecast_days_display }} дней</strong></span>
+            </div>
+        </div>
+
+        <div class="hero-side">
+            <article class="hero-stat-card" id="forecastHeroPriorityCard">
+                <span class="hero-stat-label">Территория первого внимания по сценарию</span>
+                <strong class="hero-stat-value" id="forecastHeroPriority">{{ risk.top_territory_label }}</strong>
+                <span class="hero-stat-foot" id="forecastHeroPriorityMeta">{{ risk.top_territory_explanation }}</span>
+            </article>
+            <article class="hero-stat-card hero-stat-card-soft" id="forecastHeroConfidenceCard">
+                <span class="hero-stat-label">Надежность территориального вывода</span>
+                <strong class="hero-stat-value"><span id="forecastHeroConfidence">{{ risk.top_territory_confidence_label or passport.confidence_label or 'Ограниченная' }}</span> <small id="forecastHeroConfidenceScore">{{ risk.top_territory_confidence_score_display or passport.confidence_score_display or '0 / 100' }}</small></strong>
+                <span class="hero-stat-foot" id="forecastHeroConfidenceMeta">{{ risk.top_territory_confidence_note or passport.validation_summary or 'Паспорт качества появится после расчёта.' }}</span>
+            </article>
+        </div>
+    </section>
+
+    <nav class="orientation-strip" aria-label="Что показывает каждый экран">
+        <a id="forecastPanelLink" class="orientation-link is-primary" href="/{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
+            <span class="orientation-kicker">Панель</span>
+            <strong>Что происходит сейчас в выбранном срезе</strong>
+            <p>Общий срез и краткий территориальный ориентир без календаря по дням.</p>
+            <span class="orientation-cta">Открыть панель</span>
+        </a>
+        <a class="orientation-link is-scenario is-current" href="#forecastScenarioSection" aria-current="page">
+            <span class="orientation-kicker">Сценарный прогноз</span>
+            <strong>В какие даты вероятность пожара выше</strong>
+            <p>Вероятность пожара и пики пожарной активности по датам.</p>
+            <span class="orientation-cta">Вы уже в прогнозе</span>
+        </a>
+        <a id="forecastMlLink" class="orientation-link is-ml" href="/ml-model{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}">
+            <span class="orientation-kicker">ML-прогноз</span>
+            <strong>Сколько пожаров может быть по датам</strong>
+            <p>Ожидаемое число пожаров по дням, если нужен прогноз нагрузки.</p>
+            <span class="orientation-cta">Открыть прогноз количества</span>
+        </a>
+        <a class="orientation-link is-decision" href="#forecastDetails">
+            <span class="orientation-kicker">Поддержка решений</span>
+            <strong>Какие территории ставить первыми</strong>
+            <p>Ранжирование территорий по итогам сценария и исторических факторов.</p>
+            <span class="orientation-cta">Открыть приоритет территорий</span>
+        </a>
+    </nav>
+
+    <section class="screen-guide" aria-label="Как читать сценарный прогноз">
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Когда открывать</span>
+            <strong>Когда планируете ближайшие дни</strong>
+            <p>Экран нужен, если важно заранее понять, в какие даты сценарий усиливается и когда стоит готовить меры заранее.</p>
+        </article>
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Что показывает</span>
+            <strong>Вероятность и пики по календарю</strong>
+            <p>График и таблица показывают, в какие даты вероятность пожара выше и где сценарий выбивается из недавней истории.</p>
+        </article>
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Чем отличается</span>
+            <strong>Экран отвечает на вопрос «когда»</strong>
+            <p>За ожидаемым числом пожаров идите в ML-прогноз, за полным приоритетом территорий — в блок поддержки решений ниже.</p>
+        </article>
+    </section>
+
+    <section class="clarity-note" aria-label="Как читать сценарный прогноз">
+        <span class="clarity-note-label">Как читать экран</span>
+        <strong>Сначала даты, потом территории</strong>
+        <p>Верхняя часть экрана отвечает на вопрос, в какие дни готовиться. Блок поддержки решений ниже использует этот сценарий, но решает уже другой вопрос: какие территории ставить первыми.</p>
+    </section>
+
+    {% set brief = data.executive_brief %}
+    {% set section_id = 'decisionSupportPanel' %}
+    {% set brief_heading = 'Переход от сценария к решениям' %}
+    {% set brief_purpose = 'Что показывает блок: краткий территориальный вывод по итогам сценария, а не еще один календарь по дням.' %}
+    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
+    {% set brief_trust_title = 'Можно ли опираться на рекомендацию' %}
+    {% set export_href = '/brief/forecasting.txt?table_name=' ~ filters.table_name ~ '&district=' ~ filters.district ~ '&cause=' ~ filters.cause ~ '&object_category=' ~ filters.object_category ~ '&temperature=' ~ filters.temperature ~ '&forecast_days=' ~ filters.forecast_days ~ '&history_window=' ~ filters.history_window %}
+    {% set export_link_id = 'forecastExportBriefLink' %}
+    {% set cards_id = 'forecastCommandCards' %}
+    {% set excerpt_id = 'forecastCommandExportExcerpt' %}
+    {% set notes_id = 'forecastCommandNotes' %}

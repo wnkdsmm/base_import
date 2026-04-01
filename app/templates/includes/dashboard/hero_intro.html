@@ -1,0 +1,92 @@
+
+<main class="main dashboard-main" id="page-content">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <span class="eyebrow">Панель | обзор выбранного среза</span>
+            <h1>Общая картина по выбранному срезу</h1>
+            <p class="subtitle">Открывайте этот экран, когда нужно за минуту понять масштаб ситуации, увидеть ключевые показатели и получить первый территориальный ориентир.</p>
+            <p class="hero-live-summary" id="dashboardLeadSummary">{{ management.summary_line }}</p>
+            <p class="hero-context-note">Панель показывает уже накопленную картину по выбранным данным и краткий приоритет территорий на ближайшие 14 дней. Она не отвечает на вопросы «в какие даты риск выше» и «сколько пожаров ожидается по дням».</p>
+            <div class="hero-tags">
+                <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
+                <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
+                <span class="hero-tag">Разрез: <strong id="heroGroupLabel">{{ scope.group_label }}</strong></span>
+                <span class="hero-tag">Горизонт приоритета: <strong>14 дней</strong></span>
+            </div>
+        </div>
+
+        <div class="hero-side">
+            <article class="hero-stat-card" id="dashboardPriorityCard">
+                <span class="hero-stat-label">Первая территория для проверки</span>
+                <strong class="hero-stat-value" id="managementHeroPriority">{{ management.priority_territory_label }}</strong>
+                <span class="hero-stat-foot" id="managementHeroPriorityMeta">{{ management.priority_reason }}</span>
+            </article>
+            <article class="hero-stat-card hero-stat-card-soft" id="dashboardConfidenceCard">
+                <span class="hero-stat-label">Надежность краткого вывода</span>
+                <strong class="hero-stat-value"><span id="managementHeroConfidence">{{ management.confidence_label }}</span> <small id="managementHeroConfidenceScore">{{ management.confidence_score_display }}</small></strong>
+                <span class="hero-stat-foot" id="managementHeroConfidenceMeta">{{ management.confidence_summary }}</span>
+            </article>
+        </div>
+    </section>
+
+    <nav class="orientation-strip" aria-label="Что показывает каждый экран">
+        <a class="orientation-link is-primary is-current" href="#dashboardBrief" aria-current="page">
+            <span class="orientation-kicker">Панель</span>
+            <strong>Что происходит сейчас в выбранном срезе</strong>
+            <p>РСЃС‚РѕСЂРёС‡РµСЃРєРёР№ Рё С‚РµРєСѓС‰РёР№ СЃСЂРµР·, РєР»СЋС‡РµРІС‹Рµ РїРѕРєР°Р·Р°С‚РµР»Рё Рё СЃРѕРєСЂР°С‰РµРЅРЅС‹Р№ РІС‹РІРѕРґ Р±РµР· РєР°Р»РµРЅРґР°СЂСЏ РїРѕ РґР°С‚Р°Рј.</p>
+            <span class="orientation-cta">Вы уже на панели</span>
+        </a>
+        <a id="dashboardScenarioLink" class="orientation-link is-scenario" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
+            <span class="orientation-kicker">Сценарный прогноз</span>
+            <strong>В какие даты вероятность пожара выше</strong>
+            <p>Календарь вероятности пожарной активности по ближайшим дням.</p>
+            <span class="orientation-cta">Открыть прогноз на дни</span>
+        </a>
+        <a id="dashboardMlLink" class="orientation-link is-ml" href="/ml-model{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}">
+            <span class="orientation-kicker">ML-прогноз</span>
+            <strong>Сколько пожаров может быть по датам</strong>
+            <p>Ожидаемое число пожаров и нагрузка по дням.</p>
+            <span class="orientation-cta">Открыть прогноз количества</span>
+        </a>
+        <a id="dashboardDecisionLink" class="orientation-link is-decision" href="/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}#forecastDetails">
+            <span class="orientation-kicker">Поддержка решений</span>
+            <strong>Какие территории ставить первыми</strong>
+            <p>Полное ранжирование территорий, причины приоритета и доверие к нему.</p>
+            <span class="orientation-cta">Открыть приоритет территорий</span>
+        </a>
+    </nav>
+
+    <section class="screen-guide" aria-label="Как читать панель">
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Когда открывать</span>
+            <strong>Когда нужен быстрый вход в обстановку</strong>
+            <p>РСЃРїРѕР»СЊР·СѓР№С‚Рµ РїР°РЅРµР»СЊ, РµСЃР»Рё РЅСѓР¶РЅРѕ Р±С‹СЃС‚СЂРѕ РїРѕРЅСЏС‚СЊ РјР°СЃС€С‚Р°Р± СЃРёС‚СѓР°С†РёРё Рё РЅРµ СѓС…РѕРґРёС‚СЊ СЃСЂР°Р·Сѓ РІ РґРµС‚Р°Р»СЊРЅС‹Р№ РїСЂРѕРіРЅРѕР· РїРѕ РґР°С‚Р°Рј РёР»Рё РјРѕРґРµР»СЏРј.</p>
+        </article>
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Что показывает</span>
+            <strong>Срез, динамику и короткий приоритет</strong>
+            <p>Здесь собраны ключевые показатели, графики по выбранному срезу и сокращенный вывод, какую территорию проверить первой.</p>
+        </article>
+        <article class="screen-guide-card">
+            <span class="screen-guide-label">Чем отличается</span>
+            <strong>Это обзор, а не отдельный прогноз</strong>
+            <p>За датами переходите в сценарный прогноз, за ожидаемым числом пожаров в сутки — в ML-прогноз, за полным ранжированием территорий — в блок поддержки решений.</p>
+        </article>
+    </section>
+
+    <section class="clarity-note" aria-label="Как читать панель">
+        <span class="clarity-note-label">Как читать экран</span>
+        <strong>Панель помогает выбрать следующий шаг</strong>
+        <p>Если краткого обзора достаточно, можно остановиться здесь. Если нужно понять даты роста риска, откройте сценарный прогноз; если нужна нагрузка в штуках по дням, откройте ML-прогноз; если нужен полный список территорий, смотрите блок поддержки решений.</p>
+    </section>
+
+    {% set brief = management.brief %}
+    {% set section_id = 'dashboardBrief' %}
+    {% set brief_heading = 'Короткий вывод по территориям на панели' %}
+    {% set brief_purpose = 'Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней, причину выбора и уровень доверия к выводу.' %}
+    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
+    {% set brief_trust_title = 'Можно ли опираться на вывод' %}
+    {% set export_href = '/brief/dashboard.txt?table_name=' ~ filters.table_name ~ '&year=' ~ filters.year ~ '&group_column=' ~ filters.group_column %}
+    {% set export_link_id = 'dashboardExportBriefLink' %}
+    {% set cards_id = 'managementBriefCards' %}
+    {% set excerpt_id = 'dashboardExportBriefExcerpt' %}

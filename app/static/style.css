@@ -125,12 +125,16 @@ svg {
     flex-direction: column;
     gap: 24px;
     padding: 28px 22px;
+    box-sizing: border-box;
     color: #f4f8ff;
     background:
         radial-gradient(circle at top right, var(--sidebar-glow) 0%, rgba(96, 165, 250, 0) 38%),
         linear-gradient(180deg, var(--sidebar-start) 0%, var(--sidebar-end) 100%);
     box-shadow: 10px 0 40px rgba(10, 30, 64, 0.2);
     z-index: 5;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 40px;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -542,7 +546,7 @@ svg {
 
 .status-line {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
     align-items: start;
     gap: 8px 16px;
     margin-top: 14px;
@@ -551,13 +555,26 @@ svg {
 
 .status-line span,
 .status-line strong {
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: auto;
 }
 
 .status-line strong {
     color: #f8fbff;
     text-align: right;
+    justify-self: end;
+}
+
+.sidebar-status .status-line {
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.sidebar-status .status-line strong {
+    text-align: left;
+    justify-self: start;
 }
 
 .main {
