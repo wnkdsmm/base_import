@@ -65,6 +65,8 @@ def _build_management_snapshot(
             history_window="all",
             planning_horizon_days=planning_horizon_days,
             selected_year=selected_year,
+            include_geo_prediction=False,
+            include_historical_validation=False,
         )
     except Exception as exc:
         fallback = _empty_management_snapshot()

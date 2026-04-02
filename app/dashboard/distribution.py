@@ -86,6 +86,16 @@ _DAMAGE_THEME_COLUMNS = {
 }
 
 
+def _collect_damage_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
+    damage_columns = list(
+        dict.fromkeys(
+            list(DISTRIBUTION_GROUPS[2][1])
+            + [column_name for columns in _DAMAGE_THEME_COLUMNS.values() for column_name in columns]
+        )
+    )
+    return _collect_positive_column_counts(selected_tables, selected_year, damage_columns)
+
+
 def _build_distribution_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int], group_column: str) -> Dict[str, Any]:
     if not group_column:
         empty_message = "Нет доступных колонок для распределения."
@@ -169,8 +179,13 @@ def _collect_positive_column_counts(
     return counts
 
 
-def _build_damage_category_items(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> List[Dict[str, Any]]:
-    counts = _collect_positive_column_counts(selected_tables, selected_year, DISTRIBUTION_GROUPS[2][1])
+def _build_damage_category_items(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    counts: Optional[Dict[str, int]] = None,
+) -> List[Dict[str, Any]]:
+    counts = counts or _collect_damage_counts(selected_tables, selected_year)
     items: List[Dict[str, Any]] = []
     used_columns = set()
 
@@ -223,9 +238,13 @@ def _build_damage_category_items(selected_tables: List[Dict[str, Any]], selected
     return items
 
 
-def _build_damage_theme_items(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> List[Dict[str, Any]]:
-    all_columns = [column_name for columns in _DAMAGE_THEME_COLUMNS.values() for column_name in columns]
-    counts = _collect_positive_column_counts(selected_tables, selected_year, all_columns)
+def _build_damage_theme_items(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    counts: Optional[Dict[str, int]] = None,
+) -> List[Dict[str, Any]]:
+    counts = counts or _collect_damage_counts(selected_tables, selected_year)
     items: List[Dict[str, Any]] = []
 
     for label, columns in _DAMAGE_THEME_COLUMNS.items():
@@ -244,8 +263,13 @@ def _build_damage_theme_items(selected_tables: List[Dict[str, Any]], selected_ye
     return items
 
 
-def _build_damage_overview_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    items = _build_damage_category_items(selected_tables, selected_year)
+def _build_damage_overview_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    items: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    items = list(items) if items is not None else _build_damage_category_items(selected_tables, selected_year)
     title = "Ущерб: что страдает чаще всего"
     empty_message = "Нет данных по категориям ущерба."
     description = "Категории потерь по объектам и ресурсам: здания, квартиры, площадь пожара, техника, урожай и другие показатели."
@@ -258,8 +282,14 @@ def _build_damage_overview_chart(selected_tables: List[Dict[str, Any]], selected
     )
 
 
-def _build_damage_pairs_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    items = [item for item in _build_damage_category_items(selected_tables, selected_year) if "destroyed" in item or "damaged" in item]
+def _build_damage_pairs_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    items: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    items = list(items) if items is not None else _build_damage_category_items(selected_tables, selected_year)
+    items = [item for item in items if "destroyed" in item or "damaged" in item]
     title = "Ущерб: уничтожено и повреждено"
     empty_message = "Нет данных по парам показателей ущерба."
     description = "Сравнение по категориям ущерба: где чаще фиксируется уничтожение, а где повреждение имущества и ресурсов."
@@ -272,8 +302,13 @@ def _build_damage_pairs_chart(selected_tables: List[Dict[str, Any]], selected_ye
     )
 
 
-def _build_damage_standalone_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    items = _build_damage_theme_items(selected_tables, selected_year)
+def _build_damage_standalone_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    items: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    items = list(items) if items is not None else _build_damage_theme_items(selected_tables, selected_year)
     title = "Ущерб: направления потерь"
     empty_message = "Нет данных по укрупненным направлениям ущерба."
     description = "Крупные блоки потерь: недвижимость, площадь пожара, техника, сельхозресурсы, животные и прямой ущерб."
@@ -286,8 +321,13 @@ def _build_damage_standalone_chart(selected_tables: List[Dict[str, Any]], select
     )
 
 
-def _build_damage_share_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    items = _build_damage_theme_items(selected_tables, selected_year)
+def _build_damage_share_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    items: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    items = list(items) if items is not None else _build_damage_theme_items(selected_tables, selected_year)
     pie_items = [
         {
             "label": item["label"],
@@ -308,29 +348,45 @@ def _build_damage_share_chart(selected_tables: List[Dict[str, Any]], selected_ye
     )
 
 
-def _build_table_breakdown_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _build_table_breakdown_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    summary_rows: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     items = []
-    with engine.connect() as conn:
-        for table in selected_tables:
-            where_clause = _build_year_filter_clause(table, selected_year)
-            if where_clause is None:
-                continue
-            query = text(
-                f"""
-                SELECT COUNT(*) AS fire_count
-                FROM {_quote_identifier(table['name'])}
-                WHERE {where_clause}
-                """
-            )
-            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
-            fire_count = int(conn.execute(query, params).scalar() or 0)
+    if summary_rows is not None:
+        for row in summary_rows:
+            fire_count = int(row.get("fire_count") or 0)
             items.append(
                 {
-                    "label": table["name"],
+                    "label": row.get("table_name") or "",
                     "value": fire_count,
                     "value_display": _format_number(fire_count, integer=True),
                 }
             )
+    else:
+        with engine.connect() as conn:
+            for table in selected_tables:
+                where_clause = _build_year_filter_clause(table, selected_year)
+                if where_clause is None:
+                    continue
+                query = text(
+                    f"""
+                    SELECT COUNT(*) AS fire_count
+                    FROM {_quote_identifier(table['name'])}
+                    WHERE {where_clause}
+                    """
+                )
+                params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
+                fire_count = int(conn.execute(query, params).scalar() or 0)
+                items.append(
+                    {
+                        "label": table["name"],
+                        "value": fire_count,
+                        "value_display": _format_number(fire_count, integer=True),
+                    }
+                )
 
     items.sort(key=lambda item: item["value"], reverse=True)
     items = items[:12]
@@ -356,6 +412,7 @@ def _build_rankings(
 
 
 __all__ = [
+    "_collect_damage_counts",
     "_build_damage_category_items",
     "_build_damage_overview_chart",
     "_build_damage_pairs_chart",

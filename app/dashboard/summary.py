@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
@@ -25,16 +25,11 @@ from .utils import (
 )
 
 
-def _build_summary(
+def _collect_summary_table_rows(
     selected_tables: List[Dict[str, Any]],
     selected_year: Optional[int],
-) -> Dict[str, Any]:
-    fires_count = 0
-    total_area = 0.0
-    area_values_count = 0
-    tables_used = 0
-    years_covered = set()
-    impact_totals = {metric_key: 0.0 for metric_key in IMPACT_METRIC_CONFIG}
+) -> List[Dict[str, Any]]:
+    summary_rows: List[Dict[str, Any]] = []
 
     with engine.connect() as conn:
         for table in selected_tables:
@@ -42,8 +37,6 @@ def _build_summary(
             if where_clause is None:
                 continue
 
-            tables_used += 1
-            years_covered.update(_resolve_years_in_scope(table, selected_year))
             area_expression = _area_expression(table)
             metric_selects = []
             for metric_key in IMPACT_METRIC_CONFIG:
@@ -62,11 +55,46 @@ def _build_summary(
             )
             params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
             row = conn.execute(query, params).mappings().one()
-            fires_count += int(row["fire_count"] or 0)
-            total_area += float(row["total_area"] or 0)
-            area_values_count += int(row["area_count"] or 0)
-            for metric_key in IMPACT_METRIC_CONFIG:
-                impact_totals[metric_key] += float(row[metric_key] or 0)
+            summary_rows.append(
+                {
+                    "table_name": table["name"],
+                    "years_in_scope": _resolve_years_in_scope(table, selected_year),
+                    "fire_count": int(row["fire_count"] or 0),
+                    "total_area": float(row["total_area"] or 0),
+                    "area_count": int(row["area_count"] or 0),
+                    "impact_totals": {
+                        metric_key: float(row[metric_key] or 0)
+                        for metric_key in IMPACT_METRIC_CONFIG
+                    },
+                }
+            )
+
+    return summary_rows
+
+
+def _build_summary(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    summary_rows: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    fires_count = 0
+    total_area = 0.0
+    area_values_count = 0
+    tables_used = 0
+    years_covered = set()
+    impact_totals = {metric_key: 0.0 for metric_key in IMPACT_METRIC_CONFIG}
+
+    resolved_summary_rows = list(summary_rows) if summary_rows is not None else _collect_summary_table_rows(selected_tables, selected_year)
+    for row in resolved_summary_rows:
+        tables_used += 1
+        years_covered.update(row.get("years_in_scope") or [])
+        fires_count += int(row.get("fire_count") or 0)
+        total_area += float(row.get("total_area") or 0)
+        area_values_count += int(row.get("area_count") or 0)
+        row_impact_totals = row.get("impact_totals") or {}
+        for metric_key in IMPACT_METRIC_CONFIG:
+            impact_totals[metric_key] += float(row_impact_totals.get(metric_key) or 0)
 
     average_area = total_area / area_values_count if area_values_count else 0
     area_fill_rate = (area_values_count / fires_count * 100) if fires_count else 0
@@ -242,6 +270,7 @@ def _build_highlights(
 
 
 __all__ = [
+    "_collect_summary_table_rows",
     "_build_highlights",
     "_build_scope",
     "_build_summary",

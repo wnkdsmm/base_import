@@ -43,6 +43,8 @@ def build_decision_support_payload(
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
     selected_year: Optional[int] = None,
     progress_callback: Optional[Callable[[str, str], None]] = None,
+    include_geo_prediction: bool = True,
+    include_historical_validation: bool = True,
 ) -> Dict[str, Any]:
     ensure_sqlalchemy_timing(engine)
     with perf_trace(
@@ -55,6 +57,8 @@ def build_decision_support_payload(
         planning_horizon_days=planning_horizon_days,
         selected_year=selected_year,
         geo_prediction_reused=geo_prediction is not None,
+        geo_prediction_enabled=include_geo_prediction,
+        historical_validation_enabled=include_historical_validation,
     ) as perf:
         with perf.span("filter_prep"):
             if progress_callback is not None:
@@ -87,9 +91,9 @@ def build_decision_support_payload(
             if progress_callback is not None:
                 progress_callback(
                     "decision_support.aggregation",
-                    "Строим ранжирование территорий, паспорт качества и геосводку.",
+                    "Строим ранжирование территорий, паспорт качества и нужные агрегаты.",
                 )
-            if geo_prediction is None and filtered_records:
+            if include_geo_prediction and geo_prediction is None and filtered_records:
                 geo_prediction = _build_geo_prediction(filtered_records, planning_horizon_days)
             geo_summary = _build_geo_summary(geo_prediction or {})
             requested_profile = get_risk_weight_profile(weight_mode)
@@ -134,7 +138,11 @@ def build_decision_support_payload(
             if progress_callback is not None:
                 progress_callback(
                     "decision_support.training",
-                    "Оцениваем устойчивость ранжирования и проверяем историческую валидацию.",
+                    (
+                        "Оцениваем устойчивость ранжирования и проверяем историческую валидацию."
+                        if include_historical_validation
+                        else "Собираем ranking по территориям без полной исторической валидации."
+                    ),
                 )
             resolved_profile = resolve_weight_profile_for_records(
                 filtered_records,
@@ -147,12 +155,16 @@ def build_decision_support_payload(
                 weight_mode=resolved_profile.get("mode") or weight_mode,
                 profile_override=resolved_profile,
             )
-            historical_validation = build_historical_validation_payload(
-                filtered_records,
-                planning_horizon_days,
-                weight_mode=resolved_profile.get("mode") or weight_mode,
-                profile_override=resolved_profile,
+            historical_validation = empty_historical_validation_payload(
+                resolved_profile.get("mode_label") or "Адаптивные веса"
             )
+            if include_historical_validation:
+                historical_validation = build_historical_validation_payload(
+                    filtered_records,
+                    planning_horizon_days,
+                    weight_mode=resolved_profile.get("mode") or weight_mode,
+                    profile_override=resolved_profile,
+                )
             territories = _attach_ranking_reliability(territories, quality_passport, historical_validation)
             weight_profile = build_weight_profile_snapshot(resolved_profile)
             top_territory = territories[0] if territories else None

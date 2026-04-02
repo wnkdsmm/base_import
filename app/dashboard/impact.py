@@ -30,7 +30,7 @@ from .data_access import (
 from .utils import _format_chart_date, _format_number, _quote_identifier
 
 
-def _build_cause_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _collect_cause_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
     grouped: Dict[str, int] = defaultdict(int)
     with engine.connect() as conn:
         for table in selected_tables:
@@ -55,6 +55,16 @@ def _build_cause_chart(selected_tables: List[Dict[str, Any]], selected_year: Opt
             for row in conn.execute(query, params).mappings().all():
                 grouped[row["label"]] += int(row["fire_count"] or 0)
 
+    return dict(grouped)
+
+
+def _build_cause_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    cause_counts: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    grouped = cause_counts or _collect_cause_counts(selected_tables, selected_year)
     items = [
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:12]
@@ -126,7 +136,7 @@ def _build_combined_impact_timeline_chart(selected_tables: List[Dict[str, Any]],
     )
 
 
-def _build_monthly_profile_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _collect_month_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[int, int]:
     grouped: Dict[int, int] = defaultdict(int)
 
     with engine.connect() as conn:
@@ -155,6 +165,16 @@ def _build_monthly_profile_chart(selected_tables: List[Dict[str, Any]], selected
                     continue
                 grouped[int(month_value)] += int(row["fire_count"] or 0)
 
+    return dict(grouped)
+
+
+def _build_monthly_profile_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    month_counts: Optional[Dict[int, int]] = None,
+) -> Dict[str, Any]:
+    grouped = month_counts or _collect_month_counts(selected_tables, selected_year)
     items = []
     if grouped:
         for month_value in range(1, 13):
@@ -216,39 +236,27 @@ def _build_area_buckets_chart(selected_tables: List[Dict[str, Any]], selected_ye
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
 
 
-def _build_sql_widgets(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Dict[str, Any]]:
+def _build_sql_widgets(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    cause_counts: Optional[Dict[str, int]] = None,
+    month_counts: Optional[Dict[int, int]] = None,
+) -> Dict[str, Dict[str, Any]]:
     return {
-        "causes": _build_sql_cause_widget(selected_tables, selected_year),
+        "causes": _build_sql_cause_widget(selected_tables, selected_year, cause_counts=cause_counts),
         "districts": _build_sql_district_widget(selected_tables, selected_year),
-        "seasons": _build_sql_season_widget(selected_tables, selected_year),
+        "seasons": _build_sql_season_widget(selected_tables, selected_year, month_counts=month_counts),
     }
 
 
-def _build_sql_cause_widget(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
-    grouped: Dict[str, int] = defaultdict(int)
-    with engine.connect() as conn:
-        for table in selected_tables:
-            cause_column = _resolve_cause_column(table)
-            if not cause_column:
-                continue
-            where_clause = _build_year_filter_clause(table, selected_year)
-            if where_clause is None:
-                continue
-            query = text(
-                f"""
-                SELECT
-                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(cause_column)} AS TEXT)), ''), 'Не указано') AS label,
-                    COUNT(*) AS fire_count
-                FROM {_quote_identifier(table['name'])}
-                WHERE {where_clause}
-                GROUP BY label
-                ORDER BY fire_count DESC
-                """
-            )
-            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
-            for row in conn.execute(query, params).mappings().all():
-                grouped[row["label"]] += int(row["fire_count"] or 0)
-
+def _build_sql_cause_widget(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    cause_counts: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    grouped = cause_counts or _collect_cause_counts(selected_tables, selected_year)
     items = [
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
@@ -302,35 +310,24 @@ def _build_sql_district_widget(selected_tables: List[Dict[str, Any]], selected_y
     )
 
 
-def _build_sql_season_widget(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _build_sql_season_widget(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    month_counts: Optional[Dict[int, int]] = None,
+) -> Dict[str, Any]:
     grouped: Dict[str, int] = defaultdict(int)
-
-    with engine.connect() as conn:
-        for table in selected_tables:
-            if DATE_COLUMN not in table["column_set"]:
-                continue
-            month_expression = _month_expression(DATE_COLUMN)
-            conditions = [f"{month_expression} BETWEEN 1 AND 12"]
-            if selected_year is not None:
-                conditions.append(f"{_year_expression(DATE_COLUMN)} = :selected_year")
-            query = text(
-                f"""
-                SELECT
-                    CASE
-                        WHEN {month_expression} IN (12, 1, 2) THEN 'Зима'
-                        WHEN {month_expression} IN (3, 4, 5) THEN 'Весна'
-                        WHEN {month_expression} IN (6, 7, 8) THEN 'Лето'
-                        ELSE 'Осень'
-                    END AS label,
-                    COUNT(*) AS fire_count
-                FROM {_quote_identifier(table['name'])}
-                WHERE {' AND '.join(conditions)}
-                GROUP BY label
-                """
-            )
-            params = {"selected_year": selected_year} if selected_year is not None else {}
-            for row in conn.execute(query, params).mappings().all():
-                grouped[row["label"]] += int(row["fire_count"] or 0)
+    winter_label, spring_label, summer_label, autumn_label = SEASON_ORDER
+    for month_value, fire_count in (month_counts or _collect_month_counts(selected_tables, selected_year)).items():
+        if month_value in (12, 1, 2):
+            season_label = winter_label
+        elif month_value in (3, 4, 5):
+            season_label = spring_label
+        elif month_value in (6, 7, 8):
+            season_label = summer_label
+        else:
+            season_label = autumn_label
+        grouped[season_label] += int(fire_count or 0)
 
     items = [
         {
@@ -352,6 +349,8 @@ def _build_sql_season_widget(selected_tables: List[Dict[str, Any]], selected_yea
 
 
 __all__ = [
+    "_collect_cause_counts",
+    "_collect_month_counts",
     "_build_area_buckets_chart",
     "_build_cause_chart",
     "_build_combined_impact_timeline_chart",
