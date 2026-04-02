@@ -39,17 +39,17 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
         self.assertEqual(forecasting_data._selected_source_table_notes(table_options, raw_table), [])
 
     def test_ml_summary_uses_sql_count_instead_of_summing_daily_history(self) -> None:
-        table_options = [{"value": "fires", "label": "РџРѕР¶Р°СЂС‹"}]
+        table_options = [{"value": "fires", "label": "Пожары"}]
         option_catalog = {
-            "causes": [{"value": "all", "label": "Р’СЃРµ РїСЂРёС‡РёРЅС‹"}],
-            "object_categories": [{"value": "all", "label": "Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё"}],
+            "causes": [{"value": "all", "label": "Все причины"}],
+            "object_categories": [{"value": "all", "label": "Все категории"}],
         }
         metadata_items = [{"table_name": "fires", "resolved_columns": {"date": "fire_date"}}]
         daily_history = [
             {"date": date(2024, 1, 1), "count": 1, "avg_temperature": 0.0},
             {"date": date(2024, 1, 2), "count": 2, "avg_temperature": 1.0},
         ]
-        empty_result = ml_core._empty_ml_result("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СѓС‡РµРЅРёСЏ.")
+        empty_result = ml_core._empty_ml_result("Недостаточно данных для обучения.")
 
         with (
             patch.object(ml_core, "_build_forecasting_table_options", return_value=table_options),

@@ -5,11 +5,11 @@ from tests.forecasting_sql_support import ForecastingSqlSupport, forecasting_cor
 
 class ForecastingSqlPayloadTests(ForecastingSqlSupport):
     def test_partial_forecast_uses_sql_count_without_loading_decision_support(self) -> None:
-        table_options = [{"value": "fires", "label": "РџРѕР¶Р°СЂС‹"}]
+        table_options = [{"value": "fires", "label": "Пожары"}]
         option_catalog = {
-            "districts": [{"value": "all", "label": "Р’СЃРµ СЂР°Р№РѕРЅС‹"}],
-            "causes": [{"value": "all", "label": "Р’СЃРµ РїСЂРёС‡РёРЅС‹"}],
-            "object_categories": [{"value": "all", "label": "Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё"}],
+            "districts": [{"value": "all", "label": "Все районы"}],
+            "causes": [{"value": "all", "label": "Все причины"}],
+            "object_categories": [{"value": "all", "label": "Все категории"}],
         }
         metadata_items = [{"table_name": "fires", "resolved_columns": {"date": "fire_date"}}]
         daily_history = [
@@ -20,13 +20,13 @@ class ForecastingSqlPayloadTests(ForecastingSqlSupport):
             {
                 "date": date(2024, 1, 3),
                 "date_display": "03.01.2024",
-                "weekday_label": "СЃСЂ",
+                "weekday_label": "Ср",
                 "forecast_value": 2.0,
                 "forecast_value_display": "2",
                 "fire_probability": 0.5,
                 "fire_probability_display": "50%",
-                "scenario_label": "Р’С‹С€Рµ РѕР±С‹С‡РЅРѕРіРѕ",
-                "scenario_hint": "РўРµСЃС‚РѕРІС‹Р№ СЃС†РµРЅР°СЂРёР№",
+                "scenario_label": "Выше обычного",
+                "scenario_hint": "Местный сценарий",
                 "scenario_tone": "fire",
             }
         ]
@@ -102,7 +102,7 @@ class ForecastingSqlPayloadTests(ForecastingSqlSupport):
         payload = self._build_forecasting_service_payload_smoke()
         summary = payload["summary"]
         comparison_rows = payload["quality_assessment"]["comparison_rows"]
-        temperature_card = next(item for item in payload["features"] if item["label"] == "РўРµРјРїРµСЂР°С‚СѓСЂР°")
+        temperature_card = next(item for item in payload["features"] if item["label"] == "Температура")
 
         self.assertTrue(payload["has_data"])
         self.assertTrue(payload["decision_support_pending"])
@@ -116,39 +116,39 @@ class ForecastingSqlPayloadTests(ForecastingSqlSupport):
         self.assertEqual(
             payload["notes"],
             [
-                "РСЃС‚РѕСЂРёСЏ РєРѕСЂРѕС‚РєР°СЏ, РїРѕСЌС‚РѕРјСѓ СЃС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· РјРѕР¶РµС‚ Р±С‹С‚СЊ РјРµРЅРµРµ СѓСЃС‚РѕР№С‡РёРІС‹Рј.",
-                "РЎС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· Р»СѓС‡С€Рµ С‡РёС‚Р°С‚СЊ РєР°Рє РѕСЂРёРµРЅС‚РёСЂ РїРѕ СѓСЂРѕРІРЅСЋ РЅР°РіСЂСѓР·РєРё Рё РїСЂРёРѕСЂРёС‚РµС‚Р°Рј, Р° РЅРµ РєР°Рє С‚РѕС‡РЅРѕРµ РѕР±РµС‰Р°РЅРёРµ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ РІ РєР°Р¶РґС‹Р№ РґРµРЅСЊ.",
+                "История короткая, поэтому сценарный прогноз может быть менее устойчивым.",
+                "Сценарный прогноз лучше читать как календарь вероятности пожара по дням, а не как точное обещание числа пожаров. Если нужен прогноз количества, используйте ML-прогноз.",
             ],
         )
-        self.assertEqual(temperature_card["status_label"], "РќРёР·РєРѕРµ РїРѕРєСЂС‹С‚РёРµ (2/3 РґРЅРµР№ (66,7%))")
+        self.assertEqual(temperature_card["status_label"], "Низкое покрытие (2/3 дней (66,7%))")
         self.assertEqual(
             temperature_card["source"],
-            "fires: avg_temperature | РїРѕРєСЂС‹С‚РёРµ РїРѕ РґРЅРµРІРЅРѕР№ РёСЃС‚РѕСЂРёРё: 2/3 РґРЅРµР№ (66,7%)",
+            "fires: avg_temperature | покрытие по дневной истории: 2/3 дней (66,7%)",
         )
         self.assertEqual(
             temperature_card["description"],
-            "РљРѕР»РѕРЅРєР° С‚РµРјРїРµСЂР°С‚СѓСЂС‹ РЅР°Р№РґРµРЅР°, РЅРѕ РїРѕРєСЂС‹С‚РёРµ РЅРёР·РєРѕРµ: С‚РµРјРїРµСЂР°С‚СѓСЂРЅС‹Р№ РїСЂРёР·РЅР°Рє РЅРµР»СЊР·СЏ СЃС‡РёС‚Р°С‚СЊ РЅР°РґС‘Р¶РЅС‹Рј РґР»СЏ ML Рё С‚РµРјРїРµСЂР°С‚СѓСЂРЅРѕР№ РїРѕРїСЂР°РІРєРё.",
+            "Колонка температуры найдена, но покрытие низкое: температурный признак нельзя считать надёжным для ML и температурной поправки.",
         )
-        self.assertEqual(temperature_card["coverage_display"], "2/3 РґРЅРµР№ (66,7%)")
+        self.assertEqual(temperature_card["coverage_display"], "2/3 дней (66,7%)")
         self.assertEqual(
             comparison_rows,
             [
                 {
-                    "method_label": "РЎРµР·РѕРЅРЅР°СЏ Р±Р°Р·РѕРІР°СЏ РјРѕРґРµР»СЊ",
-                    "role_label": "Р‘Р°Р·РѕРІР°СЏ РјРѕРґРµР»СЊ",
+                    "method_label": "Сезонная базовая модель",
+                    "role_label": "Базовая модель",
                     "mae_display": "0,5",
                     "rmse_display": "0,7",
                     "smape_display": "20%",
-                    "selection_label": "РћРїРѕСЂРЅР°СЏ Р»РёРЅРёСЏ",
+                    "selection_label": "Опорная линия",
                     "mae_delta_display": "0%",
                 },
                 {
-                    "method_label": "РЎС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР·",
-                    "role_label": "Р­РІСЂРёСЃС‚РёС‡РµСЃРєР°СЏ РјРѕРґРµР»СЊ",
+                    "method_label": "Сценарный прогноз",
+                    "role_label": "Эвристическая модель",
                     "mae_display": "0,4",
                     "rmse_display": "0,6",
                     "smape_display": "18%",
-                    "selection_label": "Р Р°Р±РѕС‡Р°СЏ РјРѕРґРµР»СЊ",
+                    "selection_label": "Рабочая модель",
                     "mae_delta_display": "-20%",
                 },
             ],

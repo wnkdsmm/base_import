@@ -2,25 +2,88 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
-from .constants import LONG_RESPONSE_THRESHOLD_MINUTES
-from .utils import _format_integer, _scan_columns, _unique_non_empty
+from .notes import _build_risk_notes
+from .utils import _format_integer, _scan_columns
 
 
 def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not metadata_items:
         return []
     feature_config = [
-        {"label": "Территория и населённый пункт", "description": "Нужны для ранжирования сельсоветов и населённых пунктов.", "resolved_keys": ["territory_label", "district"], "minimum_matches": 1},
-        {"label": "Удалённость от пожарной части", "description": "Используется для оценки логистического риска.", "resolved_keys": ["fire_station_distance"], "minimum_matches": 1},
-        {"label": "Время сообщения и прибытия", "description": "Помогает оценивать вероятность большого времени прибытия подразделений.", "resolved_keys": ["arrival_time", "report_time", "detection_time"], "minimum_matches": 2},
-        {"label": "Наружное водоснабжение", "description": "Учитывается как фактор снижения тяжёлых последствий.", "resolved_keys": ["water_supply_count", "water_supply_details"], "minimum_matches": 1},
-        {"label": "Тип застройки и объектов", "description": "Комбинирует тип населённого пункта, категорию здания и объекта.", "resolved_keys": ["settlement_type", "building_category", "object_category"], "minimum_matches": 2},
-        {"label": "Погодные условия", "description": "Сейчас как погодный сигнал используется доступная температура.", "resolved_keys": ["temperature"], "minimum_matches": 1},
-        {"label": "История пожаров", "description": "Дата и причины помогают учитывать повторяемость, сезон и профиль территории.", "resolved_keys": ["date", "cause"], "minimum_matches": 1},
-        {"label": "Тяжёлые последствия", "description": "Используются последствия, ущерб и пострадавшие для оценки тяжести сценария.", "resolved_keys": ["consequence", "registered_damage", "destroyed_buildings", "destroyed_area", "casualty_flag", "injuries", "deaths"], "minimum_matches": 2},
-        {"label": "Время суток и отопительный период", "description": "Учитываются ночные инциденты, день недели и сезон отопления.", "resolved_keys": ["date", "report_time", "detection_time", "heating_type"], "minimum_matches": 2},
-        {"label": "Подъездные пути", "description": "Если есть отдельные колонки по дорогам или подъезду, они тоже будут использоваться.", "scan_tokens": [["подъезд"], ["дорог"], ["путь"]], "minimum_matches": 1},
-        {"label": "Плотность населения", "description": "Нужна для прямой оценки нагрузки на территорию.", "scan_tokens": [["плотност", "населен"], ["численност", "населен"]], "minimum_matches": 1},
+        {
+            "label": "Территория и населённый пункт",
+            "description": "Нужны для ранжирования сельсоветов и населённых пунктов.",
+            "resolved_keys": ["territory_label", "district"],
+            "minimum_matches": 1,
+        },
+        {
+            "label": "Удалённость от пожарной части",
+            "description": "Используется для оценки логистического риска.",
+            "resolved_keys": ["fire_station_distance"],
+            "minimum_matches": 1,
+        },
+        {
+            "label": "Время сообщения и прибытия",
+            "description": "Помогает оценивать вероятность большого времени прибытия подразделений.",
+            "resolved_keys": ["arrival_time", "report_time", "detection_time"],
+            "minimum_matches": 2,
+        },
+        {
+            "label": "Наружное водоснабжение",
+            "description": "Учитывается как фактор снижения тяжёлых последствий.",
+            "resolved_keys": ["water_supply_count", "water_supply_details"],
+            "minimum_matches": 1,
+        },
+        {
+            "label": "Тип застройки и объектов",
+            "description": "Комбинирует тип населённого пункта, категорию здания и объекта.",
+            "resolved_keys": ["settlement_type", "building_category", "object_category"],
+            "minimum_matches": 2,
+        },
+        {
+            "label": "Погодные условия",
+            "description": "Сейчас как погодный сигнал используется доступная температура.",
+            "resolved_keys": ["temperature"],
+            "minimum_matches": 1,
+        },
+        {
+            "label": "История пожаров",
+            "description": "Дата и причины помогают учитывать повторяемость, сезон и профиль территории.",
+            "resolved_keys": ["date", "cause"],
+            "minimum_matches": 1,
+        },
+        {
+            "label": "Тяжёлые последствия",
+            "description": "Используются последствия, ущерб и пострадавшие для оценки тяжести сценария.",
+            "resolved_keys": [
+                "consequence",
+                "registered_damage",
+                "destroyed_buildings",
+                "destroyed_area",
+                "casualty_flag",
+                "injuries",
+                "deaths",
+            ],
+            "minimum_matches": 2,
+        },
+        {
+            "label": "Время суток и отопительный период",
+            "description": "Учитываются ночные инциденты, день недели и сезон отопления.",
+            "resolved_keys": ["date", "report_time", "detection_time", "heating_type"],
+            "minimum_matches": 2,
+        },
+        {
+            "label": "Подъездные пути",
+            "description": "Если есть отдельные колонки по дорогам или подъезду, они тоже будут использоваться.",
+            "scan_tokens": [["подъезд"], ["дорог"], ["путь"]],
+            "minimum_matches": 1,
+        },
+        {
+            "label": "Плотность населения",
+            "description": "Нужна для прямой оценки нагрузки на территорию.",
+            "scan_tokens": [["плотност", "населен"], ["численност", "населен"]],
+            "minimum_matches": 1,
+        },
     ]
     total_tables = len(metadata_items)
     cards: List[Dict[str, Any]] = []
@@ -44,14 +107,21 @@ def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[
             if found_columns:
                 sources.append(f"{item['table_name']}: {', '.join(found_columns[:4])}")
         if full_tables == total_tables and total_tables > 0:
-            status, status_label = "used", "Используется"
+            status, status_label = ("used", "Используется")
         elif full_tables > 0 or partial_tables > 0:
-            status, status_label = "partial", f"Частично ({full_tables + partial_tables}/{total_tables})"
+            status, status_label = ("partial", f"Частично ({full_tables + partial_tables}/{total_tables})")
         else:
-            status, status_label = "missing", "Не найдена"
-        cards.append({"label": feature["label"], "description": feature["description"], "status": status, "status_label": status_label, "source": "; ".join(sources[:3]) if sources else "Не найдена"})
+            status, status_label = ("missing", "Не найдена")
+        cards.append(
+            {
+                "label": feature["label"],
+                "description": feature["description"],
+                "status": status,
+                "status_label": status_label,
+                "source": "; ".join(sources[:3]) if sources else "Не найдена",
+            }
+        )
     return cards
-
 
 
 def _build_quality_passport(
@@ -65,7 +135,6 @@ def _build_quality_passport(
     used_count = len(used_labels)
     partial_count = len(partial_labels)
     missing_count = len(missing_labels)
-
     critical_labels = {
         "Территория и населённый пункт",
         "История пожаров",
@@ -74,14 +143,12 @@ def _build_quality_passport(
         "Тяжёлые последствия",
     }
     critical_gaps = [label for label in missing_labels if label in critical_labels]
-
     if total > 0:
-        raw_score = ((used_count + partial_count * 0.55) / total) * 100.0
+        raw_score = (used_count + partial_count * 0.55) / total * 100.0
     else:
         raw_score = 0.0
     raw_score -= min(len(critical_gaps), 3) * 8.0
     confidence_score = max(0, min(100, int(round(raw_score))))
-
     if confidence_score >= 80:
         confidence_label = "Высокая"
         confidence_tone = "forest"
@@ -98,7 +165,6 @@ def _build_quality_passport(
         confidence_label = "Ограниченная"
         confidence_tone = "fire"
         validation_label = "Валидация данных ограничена"
-
     if critical_gaps:
         validation_summary = (
             "Часть критичных групп данных отсутствует, поэтому рекомендации стоит использовать как приоритизацию для проверки, "
@@ -114,7 +180,6 @@ def _build_quality_passport(
             "Ключевые группы данных найдены, поэтому рекомендации можно использовать как рабочую основу для приоритизации "
             "территорий и профилактических мер."
         )
-
     reliability_notes = []
     if metadata_items:
         reliability_notes.append(f"Паспорт собран по {_format_integer(len(metadata_items))} таблицам базы.")
@@ -124,7 +189,6 @@ def _build_quality_passport(
         reliability_notes.append("Есть непрямые пробелы в данных, но базовые рекомендации по территориям всё ещё формируются.")
     else:
         reliability_notes.append("Критичных пробелов в ключевых группах данных не найдено.")
-
     return {
         "title": "Паспорт качества данных",
         "confidence_score": confidence_score,
@@ -146,8 +210,22 @@ def _build_quality_passport(
 
 
 def _build_geo_summary(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
-    hotspots = [{"label": item.get("short_label") or item.get("location_label") or "Зона", "risk_display": item.get("risk_display") or "0 / 100", "meta": item.get("explanation") or "Нет пояснения по зоне."} for item in (geo_prediction.get("hotspots") or [])[:5]]
-    districts = [{"label": item.get("label") or "Район", "risk_display": item.get("peak_risk_display") or item.get("avg_risk_display") or "0 / 100", "meta": f"зон: {item.get('zones_display', '0')} | пожаров: {item.get('incidents_display', '0')}"} for item in (geo_prediction.get("districts") or [])[:5]]
+    hotspots = [
+        {
+            "label": item.get("short_label") or item.get("location_label") or "Зона",
+            "risk_display": item.get("risk_display") or "0 / 100",
+            "meta": item.get("explanation") or "Нет пояснения по зоне.",
+        }
+        for item in (geo_prediction.get("hotspots") or [])[:5]
+    ]
+    districts = [
+        {
+            "label": item.get("label") or "Район",
+            "risk_display": item.get("peak_risk_display") or item.get("avg_risk_display") or "0 / 100",
+            "meta": f"зон: {item.get('zones_display', '0')} | пожаров: {item.get('incidents_display', '0')}",
+        }
+        for item in (geo_prediction.get("districts") or [])[:5]
+    ]
     has_coordinates = bool(geo_prediction.get("has_coordinates"))
     has_map_points = bool(geo_prediction.get("points"))
     if not has_coordinates:
@@ -160,7 +238,8 @@ def _build_geo_summary(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
         "has_coordinates": has_coordinates,
         "has_map_points": has_map_points,
         "compact_message": compact_message,
-        "model_description": geo_prediction.get("model_description") or "Карта блока поддержки решений показывает пространственные зоны внимания для территориального приоритета. Она не заменяет календарь риска по дням.",
+        "model_description": geo_prediction.get("model_description")
+        or "Карта блока поддержки решений показывает пространственные зоны внимания для территориального приоритета. Она не заменяет календарь риска по дням.",
         "coverage_display": geo_prediction.get("coverage_display") or "0 с координатами",
         "top_zone_label": geo_prediction.get("top_zone_label") or "-",
         "top_risk_display": geo_prediction.get("top_risk_display") or "0 / 100",
@@ -169,45 +248,3 @@ def _build_geo_summary(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
         "hotspots": hotspots,
         "districts": districts,
     }
-
-
-
-def _build_risk_notes(
-    feature_cards: Sequence[Dict[str, Any]],
-    preload_notes: Sequence[str],
-    weight_profile: Dict[str, Any],
-    historical_validation: Dict[str, Any],
-) -> List[str]:
-    notes = list(preload_notes[:2])
-    missing_labels = {item["label"] for item in feature_cards if item["status"] == "missing"}
-    partial_labels = {item["label"] for item in feature_cards if item["status"] == "partial"}
-
-    if "Подъездные пути" in missing_labels:
-        notes.append("Колонки о состоянии или протяжённости подъездных путей не найдены, поэтому логистический риск оценивается по удалённости от ПЧ и фактическому времени прибытия.")
-    if "Плотность населения" in missing_labels:
-        notes.append("Плотность населения не найдена в текущих таблицах, поэтому демографическая нагрузка пока не влияет на интегральный балл напрямую.")
-    if "Погодные условия" in missing_labels or "Погодные условия" in partial_labels:
-        notes.append("Погодные условия представлены не полностью; сейчас сервис использует доступную температуру как основной погодный сигнал.")
-
-    notes.append(
-        "Итоговый риск всегда раскладывается на четыре компонента: частоту пожаров, тяжесть последствий, долгое прибытие и дефицит водоснабжения."
-    )
-    notes.append(
-        "Логистический компонент остаётся объяснимым: сервис отдельно показывает travel-time, покрытие ПЧ, сервисную зону и логистический приоритет территории."
-    )
-    notes.append(
-        f"Текущий профиль весов: {weight_profile.get('mode_label') or 'Экспертные веса'} ({weight_profile.get('status_label') or 'активен'}); для сельских территорий вес логистики и водоснабжения увеличивается автоматически."
-    )
-    if weight_profile.get("calibration_summary"):
-        notes.append(str(weight_profile.get("calibration_summary")))
-    notes.append(
-        f"Большое время прибытия считается по порогу {int(LONG_RESPONSE_THRESHOLD_MINUTES)} минут от сообщения до прибытия первого подразделения."
-    )
-    notes.append(
-        f"Историческая проверка ранжирования: {historical_validation.get('status_label') or 'пока без проверки'}. Это rolling-origin backtesting по историческим окнам, а не ручная экспертная оценка."
-    )
-    notes.append(
-        "Компонентный балл риска не равен ни сценарию по дням, ни ML-прогнозу количества пожаров. "
-        "Он показывает управленческий приоритет территории и объясняет, почему она стоит выше или ниже в списке."
-    )
-    return _unique_non_empty(notes)[:7]

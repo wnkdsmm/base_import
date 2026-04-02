@@ -12,23 +12,23 @@ class AnalyticsServiceApiContractTests(AnalyticsApiContractSupport):
         resolved_payload = {
             "generated_at": "31.03.2026 09:00",
             "summary": {
-                "selected_table_label": "Р’СЃРµ С‚Р°Р±Р»РёС†С‹",
-                "event_backtest_model_label": "РќРµ РїРѕРєР°Р·Р°РЅ",
+                "selected_table_label": "Все таблицы",
+                "event_backtest_model_label": "Не показан",
             },
             "notes": [
-                "Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІСЃРµ 45 evaluation-РѕРєРѕРЅ rolling-origin backtesting РѕС‚РЅРѕСЃСЏС‚СЃСЏ Рє РѕРґРЅРѕРјСѓ РєР»Р°СЃСЃСѓ (С‚РѕР»СЊРєРѕ РґРЅРё СЃ РїРѕР¶Р°СЂРѕРј), РїРѕСЌС‚РѕРјСѓ РІРµСЂРѕСЏС‚РЅРѕСЃС‚РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РЅРµРєРѕСЂСЂРµРєС‚РЅР°."
+                "Вероятностный блок события пожара скрыт: все 45 evaluation-окон rolling-origin backtesting относятся к одному классу (только дни с пожаром), поэтому вероятностная валидация некорректна."
             ],
             "features": [
                 {
-                    "label": "РўРµРјРїРµСЂР°С‚СѓСЂР°",
-                    "status_label": "РќРёР·РєРѕРµ РїРѕРєСЂС‹С‚РёРµ (3/365 РґРЅРµР№ (0,8%))",
+                    "label": "Температура",
+                    "status_label": "Низкое покрытие (3/365 дней (0,8%))",
                 }
             ],
             "quality_assessment": {
                 "event_table": {
-                    "title": "РЎСЂР°РІРЅРµРЅРёРµ РїРѕ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР°",
+                    "title": "Сравнение по вероятности события пожара",
                     "rows": [],
-                    "empty_message": "Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІСЃРµ 45 evaluation-РѕРєРѕРЅ rolling-origin backtesting РѕС‚РЅРѕСЃСЏС‚СЃСЏ Рє РѕРґРЅРѕРјСѓ РєР»Р°СЃСЃСѓ (С‚РѕР»СЊРєРѕ РґРЅРё СЃ РїРѕР¶Р°СЂРѕРј), РїРѕСЌС‚РѕРјСѓ РІРµСЂРѕСЏС‚РЅРѕСЃС‚РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РЅРµРєРѕСЂСЂРµРєС‚РЅР°.",
+                    "empty_message": "Вероятностный блок события пожара скрыт: все 45 evaluation-окон rolling-origin backtesting относятся к одному классу (только дни с пожаром), поэтому вероятностная валидация некорректна.",
                 }
             },
         }
@@ -71,8 +71,8 @@ class AnalyticsServiceApiContractTests(AnalyticsApiContractSupport):
         resolved_payload = {
             "bootstrap_mode": "resolved",
             "has_data": True,
-            "summary": {"top_point_label": "РўРѕС‡РєР° Рђ"},
-            "points": [{"label": "РўРѕС‡РєР° Рђ", "score_display": "78"}],
+            "summary": {"top_point_label": "Точка А"},
+            "points": [{"label": "Точка А", "score_display": "78"}],
         }
 
         with patch("app.routes.api_access_points.get_access_points_data", return_value=resolved_payload):

@@ -234,64 +234,6 @@
                     {% endif %}
                 </div>
             </article>
-
-            <article class="panel data-table-panel">
-                <div class="panel-head">
-                    <h2>Рейтинг и explainability</h2>
-                    <span class="panel-meta">Сводная таблица по score, типологии, доступности, воде, последствиям и полноте данных.</span>
-                </div>
-                <div class="data-table-shell" id="accessPointsRankingTableShell">
-                    {% if data.points %}
-                    <table class="data-table table-sticky-first access-points-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Точка</th>
-                                <th>Тип</th>
-                                <th>Район</th>
-                                <th>Score</th>
-                                <th>Band</th>
-                                <th>Типология</th>
-                                <th>Пожары</th>
-                                <th>Удалённость</th>
-                                <th>Прибытие</th>
-                                <th>Вода</th>
-                                <th>Полнота</th>
-                                <th>Драйверы</th>
-                                <th>Почему в топе</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for point in data.points %}
-                            <tr>
-                                <td>{{ point.rank }}</td>
-                                <td>
-                                    <strong>{{ point.label }}</strong>
-                                    {% if point.coordinates_display %}
-                                    <div class="table-subnote">{{ point.coordinates_display }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>{{ point.entity_type }}</td>
-                                <td>{{ point.district or '—' }}</td>
-                                <td><span class="score-pill tone-{{ point.tone }}">{{ point.total_score_display or point.score_display }}</span></td>
-                                <td>{{ point.severity_band }}</td>
-                                <td>{{ point.typology_label }}</td>
-                                <td>{{ point.incident_count_display }}</td>
-                                <td>{{ point.average_distance_display }}</td>
-                                <td>{{ point.average_response_display }}</td>
-                                <td>нет воды: {{ point.no_water_share_display }}<br>пропуски: {{ point.water_unknown_share_display }}</td>
-                                <td>{{ point.completeness_display }}</td>
-                                <td>{{ point.reason_chips[:3] | join(', ') or point.top_reason_codes | join(', ') }}</td>
-                                <td>{{ point.human_readable_explanation or point.explanation }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <div class="mini-empty">После расчёта здесь появится ranking отдельных проблемных точек.</div>
-                    {% endif %}
-                </div>
-            </article>
         </div>
 
         <aside class="access-points-secondary">
@@ -345,6 +287,42 @@
 
             <article class="panel">
                 <div class="panel-head">
+                    <h2>Неопределённость</h2>
+                    <span class="panel-meta">Пояснения, как low support и пропуски влияют на итоговый score.</span>
+                </div>
+                <ul class="notice-list" id="accessPointsUncertaintyNotes">
+                    {% if data.uncertainty_notes %}
+                        {% for note in data.uncertainty_notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Здесь появятся пояснения по uncertainty penalty и low support.</li>
+                    {% endif %}
+                </ul>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Что важно помнить</h2>
+                    <span class="panel-meta">Пояснения по fallback-логике, полноте данных и интерпретации рейтинга.</span>
+                </div>
+                <ul class="notice-list" id="accessPointsNotes">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>
+
+    <section class="access-points-followup">
+        <div class="access-points-inline-panels">
+            <article class="panel">
+                <div class="panel-head">
                     <h2>Главные драйверы</h2>
                     <span class="panel-meta">Какие explainable-факторы чаще всего поднимают точки вверх в рейтинге.</span>
                 </div>
@@ -384,39 +362,65 @@
                     {% endif %}
                 </div>
             </article>
+        </div>
 
-            <article class="panel">
-                <div class="panel-head">
-                    <h2>Неопределённость</h2>
-                    <span class="panel-meta">Пояснения, как low support и пропуски влияют на итоговый score.</span>
-                </div>
-                <ul class="notice-list" id="accessPointsUncertaintyNotes">
-                    {% if data.uncertainty_notes %}
-                        {% for note in data.uncertainty_notes %}
-                        <li>{{ note }}</li>
+        <article class="panel data-table-panel access-points-ranking-panel">
+            <div class="panel-head">
+                <h2>Рейтинг и explainability</h2>
+                <span class="panel-meta">Сводная таблица по score, типологии, доступности, воде, последствиям и полноте данных.</span>
+            </div>
+            <div class="data-table-shell" id="accessPointsRankingTableShell">
+                {% if data.points %}
+                <table class="data-table table-sticky-first access-points-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Точка</th>
+                            <th>Тип</th>
+                            <th>Район</th>
+                            <th>Score</th>
+                            <th>Band</th>
+                            <th>Типология</th>
+                            <th>Пожары</th>
+                            <th>Удалённость</th>
+                            <th>Прибытие</th>
+                            <th>Вода</th>
+                            <th>Полнота</th>
+                            <th>Драйверы</th>
+                            <th>Почему в топе</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for point in data.points %}
+                        <tr>
+                            <td>{{ point.rank }}</td>
+                            <td>
+                                <strong>{{ point.label }}</strong>
+                                {% if point.coordinates_display %}
+                                <div class="table-subnote">{{ point.coordinates_display }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ point.entity_type }}</td>
+                            <td>{{ point.district or '—' }}</td>
+                            <td><span class="score-pill tone-{{ point.tone }}">{{ point.total_score_display or point.score_display }}</span></td>
+                            <td>{{ point.severity_band }}</td>
+                            <td>{{ point.typology_label }}</td>
+                            <td>{{ point.incident_count_display }}</td>
+                            <td>{{ point.average_distance_display }}</td>
+                            <td>{{ point.average_response_display }}</td>
+                            <td>нет воды: {{ point.no_water_share_display }}<br>пропуски: {{ point.water_unknown_share_display }}</td>
+                            <td>{{ point.completeness_display }}</td>
+                            <td>{{ point.reason_chips[:3] | join(', ') or point.top_reason_codes | join(', ') }}</td>
+                            <td>{{ point.human_readable_explanation or point.explanation }}</td>
+                        </tr>
                         {% endfor %}
-                    {% else %}
-                    <li>Здесь появятся пояснения по uncertainty penalty и low support.</li>
-                    {% endif %}
-                </ul>
-            </article>
-
-            <article class="panel">
-                <div class="panel-head">
-                    <h2>Что важно помнить</h2>
-                    <span class="panel-meta">Пояснения по fallback-логике, полноте данных и интерпретации рейтинга.</span>
-                </div>
-                <ul class="notice-list" id="accessPointsNotes">
-                    {% if data.notes %}
-                        {% for note in data.notes %}
-                        <li>{{ note }}</li>
-                        {% endfor %}
-                    {% else %}
-                    <li>Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.</li>
-                    {% endif %}
-                </ul>
-            </article>
-        </aside>
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="mini-empty">После расчёта здесь появится ranking отдельных проблемных точек.</div>
+                {% endif %}
+            </div>
+        </article>
     </section>
 </main>
 
