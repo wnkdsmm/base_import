@@ -1,0 +1,103 @@
+<section class="access-points-followup">
+        <div class="access-points-inline-panels">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Главные драйверы</h2>
+                    <span class="panel-meta">Какие explainable-факторы чаще всего поднимают точки вверх в рейтинге.</span>
+                </div>
+                <div id="accessPointsReasonBreakdownShell" class="typology-grid">
+                    {% if data.reason_breakdown %}
+                        {% for item in data.reason_breakdown %}
+                        <article class="typology-card">
+                            <strong>{{ item.label }}</strong>
+                            <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
+                            <span>Средний вклад: {{ item.average_contribution_display }}</span>
+                            <span>Лидер: {{ item.lead_label }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Сводка по драйверам появится после расчёта рейтинга.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel panel-warning">
+                <div class="panel-head">
+                    <h2>Данные неполные</h2>
+                    <span class="panel-meta">Точки, где высокий приоритет проверки растёт в первую очередь из-за пропусков по воде, времени прибытия или удалённости.</span>
+                </div>
+                <div id="accessPointsIncompleteShell" class="incomplete-list">
+                    {% if data.incomplete_points %}
+                        {% for point in data.incomplete_points %}
+                        <article class="incomplete-card">
+                            <strong>{{ point.label }}</strong>
+                            <span>{{ point.incomplete_note }}</span>
+                            <span>Investigation score: {{ point.investigation_score_display }} | Полнота: {{ point.completeness_display }}</span>
+                            <span>{{ point.explanation }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Отдельные точки с риском из-за пропусков пока не выделены.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <article class="panel data-table-panel access-points-ranking-panel">
+            <div class="panel-head">
+                <h2>Рейтинг и explainability</h2>
+                <span class="panel-meta">Сводная таблица по score, типологии, доступности, воде, последствиям и полноте данных.</span>
+            </div>
+            <div class="data-table-shell" id="accessPointsRankingTableShell">
+                {% if data.points %}
+                <table class="data-table table-sticky-first access-points-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Точка</th>
+                            <th>Тип</th>
+                            <th>Район</th>
+                            <th>Score</th>
+                            <th>Band</th>
+                            <th>Типология</th>
+                            <th>Пожары</th>
+                            <th>Удалённость</th>
+                            <th>Прибытие</th>
+                            <th>Вода</th>
+                            <th>Полнота</th>
+                            <th>Драйверы</th>
+                            <th>Почему в топе</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for point in data.points %}
+                        <tr>
+                            <td>{{ point.rank }}</td>
+                            <td>
+                                <strong>{{ point.label }}</strong>
+                                {% if point.coordinates_display %}
+                                <div class="table-subnote">{{ point.coordinates_display }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ point.entity_type }}</td>
+                            <td>{{ point.district or '—' }}</td>
+                            <td><span class="score-pill tone-{{ point.tone }}">{{ point.total_score_display or point.score_display }}</span></td>
+                            <td>{{ point.severity_band }}</td>
+                            <td>{{ point.typology_label }}</td>
+                            <td>{{ point.incident_count_display }}</td>
+                            <td>{{ point.average_distance_display }}</td>
+                            <td>{{ point.average_response_display }}</td>
+                            <td>нет воды: {{ point.no_water_share_display }}<br>пропуски: {{ point.water_unknown_share_display }}</td>
+                            <td>{{ point.completeness_display }}</td>
+                            <td>{{ point.reason_chips[:3] | join(', ') or point.top_reason_codes | join(', ') }}</td>
+                            <td>{{ point.human_readable_explanation or point.explanation }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="mini-empty">После расчёта здесь появится ranking отдельных проблемных точек.</div>
+                {% endif %}
+            </div>
+        </article>
+    </section>

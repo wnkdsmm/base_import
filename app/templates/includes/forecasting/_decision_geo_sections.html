@@ -1,0 +1,165 @@
+            <article class="panel ranking-panel">
+                <div class="panel-head">
+                    <h2>Как не перепутать этот блок с другими экранами</h2>
+                    <span class="panel-meta">Что показывает блок: границы между календарем по дням, ML-количеством и территориальным приоритетом.</span>
+                </div>
+                <ul id="forecastRiskNotes" class="notice-list forecast-note-list">
+                    {% if risk.notes %}
+                        {% for note in risk.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>После расчёта здесь появятся примечания по блоку поддержки решений.</li>
+                    {% endif %}
+                </ul>
+            </article>
+
+            <article id="forecastGeoPanel" class="panel chart-panel risk-map-panel{% if geo.compact_message %} is-compact{% endif %}">
+                <div class="panel-head">
+                    <h2 id="forecastGeoChartTitle">{{ charts.geo.title }}</h2>
+                    <span class="panel-meta" id="forecastGeoDescription">{{ geo.model_description or 'Что показывает блок: пространственные зоны внимания для территориального приоритета. Карта не заменяет календарь по дням.' }}</span>
+                </div>
+                <div class="risk-meta-grid">
+                    <div class="risk-meta-item">
+                        <span>С координатами</span>
+                        <strong id="forecastGeoCoverage">{{ geo.coverage_display }}</strong>
+                    </div>
+                    <div class="risk-meta-item">
+                        <span>Зона внимания</span>
+                        <strong id="forecastGeoTopZone">{{ geo.top_zone_label }}</strong>
+                    </div>
+                    <div class="risk-meta-item">
+                        <span>Пик риска</span>
+                        <strong id="forecastGeoTopRisk">{{ geo.top_risk_display }}</strong>
+                    </div>
+                    <div class="risk-meta-item">
+                        <span>Выделено зон</span>
+                        <strong id="forecastGeoHotspotsCount">{{ geo.hotspots_count_display }}</strong>
+                    </div>
+                </div>
+                <div id="forecastGeoCompactHint" class="risk-compact-note{% if geo.compact_message %}{% else %} is-hidden{% endif %}">{{ geo.compact_message }}</div>
+                <div id="forecastGeoChart" class="plotly-chart forecast-plot"></div>
+                <div id="forecastGeoChartFallback" class="chart-empty{% if charts.geo.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.geo.empty_message }}</div>
+                <p class="risk-explanation" id="forecastGeoTopExplanation">{{ geo.top_explanation }}</p>
+                <div class="risk-mini-columns">
+                    <div>
+                        <h3>Зоны внимания</h3>
+                        <div id="forecastGeoHotspots" class="risk-mini-list">
+                            {% if geo.hotspots %}
+                                {% for item in geo.hotspots %}
+                                <article class="risk-mini-card">
+                                    <div class="risk-mini-head">
+                                        <strong>{{ item.label }}</strong>
+                                        <span>{{ item.risk_display }}</span>
+                                    </div>
+                                    <p>{{ item.meta }}</p>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Зоны появятся после расчёта.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Районы на карте</h3>
+                        <div id="forecastGeoDistricts" class="risk-mini-list">
+                            {% if geo.districts %}
+                                {% for item in geo.districts %}
+                                <article class="risk-mini-card">
+                                    <div class="risk-mini-head">
+                                        <strong>{{ item.label }}</strong>
+                                        <span>{{ item.risk_display }}</span>
+                                    </div>
+                                    <p>{{ item.meta }}</p>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Сводка по районам появится после расчёта.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <article class="panel ranking-panel risk-ranking-panel risk-decision-panel-wide">
+            <div class="panel-head">
+                <h2>Поддержка решений: какие территории взять в работу первыми</h2>
+                <span class="panel-meta">Что показывает блок: управленческий приоритет территорий при текущем сценарии.</span>
+            </div>
+            <p class="section-helper">Этот блок не предсказывает новые даты и не считает количество пожаров. Он объединяет сценарий по дням с историей, последствиями и логистикой, чтобы выстроить список территорий первого внимания.</p>
+            <div id="forecastRiskTerritories" class="risk-territory-list">
+                {% if risk.territories %}
+                    {% for item in risk.territories %}
+                    <article class="risk-territory-card tone-{{ item.risk_tone }}">
+                        <div class="risk-territory-head">
+                            <div>
+                                <strong>{{ item.label }}</strong>
+                                <div class="risk-territory-tags">
+                                    <span class="forecast-badge risk-badge tone-{{ item.risk_tone }}">{{ item.risk_class_label }}</span>
+                                    <span class="forecast-badge risk-badge tone-{{ item.priority_tone }}">{{ item.priority_label }}</span>
+                                    <span class="forecast-badge risk-badge tone-sky">{{ item.weight_mode_label }}</span>
+                                    <span class="forecast-badge risk-badge tone-{{ item.ranking_confidence_tone | default('fire') }}">{{ item.ranking_confidence_label | default('Ограниченная') }}</span>
+                                </div>
+                            </div>
+                            <div class="risk-territory-score">{{ item.risk_display }}</div>
+                        </div>
+                        <div class="risk-score-bar"><span data-bar-width="{{ item.bar_width }}"></span></div>
+                        <div class="risk-territory-callout">
+                            <span>Что проверить первым</span>
+                            <strong>{{ item.action_label }}</strong>
+                            <p>{{ item.action_hint }}</p>
+                        </div>
+                        <div class="risk-metrics-grid">
+                            <div><span>Риск пожара</span><strong>{{ item.fire_probability_display }}</strong></div>
+                            <div><span>Тяжёлые последствия</span><strong>{{ item.severe_probability_display }}</strong></div>
+                            <div><span>Долгое прибытие</span><strong>{{ item.arrival_probability_display }}</strong></div>
+                            <div><span>Пожаров в истории</span><strong>{{ item.history_count_display }}</strong></div>
+                        </div>
+                        <div class="risk-components-grid">
+                            {% if item.component_scores %}
+                                {% for component in item.component_scores %}
+                                <article class="risk-component-card tone-{{ component.tone | default('low') }}">
+                                    <div class="risk-component-head"><strong>{{ component.label }}</strong><span>{{ component.score_display }}</span></div>
+                                    <div class="risk-component-bar"><span data-bar-width="{{ component.bar_width }}"></span></div>
+                                    <div class="risk-component-meta">{{ component.summary }}</div>
+                                    <p>{{ component.rationale }}</p>
+                                </article>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <p class="risk-formula"><strong>Как сложился итоговый балл:</strong> {{ item.risk_formula_display }}</p>
+                        <div class="risk-recommendation-list">
+                            {% if item.recommendations %}
+                                {% for recommendation in item.recommendations[:3] %}
+                                <article class="risk-recommendation-item">
+                                    <strong>{{ recommendation.label }}</strong>
+                                    <span>{{ recommendation.detail }}</span>
+                                </article>
+                                {% endfor %}
+                            {% else %}
+                            <div class="mini-empty">Рекомендации появятся после расчёта.</div>
+                            {% endif %}
+                        </div>
+                        <div class="risk-territory-meta">
+                            <span>Контекст: <strong>{{ item.settlement_context_label }}</strong></span>
+                            <span>Последний пожар: <strong>{{ item.last_fire_display }}</strong></span>
+                            <span>Travel-time: <strong>{{ item.travel_time_display }}</strong></span>
+                            <span>Среднее прибытие: <strong>{{ item.response_time_display }}</strong></span>
+                            <span>Удалённость от ПЧ: <strong>{{ item.distance_display }}</strong></span>
+                            <span>Покрытие ПЧ: <strong>{{ item.fire_station_coverage_display }} ({{ item.fire_station_coverage_label }})</strong></span>
+                            <span>Сервисная зона: <strong>{{ item.service_zone_label }}</strong></span>
+                            <span>Логистический приоритет: <strong>{{ item.logistics_priority_display }}</strong></span>
+                            <span>Вода: <strong>{{ item.water_supply_display }}</strong></span>
+                            <span>Объекты: <strong>{{ item.dominant_object_category }}</strong></span>
+                        </div>
+                        <p class="risk-drivers"><strong>Почему именно эта территория:</strong> {{ item.ranking_reason | default(item.drivers_display) }}</p>
+                        <p class="risk-drivers"><strong>Почему уровень доверия такой:</strong> {{ item.ranking_confidence_note | default('Оценка надёжности появится после расчёта.') }}</p>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                <div class="mini-empty">После расчёта здесь появится ранжирование территорий.</div>
+                {% endif %}
+            </div>
+        </article>
+    </section>

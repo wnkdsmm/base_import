@@ -1,0 +1,96 @@
+<section id="forecastScenarioSection" class="forecast-layout">
+        <div class="forecast-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2 id="forecastDailyChartTitle">{{ charts.daily.title }}</h2>
+                    <span class="panel-meta">Что показывает блок: в какие даты вероятность пожара выше и насколько сценарий отклоняется от недавней истории.</span>
+                </div>
+                <div id="forecastDailyChart" class="plotly-chart forecast-plot"></div>
+                <div id="forecastDailyChartFallback" class="chart-empty{% if charts.daily.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.daily.empty_message }}</div>
+            </article>
+
+
+            <article class="panel forecast-table-panel">
+                <div class="panel-head">
+                <h2>Что ожидается по дням</h2>
+                <span class="panel-meta">Что показывает блок: даты, вероятность пожара и уровень напряжения без чтения графика.</span>
+                </div>
+                <div id="forecastTableShell" class="forecast-table-shell">
+                    {% if data.forecast_rows %}
+                    <table class="forecast-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>День недели</th>
+                                <th>Вероятность пожара</th>
+                                <th>Комментарий</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in data.forecast_rows %}
+                            <tr>
+                                <td data-label="Дата">{{ row.date_display }}</td>
+                                <td data-label="День недели">{{ row.weekday_label }}</td>
+                                <td data-label="Вероятность пожара">{{ row.fire_probability_display }}</td>
+                                <td data-label="Комментарий">
+                                    <span class="forecast-scenario-pill tone-{{ row.scenario_tone }}">{{ row.scenario_label }}</span>
+                                    <div class="forecast-cell-note">{{ row.scenario_hint }}</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="mini-empty">После расчета здесь появятся ближайшие даты и вероятность возникновения пожара.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="dashboard-secondary forecast-secondary">
+            <article class="panel insight-panel">
+                <div class="panel-head">
+                    <h2>Короткие выводы по прогнозу</h2>
+                    <span class="panel-meta">Что показывает блок: краткие выводы именно по сценарию по дням.</span>
+                </div>
+                <div id="forecastInsights" class="insight-grid">
+                    {% if data.insights %}
+                        {% for item in data.insights %}
+                        <article class="insight-card tone-{{ item.tone }}">
+                            <span class="insight-label">{{ item.label }}</span>
+                            <strong class="insight-value">{{ item.value }}</strong>
+                            <span class="insight-meta">{{ item.meta }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Сигналы появятся после расчета прогноза.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2 id="forecastWeekdayChartTitle">{{ charts.weekday.title }}</h2>
+                    <span class="panel-meta">Что показывает блок: есть ли в истории устойчивые дни недели с более высокой пожарной активностью.</span>
+                </div>
+                <div id="forecastWeekdayChart" class="plotly-chart forecast-plot forecast-plot-small"></div>
+                <div id="forecastWeekdayChartFallback" class="chart-empty{% if charts.weekday.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.weekday.empty_message }}</div>
+            </article>
+
+            <article class="panel ranking-panel">
+                <div class="panel-head">
+                    <h2>Что важно не забыть про сценарий</h2>
+                    <span class="panel-meta">Что показывает блок: ограничения данных и условий, которые меняют чтение прогноза по дням.</span>
+                </div>
+                <ul id="forecastNotesList" class="notice-list forecast-note-list">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Замечаний пока нет.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>

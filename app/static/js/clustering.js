@@ -1,36 +1,10 @@
 (function () {
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function setText(id, value) {
-        var node = byId(id);
-        if (node) {
-            node.textContent = value == null ? '' : value;
-        }
-    }
-
-    function setSelectOptions(id, options, selectedValue, emptyLabel) {
-        var selectNode = byId(id);
-        if (!selectNode) {
-            return;
-        }
-
-        var safeOptions = Array.isArray(options) && options.length ? options : [{ value: '', label: emptyLabel }];
-        selectNode.innerHTML = safeOptions.map(function (option) {
-            var selected = String(option.value) === String(selectedValue) ? ' selected' : '';
-            return '<option value="' + escapeHtml(option.value) + '"' + selected + '>' + escapeHtml(option.label) + '</option>';
-        }).join('');
-    }
+    var shared = window.FireUi;
+    var byId = shared.byId;
+    var escapeHtml = shared.escapeHtml;
+    var renderChart = shared.renderPlotlyFigure;
+    var setSelectOptions = shared.setSelectOptions;
+    var setText = shared.setText;
 
     var clusteringStepTimers = [];
     var clusteringJobPollTimer = null;
@@ -216,25 +190,6 @@
         }
 
         setClusteringAsyncVisibility(false);
-    }
-
-    function renderChart(chart, chartId, fallbackId) {
-        var chartNode = byId(chartId);
-        var fallbackNode = byId(fallbackId);
-        if (!chartNode || !fallbackNode) {
-            return;
-        }
-
-        var figure = chart && chart.plotly;
-        if (!window.Plotly || !figure || !Array.isArray(figure.data) || !figure.data.length) {
-            chartNode.innerHTML = '';
-            fallbackNode.textContent = chart && chart.empty_message ? chart.empty_message : 'Нет данных для графика.';
-            fallbackNode.classList.remove('is-hidden');
-            return;
-        }
-
-        fallbackNode.classList.add('is-hidden');
-        window.Plotly.react(chartNode, figure.data || [], figure.layout || {}, figure.config || { responsive: true });
     }
 
     function renderSidebarStatus(data) {

@@ -1,0 +1,135 @@
+<section class="panel filters-panel">
+        <div class="panel-head">
+            <h2>Задайте условия ML-прогноза</h2>
+            <span class="panel-meta">Что показывает блок: для каких данных и условий модель считает ожидаемое число пожаров по дням.</span>
+        </div>
+        <form class="filters-grid ml-form-grid" id="mlModelForm" method="get" action="/ml-model">
+            <label class="filter-field">
+                <span>Таблица</span>
+                <select id="mlTableFilter" name="table_name">
+                    {% for option in filters.available_tables %}
+                    <option value="{{ option.value }}" {% if option.value == filters.table_name %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>История для расчёта</span>
+                <select id="mlHistoryWindowFilter" name="history_window">
+                    {% for option in filters.available_history_windows %}
+                    <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Причина пожара</span>
+                <select id="mlCauseFilter" name="cause">
+                    {% for option in filters.available_causes %}
+                    <option value="{{ option.value }}" {% if option.value == filters.cause %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Тип объекта</span>
+                <select id="mlObjectCategoryFilter" name="object_category">
+                    {% for option in filters.available_object_categories %}
+                    <option value="{{ option.value }}" {% if option.value == filters.object_category %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Температура сценария, °C</span>
+                <input id="mlTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берется историческая температура">
+            </label>
+            <label class="filter-field">
+                <span>Сколько дней вперёд</span>
+                <select id="mlForecastDaysFilter" name="forecast_days">
+                    {% for option in filters.available_forecast_days %}
+                    <option value="{{ option.value }}" {% if option.value == filters.forecast_days %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="filter-field filter-actions ml-actions">
+                <span>Действие</span>
+                <button id="mlRefreshButton" class="primary-action" type="submit">Пересчитать ML-прогноз</button>
+            </div>
+        </form>
+        <div id="mlAsyncState" class="analysis-async ml-async-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}">
+            <div id="mlLoadingState" class="analysis-status-card ml-loading-state{% if data.bootstrap_mode == 'deferred' %} is-pending{% else %} is-hidden{% endif %}" aria-live="polite">
+                <div class="analysis-status-head ml-loading-head">
+                    <div class="analysis-status-copy">
+                        <strong id="mlLoadingLead" class="analysis-status-lead">Подготавливаем ML-страницу</strong>
+                        <span id="mlLoadingMessage" class="analysis-status-message">Сначала отдаем легкий shell, затем подтягиваем расчет отдельно.</span>
+                    </div>
+                </div>
+                <div class="analysis-step-list ml-progress-steps" id="mlProgressSteps">
+                    <span class="analysis-step ml-progress-step is-active">Загрузка данных</span>
+                    <span class="analysis-step ml-progress-step">Агрегация</span>
+                    <span class="analysis-step ml-progress-step">Обучение / валидация</span>
+                    <span class="analysis-step ml-progress-step">Построение визуализаций</span>
+                </div>
+                <div id="mlLoadingSkeleton" class="analysis-skeleton-grid">
+                    <div class="analysis-skeleton-card">
+                        <span class="analysis-skeleton-line short"></span>
+                        <span class="analysis-skeleton-line value"></span>
+                        <span class="analysis-skeleton-line medium"></span>
+                    </div>
+                    <div class="analysis-skeleton-card">
+                        <span class="analysis-skeleton-line short"></span>
+                        <span class="analysis-skeleton-line value"></span>
+                        <span class="analysis-skeleton-line long"></span>
+                    </div>
+                    <div class="analysis-skeleton-card">
+                        <span class="analysis-skeleton-line short"></span>
+                        <span class="analysis-skeleton-line value"></span>
+                        <span class="analysis-skeleton-line medium"></span>
+                    </div>
+                </div>
+            </div>
+            <div id="mlErrorState" class="analysis-error-card ml-error-state is-hidden" aria-live="polite">
+                <div class="analysis-error-copy">
+                    <strong>Не удалось завершить ML-анализ</strong>
+                    <span id="mlErrorMessage">Попробуйте повторить расчёт с теми же параметрами.</span>
+                </div>
+                <div class="analysis-inline-actions">
+                    <button id="mlRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats-grid ml-stats-grid" id="mlStatsGrid">
+        <article class="stat-card stat-card-accent">
+            <span class="stat-label">Пожаров в обучении</span>
+            <strong class="stat-value">{{ summary.fires_count_display }}</strong>
+            <span class="stat-foot">После выбранных фильтров.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Длина истории</span>
+            <strong class="stat-value">{{ summary.history_days_display }}</strong>
+            <span class="stat-foot">Непрерывный дневной ряд с нулями между пожарами.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Ожидаемо на всём горизонте</span>
+            <strong class="stat-value">{{ summary.predicted_total_display }}</strong>
+            <span class="stat-foot">Ожидаемое число пожаров на всем горизонте.</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Дней с повышенной нагрузкой</span>
+            <strong class="stat-value">{{ summary.elevated_risk_days_display }}</strong>
+            <span class="stat-foot">Количество дней, где риск-индекс не ниже 75/100.</span>
+        </article>
+    </section>
+
+    <article id="mlNotesPanel" class="panel insight-panel{% if data.notes %}{% else %} is-hidden{% endif %}">
+        <div class="panel-head">
+            <div>
+                <h2>Что может изменить чтение прогноза количества</h2>
+                <span class="panel-meta">Что показывает блок: только те замечания, которые действительно меняют трактовку прогноза по числу пожаров.</span>
+            </div>
+        </div>
+        <ul class="notice-list forecast-note-list" id="mlNotesList">
+            {% for note in data.notes %}
+            <li>{{ note }}</li>
+            {% endfor %}
+        </ul>
+    </article>

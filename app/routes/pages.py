@@ -4,14 +4,14 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
+from app.dashboard.service import get_dashboard_page_context, get_dashboard_shell_context
 from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS, get_all_tables
 from app.plotly_bundle import get_plotly_bundle
 from app.services.access_points.core import get_access_points_shell_context
 from app.services.clustering.core import get_clustering_page_context
-from app.services.dashboard_service import get_dashboard_page_context, get_dashboard_shell_context
 from app.services.fire_map_service import build_fire_map_html, get_fire_map_page_context
 from app.services.forecasting.core import get_forecasting_page_context, get_forecasting_shell_context
-from app.services.ml_model.core import get_ml_model_shell_context
+from app.services.ml_model.core import get_ml_model_page_context, get_ml_model_shell_context
 from app.services.table_options import (
     get_column_search_table_options,
     get_fire_map_table_options,
@@ -37,7 +37,13 @@ def _static_version(filename: str) -> int:
 def _base_template_context(request: Request, **context: object) -> dict[str, object]:
     return {
         "request": request,
-        "style_css_version": _static_version("style.css"),
+        "base_css_version": _static_version("css/base.css"),
+        "layout_css_version": _static_version("css/layout.css"),
+        "shared_components_css_version": _static_version("css/shared-components.css"),
+        "page_misc_css_version": _static_version("css/page-misc.css"),
+        "analytics_css_version": _static_version("analytics.css"),
+        "dashboard_css_version": _static_version("dashboard.css"),
+        "analytics_shared_js_version": _static_version("js/analytics_shared.js"),
         "sidebar_js_version": _static_version("js/sidebar.js"),
         **context,
     }
@@ -173,14 +179,28 @@ def ml_model_page(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    mode: str = "full",
 ):
-    ml_model = get_ml_model_shell_context(
-        table_name=table_name,
-        cause=cause,
-        object_category=object_category,
-        temperature=temperature,
-        forecast_days=forecast_days,
-        history_window=history_window,
+    use_full_context = str(mode).strip().lower() != "deferred"
+    ml_model = (
+        get_ml_model_page_context(
+            table_name=table_name,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+        )
+        if use_full_context
+        else get_ml_model_shell_context(
+            table_name=table_name,
+            cause=cause,
+            object_category=object_category,
+            temperature=temperature,
+            forecast_days=forecast_days,
+            history_window=history_window,
+            prefer_cached=True,
+        )
     )
     return templates.TemplateResponse(
         "ml_model.html",
@@ -371,5 +391,6 @@ def select_table(request: Request):
             mandatory_feature_catalog=get_mandatory_feature_catalog(),
             profiling_css_version=_static_version("profiling.css"),
             profiling_defaults=PROFILING_DEFAULTS,
+            select_table_js_version=_static_version("js/select_table.js"),
         ),
     )

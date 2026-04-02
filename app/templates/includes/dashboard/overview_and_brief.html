@@ -1,18 +1,16 @@
-    {% set brief = management.brief %}
+{% set brief = management.brief %}
     {% set section_id = 'dashboardBrief' %}
     {% set brief_heading = 'Короткий вывод по территориям на панели' %}
     {% set brief_purpose = 'Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней, причину выбора и уровень доверия к выводу.' %}
-    {% set export_link_id = 'dashboardBriefExportLink' %}
+    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
     {% set brief_trust_title = 'Можно ли опираться на вывод' %}
     {% set export_href = '/brief/dashboard.txt?table_name=' ~ filters.table_name ~ '&year=' ~ filters.year ~ '&group_column=' ~ filters.group_column %}
-    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
+    {% set export_link_id = 'dashboardExportBriefLink' %}
     {% set cards_id = 'managementBriefCards' %}
     {% set excerpt_id = 'dashboardExportBriefExcerpt' %}
     {% set notes_id = 'managementNotesList' %}
 
-    <section class="dashboard-shell">
-        <aside class="dashboard-overview-column">
-            <div class="dashboard-overview-sticky">
+    <section class="dashboard-overview-stack">
                 <article class="panel dashboard-section-intro">
                     <div class="panel-head">
                         <div>
@@ -67,7 +65,7 @@
                                 <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
                                 {% endfor %}
                             </select>
-                            <small class="filter-hint">РСЃРїРѕР»СЊР·СѓР№С‚Рµ, РµСЃР»Рё РЅСѓР¶РЅРѕ Р±С‹СЃС‚СЂРѕ РїРµСЂРµРєР»СЋС‡РёС‚СЊСЃСЏ РјРµР¶РґСѓ РіРѕРґРѕРј Рё РѕР±С‰РёРј РёСЃС‚РѕСЂРёС‡РµСЃРєРёРј РіРѕСЂРёР·РѕРЅС‚РѕРј.</small>
+                            <small class="filter-hint">Используйте, если нужно быстро переключиться между годом и общим историческим горизонтом.</small>
                         </label>
                         <label class="filter-field">
                             <span>Разрез</span>
@@ -105,10 +103,9 @@
                         {% endfor %}
                     </ul>
                 </section>
-            </div>
-        </aside>
+    </section>
 
-        <section class="dashboard-content-column">
+    <section class="dashboard-content-column dashboard-content-column-wide">
             {% include 'includes/executive_brief.html' %}
             <section id="dashboardDetails" class="panel executive-detail-panel">
                 <div class="panel-head">
@@ -172,3 +169,6 @@
                             </div>
                         </article>
                     </aside>
+                </div>
+            </section>
+    </section>

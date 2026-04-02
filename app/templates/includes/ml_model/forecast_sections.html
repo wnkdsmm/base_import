@@ -1,12 +1,11 @@
-
-    <section id="mlForecastSection" class="ml-layout">
+<section id="mlForecastSection" class="ml-layout">
         <div class="ml-primary">
-            <article class="panel chart-panel chart-panel-large">
+            <article class="panel chart-panel chart-panel-large{% if charts.forecast.empty_message %} is-chart-empty{% endif %}">
                 <div class="panel-head">
                     <h2 id="mlForecastTitle">{{ charts.forecast.title }}</h2>
                     <span class="panel-meta">Что показывает блок: историю, проверку на истории и будущие значения числа пожаров на одной шкале.</span>
                 </div>
-                <div id="mlForecastChart" class="plotly-chart ml-plot"></div>
+                <div id="mlForecastChart" class="plotly-chart ml-plot{% if charts.forecast.empty_message %} is-empty{% endif %}"></div>
                 <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
             </article>
 
@@ -23,7 +22,7 @@
                                 <th>Дата</th>
                                 <th>Ожидаемое число пожаров</th>
                                 <th>Диапазон</th>
-                                <th>РРЅРґРµРєСЃ СЂРёСЃРєР°</th>
+                                <th>Индекс риска</th>
                                 <th>P(&gt;=1 пожара)</th>
                                 <th>Температура</th>
                             </tr>
@@ -34,7 +33,7 @@
                                 <td data-label="Дата">{{ row.date_display }}</td>
                                 <td data-label="Ожидаемое число пожаров">{{ row.forecast_value_display }}</td>
                                 <td data-label="Диапазон">{{ row.range_display }}</td>
-                                <td data-label="РРЅРґРµРєСЃ СЂРёСЃРєР°"><span class="ml-risk-pill ml-risk-{{ row.risk_level_tone }}">{{ row.risk_index_display }}</span></td>
+                                <td data-label="Индекс риска"><span class="ml-risk-pill ml-risk-{{ row.risk_level_tone }}">{{ row.risk_index_display }}</span></td>
                                 <td data-label="P(>=1 пожара)">{{ row.event_probability_display }}</td>
                                 <td data-label="Температура">{{ row.temperature_display }}</td>
                             </tr>
@@ -49,13 +48,14 @@
         </div>
 
         <aside class="dashboard-secondary ml-secondary">
-            <article class="panel chart-panel">
+            <article class="panel chart-panel{% if charts.importance.empty_message %} is-chart-empty{% endif %}">
                 <div class="panel-head">
                     <h2 id="mlImportanceTitle">{{ charts.importance.title }}</h2>
                     <span class="panel-meta">Что показывает блок: какие факторы сильнее всего меняют прогноз количества.</span>
                 </div>
-                <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small"></div>
+                <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small{% if charts.importance.empty_message %} is-empty{% endif %}"></div>
                 <div id="mlImportanceChartFallback" class="chart-empty{% if charts.importance.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.importance.empty_message }}</div>
+                <p class="panel-meta ml-importance-note{% if not charts.importance.note %} is-hidden{% endif %}" id="mlImportanceChartNote">{{ charts.importance.note }}</p>
             </article>
 
             <article id="mlFeatureSection" class="panel insight-panel">
@@ -82,7 +82,5 @@
 
         </aside>
     </section>
-</main>
 
-<script>
-window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
+</main>

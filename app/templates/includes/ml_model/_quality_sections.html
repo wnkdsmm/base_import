@@ -1,0 +1,131 @@
+<section id="mlBacktestingSection" class="panel ml-quality-panel">
+        <div class="panel-head">
+            <div>
+                <h2 id="mlQualityTitle">Насколько можно доверять ML-прогнозу</h2>
+                <span class="panel-meta" id="mlQualitySubtitle">{{ quality.subtitle or 'Что показывает блок: насколько модель предсказывала именно число пожаров на прошлой истории и чем она лучше простых подходов.' }}</span>
+            </div>
+        </div>
+        <div class="stats-grid" id="mlQualityMetricCards">
+            {% if quality.metric_cards %}
+                {% for item in quality.metric_cards %}
+                <article class="stat-card">
+                    <span class="stat-label">{{ item.label }}</span>
+                    <strong class="stat-value">{{ item.value }}</strong>
+                    <span class="stat-foot">{{ item.meta }}</span>
+                </article>
+                {% endfor %}
+            {% else %}
+            <div class="mini-empty">После расчета здесь появятся метрики качества ML-прогноза.</div>
+            {% endif %}
+        </div>
+
+        <article class="panel ml-interval-panel" id="mlIntervalCoveragePanel">
+            <div class="panel-head">
+                <div>
+                    <h2 id="mlIntervalCoverageTitle">{{ quality.interval_card.label }}</h2>
+                    <span class="panel-meta">Что показывает блок: как часто фактическое число пожаров попадало в прогнозный интервал на отложенных окнах истории.</span>
+                </div>
+                <strong class="ml-interval-value" id="mlIntervalCoverageValue">{{ quality.interval_card.value }}</strong>
+            </div>
+            <p class="ml-interval-meta" id="mlIntervalCoverageMeta">{{ quality.interval_card.meta }}</p>
+        </article>
+
+        <div class="ml-quality-extra{% if not quality.event_metric_cards %} is-hidden{% endif %}" id="mlQualityEventMetricsSection">
+            <div class="panel-head">
+                <div>
+                    <h3>Дополнительные метрики события пожара</h3>
+                    <span class="panel-meta">Что показывает блок: насколько модель оценивает вероятность хотя бы одного пожара; это вспомогательная проверка, а не основная оценка прогноза количества.</span>
+                </div>
+            </div>
+            <div class="stats-grid ml-quality-extra-grid" id="mlQualityEventMetricCards">
+                {% if quality.event_metric_cards %}
+                    {% for item in quality.event_metric_cards %}
+                    <article class="stat-card">
+                        <span class="stat-label">{{ item.label }}</span>
+                        <strong class="stat-value">{{ item.value }}</strong>
+                        <span class="stat-foot">{{ item.meta }}</span>
+                    </article>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ml-table-shell">
+            <div class="panel-head">
+                <h2 id="mlCountTableTitle">{{ quality.count_table.title }}</h2>
+                <span class="panel-meta">Что показывает блок: лучше ли рабочая модель предсказывает число пожаров, чем более простые подходы.</span>
+            </div>
+            <div id="mlCountTableShell">
+                {% if quality.count_table.rows %}
+                <table class="forecast-table">
+                    <thead>
+                        <tr>
+                            <th>Метод</th>
+                            <th>Роль</th>
+                            <th>MAE</th>
+                            <th>RMSE</th>
+                            <th>SMAPE</th>
+                            <th>Девиация Пуассона</th>
+                            <th>MAE к базовой модели</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in quality.count_table.rows %}
+                        <tr>
+                            <td data-label="Метод">{{ row.method_label }}</td>
+                            <td data-label="Роль">{{ row.role_label }}</td>
+                            <td data-label="MAE">{{ row.mae_display }}</td>
+                            <td data-label="RMSE">{{ row.rmse_display }}</td>
+                            <td data-label="SMAPE">{{ row.smape_display }}</td>
+                            <td data-label="Девиация Пуассона">{{ row.poisson_display }}</td>
+                            <td data-label="MAE к базовой модели">{{ row.mae_delta_display }}</td>
+                            <td data-label="Статус">{{ row.selection_label }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="mini-empty">{{ quality.count_table.empty_message }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ml-table-shell">
+            <div class="panel-head">
+                <h2 id="mlEventTableTitle">{{ quality.event_table.title }}</h2>
+                <span class="panel-meta">Что показывает блок: насколько модель оценивает вероятность хотя бы одного пожара; это дополнительный индикатор, а не приоритет территорий.</span>
+            </div>
+            <div id="mlEventTableShell">
+                {% if quality.event_table.rows %}
+                <table class="forecast-table">
+                    <thead>
+                        <tr>
+                            <th>Метод</th>
+                            <th>Роль</th>
+                            <th>Показатель Брайера</th>
+                            <th>ROC-AUC</th>
+                            <th>F1</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in quality.event_table.rows %}
+                        <tr>
+                            <td data-label="Метод">{{ row.method_label }}</td>
+                            <td data-label="Роль">{{ row.role_label }}</td>
+                            <td data-label="Показатель Брайера">{{ row.brier_display }}</td>
+                            <td data-label="ROC-AUC">{{ row.roc_auc_display }}</td>
+                            <td data-label="F1">{{ row.f1_display }}</td>
+                            <td data-label="Статус">{{ row.selection_label }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="mini-empty">{{ quality.event_table.empty_message }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+    </section>

@@ -1,0 +1,134 @@
+<section class="clustering-layout">
+        <div class="clustering-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2 id="clusterScatterTitle">{{ charts.scatter.title }}</h2>
+                    <span class="panel-meta">Каждая точка — территория или населенный пункт. Положение рассчитано по агрегированным признакам.</span>
+                </div>
+                <div id="clusterScatterChart" class="plotly-chart cluster-scatter-chart"></div>
+                <div id="clusterScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2 id="clusterDistributionTitle">{{ charts.distribution.title }}</h2>
+                    <span class="panel-meta">Показывает, насколько равномерно типы территорий представлены в модели.</span>
+                </div>
+                <div id="clusterDistributionChart" class="plotly-chart cluster-bar-chart"></div>
+                <div id="clusterDistributionChartFallback" class="chart-empty{% if charts.distribution.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.distribution.empty_message }}</div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2 id="clusterDiagnosticsTitle">{{ charts.diagnostics.title }}</h2>
+                    <span class="panel-meta">Помогает выбрать разумное число кластеров по качеству разделения и инерции.</span>
+                </div>
+                <div id="clusterDiagnosticsChart" class="plotly-chart cluster-bar-chart"></div>
+                <div id="clusterDiagnosticsChartFallback" class="chart-empty{% if charts.diagnostics.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.diagnostics.empty_message }}</div>
+            </article>
+
+            <article class="panel data-table-panel">
+                <div class="panel-head">
+                    <h2>Центры кластеров</h2>
+                    <span class="panel-meta">Средние значения признаков помогают быстро понять профиль каждого типа территории.</span>
+                </div>
+                <div class="data-table-shell" id="clusterCentroidTableShell">
+                    {% if data.centroid_rows %}
+                    <table class="data-table table-sticky-first">
+                        <thead>
+                            <tr>
+                                {% for column in data.centroid_columns %}
+                                <th>{{ column }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in data.centroid_rows %}
+                            <tr>
+                                {% for value in row %}
+                                <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="mini-empty">После расчета здесь появятся средние профили кластеров.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="clustering-secondary">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Профили кластеров</h2>
+                    <span class="panel-meta">Короткая интерпретация типов территорий риска.</span>
+                </div>
+                <div class="cluster-overview-grid" id="clusterProfilesShell">
+                    {% if data.cluster_profiles %}
+                        {% for item in data.cluster_profiles %}
+                        <article class="cluster-overview-card tone-{{ item.tone }}">
+                            <div class="cluster-overview-head">
+                                <strong>{{ item.cluster_label }}</strong>
+                                <span class="cluster-badge">{{ item.share_display }}</span>
+                            </div>
+                            <span class="cluster-overview-meta">{{ item.segment_title }}</span>
+                            <span class="cluster-overview-meta">Территорий: <span class="cluster-overview-value">{{ item.size_display }}</span> | Пожаров в истории: <span class="cluster-overview-value">{{ item.incidents_display }}</span></span>
+                            <span class="cluster-overview-foot">{{ item.summary }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Профили типов территорий появятся после расчета.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel ranking-panel">
+                <div class="panel-head">
+                    <h2>Что важно помнить</h2>
+                    <span class="panel-meta">Подсказки по интерпретации кластеров и качеству сегментации.</span>
+                </div>
+                <ul class="notice-list" id="clusterNotesList">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>
+
+    <section class="panel data-table-panel">
+        <div class="panel-head">
+            <h2>Представители кластеров</h2>
+            <span class="panel-meta">Ближайшие к центру территории помогают увидеть типичный пример каждого кластера.</span>
+        </div>
+        <div class="data-table-shell" id="clusterRepresentativesTableShell">
+            {% if data.representative_rows %}
+            <table class="data-table table-sticky-first">
+                <thead>
+                    <tr>
+                        {% for column in data.representative_columns %}
+                        <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data.representative_rows %}
+                    <tr>
+                        {% for value in row %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="mini-empty">После расчета здесь появятся территории, ближайшие к центрам кластеров.</div>
+            {% endif %}
+        </div>
+    </section>

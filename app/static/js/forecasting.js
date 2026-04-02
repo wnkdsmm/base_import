@@ -1,68 +1,20 @@
 (function () {
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function normalizePercent(value, fallback) {
-        var normalizedFallback = fallback || '0%';
-        var rawValue = String(value == null ? '' : value).trim();
-        var match = rawValue.match(/^(-?\d+(?:\.\d+)?)%?$/);
-        if (!match) {
-            return normalizedFallback;
-        }
-
-        var numericValue = Math.max(0, Math.min(100, Number(match[1])));
-        return numericValue + '%';
-    }
+    var shared = window.FireUi;
+    var applyToneClass = shared.applyToneClass;
+    var byId = shared.byId;
+    var escapeHtml = shared.escapeHtml;
+    var normalizePercent = shared.normalizePercent;
+    var renderChart = shared.renderPlotlyFigure;
+    var setHref = shared.setHref;
+    var setSelectOptions = shared.setSelectOptions;
+    var setText = shared.setText;
+    var setValue = shared.setValue;
 
     function applyProgressBars(root) {
         var scope = root && typeof root.querySelectorAll === 'function' ? root : document;
         Array.prototype.forEach.call(scope.querySelectorAll('[data-bar-width]'), function (node) {
             node.style.setProperty('--bar-width', normalizePercent(node.getAttribute('data-bar-width'), '0%'));
         });
-    }
-
-    function setText(id, value) {
-        var node = byId(id);
-        if (node) {
-            node.textContent = value == null ? '' : value;
-        }
-    }
-
-    function setHref(id, href) {
-        var node = byId(id);
-        if (node && href) {
-            node.setAttribute('href', href);
-        }
-    }
-
-    function setValue(id, value) {
-        var node = byId(id);
-        if (node) {
-            node.value = value == null ? '' : value;
-        }
-    }
-
-    function setSelectOptions(id, options, selectedValue, emptyLabel) {
-        var selectNode = byId(id);
-        if (!selectNode) {
-            return;
-        }
-
-        var safeOptions = Array.isArray(options) && options.length ? options : [{ value: 'all', label: emptyLabel }];
-        selectNode.innerHTML = safeOptions.map(function (option) {
-            var selected = String(option.value) === String(selectedValue) ? ' selected' : '';
-            return '<option value="' + escapeHtml(option.value) + '"' + selected + '>' + escapeHtml(option.label) + '</option>';
-        }).join('');
     }
 
     function renderInsights(items) {
@@ -175,26 +127,6 @@
                     '<td data-label="Комментарий"><span class="forecast-scenario-pill tone-' + escapeHtml(row.scenario_tone || 'sky') + '">' + escapeHtml(row.scenario_label || 'Около обычного') + '</span><div class="forecast-cell-note">' + escapeHtml(row.scenario_hint || '') + '</div></td>' +
                 '</tr>';
             }).join('') + '</tbody></table>';
-    }
-
-    function renderChart(chart, chartId, fallbackId) {
-        var chartNode = byId(chartId);
-        var fallbackNode = byId(fallbackId);
-        if (!chartNode || !fallbackNode) {
-            return false;
-        }
-
-        var figure = chart && chart.plotly;
-        if (!figure || !window.Plotly || !Array.isArray(figure.data) || !figure.data.length) {
-            fallbackNode.textContent = chart && chart.empty_message ? chart.empty_message : 'Нет данных для графика.';
-            fallbackNode.classList.remove('is-hidden');
-            chartNode.innerHTML = '';
-            return false;
-        }
-
-        fallbackNode.classList.add('is-hidden');
-        window.Plotly.react(chartNode, figure.data || [], figure.layout || {}, figure.config || { responsive: true });
-        return true;
     }
 
     function renderRiskSummary(items) {
@@ -927,17 +859,6 @@
             });
             setDecisionSupportStatus(decisionSupportMessage, 'error');
             renderForecastJobRuntime(payload);
-        }
-    }
-
-    function applyToneClass(node, tone) {
-        if (!node) {
-            return;
-        }
-
-        node.className = node.className.replace(/\btone-[a-z]+\b/g, '').replace(/\s+/g, ' ').trim();
-        if (tone) {
-            node.className += (node.className ? ' ' : '') + 'tone-' + tone;
         }
     }
 

@@ -1,0 +1,32 @@
+{% macro orientation_strip(aria_label, links) -%}
+<nav class="orientation-strip" aria-label="{{ aria_label }}">
+    {% for link in links %}
+    <a{% if link.id %} id="{{ link.id }}"{% endif %} class="orientation-link {{ link.variant }}{% if link.is_current %} is-current{% endif %}" href="{{ link.href }}"{% if link.is_current %} aria-current="page"{% endif %}>
+        <span class="orientation-kicker">{{ link.kicker }}</span>
+        <strong>{{ link.title }}</strong>
+        <p>{{ link.body }}</p>
+        <span class="orientation-cta">{{ link.cta }}</span>
+    </a>
+    {% endfor %}
+</nav>
+{%- endmacro %}
+
+{% macro screen_guide(aria_label, cards) -%}
+<section class="screen-guide" aria-label="{{ aria_label }}">
+    {% for card in cards %}
+    <article class="screen-guide-card">
+        <span class="screen-guide-label">{{ card.label }}</span>
+        <strong>{{ card.title }}</strong>
+        <p>{{ card.body }}</p>
+    </article>
+    {% endfor %}
+</section>
+{%- endmacro %}
+
+{% macro clarity_note(aria_label, label, title, body) -%}
+<section class="clarity-note" aria-label="{{ aria_label }}">
+    <span class="clarity-note-label">{{ label }}</span>
+    <strong>{{ title }}</strong>
+    <p>{{ body }}</p>
+</section>
+{%- endmacro %}

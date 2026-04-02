@@ -1,4 +1,13 @@
 (function () {
+    var shared = window.FireUi;
+    var byId = shared.byId;
+    var escapeHtml = shared.escapeHtml;
+    var normalizePercent = shared.normalizePercent;
+    var setHref = shared.setHref;
+    var setSelectOptions = shared.setSelectOptions;
+    var setText = shared.setText;
+    var setValue = shared.setValue;
+
     var currentMlData = null;
     var currentJobState = null;
     var jobPollTimer = null;
@@ -27,63 +36,11 @@
         }
     ];
 
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function setText(id, value) {
+    function setSectionHidden(id, isHidden) {
         var node = byId(id);
         if (node) {
-            node.textContent = value == null ? '' : value;
+            node.classList.toggle('is-hidden', !!isHidden);
         }
-    }
-
-    function setHref(id, href) {
-        var node = byId(id);
-        if (node && href) {
-            node.setAttribute('href', href);
-        }
-    }
-
-    function setValue(id, value) {
-        var node = byId(id);
-        if (node) {
-            node.value = value == null ? '' : value;
-        }
-    }
-
-    function setSelectOptions(id, options, selectedValue, emptyLabel) {
-        var selectNode = byId(id);
-        if (!selectNode) {
-            return;
-        }
-
-        var safeOptions = Array.isArray(options) && options.length ? options : [{ value: 'all', label: emptyLabel }];
-        selectNode.innerHTML = safeOptions.map(function (option) {
-            var selected = String(option.value) === String(selectedValue) ? ' selected' : '';
-            return '<option value="' + escapeHtml(option.value) + '"' + selected + '>' + escapeHtml(option.label) + '</option>';
-        }).join('');
-    }
-
-    function normalizePercent(value, fallback) {
-        var normalizedFallback = fallback || '0%';
-        var rawValue = String(value == null ? '' : value).trim();
-        var match = rawValue.match(/^(-?\d+(?:\.\d+)?)%?$/);
-        if (!match) {
-            return normalizedFallback;
-        }
-
-        var numericValue = Math.max(0, Math.min(100, Number(match[1])));
-        return numericValue + '%';
     }
 
     function normalizeCssColor(value, fallback) {
@@ -116,10 +73,23 @@
         return value.slice(8, 10) + '.' + value.slice(5, 7);
     }
 
+    function setChartEmptyState(chartNode, isEmpty) {
+        var panel = chartNode && typeof chartNode.closest === 'function'
+            ? chartNode.closest('.chart-panel')
+            : null;
+        if (chartNode) {
+            chartNode.classList.toggle('is-empty', !!isEmpty);
+        }
+        if (panel) {
+            panel.classList.toggle('is-chart-empty', !!isEmpty);
+        }
+    }
+
     function renderFallback(chartNode, fallbackNode, message) {
         if (!chartNode || !fallbackNode) {
             return;
         }
+        setChartEmptyState(chartNode, true);
         chartNode.innerHTML = '';
         fallbackNode.textContent = message || 'Нет данных для графика.';
         fallbackNode.classList.remove('is-hidden');
@@ -138,6 +108,7 @@
             return;
         }
 
+        setChartEmptyState(chartNode, false);
         fallbackNode.classList.add('is-hidden');
         var history = series.history || [];
         var backtestActual = series.backtest_actual || [];
@@ -288,6 +259,7 @@
             return;
         }
 
+        setChartEmptyState(chartNode, false);
         fallbackNode.classList.add('is-hidden');
         var maxValue = Math.max.apply(null, items.map(function (item) { return item.value; }).concat([1]));
         var html = '<div class="ml-bars">';
@@ -415,6 +387,39 @@
                 + '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>'
                 + '</article>';
         }).join('');
+    }
+
+    function renderOptionalMetricCards(sectionId, containerId, items, emptyMessage) {
+        var hasItems = Array.isArray(items) && items.length;
+        var container = byId(containerId);
+        setSectionHidden(sectionId, !hasItems);
+        if (!container) {
+            return;
+        }
+        if (!hasItems) {
+            container.innerHTML = '';
+            return;
+        }
+        renderMetricCards(containerId, items, emptyMessage || '');
+    }
+
+    function renderIntervalCoverage(card) {
+        var safeCard = card || {};
+        setText('mlIntervalCoverageTitle', safeCard.label || 'Покрытие интервала на отложенных окнах');
+        setText('mlIntervalCoverageValue', safeCard.value || '—');
+        setText(
+            'mlIntervalCoverageMeta',
+            safeCard.meta || 'После расчета здесь появится проверка того, как часто фактическое число пожаров попадало в прогнозный интервал.'
+        );
+    }
+
+    function renderImportanceNote(note) {
+        var node = byId('mlImportanceChartNote');
+        if (!node) {
+            return;
+        }
+        node.textContent = note || '';
+        node.classList.toggle('is-hidden', !note);
     }
 
     function renderCriticalNotes(items) {
@@ -598,6 +603,7 @@
         var chartNode = byId(chartId);
         var fallbackNode = byId(fallbackId);
         if (chartNode) {
+            setChartEmptyState(chartNode, false);
             chartNode.innerHTML = '<div class="ml-chart-placeholder"></div>';
         }
         if (fallbackNode) {
@@ -627,11 +633,13 @@
     function showInitialSkeletons() {
         renderStatsSkeletons();
         renderCardSkeletons('mlQualityMetricCards', 4);
+        renderOptionalMetricCards('mlQualityEventMetricsSection', 'mlQualityEventMetricCards', []);
         renderTableSkeleton('mlCountTableShell', 8, 4);
         renderTableSkeleton('mlEventTableShell', 6, 3);
         renderChartSkeleton('mlForecastChart', 'mlForecastChartFallback');
         renderTableSkeleton('mlForecastTableShell', 6, 4);
         renderChartSkeleton('mlImportanceChart', 'mlImportanceChartFallback');
+        renderImportanceNote('');
         renderFeatureSkeleton();
         renderCriticalNotes([]);
     }
@@ -662,6 +670,8 @@
         setText('mlQualityTitle', 'Насколько можно доверять ML-прогнозу');
         setText('mlQualitySubtitle', quality.subtitle || 'Что показывает блок: насколько модель предсказывала именно число пожаров на прошлой истории и чем она лучше простых подходов.');
         renderMetricCards('mlQualityMetricCards', quality.metric_cards || [], 'После расчета здесь появятся метрики качества ML-прогноза.');
+        renderIntervalCoverage(quality.interval_card || null);
+        renderOptionalMetricCards('mlQualityEventMetricsSection', 'mlQualityEventMetricCards', quality.event_metric_cards || [], '');
         setText('mlCountTableTitle', 'Сравнение моделей по числу пожаров');
         renderCountTable(quality.count_table || {});
         setText('mlEventTableTitle', 'Сравнение моделей по вероятности хотя бы одного пожара');
@@ -673,6 +683,7 @@
 
         setText('mlImportanceTitle', 'Что сильнее всего влияет на прогноз');
         renderBarsChart(charts.importance, 'mlImportanceChart', 'mlImportanceChartFallback');
+        renderImportanceNote(charts.importance && charts.importance.note ? charts.importance.note : '');
         renderFeatureCards(data.features || []);
         renderCriticalNotes(data.notes || []);
         updateMlScreenLinks({

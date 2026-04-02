@@ -1,0 +1,129 @@
+<section class="access-points-layout">
+        <div class="access-points-primary">
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2 id="accessPointsScatterTitle">{{ charts.scatter.title }}</h2>
+                    <span class="panel-meta">Каждая точка — отдельная проблемная локация. Положение рассчитано по совокупности компонент риска, как на двумерной проекции в clustering.</span>
+                </div>
+                <div id="accessPointsScatterChart" class="plotly-chart access-points-scatter-chart"></div>
+                <div id="accessPointsScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Top-N проблемных точек</h2>
+                    <span class="panel-meta">Короткий список для оперативного просмотра и объяснения причин попадания в верх рейтинга.</span>
+                </div>
+                <div id="accessPointsTopList" class="point-card-grid">
+                    {% if data.top_points %}
+                        {% for point in data.top_points %}
+                        <article class="point-card tone-{{ point.tone }}">
+                            <div class="point-card-head">
+                                <span class="point-rank">#{{ point.rank }}</span>
+                                <span class="point-score">{{ point.total_score_display or point.score_display }}</span>
+                            </div>
+                            <strong class="point-label">{{ point.label }}</strong>
+                            <span class="point-meta">{{ point.entity_type }}{% if point.location_hint %} | {{ point.location_hint }}{% endif %}</span>
+                            <div class="point-chip-row">
+                                {% if point.severity_band %}
+                                <span class="point-chip">{{ point.severity_band }}</span>
+                                {% endif %}
+                                <span class="point-chip">{{ point.typology_label }}</span>
+                                <span class="point-chip">Пожаров: {{ point.incident_count_display }}</span>
+                                <span class="point-chip">Полнота: {{ point.completeness_display }}</span>
+                                {% for chip in point.reason_chips[:2] %}
+                                <span class="point-chip point-chip-soft">{{ chip }}</span>
+                                {% endfor %}
+                            </div>
+                            <p class="point-explanation">{{ point.human_readable_explanation or point.explanation }}</p>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">После расчёта здесь появятся самые проблемные точки.</div>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+
+        <aside class="access-points-secondary">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Мини-типология</h2>
+                    <span class="panel-meta">Небольшое агрегированное описание того, какие типы проблемных точек чаще попадают в рейтинг.</span>
+                </div>
+                <div id="accessPointsTypologyShell" class="typology-grid">
+                    {% if data.typology %}
+                        {% for item in data.typology %}
+                        <article class="typology-card">
+                            <strong>{{ item.label }}</strong>
+                            <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
+                            <span>Максимальный score: {{ item.max_score_display }}</span>
+                            <span>Лидер: {{ item.lead_label }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Типология появится после расчёта рейтинга.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Распределение score</h2>
+                    <span class="panel-meta">Сколько точек попадает в низкий, средний, высокий и критический band.</span>
+                </div>
+                <div id="accessPointsDistributionShell" class="typology-grid">
+                    {% if data.score_distribution and data.score_distribution.bands %}
+                        <article class="typology-card">
+                            <strong>Средний score</strong>
+                            <span>{{ data.score_distribution.average_score_display }}</span>
+                        </article>
+                        <article class="typology-card">
+                            <strong>Медианный score</strong>
+                            <span>{{ data.score_distribution.median_score_display }}</span>
+                        </article>
+                        {% for item in data.score_distribution.bands %}
+                        <article class="typology-card">
+                            <strong>{{ item.label }}</strong>
+                            <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
+                        </article>
+                        {% endfor %}
+                    {% else %}
+                    <div class="mini-empty">Распределение score появится после расчёта рейтинга.</div>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Неопределённость</h2>
+                    <span class="panel-meta">Пояснения, как low support и пропуски влияют на итоговый score.</span>
+                </div>
+                <ul class="notice-list" id="accessPointsUncertaintyNotes">
+                    {% if data.uncertainty_notes %}
+                        {% for note in data.uncertainty_notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Здесь появятся пояснения по uncertainty penalty и low support.</li>
+                    {% endif %}
+                </ul>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Что важно помнить</h2>
+                    <span class="panel-meta">Пояснения по fallback-логике, полноте данных и интерпретации рейтинга.</span>
+                </div>
+                <ul class="notice-list" id="accessPointsNotes">
+                    {% if data.notes %}
+                        {% for note in data.notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    {% else %}
+                    <li>Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.</li>
+                    {% endif %}
+                </ul>
+            </article>
+        </aside>
+    </section>
