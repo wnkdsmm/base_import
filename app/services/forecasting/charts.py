@@ -179,36 +179,8 @@ def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_
         xaxis={"showgrid": False, "zeroline": False, "tickangle": -35},
     )
     return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
-def _build_weekly_chart(weekly_outlook: List[Dict[str, Any]]) -> Dict[str, Any]:
-    title = "Последние недели и ближайшие недели"
-    if not weekly_outlook:
-        return _empty_chart_bundle(title, "Нет данных по неделям.")
-    if not PLOTLY_AVAILABLE:
-        return _empty_chart_bundle(title, "График недоступен без Plotly.", use_plotly=False)
 
-    labels = [item["label"] for item in weekly_outlook]
-    actual_values = [item["actual"] if not item["is_future"] else None for item in weekly_outlook]
-    forecast_values = [item["forecast"] if item["is_future"] else None for item in weekly_outlook]
 
-    figure = go.Figure()
-    figure.add_trace(go.Bar(x=labels, y=actual_values, name="Последние фактические недели", marker=dict(color=PLOTLY_PALETTE["sand"]), hovertemplate="<b>%{x}</b><br>Факт: %{y:.1f} пожара<extra></extra>"))
-    figure.add_trace(go.Bar(x=labels, y=forecast_values, name="Ближайшие недели сценарного прогноза", marker=dict(color=PLOTLY_PALETTE["sky"]), hovertemplate="<b>%{x}</b><br>Сценарный прогноз: %{y:.1f} пожара<extra></extra>"))
-    figure.update_layout(**_plotly_layout("Пожаров за неделю", height=340))
-    figure.update_layout(barmode="group", legend={"orientation": "h", "y": 1.12, "x": 0})
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
-def _build_monthly_chart(monthly_outlook: List[Dict[str, Any]]) -> Dict[str, Any]:
-    title = "Ближайшие месяцы и обычный уровень"
-    if not monthly_outlook:
-        return _empty_chart_bundle(title, "Нет данных по месяцам.")
-    if not PLOTLY_AVAILABLE:
-        return _empty_chart_bundle(title, "График недоступен без Plotly.", use_plotly=False)
-
-    figure = go.Figure()
-    figure.add_trace(go.Bar(x=[item["label"] for item in monthly_outlook], y=[item["forecast"] for item in monthly_outlook], name="Сценарный прогноз", text=[item["delta_percent_display"] for item in monthly_outlook], textposition="outside", marker=dict(color=PLOTLY_PALETTE["forest"]), customdata=[[item["baseline_display"], item["delta_percent_display"], item["level_label"]] for item in monthly_outlook], hovertemplate="<b>%{x}</b><br>Сценарный прогноз: %{y:.1f} пожара<br>Обычный уровень: %{customdata[0]}<br>Изменение: %{customdata[1]}<br>%{customdata[2]}<extra></extra>"))
-    figure.add_trace(go.Scatter(x=[item["label"] for item in monthly_outlook], y=[item["baseline"] for item in monthly_outlook], name="Обычный уровень", mode="lines+markers", line=dict(color=PLOTLY_PALETTE["fire"], width=3), marker=dict(size=7, color=PLOTLY_PALETTE["fire_soft"]), hovertemplate="<b>%{x}</b><br>Обычный уровень: %{y:.1f} пожара<extra></extra>"))
-    figure.update_layout(**_plotly_layout("Пожаров за месяц", height=340))
-    figure.update_layout(legend={"orientation": "h", "y": 1.12, "x": 0})
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
 def _build_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any]:
     title = "В какие дни недели пожары случаются чаще"
     if not weekday_profile:

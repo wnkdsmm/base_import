@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict, List
 
-from .utils import _format_integer
+from .utils import _format_decimal, _format_integer
 
 DEFAULT_RISK_WEIGHT_MODE = "adaptive"
 
@@ -351,9 +351,3 @@ def _format_signed_decimal(value: float) -> str:
         return f"{sign}{int(round(numeric))}"
     return sign + str(numeric).replace('.', ',')
 
-
-def _format_decimal(value: float) -> str:
-    rounded = round(float(value), 3)
-    if abs(rounded - round(rounded)) < 1e-9:
-        return str(int(round(rounded)))
-    return str(rounded).replace('.', ',')

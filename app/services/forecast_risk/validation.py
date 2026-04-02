@@ -7,10 +7,10 @@ import math
 from statistics import mean
 from typing import Any, Dict, List, Optional, Sequence
 
-from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile
+from .profile_resolution import resolve_weight_profile_for_records
+from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile, resolve_component_weights
 from .scoring import _build_territory_rows
-from .utils import _format_integer, _format_probability, _unique_non_empty
-from .weights import _format_decimal, _rerank_predicted_rows_for_profile, resolve_weight_profile_for_records
+from .utils import _clamp, _format_decimal, _format_integer, _format_probability, _unique_non_empty
 
 DEFAULT_RANKING_K = 3
 MIN_VALIDATION_WINDOWS = 3
@@ -265,6 +265,46 @@ def _evaluate_profile_on_windows(
         "aggregate": aggregate,
         "skipped_no_rows": skipped_no_rows,
     }
+
+
+def _rerank_predicted_rows_for_profile(
+    predicted_rows: Sequence[Dict[str, Any]],
+    profile: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    if not predicted_rows:
+        return []
+
+    urban_weights = {
+        item["key"]: float(item.get("weight") or 0.0)
+        for item in resolve_component_weights(profile, is_rural=False)
+    }
+    rural_weights = {
+        item["key"]: float(item.get("weight") or 0.0)
+        for item in resolve_component_weights(profile, is_rural=True)
+    }
+
+    reranked: List[Dict[str, Any]] = []
+    for row in predicted_rows:
+        component_scores = row.get("component_scores") or []
+        weight_map = rural_weights if row.get("is_rural") else urban_weights
+        risk_score = _clamp(
+            sum(
+                float(component.get("score") or 0.0) * weight_map.get(component.get("key"), 0.0)
+                for component in component_scores
+            ),
+            1.0,
+            99.0,
+        )
+        reranked.append(
+            {
+                "label": row.get("label") or "Территория",
+                "risk_score": round(risk_score, 1),
+                "history_pressure": float(row.get("history_pressure") or 0.0),
+            }
+        )
+
+    reranked.sort(key=lambda item: (item["risk_score"], item["history_pressure"]), reverse=True)
+    return reranked
 
 
 def _evaluate_ranking_window(

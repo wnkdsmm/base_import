@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
-from .notes import _build_risk_notes
 from .utils import _format_integer, _scan_columns
 
 
@@ -247,4 +246,82 @@ def _build_geo_summary(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
         "top_explanation": geo_prediction.get("top_explanation") or "Нет данных для объяснения зоны риска.",
         "hotspots": hotspots,
         "districts": districts,
+    }
+
+
+def _build_empty_decision_support_payload(
+    *,
+    title: str,
+    model_description: str,
+    coverage_display: str,
+    quality_passport: Dict[str, Any],
+    top_confidence: Dict[str, Any],
+    feature_cards: Sequence[Dict[str, Any]],
+    weight_profile: Dict[str, Any],
+    historical_validation: Dict[str, Any],
+    notes: Sequence[str],
+    geo_summary: Dict[str, Any],
+    geo_prediction: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "has_data": False,
+        "title": title,
+        "model_description": model_description,
+        "coverage_display": coverage_display,
+        "quality_passport": quality_passport,
+        "summary_cards": [],
+        "top_territory_label": "-",
+        "top_territory_explanation": "Недостаточно данных для ранжирования территорий.",
+        "top_territory_confidence_label": top_confidence["label"],
+        "top_territory_confidence_score_display": top_confidence["score_display"],
+        "top_territory_confidence_tone": top_confidence["tone"],
+        "top_territory_confidence_note": top_confidence["note"],
+        "territories": [],
+        "feature_cards": list(feature_cards),
+        "weight_profile": weight_profile,
+        "historical_validation": historical_validation,
+        "notes": list(notes),
+        "geo_summary": geo_summary,
+        "geo_prediction": geo_prediction,
+    }
+
+
+def _build_decision_support_payload_response(
+    *,
+    title: str,
+    model_description: str,
+    coverage_display: str,
+    quality_passport: Dict[str, Any],
+    summary_cards: Sequence[Dict[str, Any]],
+    top_territory_label: str,
+    top_territory_explanation: str,
+    top_confidence: Dict[str, Any],
+    territories: Sequence[Dict[str, Any]],
+    feature_cards: Sequence[Dict[str, Any]],
+    weight_profile: Dict[str, Any],
+    historical_validation: Dict[str, Any],
+    notes: Sequence[str],
+    geo_summary: Dict[str, Any],
+    geo_prediction: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "has_data": bool(territories),
+        "title": title,
+        "model_description": model_description,
+        "coverage_display": coverage_display,
+        "quality_passport": quality_passport,
+        "summary_cards": list(summary_cards),
+        "top_territory_label": top_territory_label,
+        "top_territory_explanation": top_territory_explanation,
+        "top_territory_confidence_label": top_confidence["label"],
+        "top_territory_confidence_score_display": top_confidence["score_display"],
+        "top_territory_confidence_tone": top_confidence["tone"],
+        "top_territory_confidence_note": top_confidence["note"],
+        "territories": list(territories),
+        "feature_cards": list(feature_cards),
+        "weight_profile": weight_profile,
+        "historical_validation": historical_validation,
+        "notes": list(notes),
+        "geo_summary": geo_summary,
+        "geo_prediction": geo_prediction,
     }

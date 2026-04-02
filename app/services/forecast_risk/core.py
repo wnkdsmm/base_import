@@ -9,21 +9,24 @@ from .constants import MAX_TERRITORIES
 from .data import _collect_risk_inputs
 from .geo import _build_geo_prediction
 from .notes import _build_risk_notes
-from .presentation import _build_feature_cards, _build_geo_summary, _build_quality_passport
+from .presentation import (
+    _build_decision_support_payload_response,
+    _build_empty_decision_support_payload,
+    _build_feature_cards,
+    _build_geo_summary,
+    _build_quality_passport,
+)
+from .profile_resolution import resolve_weight_profile_for_records
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, build_weight_profile_snapshot, get_risk_weight_profile
 from .reliability import _attach_ranking_reliability, _build_summary_cards, _top_territory_confidence_payload
 from .scoring import _build_territory_rows, _top_territory_lead
 from .utils import _unique_non_empty
-from .validation import (
-    build_historical_validation_payload,
-    empty_historical_validation_payload,
-    resolve_weight_profile_for_records,
-)
+from .validation import build_historical_validation_payload, empty_historical_validation_payload
 
 DECISION_SUPPORT_TITLE = "Блок поддержки решений: ранжирование территорий"
 DECISION_SUPPORT_DESCRIPTION = (
     "Блок поддержки решений открывают после сценарного прогноза, когда нужно понять, какие территории брать в работу первыми. "
-    "Он не показывает календарь по дням и не оценивает ожидаемое число пожаров: его задача — ранжировать территории по сочетанию "
+    "Он не показывает календарь по дням и не оценивает ожидаемое число пожаров: его задача - ранжировать территории по сочетанию "
     "частоты пожаров, тяжести последствий, логистики прибытия и обеспеченности водой. "
     "Компоненты показаны прозрачно, чтобы решение можно было объяснить без черного ящика."
 )
@@ -55,7 +58,10 @@ def build_decision_support_payload(
     ) as perf:
         with perf.span("filter_prep"):
             if progress_callback is not None:
-                progress_callback("decision_support.loading", "Собираем входные данные и признаки для блока поддержки решений.")
+                progress_callback(
+                    "decision_support.loading",
+                    "Собираем входные данные и признаки для блока поддержки решений.",
+                )
             metadata_items, filtered_records, preload_notes = _collect_risk_inputs(
                 source_tables,
                 district=selected_district,
@@ -79,7 +85,10 @@ def build_decision_support_payload(
 
         with perf.span("aggregation"):
             if progress_callback is not None:
-                progress_callback("decision_support.aggregation", "Строим ранжирование территорий, паспорт качества и геосводку.")
+                progress_callback(
+                    "decision_support.aggregation",
+                    "Строим ранжирование территорий, паспорт качества и геосводку.",
+                )
             if geo_prediction is None and filtered_records:
                 geo_prediction = _build_geo_prediction(filtered_records, planning_horizon_days)
             geo_summary = _build_geo_summary(geo_prediction or {})
@@ -89,43 +98,44 @@ def build_decision_support_payload(
         if not filtered_records:
             with perf.span("payload_render"):
                 if progress_callback is not None:
-                    progress_callback("decision_support.render", "Подготавливаем placeholder-результат блока поддержки решений.")
+                    progress_callback(
+                        "decision_support.render",
+                        "Подготавливаем placeholder-результат блока поддержки решений.",
+                    )
                 notes = _unique_non_empty(
                     list(preload_notes[:2])
                     + ["Пока недостаточно данных по выбранному срезу для приоритизации территорий."]
                 )
                 top_confidence = _top_territory_confidence_payload(None, quality_passport)
-                payload = {
-                    "has_data": False,
-                    "title": DECISION_SUPPORT_TITLE,
-                    "model_description": DECISION_SUPPORT_DESCRIPTION,
-                    "coverage_display": coverage_display,
-                    "quality_passport": quality_passport,
-                    "summary_cards": [],
-                    "top_territory_label": "-",
-                    "top_territory_explanation": "Недостаточно данных для ранжирования территорий.",
-                    "top_territory_confidence_label": top_confidence["label"],
-                    "top_territory_confidence_score_display": top_confidence["score_display"],
-                    "top_territory_confidence_tone": top_confidence["tone"],
-                    "top_territory_confidence_note": top_confidence["note"],
-                    "territories": [],
-                    "feature_cards": feature_cards,
-                    "weight_profile": requested_weight_profile,
-                    "historical_validation": empty_historical_validation_payload(
+                payload = _build_empty_decision_support_payload(
+                    title=DECISION_SUPPORT_TITLE,
+                    model_description=DECISION_SUPPORT_DESCRIPTION,
+                    coverage_display=coverage_display,
+                    quality_passport=quality_passport,
+                    top_confidence=top_confidence,
+                    feature_cards=feature_cards,
+                    weight_profile=requested_weight_profile,
+                    historical_validation=empty_historical_validation_payload(
                         requested_weight_profile.get("mode_label") or "Адаптивные веса"
                     ),
-                    "notes": notes,
-                    "geo_summary": geo_summary,
-                    "geo_prediction": geo_prediction or {},
-                }
+                    notes=notes,
+                    geo_summary=geo_summary,
+                    geo_prediction=geo_prediction or {},
+                )
                 perf.update(payload_has_data=False, payload_notes=len(notes), territory_rows=0)
                 if progress_callback is not None:
-                    progress_callback("decision_support.completed", "Блок поддержки решений завершен в режиме placeholder.")
+                    progress_callback(
+                        "decision_support.completed",
+                        "Блок поддержки решений завершен в режиме placeholder.",
+                    )
                 return payload
 
         with perf.span("aggregation"):
             if progress_callback is not None:
-                progress_callback("decision_support.training", "Оцениваем устойчивость ранжирования и проверяем историческую валидацию.")
+                progress_callback(
+                    "decision_support.training",
+                    "Оцениваем устойчивость ранжирования и проверяем историческую валидацию.",
+                )
             resolved_profile = resolve_weight_profile_for_records(
                 filtered_records,
                 planning_horizon_days,
@@ -154,29 +164,33 @@ def build_decision_support_payload(
 
         with perf.span("payload_render"):
             if progress_callback is not None:
-                progress_callback("decision_support.render", "Собираем рекомендации, карты и итоговый payload.")
+                progress_callback(
+                    "decision_support.render",
+                    "Собираем рекомендации, карты и итоговый payload.",
+                )
             notes = _build_risk_notes(feature_cards, preload_notes, weight_profile, historical_validation)
-            payload = {
-                "has_data": bool(territories),
-                "title": DECISION_SUPPORT_TITLE,
-                "model_description": DECISION_SUPPORT_DESCRIPTION,
-                "coverage_display": coverage_display,
-                "quality_passport": quality_passport,
-                "summary_cards": _build_summary_cards(territories, weight_profile, historical_validation, quality_passport),
-                "top_territory_label": top_territory["label"] if top_territory else "-",
-                "top_territory_explanation": _top_territory_lead(top_territory),
-                "top_territory_confidence_label": top_confidence["label"],
-                "top_territory_confidence_score_display": top_confidence["score_display"],
-                "top_territory_confidence_tone": top_confidence["tone"],
-                "top_territory_confidence_note": top_confidence["note"],
-                "territories": territories[:MAX_TERRITORIES],
-                "feature_cards": feature_cards,
-                "weight_profile": weight_profile,
-                "historical_validation": historical_validation,
-                "notes": notes,
-                "geo_summary": geo_summary,
-                "geo_prediction": geo_prediction or {},
-            }
+            payload = _build_decision_support_payload_response(
+                title=DECISION_SUPPORT_TITLE,
+                model_description=DECISION_SUPPORT_DESCRIPTION,
+                coverage_display=coverage_display,
+                quality_passport=quality_passport,
+                summary_cards=_build_summary_cards(
+                    territories,
+                    weight_profile,
+                    historical_validation,
+                    quality_passport,
+                ),
+                top_territory_label=top_territory["label"] if top_territory else "-",
+                top_territory_explanation=_top_territory_lead(top_territory),
+                top_confidence=top_confidence,
+                territories=territories[:MAX_TERRITORIES],
+                feature_cards=feature_cards,
+                weight_profile=weight_profile,
+                historical_validation=historical_validation,
+                notes=notes,
+                geo_summary=geo_summary,
+                geo_prediction=geo_prediction or {},
+            )
             perf.update(
                 payload_has_data=bool(payload["has_data"]),
                 payload_notes=len(notes),

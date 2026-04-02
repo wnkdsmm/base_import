@@ -190,6 +190,13 @@ def _format_probability(value: float) -> str:
     return _format_percent(value * 100.0)
 
 
+def _format_decimal(value: float) -> str:
+    rounded = round(float(value), 3)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return str(int(round(rounded)))
+    return str(rounded).replace(".", ",")
+
+
 def _unique_non_empty(values: Sequence[str]) -> List[str]:
     items: List[str] = []
     for value in values:
