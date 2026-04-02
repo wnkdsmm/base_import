@@ -9,7 +9,7 @@ from typing import Any, Callable, Iterable
 
 from sqlalchemy import text
 
-from app.dashboard.data_access import _invalidate_dashboard_caches
+from app.dashboard.cache import _invalidate_dashboard_caches
 from app.dashboard.service import get_dashboard_data
 from app.db_metadata import invalidate_db_metadata_cache
 from app.db_views import get_table_page, get_table_preview
