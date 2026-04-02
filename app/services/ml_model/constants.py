@@ -46,6 +46,60 @@ PERMUTATION_REPEATS = 8
 ROLLING_MIN_TRAIN_ROWS = 28
 COUNT_MODEL_SELECTION_TOLERANCE = 0.05
 
+FEATURE_COLUMNS = ['temp_value', 'weekday', 'month', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
+NON_TEMPERATURE_FEATURE_COLUMNS = [column for column in FEATURE_COLUMNS if column != 'temp_value']
+COUNT_MODEL_CONTINUOUS_COLUMNS = ['temp_value', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
+COUNT_MODEL_KEYS = ['poisson', 'negative_binomial', 'tweedie']
+EXPLAINABLE_COUNT_MODEL_KEY = 'poisson'
+MIN_POSITIVE_PREDICTION = 1e-6
+CLASSIFICATION_THRESHOLD = 0.5
+PREDICTION_INTERVAL_LEVEL = 0.8
+PREDICTION_INTERVAL_CALIBRATION_FRACTION = 0.6
+MIN_INTERVAL_CALIBRATION_WINDOWS = 6
+MIN_INTERVAL_EVALUATION_WINDOWS = 4
+PREDICTION_INTERVAL_TARGET_BINS = 3
+MIN_INTERVAL_BIN_RESIDUALS = 2
+PREDICTION_INTERVAL_METHOD_LABEL = 'Adaptive conformal interval with predicted-count bins'
+PREDICTION_INTERVAL_FIXED_CHRONO_LABEL = 'Fixed 60/40 chrono split conformal'
+PREDICTION_INTERVAL_BLOCKED_CV_LABEL = 'Blocked forward CV conformal'
+PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL = 'Forward rolling split conformal'
+PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL = 'Jackknife+ for time series'
+
+EVENT_SELECTION_RULE = (
+    'Минимум Brier score, затем log-loss и ROC-AUC; при близком качестве '
+    'сохраняется более простой и интерпретируемый метод.'
+)
+
+COUNT_SELECTION_RULE = (
+    'Минимум Poisson deviance, затем MAE и RMSE среди seasonal baseline, heuristic forecast и count-model; '
+    'если heuristic forecast почти не хуже лучшей count-model, сохраняется более объяснимый рабочий метод; внутри ML-паритета предпочитается Poisson.'
+)
+
+EVENT_BASELINE_METHOD_LABEL = 'Сезонная событийная базовая модель'
+EVENT_BASELINE_ROLE_LABEL = 'Базовая модель'
+EVENT_HEURISTIC_METHOD_LABEL = 'Сценарная эвристическая вероятность'
+EVENT_HEURISTIC_ROLE_LABEL = 'Сценарный прогноз'
+EVENT_CLASSIFIER_ROLE_LABEL = 'Классификатор'
+EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS = 'too_few_comparable_windows'
+EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION = 'single_class_evaluation'
+EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE = 'saturated_event_rate'
+WARNING_INSTABILITY_MESSAGE_TOKENS = (
+    'perfect separation',
+    'perfect prediction',
+    'parameter may not be identified',
+    'parameters are not identified',
+    'failed to converge',
+    'did not converge',
+    'singular',
+    'hessian',
+)
+
+ML_PREDICTIVE_BLOCK_DESCRIPTION = (
+    'ML-прогноз открывают, когда нужно оценить ожидаемое число пожаров по датам для выбранного среза. '
+    'Ниже показаны прогноз количества, качество модели и факторы, которые сильнее всего влияют на результат. '
+    'Этот экран не ранжирует территории и не заменяет сценарный прогноз по вероятности пожара.'
+)
+
 _CACHE_LIMIT = 12
 _ML_CACHE: 'OrderedDict[Tuple[str, str, str, str, int, str], Dict[str, Any]]' = OrderedDict()
 

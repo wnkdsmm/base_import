@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
@@ -15,8 +15,6 @@ from app.services.forecasting.utils import (
 from .constants import MODEL_NAME
 
 MISSING_DISPLAY = '—'
-INTERVAL_METHOD_LABEL_FALLBACK = 'Адаптивный интервал неопределенности'
-INTERVAL_METHOD_LABEL_UNAVAILABLE = 'Адаптивный интервал неопределенности'
 INTERVAL_SCHEME_LABELS = {
     'Forward rolling split conformal': 'скользящая проверка по истории',
     'Blocked forward CV conformal': 'блочная проверка по истории',
@@ -119,21 +117,11 @@ def _prediction_interval_scheme_label(overview: Dict[str, Any]) -> str:
 
 
 def _prediction_interval_method_label(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> str:
-    if overview.get('prediction_interval_validation_scheme_key') == 'not_validated':
-        return INTERVAL_METHOD_LABEL_UNAVAILABLE
-
-    scheme_label = _prediction_interval_scheme_label(overview)
-    if scheme_label:
-        return INTERVAL_METHOD_LABEL_FALLBACK
-
     explicit_label = _first_present(
         ml_result.get('prediction_interval_method_label'),
         overview.get('prediction_interval_method_label'),
     )
-    if not _is_missing_metric(explicit_label):
-        return INTERVAL_METHOD_LABEL_FALLBACK
-
-    return MISSING_DISPLAY
+    return str(explicit_label).strip() if not _is_missing_metric(explicit_label) else MISSING_DISPLAY
 
 
 def _prediction_interval_display_context(
@@ -191,10 +179,8 @@ def _comparison_metric_card(
     return {
         'label': label,
         'value': formatter(value),
-        'meta': f"Сезонная база: {formatter(baseline_value)}; эвристика: {formatter(heuristic_value)}",
+        'meta': f"seasonal baseline: {formatter(baseline_value)}; heuristic forecast: {formatter(heuristic_value)}",
     }
-
-
 def _count_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
     return {
         'method_label': row.get('method_label', 'Метод'),
@@ -225,6 +211,10 @@ def _prediction_interval_quality_note(
     overview: Dict[str, Any],
     interval_coverage_display: str,
 ) -> str:
+    explicit_note = overview.get('prediction_interval_coverage_note')
+    if not _is_missing_metric(explicit_note):
+        return str(explicit_note).strip()
+
     validated_flag = overview.get('prediction_interval_coverage_validated')
     is_validated = (
         bool(validated_flag)
@@ -244,8 +234,116 @@ def _prediction_interval_quality_note(
         return f'{scheme_label.capitalize()} на истории.'
 
     if calibration_windows or evaluation_windows:
-        return 'Для отдельной проверки покрытия пока недостаточно окон истории.'
-    return 'Покрытие на истории пока недоступно.'
+        return 'validated out-of-sample coverage не показывается: для отдельной проверки покрытия пока недостаточно окон истории.'
+    return 'validated out-of-sample coverage не показывается: backtesting для покрытия пока недоступен.'
+
+
+def _join_meta_parts(*parts: Any) -> str:
+    values: List[str] = []
+    for part in parts:
+        if _is_missing_metric(part):
+            continue
+        text = str(part).strip()
+        if not text or text in values:
+            continue
+        values.append(text)
+    return '; '.join(values)
+
+
+def _comparison_method_labels(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> str:
+    labels: List[str] = []
+    for source in (
+        overview.get('candidate_model_labels') or [],
+        ml_result.get('candidate_count_model_labels') or [],
+    ):
+        for item in source:
+            if _is_missing_metric(item):
+                continue
+            text = str(item).strip()
+            if text and text not in labels:
+                labels.append(text)
+
+    if not labels:
+        for row in ml_result.get('count_comparison_rows', []):
+            label = row.get('method_label')
+            if _is_missing_metric(label):
+                continue
+            text = str(label).strip()
+            if text and text not in labels:
+                labels.append(text)
+
+    return ', '.join(labels) if labels else MISSING_DISPLAY
+
+
+def _methodology_item(label: str, value: str, meta: str = '') -> Dict[str, str]:
+    return {
+        'label': label,
+        'value': value,
+        'meta': meta,
+    }
+
+
+def _model_choice_section(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> Dict[str, Any]:
+    working_method = _format_optional_text(ml_result.get('count_model_label'))
+    short_reason = _format_optional_text(ml_result.get('selected_count_model_reason_short'))
+    long_reason = _format_optional_text(ml_result.get('selected_count_model_reason'))
+    top_feature_label = _format_optional_text(ml_result.get('top_feature_label'))
+
+    return {
+        'title': 'Почему выбран рабочий метод',
+        'lead': (
+            short_reason
+            if short_reason != MISSING_DISPLAY
+            else f'Рабочим count-методом оставлен {working_method}.'
+        ),
+        'body': (
+            long_reason
+            if long_reason != MISSING_DISPLAY
+            else 'Выбор закреплён по результатам одинаковой проверки на истории для всех кандидатов.'
+        ),
+        'facts': [
+            {
+                'label': 'Рабочий count-метод',
+                'value': working_method,
+                'meta': _format_optional_text(ml_result.get('selected_count_model_key')),
+            },
+            {
+                'label': 'Правило выбора',
+                'value': _format_optional_text(overview.get('selection_rule')),
+                'meta': _format_optional_text(overview.get('rolling_scheme_label')),
+            },
+            {
+                'label': 'Главный признак',
+                'value': top_feature_label,
+                'meta': 'Permutation importance' if top_feature_label != MISSING_DISPLAY else '',
+            },
+        ],
+    }
+
+
+def _dissertation_points(
+    ml_result: Dict[str, Any],
+    interval_meta: str,
+    event_context: Dict[str, Optional[str]],
+) -> List[str]:
+    points: List[str] = []
+    for item in (
+        ml_result.get('selected_count_model_reason_short'),
+        ml_result.get('selected_count_model_reason'),
+        interval_meta,
+        event_context.get('note'),
+    ):
+        if _is_missing_metric(item):
+            continue
+        text = str(item).strip()
+        if text and text not in points:
+            points.append(text)
+
+    if not points:
+        points.append(
+            'ML-блок сравнивает count-методы на одной и той же истории и отдельно показывает устойчивость прогноза.'
+        )
+    return points
 
 
 def _build_forecast_chart(daily_history: List[Dict[str, Any]], ml_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -456,9 +554,15 @@ def _build_summary(
 
 def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
     overview = ml_result.get('backtest_overview', {}) or {}
+    event_context = _event_probability_context(ml_result, overview)
     interval_context = _prediction_interval_display_context(ml_result, overview)
     count_rows = [_count_comparison_row(row) for row in ml_result.get('count_comparison_rows', [])]
     event_rows = [_event_comparison_row(row) for row in ml_result.get('event_comparison_rows', [])]
+    interval_label = f"Out-of-sample coverage {interval_context['level_display']} интервала"
+    interval_meta = _join_meta_parts(
+        interval_context['method_label_display'],
+        interval_context['quality_note'],
+    )
 
     metric_cards = [
         _comparison_metric_card(
@@ -490,9 +594,9 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             _format_optional_number,
         ),
         {
-            'label': f"Покрытие {interval_context['level_display']} интервала на истории",
+            'label': interval_label,
             'value': interval_context['coverage_display'],
-            'meta': f"{interval_context['method_label']}; {interval_context['quality_note']}",
+            'meta': interval_meta,
         },
     ]
     if ml_result.get('event_backtest_available'):
@@ -530,19 +634,55 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     return {
+        'ready': bool(ml_result.get('is_ready')),
         'title': 'Оценка качества ML-блока',
         'subtitle': 'Ключевые метрики и сравнение методов на одной и той же истории. Блок проверяет именно прогноз числа пожаров, а не приоритет территорий.',
+        'methodology_items': [
+            _methodology_item(
+                'Схема валидации',
+                _format_optional_text(overview.get('rolling_scheme_label')),
+                _join_meta_parts(
+                    _format_optional_text(overview.get('validation_horizon_days')),
+                    _format_optional_text(overview.get('prediction_interval_validation_scheme_label')),
+                ),
+            ),
+            _methodology_item(
+                'Минимум обучающего окна',
+                _format_optional_integer(overview.get('min_train_rows')),
+            ),
+            _methodology_item(
+                'Сравниваемые count-методы',
+                _comparison_method_labels(ml_result, overview),
+            ),
+            _methodology_item(
+                'Индекс пере-дисперсии',
+                _format_optional_number(overview.get('dispersion_ratio')),
+            ),
+            _methodology_item(
+                'Правило выбора',
+                _format_optional_text(overview.get('selection_rule')),
+            ),
+            _methodology_item(
+                'Интервал прогноза',
+                interval_context['level_display'],
+                interval_meta,
+            ),
+        ],
         'metric_cards': metric_cards,
+        'model_choice': _model_choice_section(ml_result, overview),
         'count_table': {
             'title': 'Сравнение по числу пожаров',
             'rows': count_rows,
-            'empty_message': 'Сравнение сезонной базы, эвристики и ML-модели появится после проверки на истории.',
+            'empty_message': 'Сравнение seasonal baseline, heuristic forecast и count-model появится после проверки на истории.',
         },
         'event_table': {
             'title': 'Сравнение по вероятности события пожара',
             'rows': event_rows,
-            'empty_message': _event_probability_context(ml_result, overview)['note'] or 'Недостаточно окон для сравнения вероятности события пожара.',
+            'empty_message': event_context['note'] or 'Недостаточно окон для сравнения вероятности события пожара.',
+            'reason_code': event_context['reason_code'],
         },
+        'event_probability_reason_code': event_context['reason_code'],
+        'dissertation_points': _dissertation_points(ml_result, interval_meta, event_context),
     }
 
 def _build_notes(
@@ -567,6 +707,11 @@ def _build_notes(
     for note in preload_notes:
         append_note(note)
 
+    overview = ml_result.get('backtest_overview', {}) or {}
+    event_context = _event_probability_context(ml_result, overview)
+    if event_context['note'] and not ml_result.get('event_backtest_available'):
+        append_note(event_context['note'])
+
     if filtered_records_count <= 0:
         append_note('После выбранных фильтров не осталось исторических пожаров для обучения ML-модели.')
     if ml_result.get('message'):
@@ -580,17 +725,13 @@ def _build_notes(
             'Температура задана вручную, но температурная колонка в таблицах не найдена: '
             'сценарное значение используется только для будущих дат.'
         )
+
     if ml_result.get('temperature_note'):
         append_note(ml_result['temperature_note'])
-
-    overview = ml_result.get('backtest_overview', {}) or {}
-    event_context = _event_probability_context(ml_result, overview)
-    if event_context['note'] and not ml_result.get('event_probability_enabled'):
-        append_note(event_context['note'])
 
     if len(source_tables) > 1 and not notes:
         append_note(f'ML-модель собирает общий прогноз сразу по {len(source_tables)} таблицам.')
 
     append_note('ML-экран показывает ожидаемое число пожаров по датам и не заменяет сценарный прогноз по вероятности пожара или ранжирование территорий.')
 
-    return notes[:2]
+    return notes
