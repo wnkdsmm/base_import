@@ -96,7 +96,13 @@ def _collect_damage_counts(selected_tables: List[Dict[str, Any]], selected_year:
     return _collect_positive_column_counts(selected_tables, selected_year, damage_columns)
 
 
-def _build_distribution_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int], group_column: str) -> Dict[str, Any]:
+def _build_distribution_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    group_column: str,
+    *,
+    grouped_counts: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
     if not group_column:
         empty_message = "Нет доступных колонок для распределения."
         return _finalize_chart(
@@ -107,28 +113,32 @@ def _build_distribution_chart(selected_tables: List[Dict[str, Any]], selected_ye
         )
 
     grouped: Dict[str, int] = defaultdict(int)
-    with engine.connect() as conn:
-        for table in selected_tables:
-            resolved_group_column = _resolve_table_column_name(table, group_column)
-            if not resolved_group_column:
-                continue
-            where_clause = _build_year_filter_clause(table, selected_year)
-            if where_clause is None:
-                continue
-            query = text(
-                f"""
-                SELECT
+    if grouped_counts is not None:
+        for label, value in grouped_counts.items():
+            grouped[label] += int(value or 0)
+    else:
+        with engine.connect() as conn:
+            for table in selected_tables:
+                resolved_group_column = _resolve_table_column_name(table, group_column)
+                if not resolved_group_column:
+                    continue
+                where_clause = _build_year_filter_clause(table, selected_year)
+                if where_clause is None:
+                    continue
+                query = text(
+                    f"""
+                    SELECT
                     COALESCE(NULLIF(TRIM(CAST({_quote_identifier(resolved_group_column)} AS TEXT)), ''), 'Не указано') AS label,
-                    COUNT(*) AS fire_count
-                FROM {_quote_identifier(table['name'])}
-                WHERE {where_clause}
-                GROUP BY label
-                ORDER BY fire_count DESC
-                """
-            )
-            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
-            for row in conn.execute(query, params).mappings().all():
-                grouped[row["label"]] += int(row["fire_count"] or 0)
+                        COUNT(*) AS fire_count
+                    FROM {_quote_identifier(table['name'])}
+                    WHERE {where_clause}
+                    GROUP BY label
+                    ORDER BY fire_count DESC
+                    """
+                )
+                params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
+                for row in conn.execute(query, params).mappings().all():
+                    grouped[row["label"]] += int(row["fire_count"] or 0)
 
     items = [
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}

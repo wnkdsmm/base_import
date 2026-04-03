@@ -228,6 +228,22 @@ def _drop_benchmark_table(table_name: str) -> None:
         conn.execute(text(f"DROP TABLE IF EXISTS {_quote(table_name)}"))
 
 
+def _drop_stale_benchmark_tables() -> None:
+    query = text(
+        """
+        SELECT tablename
+        FROM pg_tables
+        WHERE schemaname = 'public' AND tablename LIKE 'benchmark_fire_perf_%'
+        ORDER BY tablename
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(query).fetchall()
+        for row in rows:
+            _drop_name = str(row[0])
+            conn.execute(text(f"DROP TABLE IF EXISTS {_quote(_drop_name)}"))
+
+
 def _run_case(name: str, fn: Callable[[], Any]) -> BenchmarkResult:
     _clear_all_caches()
     started_at = perf_counter()
@@ -242,6 +258,7 @@ def run_benchmark(row_count: int, keep_table: bool = False) -> list[BenchmarkRes
     if engine.dialect.name != "postgresql":
         raise RuntimeError("Benchmark script currently expects PostgreSQL, because analytics SQL uses PostgreSQL-specific syntax.")
 
+    _drop_stale_benchmark_tables()
     table_name = _build_table_name(row_count)
     logging.getLogger(__name__).info("Creating benchmark table %s with %s rows", table_name, row_count)
     _create_benchmark_table(table_name)

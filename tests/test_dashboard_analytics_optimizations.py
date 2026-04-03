@@ -1,7 +1,9 @@
+from contextlib import ExitStack
 import unittest
 from unittest.mock import patch
 
-from app.dashboard import distribution, impact, management
+from app.dashboard import distribution, impact, management, service, utils as dashboard_utils
+from app.statistics_constants import GENERAL_CAUSE_COLUMN
 
 
 class DashboardAnalyticsOptimizationTests(unittest.TestCase):
@@ -67,6 +69,77 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
 
         self.assertEqual([item["label"] for item in chart["items"]], ["fires_a", "fires_b"])
         self.assertEqual([item["value"] for item in chart["items"]], [7, 3])
+
+    def test_distribution_chart_reuses_grouped_counts_without_sql(self) -> None:
+        with patch("app.dashboard.distribution.engine.connect", side_effect=AssertionError("grouped counts should avoid extra SQL")):
+            chart = distribution._build_distribution_chart(
+                [],
+                None,
+                GENERAL_CAUSE_COLUMN,
+                grouped_counts={"cause_a": 7, "cause_b": 3},
+            )
+
+        self.assertEqual([item["label"] for item in chart["items"]], ["cause_a", "cause_b"])
+        self.assertEqual([item["value"] for item in chart["items"]], [7, 3])
+
+    def test_select_tables_excludes_benchmark_prefix(self) -> None:
+        selected = dashboard_utils._select_tables(
+            ["fires_2024", "benchmark_fire_perf_20000_20260403_083825", "tmp_stage_table"]
+        )
+
+        self.assertEqual(selected, ["fires_2024"])
+
+    def test_service_reuses_cause_counts_for_distribution_when_group_matches(self) -> None:
+        metadata = {
+            "tables": [{"name": "fires", "column_set": {GENERAL_CAUSE_COLUMN}, "years": [2024], "table_year": None}],
+            "table_options": [{"value": "all", "label": "all"}, {"value": "fires", "label": "fires"}],
+            "default_group_column": GENERAL_CAUSE_COLUMN,
+            "errors": [],
+        }
+        filter_state = {
+            "selected_tables": metadata["tables"],
+            "available_years": [{"value": "2024", "label": "2024"}],
+            "selected_year": 2024,
+            "available_group_columns": [{"value": GENERAL_CAUSE_COLUMN, "label": GENERAL_CAUSE_COLUMN}],
+            "selected_group_column": GENERAL_CAUSE_COLUMN,
+            "selected_table_name": "fires",
+        }
+        empty_chart = {"items": []}
+        widgets = {"districts": {"items": []}}
+
+        with ExitStack() as stack:
+            stack.enter_context(patch("app.dashboard.service._collect_dashboard_metadata_cached", return_value=metadata))
+            stack.enter_context(patch("app.dashboard.service._resolve_dashboard_filters", return_value=filter_state))
+            stack.enter_context(patch("app.dashboard.service._get_dashboard_cache", return_value=None))
+            stack.enter_context(patch("app.dashboard.service._set_dashboard_cache"))
+            stack.enter_context(patch("app.dashboard.service._collect_summary_table_rows", return_value=[]))
+            stack.enter_context(patch("app.dashboard.service._build_summary", return_value={"fires_count": 0}))
+            stack.enter_context(patch("app.dashboard.service._build_yearly_chart", return_value=empty_chart))
+            stack.enter_context(patch("app.dashboard.service._build_table_breakdown_chart", return_value=empty_chart))
+            stack.enter_context(patch("app.dashboard.service._collect_cause_counts", return_value={"cause_a": 5}))
+            stack.enter_context(patch("app.dashboard.service._build_cause_chart", return_value=empty_chart))
+            stack.enter_context(patch("app.dashboard.service._collect_month_counts", return_value={}))
+            distribution_mock = stack.enter_context(
+                patch("app.dashboard.service._build_distribution_chart", return_value=empty_chart)
+            )
+            stack.enter_context(patch("app.dashboard.service._build_combined_impact_timeline_chart", return_value=empty_chart))
+            stack.enter_context(patch("app.dashboard.service._build_monthly_profile_chart", return_value=empty_chart))
+            stack.enter_context(patch("app.dashboard.service._build_area_buckets_chart", return_value=empty_chart))
+            stack.enter_context(patch("app.dashboard.service._build_trend", return_value={}))
+            stack.enter_context(patch("app.dashboard.service._build_rankings", return_value={}))
+            stack.enter_context(patch("app.dashboard.service._build_highlights", return_value=[]))
+            stack.enter_context(patch("app.dashboard.service._build_sql_widgets", return_value=widgets))
+            stack.enter_context(patch("app.dashboard.service._build_management_snapshot", return_value={}))
+            stack.enter_context(
+                patch(
+                    "app.dashboard.service._build_scope",
+                    return_value={"table_label": "fires", "year_label": "2024", "group_label": "cause"},
+                )
+            )
+            stack.enter_context(patch("app.dashboard.service.compose_executive_brief_text", return_value="brief"))
+            service.get_dashboard_data(table_name="fires", year="2024", group_column=GENERAL_CAUSE_COLUMN, allow_fallback=False)
+
+        self.assertEqual(distribution_mock.call_args.kwargs["grouped_counts"], {"cause_a": 5})
 
 
 if __name__ == "__main__":

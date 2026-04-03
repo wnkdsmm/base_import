@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence
 
 from config.db import engine
@@ -73,10 +74,35 @@ def _calculate_response_minutes(start_time: Optional[datetime], end_time: Option
 def _parse_datetime_text(value: Any) -> Optional[datetime]:
     if value is None:
         return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
     text_value = str(value).strip()
     if not text_value:
         return None
-    for fmt in ["%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%d.%m.%Y", "%Y-%m-%d"]:
+    return _parse_datetime_string(text_value)
+
+
+@lru_cache(maxsize=32768)
+def _parse_datetime_string(text_value: str) -> Optional[datetime]:
+    if len(text_value) == 10:
+        try:
+            if text_value[4:5] == "-" and text_value[7:8] == "-":
+                return datetime.strptime(text_value, "%Y-%m-%d")
+            if text_value[2:3] == "." and text_value[5:6] == ".":
+                return datetime.strptime(text_value, "%d.%m.%Y")
+        except ValueError:
+            return None
+        return None
+
+    if text_value[4:5] == "-" and text_value[7:8] == "-":
+        try:
+            return datetime.fromisoformat(text_value)
+        except ValueError:
+            return None
+
+    for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M"):
         try:
             return datetime.strptime(text_value, fmt)
         except ValueError:
@@ -210,6 +236,7 @@ def _quote_identifier(identifier: str) -> str:
     return engine.dialect.identifier_preparer.quote(identifier)
 
 
+@lru_cache(maxsize=16384)
 def _normalize_match_text(value: str) -> str:
     return " ".join(str(value).lower().replace("ё", "е").replace("/", " ").replace("-", " ").split())
 

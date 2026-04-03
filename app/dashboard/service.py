@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
 from app.services.executive_brief import compose_executive_brief_text
+from app.statistics_constants import CAUSE_COLUMNS
 from config.db import engine
 
 from .cache import _collect_dashboard_metadata_cached, _get_dashboard_cache, _set_dashboard_cache
@@ -22,6 +23,7 @@ from .distribution import (
     _build_damage_theme_items,
     _collect_damage_counts,
 )
+from .data_access import _resolve_cause_column, _resolve_table_column_name
 from .impact import (
     _build_area_buckets_chart,
     _build_cause_chart,
@@ -35,6 +37,15 @@ from .metadata import _collect_group_column_options, _is_damage_group_selection,
 from .management import _build_management_snapshot, _empty_management_snapshot
 from .summary import _build_highlights, _build_scope, _build_summary, _build_trend, _build_yearly_chart, _collect_summary_table_rows
 from .utils import _find_option_label, _format_datetime
+
+
+def _can_reuse_distribution_counts(selected_tables: list[dict[str, Any]], group_column: str) -> bool:
+    if group_column not in CAUSE_COLUMNS:
+        return False
+    for table in selected_tables:
+        if _resolve_table_column_name(table, group_column) != _resolve_cause_column(table):
+            return False
+    return True
 
 def build_dashboard_context(
     table_name: str = "all",
@@ -247,7 +258,12 @@ def get_dashboard_data(
                         items=damage_theme_items,
                     )
                 else:
-                    distribution = _build_distribution_chart(selected_tables, selected_year, selected_group_column)
+                    distribution = _build_distribution_chart(
+                        selected_tables,
+                        selected_year,
+                        selected_group_column,
+                        grouped_counts=cause_counts if _can_reuse_distribution_counts(selected_tables, selected_group_column) else None,
+                    )
                     yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
                     monthly_profile = _build_monthly_profile_chart(selected_tables, selected_year, month_counts=month_counts)
                     area_buckets = _build_area_buckets_chart(selected_tables, selected_year)

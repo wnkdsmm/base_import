@@ -164,8 +164,9 @@ def _collect_risk_inputs(
             )
         except Exception as exc:
             notes.append(f"{metadata['table_name']}: {exc}")
-    records.sort(key=lambda item: item["date"])
     return metadata_items, records, notes
+
+
 def _load_table_metadata(table_name: str) -> Dict[str, Any]:
     try:
         columns = get_table_columns_cached(table_name)
@@ -228,19 +229,15 @@ def _load_risk_records(
         "object_category": "object_category_value",
         "territory_label": "territory_label_value",
         "settlement_type": "settlement_type_value",
-        "building_category": "building_category_value",
         "risk_category": "risk_category_value",
         "water_supply_details": "water_supply_details_value",
         "report_time": "report_time_value",
         "arrival_time": "arrival_time_value",
         "detection_time": "detection_time_value",
-        "heating_type": "heating_type_value",
         "consequence": "consequence_value",
         "casualty_flag": "casualty_flag_value",
     }
     numeric_aliases = {
-        "temperature": "temperature_value",
-        "fire_area": "fire_area_value",
         "fire_station_distance": "fire_station_distance_value",
         "water_supply_count": "water_supply_count_value",
         "registered_damage": "registered_damage_value",
@@ -261,7 +258,6 @@ def _load_risk_records(
         SELECT {", ".join(select_parts)}
         FROM {_quote_identifier(table_name)}
         WHERE {" AND ".join(conditions)}
-        ORDER BY fire_date
         """
     )
     with engine.connect() as conn:
@@ -288,41 +284,28 @@ def _load_risk_records(
         consequence_flag = _truthy_value(row.get("consequence_value"))
         casualty_flag = _truthy_value(row.get("casualty_flag_value"))
         incident_time = report_time or detection_time or arrival_time
+        cause_value = _clean_text(row.get("cause_value"))
+        object_category_value = _clean_text(row.get("object_category_value"))
+        settlement_type_value = _clean_text(row.get("settlement_type_value"))
+        risk_category_value = _clean_text(row.get("risk_category_value"))
         records.append(
             {
                 "date": fire_date,
                 "district": district,
-                "cause": _clean_text(row.get("cause_value")),
-                "object_category": _clean_text(row.get("object_category_value")),
+                "cause": cause_value,
+                "object_category": object_category_value,
                 "territory_label": territory_label,
-                "settlement_type": _clean_text(row.get("settlement_type_value")),
-                "building_category": _clean_text(row.get("building_category_value")),
-                "risk_category": _clean_text(row.get("risk_category_value")),
-                "temperature": _to_float_or_none(row.get("temperature_value")),
-                "fire_area": _to_float_or_none(row.get("fire_area_value")),
+                "settlement_type": settlement_type_value,
                 "fire_station_distance": _to_float_or_none(row.get("fire_station_distance_value")),
-                "water_supply_count": water_supply_count,
-                "water_supply_details": water_supply_details,
                 "has_water_supply": _parse_water_supply_flag(water_supply_count, water_supply_details),
-                "report_time": report_time,
-                "arrival_time": arrival_time,
-                "detection_time": detection_time,
                 "response_minutes": response_minutes,
                 "long_arrival": response_minutes is not None and response_minutes >= LONG_RESPONSE_THRESHOLD_MINUTES,
-                "heating_type": _clean_text(row.get("heating_type_value")),
                 "heating_season": _is_heating_season(fire_date),
                 "night_incident": incident_time.hour >= 22 or incident_time.hour < 6 if incident_time else False,
-                "consequence_flag": consequence_flag,
-                "casualty_flag": casualty_flag,
-                "registered_damage": registered_damage,
-                "destroyed_buildings": destroyed_buildings,
-                "destroyed_area": destroyed_area,
-                "injuries": injuries,
-                "deaths": deaths,
                 "victims_present": bool(casualty_flag) or injuries > 0 or deaths > 0,
                 "major_damage": registered_damage > 0 or destroyed_buildings > 0 or destroyed_area > 0,
                 "severe_consequence": bool(consequence_flag) or injuries > 0 or deaths > 0 or registered_damage > 0 or destroyed_buildings > 0 or destroyed_area > 0,
-                "risk_category_score": _risk_category_score(_clean_text(row.get("risk_category_value"))),
+                "risk_category_score": _risk_category_score(risk_category_value),
             }
         )
     return records

@@ -203,7 +203,7 @@ DAMAGE_OVERVIEW_LABELS = {
     SMALL_CATTLE_DESTROYED_COLUMN: "Мелкий скот",
     BIRDS_DESTROYED_COLUMN: "Птицы",
 }
-EXCLUDED_TABLE_PREFIXES = ("final_", "tmp_", "pg_", "sql_")
+EXCLUDED_TABLE_PREFIXES = ("final_", "tmp_", "pg_", "sql_", "benchmark_")
 MONTH_LABELS = {
     1: "Янв",
     2: "Фев",
