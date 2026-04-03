@@ -367,6 +367,42 @@
     min-height: 420px;
 }
 
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stats-grid .stat-card {
+    padding: 20px;
+}
+
+.stats-grid .stat-value {
+    display: block;
+    margin: 12px 0 8px;
+    font-size: 34px;
+    line-height: 1;
+}
+
+.data-table-panel .data-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+}
+
+.data-table-panel .data-table th,
+.data-table-panel .data-table td {
+    min-width: max(10rem, 18ch);
+}
+
+.data-table-panel .data-table th {
+    position: sticky;
+    top: 0;
+    background: var(--paper-strong);
+    z-index: 1;
+}
+
 .table-preview-wrap {
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
