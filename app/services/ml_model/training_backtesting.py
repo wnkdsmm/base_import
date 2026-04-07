@@ -182,6 +182,56 @@ def _selected_count_predictions(
     )
 
 
+@dataclass
+class _HorizonEvaluationData:
+    rows: List[BacktestWindowRow]
+    actuals: np.ndarray
+    baseline_predictions: np.ndarray
+    heuristic_predictions: np.ndarray
+    selected_predictions: np.ndarray
+    dates: List[str]
+
+
+@dataclass
+class _BacktestSelection:
+    scored_candidates: _ScoredCandidates
+    baseline_metrics: CountMetrics
+    heuristic_metrics: CountMetrics
+    count_metrics: Dict[str, CountMetrics]
+    selected_count_model_key: str
+    selected_metrics: CountMetrics
+    selection_details: Dict[str, Any]
+    overdispersion_ratio: float
+
+
+def _build_horizon_evaluation_data(
+    rows_for_horizon: List[BacktestWindowRow],
+    selected_count_model_key: str,
+) -> _HorizonEvaluationData:
+    return _HorizonEvaluationData(
+        rows=rows_for_horizon,
+        actuals=np.asarray([row.actual_count for row in rows_for_horizon], dtype=float),
+        baseline_predictions=np.asarray([row.baseline_count for row in rows_for_horizon], dtype=float),
+        heuristic_predictions=np.asarray([row.heuristic_count for row in rows_for_horizon], dtype=float),
+        selected_predictions=_selected_count_predictions(rows_for_horizon, selected_count_model_key),
+        dates=[row.date for row in rows_for_horizon],
+    )
+
+
+def _build_horizon_evaluation_data_by_horizon(
+    horizon_rows: Dict[int, List[BacktestWindowRow]],
+    horizon_days: List[int],
+    selected_count_model_key: str,
+) -> Dict[int, _HorizonEvaluationData]:
+    return {
+        horizon_day: _build_horizon_evaluation_data(
+            horizon_rows[horizon_day],
+            selected_count_model_key,
+        )
+        for horizon_day in horizon_days
+    }
+
+
 def _prediction_interval_evaluation_slice(calibration: Dict[str, Any], total_rows: int) -> Optional[slice]:
     if not bool(calibration.get('coverage_validated')):
         return None
@@ -203,15 +253,29 @@ def _remeasure_deployed_interval_calibration(
     *,
     selected_count_model_key: str,
     calibration: Dict[str, Any],
+    actuals: Optional[np.ndarray] = None,
+    selected_predictions: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     updated_calibration = dict(calibration)
     evaluation_slice = _prediction_interval_evaluation_slice(updated_calibration, len(rows_for_horizon))
     if evaluation_slice is None:
         return updated_calibration
 
-    actuals = np.asarray([row.actual_count for row in rows_for_horizon[evaluation_slice]], dtype=float)
-    predictions = _selected_count_predictions(rows_for_horizon, selected_count_model_key)[evaluation_slice]
-    deployed_coverage = _interval_coverage(actuals, predictions, updated_calibration)
+    actual_values = (
+        actuals
+        if actuals is not None
+        else np.asarray([row.actual_count for row in rows_for_horizon], dtype=float)
+    )
+    prediction_values = (
+        selected_predictions
+        if selected_predictions is not None
+        else _selected_count_predictions(rows_for_horizon, selected_count_model_key)
+    )
+    deployed_coverage = _interval_coverage(
+        actual_values[evaluation_slice],
+        prediction_values[evaluation_slice],
+        updated_calibration,
+    )
     reference_coverage = updated_calibration.get('validated_coverage')
 
     updated_calibration['validated_coverage_reference'] = reference_coverage
@@ -258,14 +322,18 @@ def _reconcile_horizon_interval_metadata(
     horizon_summaries: Dict[str, HorizonSummary],
     *,
     selected_count_model_key: str,
+    evaluation_data_by_horizon: Optional[Dict[int, _HorizonEvaluationData]] = None,
 ) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, HorizonSummary]]:
     updated_calibrations: Dict[int, Dict[str, Any]] = {}
     updated_summaries: Dict[str, HorizonSummary] = {}
     for horizon_day, calibration in interval_calibration_by_horizon.items():
+        evaluation_data = (evaluation_data_by_horizon or {}).get(horizon_day)
         updated_calibration = _remeasure_deployed_interval_calibration(
             horizon_rows.get(horizon_day, []),
             selected_count_model_key=selected_count_model_key,
             calibration=calibration,
+            actuals=evaluation_data.actuals if evaluation_data is not None else None,
+            selected_predictions=evaluation_data.selected_predictions if evaluation_data is not None else None,
         )
         updated_calibrations[horizon_day] = updated_calibration
         updated_summaries[str(horizon_day)] = _sync_horizon_summary_with_calibration(
@@ -507,33 +575,30 @@ def _select_working_method(
 
 
 def _evaluate_horizon_rows(
-    rows_for_horizon: List[BacktestWindowRow],
+    evaluation_data: _HorizonEvaluationData,
     *,
-    selected_count_model_key: str,
     horizon_day: int,
 ) -> Tuple[HorizonSummary, Dict[str, Any]]:
-    actuals_h = np.asarray([row.actual_count for row in rows_for_horizon], dtype=float)
-    baseline_predictions_h = np.asarray([row.baseline_count for row in rows_for_horizon], dtype=float)
-    heuristic_predictions_h = np.asarray([row.heuristic_count for row in rows_for_horizon], dtype=float)
-    baseline_metrics_h = CountMetrics.coerce(compute_count_metrics(actuals_h, baseline_predictions_h))
-    heuristic_metrics_h = CountMetrics.coerce(
-        compute_count_metrics(actuals_h, heuristic_predictions_h, baseline_metrics_h)
+    baseline_metrics_h = CountMetrics.coerce(
+        compute_count_metrics(evaluation_data.actuals, evaluation_data.baseline_predictions)
     )
-    selected_predictions_h = _selected_count_predictions(rows_for_horizon, selected_count_model_key)
+    heuristic_metrics_h = CountMetrics.coerce(
+        compute_count_metrics(evaluation_data.actuals, evaluation_data.heuristic_predictions, baseline_metrics_h)
+    )
     selected_metrics_h = CountMetrics.coerce(
-        compute_count_metrics(actuals_h, selected_predictions_h, baseline_metrics_h)
+        compute_count_metrics(evaluation_data.actuals, evaluation_data.selected_predictions, baseline_metrics_h)
     )
     prediction_interval_backtest_h = _evaluate_prediction_interval_backtest(
-        actuals_h,
-        selected_predictions_h,
-        [row.date for row in rows_for_horizon],
+        evaluation_data.actuals,
+        evaluation_data.selected_predictions,
+        evaluation_data.dates,
         horizon_days=horizon_day,
     )
     return (
         HorizonSummary(
             horizon_days=horizon_day,
             horizon_label=_lead_time_label(horizon_day),
-            folds=len(rows_for_horizon),
+            folds=len(evaluation_data.rows),
             count_metrics=selected_metrics_h,
             baseline_count_mae=baseline_metrics_h.mae,
             heuristic_count_mae=heuristic_metrics_h.mae,
@@ -600,14 +665,13 @@ def _evaluate_backtest_horizon_metadata(
     horizon_rows: Dict[int, List[BacktestWindowRow]],
     horizon_days: List[int],
     selected_count_model_key: str,
+    evaluation_data_by_horizon: Dict[int, _HorizonEvaluationData],
 ) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, HorizonSummary]]:
     interval_calibration_by_horizon: Dict[int, Dict[str, Any]] = {}
     horizon_summaries: Dict[str, HorizonSummary] = {}
     for horizon_day in horizon_days:
-        rows_for_horizon = horizon_rows[horizon_day]
         horizon_summary, interval_calibration = _evaluate_horizon_rows(
-            rows_for_horizon,
-            selected_count_model_key=selected_count_model_key,
+            evaluation_data_by_horizon[horizon_day],
             horizon_day=horizon_day,
         )
         interval_calibration_by_horizon[horizon_day] = interval_calibration
@@ -619,6 +683,7 @@ def _evaluate_backtest_horizon_metadata(
         horizon_rows,
         horizon_summaries,
         selected_count_model_key=selected_count_model_key,
+        evaluation_data_by_horizon=evaluation_data_by_horizon,
     )
 
 
@@ -628,10 +693,16 @@ def _build_backtest_evaluation_rows(
     selected_count_model_key: str,
     prediction_interval_calibration: Dict[str, Any],
     validation_horizon_days: int,
+    selected_predictions: Optional[np.ndarray] = None,
 ) -> List[BacktestEvaluationRow]:
     backtest_rows: List[BacktestEvaluationRow] = []
-    for row in valid_rows:
-        predicted_count = float(_selected_count_prediction(row, selected_count_model_key))
+    prediction_values = (
+        selected_predictions
+        if selected_predictions is not None
+        else _selected_count_predictions(valid_rows, selected_count_model_key)
+    )
+    for row, predicted_value in zip(valid_rows, prediction_values):
+        predicted_count = float(predicted_value)
         lower_bound, upper_bound = _count_interval(predicted_count, prediction_interval_calibration)
         backtest_rows.append(
             BacktestEvaluationRow(
@@ -661,6 +732,111 @@ def _build_backtest_window_rows(
         row.clone(predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key))
         for row in valid_rows
     ]
+
+
+def _select_backtest_count_model(
+    valid_rows: List[BacktestWindowRow],
+    dataset: pd.DataFrame,
+) -> _BacktestSelection:
+    scored_candidates = _score_candidates(valid_rows)
+    selected_count_model_key, selected_metrics, selection_context = _select_working_method(scored_candidates)
+    overdispersion_ratio = _estimate_overdispersion_ratio(dataset['count'].to_numpy(dtype=float))
+    selection_details = _build_count_selection_details(
+        selected_count_model_key=selected_count_model_key,
+        selected_metrics=selected_metrics,
+        count_metrics=scored_candidates.count_metrics,
+        baseline_metrics=scored_candidates.baseline_metrics,
+        heuristic_metrics=scored_candidates.heuristic_metrics,
+        overdispersion_ratio=overdispersion_ratio,
+        raw_best_key=selection_context.get('raw_best_key'),
+        tie_break_reason=selection_context.get('tie_break_reason'),
+    )
+    return _BacktestSelection(
+        scored_candidates=scored_candidates,
+        baseline_metrics=scored_candidates.baseline_metrics,
+        heuristic_metrics=scored_candidates.heuristic_metrics,
+        count_metrics=scored_candidates.count_metrics,
+        selected_count_model_key=selected_count_model_key,
+        selected_metrics=selected_metrics,
+        selection_details=selection_details,
+        overdispersion_ratio=overdispersion_ratio,
+    )
+
+
+def _build_backtest_overview(
+    *,
+    backtest_rows: List[BacktestEvaluationRow],
+    valid_rows: List[BacktestWindowRow],
+    min_train_rows: int,
+    validation_horizon_days: int,
+    max_horizon_days: int,
+    horizon_days: List[int],
+    selection: _BacktestSelection,
+    event_metrics: EventMetrics,
+    prediction_interval_calibration: Dict[str, Any],
+    prediction_interval_coverage: Optional[float],
+    validation_summary: HorizonSummary,
+    horizon_summaries: Dict[str, HorizonSummary],
+) -> BacktestOverview:
+    return BacktestOverview(
+        folds=len(backtest_rows),
+        min_train_rows=min_train_rows,
+        validation_horizon_days=validation_horizon_days,
+        validation_horizon_label=_lead_time_label(validation_horizon_days),
+        forecast_horizon_days=max_horizon_days,
+        forecast_horizon_label=_lead_time_label(max_horizon_days),
+        validated_horizon_days=horizon_days,
+        selection_rule=COUNT_SELECTION_RULE,
+        event_selection_rule=EVENT_SELECTION_RULE,
+        classification_threshold=CLASSIFICATION_THRESHOLD,
+        event_backtest_event_rate=event_metrics.event_rate,
+        event_probability_informative=event_metrics.event_probability_informative,
+        event_probability_note=event_metrics.event_probability_note,
+        event_probability_reason_code=event_metrics.event_probability_reason_code,
+        candidate_model_labels=_available_count_model_labels(selection.count_metrics),
+        candidate_window_count=len(valid_rows),
+        candidate_covered_window_count_by_model={
+            model_key: selection.scored_candidates.coverage_by_model[model_key].covered_window_count
+            for model_key in COUNT_MODEL_KEYS
+        },
+        candidate_window_coverage_by_model={
+            model_key: selection.scored_candidates.coverage_by_model[model_key].window_coverage
+            for model_key in COUNT_MODEL_KEYS
+        },
+        dispersion_ratio=selection.overdispersion_ratio,
+        prediction_interval_level=prediction_interval_calibration['level'],
+        prediction_interval_level_display=prediction_interval_calibration['level_display'],
+        prediction_interval_coverage=prediction_interval_coverage,
+        prediction_interval_coverage_display=_format_ratio_percent(prediction_interval_coverage),
+        prediction_interval_method_label=prediction_interval_calibration['method_label'],
+        prediction_interval_coverage_validated=validation_summary.prediction_interval_coverage_validated,
+        prediction_interval_coverage_note=validation_summary.prediction_interval_coverage_note,
+        prediction_interval_calibration_windows=prediction_interval_calibration['calibration_window_count'],
+        prediction_interval_evaluation_windows=prediction_interval_calibration['evaluation_window_count'],
+        prediction_interval_validation_scheme_key=prediction_interval_calibration.get('validation_scheme_key'),
+        prediction_interval_validation_scheme_label=prediction_interval_calibration.get('validation_scheme_label'),
+        prediction_interval_validation_explanation=prediction_interval_calibration.get('validation_scheme_explanation'),
+        prediction_interval_calibration_range_label=prediction_interval_calibration['calibration_window_range_label'],
+        prediction_interval_evaluation_range_label=prediction_interval_calibration['evaluation_window_range_label'],
+        prediction_interval_validated_horizon_days=[
+            horizon_day
+            for horizon_day in horizon_days
+            if horizon_summaries[str(horizon_day)].prediction_interval_coverage_validated
+        ],
+        prediction_interval_coverage_by_horizon={
+            str(horizon_day): horizon_summaries[str(horizon_day)].prediction_interval_coverage
+            for horizon_day in horizon_days
+        },
+        prediction_interval_coverage_display_by_horizon={
+            str(horizon_day): horizon_summaries[str(horizon_day)].prediction_interval_coverage_display
+            for horizon_day in horizon_days
+        },
+        rolling_scheme_label=(
+            'Rolling-origin backtesting (expanding window, lead-time-aware): '
+            f'{len(backtest_rows)} origins, horizons 1-{max_horizon_days} days, '
+            f'summary on the {_lead_time_label(validation_horizon_days)} lead'
+        ),
+    )
 
 
 def _run_backtest(
@@ -739,37 +915,31 @@ def _run_backtest(
             f'{_lead_time_label(validation_horizon_days)} lead.'
         )
 
-    scored_candidates = _score_candidates(valid_rows)
-    baseline_metrics = scored_candidates.baseline_metrics
-    heuristic_metrics = scored_candidates.heuristic_metrics
-    count_metrics = scored_candidates.count_metrics
-    selected_count_model_key, selected_metrics, selection_context = _select_working_method(scored_candidates)
-    overdispersion_ratio = _estimate_overdispersion_ratio(dataset['count'].to_numpy(dtype=float))
-    selection_details = _build_count_selection_details(
-        selected_count_model_key=selected_count_model_key,
-        selected_metrics=selected_metrics,
-        count_metrics=count_metrics,
-        baseline_metrics=baseline_metrics,
-        heuristic_metrics=heuristic_metrics,
-        overdispersion_ratio=overdispersion_ratio,
-        raw_best_key=selection_context.get('raw_best_key'),
-        tie_break_reason=selection_context.get('tie_break_reason'),
+    selection = _select_backtest_count_model(valid_rows, dataset)
+    selected_count_model_key = selection.selected_count_model_key
+    horizon_evaluation_data = _build_horizon_evaluation_data_by_horizon(
+        horizon_rows,
+        horizon_days,
+        selected_count_model_key,
     )
 
     interval_calibration_by_horizon, horizon_summaries = _evaluate_backtest_horizon_metadata(
         horizon_rows=horizon_rows,
         horizon_days=horizon_days,
         selected_count_model_key=selected_count_model_key,
+        evaluation_data_by_horizon=horizon_evaluation_data,
     )
     prediction_interval_calibration = interval_calibration_by_horizon[validation_horizon_days]
     validation_summary = horizon_summaries[str(validation_horizon_days)]
     prediction_interval_coverage = validation_summary.prediction_interval_coverage
+    validation_evaluation_data = horizon_evaluation_data[validation_horizon_days]
 
     backtest_rows = _build_backtest_evaluation_rows(
         valid_rows=valid_rows,
         selected_count_model_key=selected_count_model_key,
         prediction_interval_calibration=prediction_interval_calibration,
         validation_horizon_days=validation_horizon_days,
+        selected_predictions=validation_evaluation_data.selected_predictions,
     )
 
     event_metrics = _compute_event_metrics(backtest_rows)
@@ -786,89 +956,44 @@ def _run_backtest(
         perf.update(
             completed_windows=total_windows,
             valid_windows=len(valid_rows),
-            candidate_models=len(count_metrics),
+            candidate_models=len(selection.count_metrics),
             payload_rows=len(backtest_rows),
         )
 
     window_rows = _build_backtest_window_rows(valid_rows, selected_count_model_key)
 
-    overview = BacktestOverview(
-        folds=len(backtest_rows),
+    overview = _build_backtest_overview(
+        backtest_rows=backtest_rows,
+        valid_rows=valid_rows,
         min_train_rows=min_train_rows,
         validation_horizon_days=validation_horizon_days,
-        validation_horizon_label=_lead_time_label(validation_horizon_days),
-        forecast_horizon_days=max_horizon_days,
-        forecast_horizon_label=_lead_time_label(max_horizon_days),
-        validated_horizon_days=horizon_days,
-        selection_rule=COUNT_SELECTION_RULE,
-        event_selection_rule=EVENT_SELECTION_RULE,
-        classification_threshold=CLASSIFICATION_THRESHOLD,
-        event_backtest_event_rate=event_metrics.event_rate,
-        event_probability_informative=event_metrics.event_probability_informative,
-        event_probability_note=event_metrics.event_probability_note,
-        event_probability_reason_code=event_metrics.event_probability_reason_code,
-        candidate_model_labels=_available_count_model_labels(count_metrics),
-        candidate_window_count=len(valid_rows),
-        candidate_covered_window_count_by_model={
-            model_key: scored_candidates.coverage_by_model[model_key].covered_window_count
-            for model_key in COUNT_MODEL_KEYS
-        },
-        candidate_window_coverage_by_model={
-            model_key: scored_candidates.coverage_by_model[model_key].window_coverage
-            for model_key in COUNT_MODEL_KEYS
-        },
-        dispersion_ratio=overdispersion_ratio,
-        prediction_interval_level=prediction_interval_calibration['level'],
-        prediction_interval_level_display=prediction_interval_calibration['level_display'],
+        max_horizon_days=max_horizon_days,
+        horizon_days=horizon_days,
+        selection=selection,
+        event_metrics=event_metrics,
+        prediction_interval_calibration=prediction_interval_calibration,
         prediction_interval_coverage=prediction_interval_coverage,
-        prediction_interval_coverage_display=_format_ratio_percent(prediction_interval_coverage),
-        prediction_interval_method_label=prediction_interval_calibration['method_label'],
-        prediction_interval_coverage_validated=validation_summary.prediction_interval_coverage_validated,
-        prediction_interval_coverage_note=validation_summary.prediction_interval_coverage_note,
-        prediction_interval_calibration_windows=prediction_interval_calibration['calibration_window_count'],
-        prediction_interval_evaluation_windows=prediction_interval_calibration['evaluation_window_count'],
-        prediction_interval_validation_scheme_key=prediction_interval_calibration.get('validation_scheme_key'),
-        prediction_interval_validation_scheme_label=prediction_interval_calibration.get('validation_scheme_label'),
-        prediction_interval_validation_explanation=prediction_interval_calibration.get('validation_scheme_explanation'),
-        prediction_interval_calibration_range_label=prediction_interval_calibration['calibration_window_range_label'],
-        prediction_interval_evaluation_range_label=prediction_interval_calibration['evaluation_window_range_label'],
-        prediction_interval_validated_horizon_days=[
-            horizon_day
-            for horizon_day in horizon_days
-            if horizon_summaries[str(horizon_day)].prediction_interval_coverage_validated
-        ],
-        prediction_interval_coverage_by_horizon={
-            str(horizon_day): horizon_summaries[str(horizon_day)].prediction_interval_coverage
-            for horizon_day in horizon_days
-        },
-        prediction_interval_coverage_display_by_horizon={
-            str(horizon_day): horizon_summaries[str(horizon_day)].prediction_interval_coverage_display
-            for horizon_day in horizon_days
-        },
-        rolling_scheme_label=(
-            'Rolling-origin backtesting (expanding window, lead-time-aware): '
-            f'{len(backtest_rows)} origins, horizons 1-{max_horizon_days} days, '
-            f'summary on the {_lead_time_label(validation_horizon_days)} lead'
-        ),
+        validation_summary=validation_summary,
+        horizon_summaries=horizon_summaries,
     )
 
     return BacktestSuccess(
         message='',
         rows=backtest_rows,
         window_rows=window_rows,
-        baseline_metrics=baseline_metrics,
-        heuristic_metrics=heuristic_metrics,
-        count_metrics=count_metrics,
+        baseline_metrics=selection.baseline_metrics,
+        heuristic_metrics=selection.heuristic_metrics,
+        count_metrics=selection.count_metrics,
         count_comparison_rows=_build_count_comparison_rows(
-            baseline_metrics=baseline_metrics,
-            heuristic_metrics=heuristic_metrics,
-            count_metrics=count_metrics,
+            baseline_metrics=selection.baseline_metrics,
+            heuristic_metrics=selection.heuristic_metrics,
+            count_metrics=selection.count_metrics,
             selected_count_model_key=selected_count_model_key,
         ),
         selected_count_model_key=selected_count_model_key,
-        selected_count_model_reason=selection_details['long'],
-        selected_count_model_reason_short=selection_details['short'],
-        selected_metrics=selected_metrics,
+        selected_count_model_reason=selection.selection_details['long'],
+        selected_count_model_reason_short=selection.selection_details['short'],
+        selected_metrics=selection.selected_metrics,
         prediction_interval_calibration=prediction_interval_calibration,
         prediction_interval_calibration_by_horizon=PredictionIntervalCalibrationByHorizon(
             by_horizon=interval_calibration_by_horizon

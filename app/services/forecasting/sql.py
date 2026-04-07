@@ -70,26 +70,48 @@ def _daily_aggregate_view_name(table_name: str) -> str:
     return f"mv_forecasting_daily_{_materialized_view_suffix(table_name)}"
 
 
+def _daily_aggregate_view_status_map(table_names: Sequence[str]) -> Dict[str, bool]:
+    normalized_names = [str(table_name) for table_name in dict.fromkeys(table_names) if str(table_name)]
+    if not normalized_names:
+        return {}
+
+    status_by_table: Dict[str, bool] = {}
+    pending_views: Dict[str, str] = {}
+    for table_name in normalized_names:
+        cache_key = _build_sql_cache_key("daily_aggregate_view_exists", [table_name])
+        cached_value = _FORECASTING_SQL_CACHE.get(cache_key)
+        if cached_value is not None:
+            status_by_table[table_name] = bool(cached_value)
+        else:
+            pending_views[_daily_aggregate_view_name(table_name)] = table_name
+
+    if not pending_views:
+        return status_by_table
+
+    existing_views: set[str] = set()
+    if engine.dialect.name == "postgresql":
+        params = {f"view_name_{index}": view_name for index, view_name in enumerate(pending_views)}
+        placeholders = ", ".join(f":view_name_{index}" for index in range(len(pending_views)))
+        query = text(
+            f"""
+            SELECT matviewname
+            FROM pg_matviews
+            WHERE schemaname = current_schema() AND matviewname IN ({placeholders})
+            """
+        )
+        with engine.connect() as conn:
+            existing_views = {str(row["matviewname"]) for row in conn.execute(query, params).mappings().all()}
+
+    for view_name, table_name in pending_views.items():
+        exists = view_name in existing_views
+        _FORECASTING_SQL_CACHE.set(_build_sql_cache_key("daily_aggregate_view_exists", [table_name]), exists)
+        status_by_table[table_name] = exists
+
+    return status_by_table
+
+
 def _daily_aggregate_view_exists(table_name: str) -> bool:
-    if engine.dialect.name != "postgresql":
-        return False
-
-    cache_key = _build_sql_cache_key("daily_aggregate_view_exists", [table_name])
-    cached_value = _FORECASTING_SQL_CACHE.get(cache_key)
-    if cached_value is not None:
-        return bool(cached_value)
-
-    query = text(
-        """
-        SELECT 1
-        FROM pg_matviews
-        WHERE schemaname = current_schema() AND matviewname = :view_name
-        """
-    )
-    with engine.connect() as conn:
-        exists = conn.execute(query, {"view_name": _daily_aggregate_view_name(table_name)}).scalar() is not None
-    _FORECASTING_SQL_CACHE.set(cache_key, exists)
-    return exists
+    return _daily_aggregate_view_status_map([table_name]).get(str(table_name), False)
 
 
 def _build_materialized_scope_conditions(
@@ -513,11 +535,13 @@ def _daily_history_union_part_sql(
     cause: str = "all",
     object_category: str = "all",
     min_year: Optional[int] = None,
+    has_aggregate_view: Optional[bool] = None,
 ) -> Optional[str]:
     if not table_name:
         return None
 
-    if _daily_aggregate_view_exists(table_name):
+    use_aggregate_view = _daily_aggregate_view_exists(table_name) if has_aggregate_view is None else has_aggregate_view
+    if use_aggregate_view:
         conditions, table_params, scope_is_valid = _build_materialized_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -581,6 +605,9 @@ def _load_daily_history_rows_union(
 ) -> Optional[List[Dict[str, Any]]]:
     params: Dict[str, Any] = {}
     query_parts: List[str] = []
+    view_status = _daily_aggregate_view_status_map(
+        [str(metadata.get("table_name") or "") for metadata in metadata_items]
+    )
     for metadata in metadata_items:
         table_name = str(metadata.get("table_name") or "")
         resolved_columns = metadata.get("resolved_columns") or {}
@@ -592,6 +619,7 @@ def _load_daily_history_rows_union(
             cause=cause,
             object_category=object_category,
             min_year=min_year,
+            has_aggregate_view=view_status.get(table_name, False),
         )
         if query_part:
             query_parts.append(query_part)
@@ -731,11 +759,14 @@ def _build_daily_history_sql(
     )
     cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
     if cached_history is not None:
-        _FORECASTING_SQL_CACHE.set(count_cache_key, _daily_history_total_count(cached_history))
+        cached_total_count = _daily_history_total_count(cached_history)
+        _FORECASTING_SQL_CACHE.set(count_cache_key, cached_total_count)
         if perf is not None:
             perf.update(
                 forecasting_daily_history_cache_hit=True,
                 forecasting_daily_history_rows=len(cached_history),
+                forecasting_daily_history_total_count=cached_total_count,
+                forecasting_daily_history_count_cache_populated=True,
             )
         return cached_history
 
@@ -743,8 +774,12 @@ def _build_daily_history_sql(
     min_year = _resolve_history_window_min_year(local_metadata_items, history_window)
     merged_rows: Dict[date, Dict[str, Any]] = {}
     used_union_fast_path = False
+    union_fast_path_attempted = len(local_metadata_items) > 1
+    union_fast_path_fallback = False
+    union_fast_path_error_type = ""
+    union_fast_path_rows = 0
 
-    if len(local_metadata_items) > 1:
+    if union_fast_path_attempted:
         try:
             union_rows = _load_daily_history_rows_union(
                 local_metadata_items,
@@ -753,10 +788,13 @@ def _build_daily_history_sql(
                 object_category=object_category,
                 min_year=min_year,
             )
-        except Exception:
+        except Exception as exc:
+            union_fast_path_fallback = True
+            union_fast_path_error_type = exc.__class__.__name__
             union_rows = None
         if union_rows is not None:
             used_union_fast_path = True
+            union_fast_path_rows = len(union_rows)
             _merge_daily_history_rows(merged_rows, union_rows)
 
     if not used_union_fast_path:
@@ -800,8 +838,14 @@ def _build_daily_history_sql(
             perf.update(
                 forecasting_daily_history_cache_hit=False,
                 forecasting_daily_history_union_fast_path=used_union_fast_path,
+                forecasting_daily_history_union_attempted=union_fast_path_attempted,
+                forecasting_daily_history_union_fallback=union_fast_path_fallback,
+                forecasting_daily_history_union_error_type=union_fast_path_error_type,
+                forecasting_daily_history_union_rows=union_fast_path_rows,
                 forecasting_daily_history_tables=len(local_metadata_items),
                 forecasting_daily_history_rows=0,
+                forecasting_daily_history_total_count=0,
+                forecasting_daily_history_count_cache_populated=True,
             )
         return _FORECASTING_SQL_CACHE.set(cache_key, [])
 
@@ -821,13 +865,20 @@ def _build_daily_history_sql(
         )
         current_date += timedelta(days=1)
 
-    _FORECASTING_SQL_CACHE.set(count_cache_key, _daily_history_total_count(history))
+    total_count = _daily_history_total_count(history)
+    _FORECASTING_SQL_CACHE.set(count_cache_key, total_count)
     if perf is not None:
         perf.update(
             forecasting_daily_history_cache_hit=False,
             forecasting_daily_history_union_fast_path=used_union_fast_path,
+            forecasting_daily_history_union_attempted=union_fast_path_attempted,
+            forecasting_daily_history_union_fallback=union_fast_path_fallback,
+            forecasting_daily_history_union_error_type=union_fast_path_error_type,
+            forecasting_daily_history_union_rows=union_fast_path_rows,
             forecasting_daily_history_tables=len(local_metadata_items),
             forecasting_daily_history_rows=len(history),
+            forecasting_daily_history_total_count=total_count,
+            forecasting_daily_history_count_cache_populated=True,
         )
     return _FORECASTING_SQL_CACHE.set(cache_key, history)
 
@@ -842,6 +893,7 @@ def _count_forecasting_records_sql(
 ) -> int:
     from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
+    perf = current_perf_trace()
     normalized_tables = _canonicalize_source_tables(source_tables)[0]
     cache_key = _filtered_record_count_cache_key(
         normalized_tables,
@@ -852,6 +904,11 @@ def _count_forecasting_records_sql(
     )
     cached_count = _FORECASTING_SQL_CACHE.get(cache_key)
     if cached_count is not None:
+        if perf is not None:
+            perf.update(
+                forecasting_filtered_record_count_cache_hit=True,
+                forecasting_filtered_record_count=int(cached_count),
+            )
         return int(cached_count)
 
     local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
@@ -872,4 +929,10 @@ def _count_forecasting_records_sql(
             min_year=min_year,
         )
 
-    return int(_FORECASTING_SQL_CACHE.set(cache_key, total_count))
+    cached_total = int(_FORECASTING_SQL_CACHE.set(cache_key, total_count))
+    if perf is not None:
+        perf.update(
+            forecasting_filtered_record_count_cache_hit=False,
+            forecasting_filtered_record_count=cached_total,
+        )
+    return cached_total

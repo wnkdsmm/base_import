@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 from config.paths import get_result_folder

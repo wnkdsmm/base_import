@@ -1,3 +1,4 @@
+import logging
 import os
 import warnings
 
@@ -16,6 +17,9 @@ from config.db import engine
 from core.processing.pipeline import PipelineStep
 
 warnings.filterwarnings("ignore")
+
+
+logger = logging.getLogger(__name__)
 
 
 class FiresFeatureProfilingStep(PipelineStep):
@@ -80,23 +84,23 @@ class FiresFeatureProfilingStep(PipelineStep):
         output_csv = os.path.join(output_folder, f"{table_name}{PROFILING_CSV_SUFFIX}")
         output_xlsx = os.path.join(output_folder, f"{table_name}{PROFILING_XLSX_SUFFIX}")
 
-        print(f"Таблица для профилирования: {table_name}")
-        print(f"Папка результатов: {output_folder}")
-        print(
-            "Пороги: "
-            f"пропуски > {thresholds['null_threshold'] * 100:.0f}%, "
-            f"доминирующее значение > {thresholds['dominant_value_threshold'] * 100:.0f}%, "
-            f"дисперсия < {thresholds['low_variance_threshold']}"
+        logger.info("Таблица для профилирования: %s", table_name)
+        logger.info("Папка результатов: %s", output_folder)
+        logger.info(
+            "Пороги: пропуски > %.0f%%, доминирующее значение > %.0f%%, дисперсия < %s",
+            thresholds["null_threshold"] * 100,
+            thresholds["dominant_value_threshold"] * 100,
+            thresholds["low_variance_threshold"],
         )
-        print("Читаем таблицу из базы данных...")
+        logger.info("Читаем таблицу из базы данных...")
 
         try:
             df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
-        except Exception as exc:
-            print(f"Не удалось прочитать таблицу: {exc}")
+        except Exception:
+            logger.exception("Не удалось прочитать таблицу: %s", table_name)
             raise
 
-        print(f"Загружено строк: {df.shape[0]}, колонок: {df.shape[1]}")
+        logger.info("Загружено строк: %s, колонок: %s", df.shape[0], df.shape[1])
 
         n_rows = len(df)
         string_cols = df.select_dtypes(include="object").columns.tolist()
@@ -201,12 +205,12 @@ class FiresFeatureProfilingStep(PipelineStep):
                 }
             )
 
-        print("Профилирование завершено.")
-        print(f"Отчёт CSV: {output_csv}")
-        print(f"Отчёт Excel: {output_xlsx}")
-        print(f"Всего колонок: {len(profile_df_sorted)}")
-        print(f"Помечено на исключение: {len(candidates)}")
-        print(f"Останется в очищенной таблице: {len(kept_columns)}")
+        logger.info("Профилирование завершено.")
+        logger.info("Отчёт CSV: %s", output_csv)
+        logger.info("Отчёт Excel: %s", output_xlsx)
+        logger.info("Всего колонок: %s", len(profile_df_sorted))
+        logger.info("Помечено на исключение: %s", len(candidates))
+        logger.info("Останется в очищенной таблице: %s", len(kept_columns))
 
         return {
             "profile_df": profile_df_sorted,

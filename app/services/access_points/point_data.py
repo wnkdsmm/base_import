@@ -9,7 +9,7 @@ from app.services.forecast_risk.utils import _clean_text, _is_rural_label, _norm
 
 from .constants import GENERIC_OBJECT_TOKENS, MIN_ACCESS_POINT_SUPPORT, POINT_FEATURE_COLUMNS
 from .data import _collect_access_point_inputs
-from .numeric import _normalize_coordinate, _safe_mean, _share
+from .numeric import _finite_numeric_frame, _normalize_coordinate, _safe_mean, _share
 
 
 def _normalize_identity_token(value: Any) -> str:
@@ -152,20 +152,7 @@ def _new_point_bucket(identity: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, int]:
-    counters = {
-        "response_count": 0,
-        "long_arrivals": 0,
-        "known_water": 0,
-        "no_water": 0,
-        "severe": 0,
-        "victims": 0,
-        "major_damage": 0,
-        "night": 0,
-        "heating": 0,
-        "rural": 0,
-    }
-
+def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, Any]) -> None:
     bucket["incident_count"] += 1
     bucket["years"][int(record.get("year") or record["date"].year)] += 1
 
@@ -193,7 +180,6 @@ def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, A
     if response_minutes is not None:
         bucket["response_total"] += float(response_minutes)
         bucket["response_count"] += 1
-        counters["response_count"] += 1
 
     distance_km = record.get("fire_station_distance")
     if distance_km is not None:
@@ -202,39 +188,29 @@ def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, A
 
     if record.get("long_arrival"):
         bucket["long_arrival_count"] += 1
-        counters["long_arrivals"] += 1
 
     has_water_supply = record.get("has_water_supply")
     if has_water_supply is True:
         bucket["water_yes_count"] += 1
-        counters["known_water"] += 1
     elif has_water_supply is False:
         bucket["water_no_count"] += 1
-        counters["known_water"] += 1
-        counters["no_water"] += 1
     else:
         bucket["water_unknown_count"] += 1
 
     if record.get("severe_consequence"):
         bucket["severe_count"] += 1
-        counters["severe"] += 1
     if record.get("victims_present"):
         bucket["victims_count"] += 1
-        counters["victims"] += 1
     if record.get("major_damage"):
         bucket["major_damage_count"] += 1
-        counters["major_damage"] += 1
     if record.get("night_incident"):
         bucket["night_count"] += 1
-        counters["night"] += 1
     if record.get("heating_season"):
         bucket["heating_count"] += 1
-        counters["heating"] += 1
 
     rural_hint = settlement_type or settlement or territory_label or _clean_text(record.get("address"))
     if _is_rural_label(rural_hint):
         bucket["rural_count"] += 1
-        counters["rural"] += 1
 
     latitude = _normalize_coordinate(record.get("latitude"), -90.0, 90.0)
     longitude = _normalize_coordinate(record.get("longitude"), -180.0, 180.0)
@@ -242,7 +218,39 @@ def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, A
         bucket["latitude_values"].append(latitude)
         bucket["longitude_values"].append(longitude)
 
-    return counters
+
+def _build_point_priors(buckets: Dict[str, Dict[str, Any]], total_incidents: int) -> Dict[str, float]:
+    total_response_count = 0
+    total_long_arrivals = 0
+    total_known_water = 0
+    total_no_water = 0
+    total_severe = 0
+    total_victims = 0
+    total_major_damage = 0
+    total_night = 0
+    total_heating = 0
+    total_rural = 0
+    for bucket in buckets.values():
+        total_response_count += int(bucket["response_count"])
+        total_long_arrivals += int(bucket["long_arrival_count"])
+        total_known_water += int(bucket["water_yes_count"] + bucket["water_no_count"])
+        total_no_water += int(bucket["water_no_count"])
+        total_severe += int(bucket["severe_count"])
+        total_victims += int(bucket["victims_count"])
+        total_major_damage += int(bucket["major_damage_count"])
+        total_night += int(bucket["night_count"])
+        total_heating += int(bucket["heating_count"])
+        total_rural += int(bucket["rural_count"])
+    return {
+        "long_arrival": _share(total_long_arrivals, total_response_count),
+        "no_water": _share(total_no_water, total_known_water),
+        "severe": _share(total_severe, total_incidents),
+        "victims": _share(total_victims, total_incidents),
+        "major_damage": _share(total_major_damage, total_incidents),
+        "night": _share(total_night, total_incidents),
+        "heating": _share(total_heating, total_incidents),
+        "rural": _share(total_rural, total_incidents),
+    }
 
 
 def _build_point_entity_frames(
@@ -257,16 +265,6 @@ def _build_point_entity_frames(
     resolved_support = max(2, int(minimum_support or MIN_ACCESS_POINT_SUPPORT))
     buckets: Dict[str, Dict[str, Any]] = {}
     total_incidents = 0
-    total_response_count = 0
-    total_long_arrivals = 0
-    total_known_water = 0
-    total_no_water = 0
-    total_severe = 0
-    total_victims = 0
-    total_major_damage = 0
-    total_night = 0
-    total_heating = 0
-    total_rural = 0
 
     for record in records:
         identity = _resolve_point_identity(record)
@@ -277,28 +275,9 @@ def _build_point_entity_frames(
             buckets[point_id] = bucket
 
         total_incidents += 1
-        record_counters = _update_point_bucket_from_record(bucket, record)
-        total_response_count += record_counters["response_count"]
-        total_long_arrivals += record_counters["long_arrivals"]
-        total_known_water += record_counters["known_water"]
-        total_no_water += record_counters["no_water"]
-        total_severe += record_counters["severe"]
-        total_victims += record_counters["victims"]
-        total_major_damage += record_counters["major_damage"]
-        total_night += record_counters["night"]
-        total_heating += record_counters["heating"]
-        total_rural += record_counters["rural"]
+        _update_point_bucket_from_record(bucket, record)
 
-    priors = {
-        "long_arrival": _share(total_long_arrivals, total_response_count),
-        "no_water": _share(total_no_water, total_known_water),
-        "severe": _share(total_severe, total_incidents),
-        "victims": _share(total_victims, total_incidents),
-        "major_damage": _share(total_major_damage, total_incidents),
-        "night": _share(total_night, total_incidents),
-        "heating": _share(total_heating, total_incidents),
-        "rural": _share(total_rural, total_incidents),
-    }
+    priors = _build_point_priors(buckets, total_incidents)
 
     rows: List[Dict[str, Any]] = []
     for bucket in buckets.values():
@@ -441,7 +420,7 @@ def _build_point_entity_frames(
         feature_frame["low_support"] = feature_frame["low_support"].astype(float)
     if "rural_flag" in feature_frame.columns:
         feature_frame["rural_flag"] = feature_frame["rural_flag"].astype(float)
-    feature_frame = feature_frame.apply(pd.to_numeric, errors="coerce")
+    feature_frame = _finite_numeric_frame(feature_frame)
     return entity_frame, feature_frame
 
 

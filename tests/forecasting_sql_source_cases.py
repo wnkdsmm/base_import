@@ -11,6 +11,43 @@ from tests.forecasting_sql_support import (
 )
 
 
+class _PerfRecorder:
+    def __init__(self) -> None:
+        self.values = {}
+
+    def update(self, **values) -> None:
+        self.values.update(values)
+
+
+class _ForecastingQueryResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def mappings(self):
+        return self
+
+    def all(self):
+        return list(self._rows)
+
+
+class _ForecastingConnection:
+    def __init__(self, rows):
+        self.rows = rows
+        self.queries = []
+        self.params = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def execute(self, query, params=None):
+        self.queries.append(str(query))
+        self.params.append(dict(params or {}))
+        return _ForecastingQueryResult(self.rows)
+
+
 class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
     def test_selected_source_tables_prefers_clean_pair_in_all_mode(self) -> None:
         raw_table = "ekup_Yemelyanovo_2025"
@@ -144,15 +181,139 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
         with patch.object(forecasting_sql, "_load_daily_history_rows", return_value=table_rows):
             history = forecasting_sql._build_daily_history_sql(["fires"], metadata_items=metadata_items)
 
-        with patch.object(
-            forecasting_sql,
-            "_load_scope_total_count",
-            side_effect=AssertionError("count should reuse daily history cache"),
+        count_perf = _PerfRecorder()
+        with (
+            patch.object(forecasting_sql, "current_perf_trace", return_value=count_perf),
+            patch.object(
+                forecasting_sql,
+                "_load_scope_total_count",
+                side_effect=AssertionError("count should reuse daily history cache"),
+            ),
         ):
             count = forecasting_sql._count_forecasting_records_sql(["fires"], metadata_items=metadata_items)
 
         self.assertEqual(sum(int(item["count"]) for item in history), 5)
         self.assertEqual(count, 5)
+        self.assertTrue(count_perf.values["forecasting_filtered_record_count_cache_hit"])
+        self.assertEqual(count_perf.values["forecasting_filtered_record_count"], 5)
+
+    def test_single_table_daily_history_skips_union_fast_path_and_reports_perf(self) -> None:
+        metadata_items = [{"table_name": "fires", "resolved_columns": {"date": "fire_date"}}]
+        table_rows = [
+            {
+                "date": date(2024, 1, 1),
+                "count": 3,
+                "avg_temperature": 5.0,
+                "temperature_samples": 1,
+            }
+        ]
+        perf = _PerfRecorder()
+
+        forecasting_sql.clear_forecasting_sql_cache()
+        with (
+            patch.object(forecasting_sql, "current_perf_trace", return_value=perf),
+            patch.object(
+                forecasting_sql,
+                "_load_daily_history_rows_union",
+                side_effect=AssertionError("single-table history should not use union fast path"),
+            ),
+            patch.object(forecasting_sql, "_load_daily_history_rows", return_value=table_rows) as table_mock,
+        ):
+            history = forecasting_sql._build_daily_history_sql(["fires"], metadata_items=metadata_items)
+
+        table_mock.assert_called_once()
+        self.assertEqual(history, [{"date": date(2024, 1, 1), "count": 3, "avg_temperature": 5.0}])
+        self.assertFalse(perf.values["forecasting_daily_history_union_attempted"])
+        self.assertFalse(perf.values["forecasting_daily_history_union_fast_path"])
+        self.assertTrue(perf.values["forecasting_daily_history_count_cache_populated"])
+        self.assertEqual(perf.values["forecasting_daily_history_total_count"], 3)
+
+    def test_multi_table_union_without_materialized_views_keeps_filters_in_one_query(self) -> None:
+        metadata_items = [
+            {
+                "table_name": "fires_a",
+                "resolved_columns": {
+                    "date": "fire_date",
+                    "district": "district_name",
+                    "cause": "fire_cause",
+                    "object_category": "object_category",
+                    "temperature": "temperature",
+                },
+            },
+            {
+                "table_name": "fires_b",
+                "resolved_columns": {
+                    "date": "fire_date",
+                    "district": "district_name",
+                    "cause": "fire_cause",
+                    "object_category": "object_category",
+                    "temperature": "temperature",
+                },
+            },
+            {
+                "table_name": "fires_c",
+                "resolved_columns": {
+                    "date": "fire_date",
+                    "district": "district_name",
+                    "cause": "fire_cause",
+                    "object_category": "object_category",
+                    "temperature": "temperature",
+                },
+            },
+        ]
+        conn = _ForecastingConnection(
+            [
+                {
+                    "fire_date": date(2024, 1, 2),
+                    "incident_count": 6,
+                    "avg_temperature": 4.0,
+                    "temperature_samples": 3,
+                }
+            ]
+        )
+
+        with (
+            patch.object(
+                forecasting_sql,
+                "_daily_aggregate_view_status_map",
+                return_value={"fires_a": False, "fires_b": False, "fires_c": False},
+            ) as view_status_mock,
+            patch.object(forecasting_sql.engine, "connect", return_value=conn),
+        ):
+            rows = forecasting_sql._load_daily_history_rows_union(
+                metadata_items,
+                district="Central",
+                cause="Electrical",
+                object_category="Residential",
+                min_year=2024,
+            )
+
+        view_status_mock.assert_called_once_with(["fires_a", "fires_b", "fires_c"])
+        self.assertEqual(len(conn.queries), 1)
+        self.assertEqual(conn.queries[0].count("UNION ALL"), 2)
+        self.assertNotIn("mv_forecasting_daily_", conn.queries[0])
+        for table_name in ("fires_a", "fires_b", "fires_c"):
+            self.assertIn(table_name, conn.queries[0])
+        self.assertEqual(
+            conn.params[0],
+            {
+                "district": "Central",
+                "cause": "Electrical",
+                "object_category": "Residential",
+                "min_year": 2024,
+            },
+        )
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "date": date(2024, 1, 2),
+                    "count": 6,
+                    "avg_temperature": 4.0,
+                    "temperature_samples": 3,
+                }
+            ],
+        )
 
     def test_multi_table_daily_history_uses_union_fast_path_and_count_cache(self) -> None:
         metadata_items = [
@@ -175,7 +336,9 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
         ]
 
         forecasting_sql.clear_forecasting_sql_cache()
+        perf = _PerfRecorder()
         with (
+            patch.object(forecasting_sql, "current_perf_trace", return_value=perf),
             patch.object(forecasting_sql, "_load_daily_history_rows_union", return_value=union_rows) as union_mock,
             patch.object(
                 forecasting_sql,
@@ -208,6 +371,11 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
             ],
         )
         self.assertEqual(count, 5)
+        self.assertTrue(perf.values["forecasting_daily_history_union_attempted"])
+        self.assertTrue(perf.values["forecasting_daily_history_union_fast_path"])
+        self.assertFalse(perf.values["forecasting_daily_history_union_fallback"])
+        self.assertEqual(perf.values["forecasting_daily_history_union_rows"], 2)
+        self.assertEqual(perf.values["forecasting_daily_history_total_count"], 5)
 
     def test_multi_table_daily_history_falls_back_when_union_fast_path_fails(self) -> None:
         metadata_items = [
@@ -237,7 +405,9 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
             return rows_by_table[table_name]
 
         forecasting_sql.clear_forecasting_sql_cache()
+        perf = _PerfRecorder()
         with (
+            patch.object(forecasting_sql, "current_perf_trace", return_value=perf),
             patch.object(forecasting_sql, "_load_daily_history_rows_union", side_effect=RuntimeError("boom")),
             patch.object(forecasting_sql, "_load_daily_history_rows", side_effect=_load_table_rows) as table_mock,
         ):
@@ -248,3 +418,7 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
 
         self.assertEqual(table_mock.call_count, 2)
         self.assertEqual(history, [{"date": date(2024, 1, 1), "count": 3, "avg_temperature": 3.0}])
+        self.assertTrue(perf.values["forecasting_daily_history_union_attempted"])
+        self.assertFalse(perf.values["forecasting_daily_history_union_fast_path"])
+        self.assertTrue(perf.values["forecasting_daily_history_union_fallback"])
+        self.assertEqual(perf.values["forecasting_daily_history_union_error_type"], "RuntimeError")

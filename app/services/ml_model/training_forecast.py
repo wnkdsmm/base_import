@@ -957,10 +957,8 @@ def _evaluate_prediction_interval_backtest(
         horizon_days=horizon_days,
     )
 
-    calibration = _build_prediction_interval_calibration(
-        actual_values,
-        prediction_values,
-        level=level,
+    calibration = calibration_cache.for_prefix(
+        total_windows,
         method_label=(
             f'{PREDICTION_INTERVAL_METHOD_LABEL}; validated by {selected_candidate["scheme_label"]}'
         ),

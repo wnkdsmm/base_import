@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import unittest
 
 from app import dashboard as dashboard_package
@@ -36,6 +37,9 @@ class ServicesCompatibilityFacadeTests(unittest.TestCase):
 
     def test_dashboard_package_no_longer_reexports_legacy_helpers(self) -> None:
         self.assert_no_legacy_package_exports(dashboard_package, DASHBOARD_LEGACY_EXPORTS)
+
+    def test_legacy_lazy_export_module_is_removed(self) -> None:
+        self.assertIsNone(importlib.util.find_spec("app.compat"))
 
     def test_canonical_service_modules_remain_importable(self) -> None:
         fire_map_service = importlib.import_module("app.services.fire_map_service")

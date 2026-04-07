@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,8 @@ from app.services.clustering.charts import _diagnostic_annotations
 from app.services.clustering.core import (
     _build_clustering_quality_assessment,
     _build_cluster_count_guidance,
+    _method_comparison_from_diagnostics,
+    _run_clustering_model_bundle,
     _select_render_configuration,
 )
 from app.services.clustering.data import (
@@ -843,6 +846,44 @@ class RenderConfigurationTests(unittest.TestCase):
         self.assertEqual(configuration["cluster_count"], 4)
         self.assertEqual(configuration["method_key"], "kmeans_uniform")
         self.assertEqual(configuration["algorithm_key"], "kmeans")
+
+    def test_model_bundle_reuses_diagnostics_method_rows(self) -> None:
+        feature_frame, entity_frame = _build_synthetic_frames(seed=41, cluster_count=3, rows_per_cluster=12)
+        selected_features = [FIRE_COUNT, AVG_FIRE_AREA, AVG_RESPONSE_MINUTES, NO_WATER_SHARE]
+        subset_frame = feature_frame[selected_features].copy()
+        feature_context = _build_clustering_mode_context(selected_features, None)
+        weighting_strategy = str(feature_context.get("weighting_strategy") or "")
+        diagnostics = _evaluate_cluster_counts(subset_frame, entity_frame, weighting_strategy=weighting_strategy)
+        configuration = _select_render_configuration(
+            requested_cluster_count=3,
+            cluster_count_is_explicit=True,
+            diagnostics=diagnostics,
+            fallback_weighting_strategy=weighting_strategy,
+        )
+        actual_method_key = str(configuration.get("method_key") or f"kmeans_{weighting_strategy}")
+        method_comparison = _method_comparison_from_diagnostics(
+            diagnostics,
+            cluster_count=int(configuration.get("cluster_count") or 3),
+            selected_method_key=actual_method_key,
+        )
+
+        self.assertIsNotNone(method_comparison)
+        with patch("app.services.clustering.core._compare_clustering_methods") as compare_mock:
+            compare_mock.side_effect = AssertionError("diagnostics method rows should be reused")
+            bundle = _run_clustering_model_bundle(
+                cluster_frame=subset_frame,
+                entity_frame=entity_frame,
+                feature_selection_report=feature_context,
+                actual_cluster_count=int(configuration.get("cluster_count") or 3),
+                actual_method_key=actual_method_key,
+                actual_method_label=str(configuration.get("method_label") or "KMeans"),
+                actual_algorithm_key=str(configuration.get("algorithm_key") or "kmeans"),
+                actual_weighting_strategy=str(configuration.get("weighting_strategy") or weighting_strategy),
+                method_comparison=method_comparison,
+            )
+
+        self.assertEqual(bundle["method_comparison"], method_comparison)
+        self.assertTrue(any(row.get("is_selected") for row in bundle["method_comparison"]))
 
 
 _BaseQualityAssessmentTests = QualityAssessmentTests

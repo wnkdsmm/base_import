@@ -165,6 +165,26 @@ def _select_render_configuration(
     }
 
 
+def _method_comparison_from_diagnostics(
+    diagnostics: Dict[str, Any] | None,
+    *,
+    cluster_count: int,
+    selected_method_key: str,
+) -> List[Dict[str, Any]] | None:
+    rows_by_cluster_count = (diagnostics or {}).get("method_rows_by_cluster_count") or {}
+    method_rows = rows_by_cluster_count.get(int(cluster_count)) or []
+    if not method_rows:
+        return None
+
+    comparison_rows = [dict(row) for row in method_rows]
+    has_selected_row = False
+    for row in comparison_rows:
+        is_selected = str(row.get("method_key") or "") == selected_method_key
+        row["is_selected"] = is_selected
+        has_selected_row = has_selected_row or is_selected
+    return comparison_rows if has_selected_row else None
+
+
 def get_clustering_page_context(
     table_name: str = "",
     cluster_count: str = "4",
@@ -297,6 +317,7 @@ def _run_clustering_model_bundle(
     actual_method_label: str,
     actual_algorithm_key: str,
     actual_weighting_strategy: str,
+    method_comparison: Sequence[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
     runtime_feature_context = _build_runtime_clustering_context(
         feature_selection_report,
@@ -312,13 +333,16 @@ def _run_clustering_model_bundle(
         algorithm_key=actual_algorithm_key,
         method_key=actual_method_key,
     )
-    method_comparison = _compare_clustering_methods(
-        cluster_frame,
-        entity_frame,
-        actual_cluster_count,
-        weighting_strategy=str(feature_selection_report.get("weighting_strategy") or ""),
-        selected_method_key=actual_method_key,
-    )
+    if method_comparison is None:
+        method_comparison = _compare_clustering_methods(
+            cluster_frame,
+            entity_frame,
+            actual_cluster_count,
+            weighting_strategy=str(feature_selection_report.get("weighting_strategy") or ""),
+            selected_method_key=actual_method_key,
+        )
+    else:
+        method_comparison = [dict(row) for row in method_comparison]
     labels = clustering["labels"]
     cluster_labels = _cluster_labels(actual_cluster_count)
     profiles = _build_cluster_profiles(
@@ -356,6 +380,85 @@ def _run_clustering_model_bundle(
         "representative_columns": representative_columns,
         "representative_rows": representative_rows,
     }
+
+
+def _run_clustering_diagnostics_bundle(
+    *,
+    cluster_frame: Any,
+    entity_frame: Any,
+    feature_selection_report: Dict[str, Any],
+    requested_working_cluster_count: int,
+    cluster_count_is_explicit: bool,
+) -> Dict[str, Any]:
+    weighting_strategy = str(feature_selection_report.get("weighting_strategy") or "")
+    diagnostics = _evaluate_cluster_counts(
+        cluster_frame,
+        entity_frame,
+        weighting_strategy=weighting_strategy,
+    )
+    render_configuration = _select_render_configuration(
+        requested_cluster_count=requested_working_cluster_count,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+        diagnostics=diagnostics,
+        fallback_weighting_strategy=weighting_strategy,
+    )
+    actual_cluster_count = int(render_configuration.get("cluster_count") or requested_working_cluster_count)
+    actual_method_key = str(render_configuration.get("method_key") or f"kmeans_{weighting_strategy}")
+    actual_algorithm_key = str(render_configuration.get("algorithm_key") or "kmeans")
+    actual_weighting_strategy = str(render_configuration.get("weighting_strategy") or weighting_strategy)
+    method_comparison = _method_comparison_from_diagnostics(
+        diagnostics,
+        cluster_count=actual_cluster_count,
+        selected_method_key=actual_method_key,
+    )
+    method_comparison_reused = method_comparison is not None
+    model_bundle = _run_clustering_model_bundle(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        feature_selection_report=feature_selection_report,
+        actual_cluster_count=actual_cluster_count,
+        actual_method_key=actual_method_key,
+        actual_method_label=str(render_configuration.get("method_label") or "KMeans"),
+        actual_algorithm_key=actual_algorithm_key,
+        actual_weighting_strategy=actual_weighting_strategy,
+        method_comparison=method_comparison,
+    )
+    return {
+        **model_bundle,
+        "diagnostics": diagnostics,
+        "render_configuration": render_configuration,
+        "actual_cluster_count": actual_cluster_count,
+        "actual_method_key": actual_method_key,
+        "actual_algorithm_key": actual_algorithm_key,
+        "actual_weighting_strategy": actual_weighting_strategy,
+        "method_comparison_reused": method_comparison_reused,
+    }
+
+
+def _apply_cluster_count_guidance_to_summary(
+    *,
+    base: Dict[str, Any],
+    summary: Dict[str, Any],
+    cluster_count_guidance: Dict[str, Any],
+    actual_cluster_count: int,
+    requested_cluster_count: int,
+    diagnostics: Dict[str, Any],
+) -> None:
+    base["filters"]["cluster_count"] = str(actual_cluster_count)
+    summary["cluster_count_display"] = _format_integer(actual_cluster_count)
+    summary["cluster_count_requested_display"] = _format_integer(requested_cluster_count)
+    summary["cluster_count_note"] = str(cluster_count_guidance.get("current_note") or "")
+    summary["suggested_cluster_count_label"] = str(
+        cluster_count_guidance.get("suggested_label")
+        or "\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0435\u043c\u044b\u0439 k"
+    )
+    summary["suggested_cluster_count_display"] = (
+        _format_integer(cluster_count_guidance["recommended_cluster_count"])
+        if cluster_count_guidance.get("recommended_cluster_count")
+        else "\u2014"
+    )
+    summary["suggested_cluster_count_note"] = str(cluster_count_guidance.get("suggested_note") or "")
+    summary["elbow_cluster_count_display"] = _format_integer(diagnostics["elbow_k"]) if diagnostics.get("elbow_k") else "\u2014"
 
 
 @profiled("clustering", engine=engine)
@@ -518,32 +621,16 @@ def get_clustering_data(
         )
 
     with (perf.span("model_training") if perf is not None else nullcontext()):
-        weighting_strategy = str(feature_selection_report.get("weighting_strategy") or "")
-        diagnostics = _evaluate_cluster_counts(
-            cluster_frame,
-            entity_frame,
-            weighting_strategy=weighting_strategy,
-        )
-        render_configuration = _select_render_configuration(
-            requested_cluster_count=requested_working_cluster_count,
-            cluster_count_is_explicit=cluster_count_is_explicit,
-            diagnostics=diagnostics,
-            fallback_weighting_strategy=weighting_strategy,
-        )
-        actual_cluster_count = int(render_configuration.get("cluster_count") or requested_working_cluster_count)
-        actual_method_key = str(render_configuration.get("method_key") or f"kmeans_{weighting_strategy}")
-        actual_algorithm_key = str(render_configuration.get("algorithm_key") or "kmeans")
-        actual_weighting_strategy = str(render_configuration.get("weighting_strategy") or weighting_strategy)
-        model_bundle = _run_clustering_model_bundle(
+        model_bundle = _run_clustering_diagnostics_bundle(
             cluster_frame=cluster_frame,
             entity_frame=entity_frame,
             feature_selection_report=feature_selection_report,
-            actual_cluster_count=actual_cluster_count,
-            actual_method_key=actual_method_key,
-            actual_method_label=str(render_configuration.get("method_label") or "KMeans"),
-            actual_algorithm_key=actual_algorithm_key,
-            actual_weighting_strategy=actual_weighting_strategy,
+            requested_working_cluster_count=requested_working_cluster_count,
+            cluster_count_is_explicit=cluster_count_is_explicit,
         )
+        diagnostics = model_bundle["diagnostics"]
+        actual_cluster_count = model_bundle["actual_cluster_count"]
+        actual_method_key = model_bundle["actual_method_key"]
         runtime_feature_context = model_bundle["runtime_feature_context"]
         clustering = model_bundle["clustering"]
         method_comparison = model_bundle["method_comparison"]
@@ -560,6 +647,7 @@ def get_clustering_data(
             excluded_entities=excluded_entities,
             actual_cluster_count=actual_cluster_count,
             actual_method_key=actual_method_key,
+            method_comparison_reused=bool(model_bundle.get("method_comparison_reused")),
         )
     cluster_count_guidance = _build_cluster_count_guidance(
         requested_cluster_count=requested_cluster_count,
@@ -618,6 +706,7 @@ def get_clustering_data(
                 requested_cluster_count=requested_cluster_count,
                 resolved_requested_cluster_count=requested_working_cluster_count,
                 cluster_count_is_explicit=cluster_count_is_explicit,
+                cluster_count_guidance=cluster_count_guidance,
             ),
             "cluster_profiles": profiles,
             "centroid_columns": centroid_columns,
@@ -709,6 +798,39 @@ def _build_configuration_recommendation_note(
     return f"Рабочий вывод построен по конфигурации {working_label}, а recommendation engine выбирает {recommended_label}."
 
 
+def _resolve_quality_configuration_context(
+    *,
+    method_comparison: Sequence[Dict[str, Any]],
+    diagnostics: Dict[str, Any] | None,
+    cluster_count: int,
+) -> Dict[str, Any]:
+    diagnostics = diagnostics or {}
+    recommended_configuration = dict(diagnostics.get("best_configuration") or {})
+    recommended_k = int(recommended_configuration.get("cluster_count") or diagnostics.get("best_quality_k") or cluster_count)
+    selected_method = next(
+        (row for row in method_comparison if row.get("is_selected")),
+        method_comparison[0] if method_comparison else None,
+    )
+    recommended_row = next((row for row in method_comparison if row.get("is_recommended")), selected_method)
+    working_configuration = {**dict(selected_method or {}), "cluster_count": cluster_count}
+    effective_recommended_configuration = (
+        recommended_configuration
+        or {**dict(recommended_row or {}), "cluster_count": recommended_k}
+    )
+    return {
+        "recommended_configuration": recommended_configuration,
+        "recommended_k": recommended_k,
+        "best_silhouette_k": diagnostics.get("best_silhouette_k"),
+        "selected_method": selected_method,
+        "recommended_row": recommended_row,
+        "working_configuration": working_configuration,
+        "effective_recommended_configuration": effective_recommended_configuration,
+        "recommended_method": effective_recommended_configuration or recommended_row or selected_method,
+        "working_config_label": _format_configuration_label(working_configuration),
+        "recommended_config_label": _format_configuration_label(effective_recommended_configuration),
+    }
+
+
 def _build_clustering_quality_assessment(
     clustering: Dict[str, Any],
     method_comparison: Sequence[Dict[str, Any]],
@@ -720,6 +842,7 @@ def _build_clustering_quality_assessment(
     requested_cluster_count: int | None = None,
     resolved_requested_cluster_count: int | None = None,
     cluster_count_is_explicit: bool = False,
+    cluster_count_guidance: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     if clustering.get("silhouette") is None:
         payload = _empty_clustering_quality_assessment()
@@ -729,23 +852,26 @@ def _build_clustering_quality_assessment(
     low_support_share = float((support_summary or {}).get("low_support_share") or 0.0)
     low_support_display = _format_percent(low_support_share)
     resample_share_label = f"{int(round(STABILITY_RESAMPLE_RATIO * 100.0))}%"
-    recommended_configuration = dict((diagnostics or {}).get("best_configuration") or {})
-    recommended_k = int(recommended_configuration.get("cluster_count") or (diagnostics or {}).get("best_quality_k") or cluster_count)
-    best_silhouette_k = (diagnostics or {}).get("best_silhouette_k")
-    cluster_count_guidance = _build_cluster_count_guidance(
+    quality_context = _resolve_quality_configuration_context(
+        method_comparison=method_comparison,
+        diagnostics=diagnostics,
+        cluster_count=cluster_count,
+    )
+    recommended_k = quality_context["recommended_k"]
+    best_silhouette_k = quality_context["best_silhouette_k"]
+    cluster_count_guidance = cluster_count_guidance or _build_cluster_count_guidance(
         requested_cluster_count=requested_cluster_count or cluster_count,
         current_cluster_count=cluster_count,
         diagnostics=diagnostics,
         adjusted_requested_cluster_count=resolved_requested_cluster_count,
         cluster_count_is_explicit=cluster_count_is_explicit,
     )
-    selected_method = next((row for row in method_comparison if row.get("is_selected")), method_comparison[0] if method_comparison else None)
-    recommended_row = next((row for row in method_comparison if row.get("is_recommended")), selected_method)
-    working_configuration = {**dict(selected_method or {}), "cluster_count": cluster_count}
-    effective_recommended_configuration = recommended_configuration or {**dict(recommended_row or {}), "cluster_count": recommended_k}
-    recommended_method = effective_recommended_configuration or recommended_row or selected_method
-    working_config_label = _format_configuration_label(working_configuration)
-    recommended_config_label = _format_configuration_label(effective_recommended_configuration)
+    selected_method = quality_context["selected_method"]
+    working_configuration = quality_context["working_configuration"]
+    effective_recommended_configuration = quality_context["effective_recommended_configuration"]
+    recommended_method = quality_context["recommended_method"]
+    working_config_label = quality_context["working_config_label"]
+    recommended_config_label = quality_context["recommended_config_label"]
 
     segmentation_summary = _summarize_segmentation_strength(
         clustering,

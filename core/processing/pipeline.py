@@ -1,6 +1,9 @@
 # pipeline.py
+import logging
 import time
-import traceback
+
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineStep:
@@ -28,18 +31,17 @@ class Pipeline:
         self.steps.append(step)
 
     def run(self):
-        print(f"\nЗапуск конвейера: {self.settings.project_name}\n")
+        logger.info("\nЗапуск конвейера: %s\n", self.settings.project_name)
         for step in self.steps:
-            print(f"\nШаг: {step.name}")
+            logger.info("\nШаг: %s", step.name)
             start_time = time.time()
             try:
                 # Передаем весь объект settings шагу
                 step.run(self.settings)
             except Exception:
-                print(f"Ошибка на шаге {step.name}")
-                traceback.print_exc()
+                logger.exception("Ошибка на шаге %s", step.name)
                 break
             elapsed = time.time() - start_time
-            print(f"Шаг завершён: {step.name} ({elapsed:.2f} с)")
+            logger.info("Шаг завершён: %s (%.2f с)", step.name, elapsed)
 
-        print(f"\nКонвейер завершён: {self.settings.project_name}")
+        logger.info("\nКонвейер завершён: %s", self.settings.project_name)

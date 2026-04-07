@@ -35,7 +35,7 @@ class MapCreatorUtilityMixin:
     @staticmethod
     def _json_for_script(value: Any) -> str:
         return (
-            json.dumps(value, ensure_ascii=False)
+            json.dumps(value, ensure_ascii=False, separators=(",", ":"))
             .replace("<", "\\u003c")
             .replace(">", "\\u003e")
             .replace("&", "\\u0026")

@@ -1,4 +1,5 @@
 # main.py
+import logging
 import sys
 import tkinter as tk
 from tkinter import filedialog
@@ -10,6 +11,14 @@ from core.processing.steps.create_fire_map import CreateFireMapStep
 from core.processing.steps.fires_feature_profiling import FiresFeatureProfilingStep
 from core.processing.steps.import_data import ImportDataStep
 from core.processing.steps.keep_important_columns import KeepImportantColumnsStep
+
+
+logger = logging.getLogger(__name__)
+
+
+def _configure_cli_logging():
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def choose_file():
@@ -28,13 +37,14 @@ def choose_file():
     root.destroy()
 
     if not file_path:
-        print("No file selected")
+        logger.info("No file selected")
         sys.exit(1)
 
     return file_path
 
 
 def main():
+    _configure_cli_logging()
     input_file = choose_file()
     settings = Settings(input_file)
 

@@ -204,18 +204,17 @@ def _column_label_expression(column_name: str) -> str:
     return f"COALESCE(NULLIF(TRIM(CAST({_quote_identifier(column_name)} AS TEXT)), ''), 'Не указано')"
 
 
-def _build_dashboard_grouped_counts_query(
+def _resolve_grouped_count_query_context(
     table: Dict[str, Any],
     selected_year: Optional[int],
     selected_group_column: Optional[str],
-    query_index: int,
     *,
-    include_area_buckets: bool = True,
-    include_impact_timeline: bool = True,
-) -> tuple[Optional[str], bool]:
+    include_area_buckets: bool,
+    include_impact_timeline: bool,
+) -> Optional[Dict[str, Any]]:
     where_clause = _build_year_filter_clause(table, selected_year)
     if where_clause is None:
-        return None, False
+        return None
 
     cause_column = _resolve_cause_column(table)
     distribution_column = (
@@ -240,8 +239,21 @@ def _build_dashboard_grouped_counts_query(
     if has_timeline:
         dimensions.append(("impact_timeline", "date_value"))
     if not dimensions:
-        return None, False
+        return None
 
+    return {
+        "where_clause": where_clause,
+        "cause_column": cause_column,
+        "distribution_column": distribution_column,
+        "district_column": district_column,
+        "has_date_column": has_date_column,
+        "has_timeline": has_timeline,
+        "include_area_buckets": include_area_buckets,
+        "dimensions": dimensions,
+    }
+
+
+def _build_grouped_count_dimension_sql(dimensions: Sequence[tuple[str, str]]) -> Dict[str, str]:
     metric_kind_case = "CASE\n" + "\n".join(
         f"                    WHEN GROUPING({column_name}) = 0 THEN '{metric_kind}'"
         for metric_kind, column_name in dimensions
@@ -256,84 +268,149 @@ def _build_dashboard_grouped_counts_query(
         f"(GROUPING({column_name}) = 0 AND {column_name} IS NOT NULL)"
         for _, column_name in dimensions
     )
+    return {
+        "metric_kind_case": metric_kind_case,
+        "label_case": label_case,
+        "grouping_sets": grouping_sets,
+        "having_clause": having_clause,
+    }
 
+
+def _build_grouped_count_time_expressions(
+    table: Dict[str, Any],
+    *,
+    has_date_column: bool,
+) -> tuple[str, str]:
     if has_date_column:
         month_expression = _month_expression(DATE_COLUMN)
         month_label_expression = (
             f"CASE WHEN {month_expression} BETWEEN 1 AND 12 "
             f"THEN CAST({month_expression} AS TEXT) ELSE NULL END"
         )
-        date_value_expression = _date_expression(DATE_COLUMN)
-    else:
-        month_label_expression = "CAST(NULL AS TEXT)"
-        date_value_expression = (
-            f"MAKE_DATE({int(table['table_year'])}, 1, 1)"
-            if table["table_year"] is not None
-            else "CAST(NULL AS DATE)"
-        )
+        return month_label_expression, _date_expression(DATE_COLUMN)
 
-    source_selects = []
-    if cause_column:
-        source_selects.append(f"{_column_label_expression(cause_column)} AS cause_label")
-    if distribution_column:
-        source_selects.append(f"{_column_label_expression(distribution_column)} AS distribution_label")
-    if district_column:
-        source_selects.append(f"{_column_label_expression(district_column)} AS district_label")
-    if has_date_column:
-        source_selects.append(f"{month_label_expression} AS month_label")
-    if include_area_buckets:
-        area_expression = _area_expression(table)
-        source_selects.append(
-            f"""
+    date_value_expression = (
+        f"MAKE_DATE({int(table['table_year'])}, 1, 1)"
+        if table["table_year"] is not None
+        else "CAST(NULL AS DATE)"
+    )
+    return "CAST(NULL AS TEXT)", date_value_expression
+
+
+def _area_bucket_label_expression(table: Dict[str, Any]) -> str:
+    area_expression = _area_expression(table)
+    return f"""
             CASE
-                WHEN {area_expression} IS NULL THEN 'Не указано'
-                WHEN {area_expression} < 1 THEN 'До 1 га'
-                WHEN {area_expression} < 5 THEN '1-5 га'
-                WHEN {area_expression} < 20 THEN '5-20 га'
-                WHEN {area_expression} < 100 THEN '20-100 га'
-                ELSE '100+ га'
-            END AS area_bucket_label
+                WHEN {area_expression} IS NULL THEN '{_AREA_BUCKET_ORDER[5]}'
+                WHEN {area_expression} < 1 THEN '{_AREA_BUCKET_ORDER[0]}'
+                WHEN {area_expression} < 5 THEN '{_AREA_BUCKET_ORDER[1]}'
+                WHEN {area_expression} < 20 THEN '{_AREA_BUCKET_ORDER[2]}'
+                WHEN {area_expression} < 100 THEN '{_AREA_BUCKET_ORDER[3]}'
+                ELSE '{_AREA_BUCKET_ORDER[4]}'
+            END
         """
-        )
-    if has_timeline:
+
+
+def _build_grouped_count_source_selects(
+    table: Dict[str, Any],
+    context: Dict[str, Any],
+    *,
+    month_label_expression: str,
+    date_value_expression: str,
+) -> List[str]:
+    source_selects: List[str] = []
+    if context["cause_column"]:
+        source_selects.append(f"{_column_label_expression(context['cause_column'])} AS cause_label")
+    if context["distribution_column"]:
+        source_selects.append(f"{_column_label_expression(context['distribution_column'])} AS distribution_label")
+    if context["district_column"]:
+        source_selects.append(f"{_column_label_expression(context['district_column'])} AS district_label")
+    if context["has_date_column"]:
+        source_selects.append(f"{month_label_expression} AS month_label")
+    if context["include_area_buckets"]:
+        source_selects.append(f"{_area_bucket_label_expression(table)} AS area_bucket_label")
+    if context["has_timeline"]:
         source_selects.append(f"{date_value_expression} AS date_value")
         source_selects.extend(
             f"{_metric_expression(table, metric_key)} AS {metric_key}"
             for metric_key in _IMPACT_TIMELINE_METRIC_KEYS
         )
+    return source_selects
 
-    if has_timeline:
-        timeline_group = "GROUPING(date_value) = 0"
-        fire_count_select = f"CASE WHEN {timeline_group} THEN 0 ELSE COUNT(*) END AS fire_count"
-        date_value_select = f"CASE WHEN {timeline_group} THEN date_value ELSE CAST(NULL AS DATE) END AS date_value"
-        metric_selects = [
+
+def _build_grouped_count_result_selects(has_timeline: bool) -> Dict[str, Any]:
+    if not has_timeline:
+        return {
+            "fire_count_select": "COUNT(*) AS fire_count",
+            "date_value_select": "CAST(NULL AS DATE) AS date_value",
+            "metric_selects": [f"0.0 AS {metric_key}" for metric_key in _IMPACT_TIMELINE_METRIC_KEYS],
+        }
+
+    timeline_group = "GROUPING(date_value) = 0"
+    return {
+        "fire_count_select": f"CASE WHEN {timeline_group} THEN 0 ELSE COUNT(*) END AS fire_count",
+        "date_value_select": f"CASE WHEN {timeline_group} THEN date_value ELSE CAST(NULL AS DATE) END AS date_value",
+        "metric_selects": [
             f"CASE WHEN {timeline_group} THEN COALESCE(SUM({metric_key}), 0) ELSE 0.0 END AS {metric_key}"
             for metric_key in _IMPACT_TIMELINE_METRIC_KEYS
-        ]
-    else:
-        fire_count_select = "COUNT(*) AS fire_count"
-        date_value_select = "CAST(NULL AS DATE) AS date_value"
-        metric_selects = [f"0.0 AS {metric_key}" for metric_key in _IMPACT_TIMELINE_METRIC_KEYS]
+        ],
+    }
+
+
+def _build_dashboard_grouped_counts_query(
+    table: Dict[str, Any],
+    selected_year: Optional[int],
+    selected_group_column: Optional[str],
+    query_index: int,
+    *,
+    include_area_buckets: bool = True,
+    include_impact_timeline: bool = True,
+) -> tuple[Optional[str], bool]:
+    context = _resolve_grouped_count_query_context(
+        table,
+        selected_year,
+        selected_group_column,
+        include_area_buckets=include_area_buckets,
+        include_impact_timeline=include_impact_timeline,
+    )
+    if context is None:
+        return None, False
+
+    dimension_sql = _build_grouped_count_dimension_sql(context["dimensions"])
+
+    month_label_expression, date_value_expression = _build_grouped_count_time_expressions(
+        table,
+        has_date_column=context["has_date_column"],
+    )
+
+    source_selects = _build_grouped_count_source_selects(
+        table,
+        context,
+        month_label_expression=month_label_expression,
+        date_value_expression=date_value_expression,
+    )
+
+    result_selects = _build_grouped_count_result_selects(context["has_timeline"])
 
     query = f"""
         SELECT * FROM (
             SELECT
-                {metric_kind_case} AS metric_kind,
-                {label_case} AS label,
-                {fire_count_select},
-                {date_value_select},
-                {', '.join(metric_selects)}
+                {dimension_sql['metric_kind_case']} AS metric_kind,
+                {dimension_sql['label_case']} AS label,
+                {result_selects['fire_count_select']},
+                {result_selects['date_value_select']},
+                {', '.join(result_selects['metric_selects'])}
             FROM (
                 SELECT
                     {', '.join(source_selects)}
                 FROM {_quote_identifier(table["name"])}
-                WHERE {where_clause}
+                WHERE {context['where_clause']}
             ) AS grouped_source
-            GROUP BY GROUPING SETS ({grouping_sets})
-            HAVING {having_clause}
+            GROUP BY GROUPING SETS ({dimension_sql['grouping_sets']})
+            HAVING {dimension_sql['having_clause']}
         ) AS grouped_counts_bundle_{query_index}
     """
-    uses_selected_year_param = selected_year is not None and has_date_column
+    uses_selected_year_param = selected_year is not None and context["has_date_column"]
     return query, uses_selected_year_param
 
 
@@ -443,14 +520,7 @@ def _build_area_buckets_chart(selected_tables: List[Dict[str, Any]], selected_ye
             query = text(
                 f"""
                 SELECT
-                    CASE
-                        WHEN {area_expression} IS NULL THEN 'Не указано'
-                        WHEN {area_expression} < 1 THEN 'До 1 га'
-                        WHEN {area_expression} < 5 THEN '1-5 га'
-                        WHEN {area_expression} < 20 THEN '5-20 га'
-                        WHEN {area_expression} < 100 THEN '20-100 га'
-                        ELSE '100+ га'
-                    END AS bucket,
+                    {_area_bucket_label_expression(table)} AS bucket,
                     COUNT(*) AS fire_count
                 FROM {_quote_identifier(table['name'])}
                 WHERE {where_clause}

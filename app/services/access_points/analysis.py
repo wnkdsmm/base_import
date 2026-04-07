@@ -410,6 +410,14 @@ def _prepare_access_point_row_context(
     }
 
 
+def _frame_column_values(frame: pd.DataFrame) -> Dict[str, List[Any]]:
+    return {column: frame[column].tolist() for column in frame.columns}
+
+
+def _record_from_column_values(column_values: Dict[str, List[Any]], row_index: int) -> Dict[str, Any]:
+    return {column: values[row_index] for column, values in column_values.items()}
+
+
 def _build_access_point_rows_from_entity_frame(
     entity_frame: pd.DataFrame,
     feature_frame: pd.DataFrame | None = None,
@@ -424,9 +432,11 @@ def _build_access_point_rows_from_entity_frame(
     normalized_factor_weights = row_context["normalized_factor_weights"]
     working_frame = row_context["working_frame"]
     precomputed = row_context["precomputed"]
+    record_columns = _frame_column_values(working_frame)
 
     normalized_rows: List[Dict[str, Any]] = []
-    for row_index, record in enumerate(working_frame.to_dict("records")):
+    for row_index in range(len(working_frame)):
+        record = _record_from_column_values(record_columns, row_index)
         incident_count = int(precomputed["incident_count"][row_index])
         years_observed = int(precomputed["years_observed"][row_index])
         incidents_per_year = float(precomputed["incidents_per_year"][row_index])

@@ -66,6 +66,13 @@ def _finite_numeric_series(values: Any, default: float | None = None) -> pd.Seri
     return finite_values
 
 
+def _finite_numeric_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    numeric_frame = pd.DataFrame(index=frame.index)
+    for column in frame.columns:
+        numeric_frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    return numeric_frame
+
+
 def _normalize_share_series(values: Any, default: float = 0.0) -> pd.Series:
     return _finite_numeric_series(values, default=default).clip(lower=0.0, upper=1.0)
 

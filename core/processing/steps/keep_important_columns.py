@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional, Set
@@ -9,6 +10,9 @@ from natasha import MorphVocab, Doc, Segmenter, NewsEmbedding, NewsMorphTagger
 
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from core.processing.pipeline import PipelineStep
+
+
+logger = logging.getLogger(__name__)
 
 
 MANDATORY_FEATURE_REGISTRY = [
@@ -731,20 +735,22 @@ class KeepImportantColumnsStep(PipelineStep):
         protected_df.to_excel(protected_xlsx, index=False, engine="openpyxl")
 
         if protected_columns:
-            print("Защищенные признаки от удаления:")
+            logger.info("Защищенные признаки от удаления:")
             for item in protected_columns:
-                print(
-                    "  - "
-                    f"'{item['column']}' -> '{item['protected_feature_label']}' "
-                    f"[{item['protection_rule']}; match={item['protection_match']}]"
+                logger.info(
+                    "  - '%s' -> '%s' [%s; match=%s]",
+                    item["column"],
+                    item["protected_feature_label"],
+                    item["protection_rule"],
+                    item["protection_match"],
                 )
         else:
-            print("Защищенных признаков не найдено.")
+            logger.info("Защищенных признаков не найдено.")
 
-        print(f"Обновленный CSV: {updated_csv}")
-        print(f"Обновленный XLSX: {updated_xlsx}")
-        print(f"Отчет по защищенным признакам CSV: {protected_csv}")
-        print(f"Отчет по защищенным признакам XLSX: {protected_xlsx}")
+        logger.info("Обновленный CSV: %s", updated_csv)
+        logger.info("Обновленный XLSX: %s", updated_xlsx)
+        logger.info("Отчет по защищенным признакам CSV: %s", protected_csv)
+        logger.info("Отчет по защищенным признакам XLSX: %s", protected_xlsx)
 
         return {
             "updated_csv": updated_csv,

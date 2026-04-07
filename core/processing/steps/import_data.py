@@ -1,4 +1,5 @@
-﻿# import_data.py
+# import_data.py
+import logging
 import os
 
 import pandas as pd
@@ -6,6 +7,9 @@ from sqlalchemy import text
 
 from config.db import engine
 from core.processing.pipeline import PipelineStep
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImportDataStep(PipelineStep):
@@ -34,8 +38,8 @@ class ImportDataStep(PipelineStep):
                 self.data = pd.read_csv(input_file, encoding="utf-8-sig")
             else:
                 raise ValueError("Поддерживаются только XLS, XLSX и CSV")
-        except Exception as e:
-            print(f"Ошибка чтения файла: {e}")
+        except Exception:
+            logger.exception("Ошибка чтения файла: %s", input_file)
             raise
 
         os.makedirs(output_folder, exist_ok=True)
@@ -47,6 +51,6 @@ class ImportDataStep(PipelineStep):
 
         try:
             self.data.to_sql(project_name, engine, if_exists="replace", index=False)
-            print(f"Данные загружены в PostgreSQL: {project_name}")
+            logger.info("Данные загружены в PostgreSQL: %s", project_name)
         finally:
             engine.dispose()

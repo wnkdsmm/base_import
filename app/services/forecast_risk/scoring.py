@@ -21,6 +21,34 @@ from .utils import (
 )
 
 
+def _component_weights_for_rural(
+    profile: Dict[str, Any],
+    cache: Dict[bool, List[Dict[str, Any]]],
+    *,
+    is_rural: bool,
+) -> List[Dict[str, Any]]:
+    rural_key = bool(is_rural)
+    component_weights = cache.get(rural_key)
+    if component_weights is None:
+        component_weights = resolve_component_weights(profile, is_rural=rural_key)
+        cache[rural_key] = component_weights
+    return component_weights
+
+
+def _history_date_bounds(records: Sequence[Dict[str, Any]]) -> tuple[Any, Any]:
+    record_iterator = iter(records)
+    first_record = next(record_iterator)
+    history_start = first_record["date"]
+    history_end = first_record["date"]
+    for record in record_iterator:
+        record_date = record["date"]
+        if record_date < history_start:
+            history_start = record_date
+        if record_date > history_end:
+            history_end = record_date
+    return history_start, history_end
+
+
 def _build_territory_rows(
     records: Sequence[Dict[str, Any]],
     planning_horizon_days: int,
@@ -33,9 +61,10 @@ def _build_territory_rows(
     profile = profile_override if profile_override is not None else get_risk_weight_profile(weight_mode)
     thresholds = profile.get("thresholds") or {}
     defaults = profile.get("defaults") or {}
+    profile_components = profile.get("components") or {}
+    component_weights_cache: Dict[bool, List[Dict[str, Any]]] = {}
 
-    history_start = min(record["date"] for record in records)
-    history_end = max(record["date"] for record in records)
+    history_start, history_end = _history_date_bounds(records)
     history_days = max(1, (history_end - history_start).days + 1)
     horizon_days = max(1, int(planning_horizon_days or 14))
     future_dates = [history_end + timedelta(days=offset) for offset in range(1, horizon_days + 1)]
@@ -45,11 +74,13 @@ def _build_territory_rows(
 
     recent_window_days = max(1, min(history_days, 90))
     recent_window_start = history_end - timedelta(days=recent_window_days - 1)
-    recent_incidents = sum(1 for record in records if record["date"] >= recent_window_start)
-    base_fire_signal = _clamp(1.0 - math.exp(-(recent_incidents / recent_window_days)), 0.08, 0.72)
+    recent_incidents = 0
 
     territories: Dict[str, Dict[str, Any]] = {}
     for record in records:
+        record_date = record["date"]
+        if record_date >= recent_window_start:
+            recent_incidents += 1
         label = record["territory_label"] or record["district"] or "Территория не указана"
         bucket = territories.setdefault(
             label,
@@ -79,9 +110,9 @@ def _build_territory_rows(
                 "settlement_types": Counter(),
             },
         )
-        age_days = max(0, (history_end - record["date"]).days)
-        month_alignment = future_months.get(record["date"].month, 0) / horizon_days
-        weekday_alignment = future_weekdays.get(record["date"].weekday(), 0) / horizon_days
+        age_days = max(0, (history_end - record_date).days)
+        month_alignment = future_months.get(record_date.month, 0) / horizon_days
+        weekday_alignment = future_weekdays.get(record_date.weekday(), 0) / horizon_days
         recency_weight = max(0.25, 1.0 - age_days / max(210.0, float(history_days)))
         history_weight = recency_weight * (1.0 + 0.40 * month_alignment) * (1.0 + 0.18 * weekday_alignment)
 
@@ -89,7 +120,7 @@ def _build_territory_rows(
         bucket["weighted_history"] += history_weight
         bucket["seasonal_month_sum"] += month_alignment
         bucket["seasonal_weekday_sum"] += weekday_alignment
-        bucket["last_fire"] = record["date"] if bucket["last_fire"] is None else max(bucket["last_fire"], record["date"])
+        bucket["last_fire"] = record_date if bucket["last_fire"] is None else max(bucket["last_fire"], record_date)
         if record["response_minutes"] is not None:
             bucket["response_sum"] += float(record["response_minutes"])
             bucket["response_count"] += 1
@@ -121,6 +152,7 @@ def _build_territory_rows(
         if record["settlement_type"]:
             bucket["settlement_types"][record["settlement_type"]] += 1
 
+    base_fire_signal = _clamp(1.0 - math.exp(-(recent_incidents / recent_window_days)), 0.08, 0.72)
     max_incidents = max(bucket["incidents"] for bucket in territories.values())
     max_weighted = max(bucket["weighted_history"] for bucket in territories.values())
 
@@ -131,7 +163,11 @@ def _build_territory_rows(
         dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано")
         is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
         settlement_context_label = "Сельская территория" if is_rural else "Территория без выраженного сельского профиля"
-        component_weights = resolve_component_weights(profile, is_rural=is_rural)
+        component_weights = _component_weights_for_rural(
+            profile,
+            component_weights_cache,
+            is_rural=is_rural,
+        )
 
         history_pressure = incidents / max(1, max_incidents)
         recency_pressure = bucket["weighted_history"] / max(1.0, max_weighted)
@@ -267,7 +303,7 @@ def _build_territory_rows(
             component_scores.append(
                 _score_component(
                     component_weight=component_weight,
-                    component_spec=(profile.get("components") or {}).get(component_weight["key"], {}),
+                    component_spec=profile_components.get(component_weight["key"], {}),
                     signal_values=signal_values,
                     thresholds=thresholds,
                     context=context,
