@@ -7,12 +7,17 @@ import numpy as np
 import pandas as pd
 from sklearn.exceptions import ConvergenceWarning
 
+from app.services.ml_model.domain_types import BacktestWindowRow, CountMetrics, HorizonSummary
 from app.services.ml_model import training as ml_training
+from app.services.ml_model import training_backtesting as ml_training_backtesting
+from app.services.ml_model import training_forecast as ml_training_forecast
+from app.services.ml_model import training_models as ml_training_models
 from app.services.model_quality import compute_classification_metrics
 from app.services.ml_model.presentation import _build_notes, _build_quality_assessment, _build_summary
 from app.services.ml_model.training import (
     _build_backtest_seed_dataset,
     _build_count_selection_details,
+    _build_design_row,
     _build_history_frame,
     _build_prediction_interval_calibration,
     _count_interval,
@@ -51,13 +56,6 @@ class CountModelSelectionTests(unittest.TestCase):
                 'smape': 18.1,
                 'poisson_deviance': 0.86,
                 'mae_delta_vs_baseline': -0.255,
-            },
-            'tweedie': {
-                'mae': 1.05,
-                'rmse': 1.22,
-                'smape': 17.9,
-                'poisson_deviance': 0.84,
-                'mae_delta_vs_baseline': -0.276,
             },
         }
 
@@ -216,7 +214,7 @@ class CountModelSelectionTests(unittest.TestCase):
                 'poisson_deviance': 0.84,
                 'mae_delta_vs_baseline': -0.261,
             },
-            'tweedie': {
+            'negative_binomial': {
                 'mae': 1.02,
                 'rmse': 1.17,
                 'smape': 17.8,
@@ -250,7 +248,7 @@ class CountModelSelectionTests(unittest.TestCase):
                 'smape': 18.0,
                 'poisson_deviance': 0.84,
             },
-            'tweedie': {
+            'negative_binomial': {
                 'mae': 1.02,
                 'rmse': 1.17,
                 'smape': 17.8,
@@ -286,7 +284,7 @@ class CountModelSelectionTests(unittest.TestCase):
                 'poisson_deviance': 0.84,
                 'mae_delta_vs_baseline': -0.261,
             },
-            'tweedie': {
+            'negative_binomial': {
                 'mae': 1.02,
                 'rmse': 1.17,
                 'smape': 17.8,
@@ -299,8 +297,8 @@ class CountModelSelectionTests(unittest.TestCase):
 
         self.assertEqual(selected_key, 'poisson')
         self.assertAlmostEqual(selected_metrics['poisson_deviance'], 0.84)
-        self.assertEqual(context['raw_best_key'], 'tweedie')
-        self.assertEqual(context['tie_break_reason'], 'poisson_over_ml')
+        self.assertEqual(context['raw_best_key'], 'negative_binomial')
+        self.assertEqual(context['tie_break_reason'], 'poisson_over_negative_binomial')
 
 
 class CountModelConvergenceTests(unittest.TestCase):
@@ -320,6 +318,14 @@ class CountModelConvergenceTests(unittest.TestCase):
         def predict(self, X: pd.DataFrame) -> np.ndarray:
             values = np.asarray(X[self._column_name], dtype=float)
             return np.clip(values * self._weight, 0.0, None)
+
+    class _OverflowingPredictor:
+        def __init__(self, template: list[float] | None = None) -> None:
+            self._template = np.asarray(template or [np.inf], dtype=float)
+
+        def predict(self, X: pd.DataFrame) -> np.ndarray:
+            warnings.warn('overflow encountered in exp', RuntimeWarning)
+            return np.resize(self._template, len(X))
 
     class _StatsmodelsWarningFit:
         def fit(self, *args, **kwargs):
@@ -359,7 +365,7 @@ class CountModelConvergenceTests(unittest.TestCase):
         )
         y_train = np.asarray([0.0, 1.0, 3.0], dtype=float)
 
-        with patch.object(ml_training, '_build_count_model_pipeline', return_value=self._WarningEstimator()):
+        with patch.object(ml_training_models, '_build_count_model_pipeline', return_value=self._WarningEstimator()):
             result = _fit_count_model_from_design('poisson', X_train, y_train)
 
         self.assertIsNone(result)
@@ -377,10 +383,53 @@ class CountModelConvergenceTests(unittest.TestCase):
         )
         y_train = np.asarray([0.0, 1.0, 3.0], dtype=float)
 
-        with patch.object(ml_training.sm, 'GLM', return_value=self._StatsmodelsWarningFit()):
+        with patch.object(ml_training_models.sm, 'GLM', return_value=self._StatsmodelsWarningFit()):
             result = ml_training._fit_negative_binomial_model_from_design(X_train, y_train)
 
         self.assertIsNone(result)
+
+    def test_predict_count_from_design_sanitizes_non_finite_and_caps_overflow_outputs(self) -> None:
+        design = pd.DataFrame(
+            [
+                {'lag_1': 2.0, 'lag_7': 1.0, 'lag_14': 0.0, 'rolling_7': 1.5, 'rolling_28': 1.2, 'trend_gap': 0.2},
+                {'lag_1': 4.0, 'lag_7': 2.0, 'lag_14': 1.0, 'rolling_7': 2.5, 'rolling_28': 2.0, 'trend_gap': 0.3},
+                {'lag_1': 6.0, 'lag_7': 3.0, 'lag_14': 1.0, 'rolling_7': 3.5, 'rolling_28': 2.5, 'trend_gap': 0.4},
+                {'lag_1': 8.0, 'lag_7': 4.0, 'lag_14': 2.0, 'rolling_7': 4.5, 'rolling_28': 3.0, 'trend_gap': 0.5},
+            ]
+        )
+        model_bundle = {
+            'key': 'poisson',
+            'backend': 'sklearn',
+            'model': self._OverflowingPredictor([np.inf, np.nan, -5.0, 1.0e300]),
+            'columns': list(design.columns),
+        }
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            predictions = ml_training_models._predict_count_from_design(model_bundle, design)
+
+        self.assertFalse(any('overflow encountered in exp' in str(item.message).lower() for item in caught))
+        self.assertTrue(np.isfinite(predictions).all())
+        np.testing.assert_allclose(predictions, np.asarray([2.0, 4.0, 0.0, 250.0], dtype=float))
+
+    def test_negative_binomial_requires_enough_history_and_clear_overdispersion(self) -> None:
+        short_design = pd.DataFrame(
+            [
+                {'lag_1': float(index % 3), 'lag_7': 0.0, 'lag_14': 0.0, 'rolling_7': 1.0, 'rolling_28': 1.0, 'trend_gap': 0.0}
+                for index in range(40)
+            ]
+        )
+        short_counts = np.asarray([0.0, 4.0] * 20, dtype=float)
+        self.assertIsNone(_fit_count_model_from_design('negative_binomial', short_design, short_counts))
+
+        long_design = pd.DataFrame(
+            [
+                {'lag_1': float(index % 4), 'lag_7': 1.0, 'lag_14': 1.0, 'rolling_7': 2.0, 'rolling_28': 2.0, 'trend_gap': 0.0}
+                for index in range(70)
+            ]
+        )
+        low_dispersion_counts = np.asarray([1.0, 2.0, 1.0, 2.0, 1.0] * 14, dtype=float)
+        self.assertIsNone(_fit_count_model_from_design('negative_binomial', long_design, low_dispersion_counts))
 
     def test_non_converged_candidate_is_excluded_from_selection_and_comparison(self) -> None:
         history_frame = _build_history_frame(self._build_daily_history())
@@ -401,8 +450,8 @@ class CountModelConvergenceTests(unittest.TestCase):
             }
 
         with (
-            patch.object(ml_training, '_fit_count_model_from_design', side_effect=_fake_fit_count_model_from_design),
-            patch.object(ml_training, '_fit_event_model_from_design', return_value=None),
+            patch.object(ml_training_backtesting, '_fit_count_model_from_design', side_effect=_fake_fit_count_model_from_design),
+            patch.object(ml_training_backtesting, '_fit_event_model_from_design', return_value=None),
         ):
             result = _run_backtest(history_frame, dataset)
 
@@ -423,8 +472,8 @@ class CountModelConvergenceTests(unittest.TestCase):
         dataset = _build_backtest_seed_dataset(history_frame)
 
         with (
-            patch.object(ml_training.sm, 'GLM', return_value=self._StatsmodelsWarningFit()),
-            patch.object(ml_training, '_fit_event_model_from_design', return_value=None),
+            patch.object(ml_training_models.sm, 'GLM', return_value=self._StatsmodelsWarningFit()),
+            patch.object(ml_training_backtesting, '_fit_event_model_from_design', return_value=None),
         ):
             result = _run_backtest(history_frame, dataset)
 
@@ -436,6 +485,286 @@ class CountModelConvergenceTests(unittest.TestCase):
             ml_training.COUNT_MODEL_LABELS['negative_binomial'],
             result['backtest_overview']['candidate_model_labels'],
         )
+
+    def test_backtest_keeps_baseline_or_heuristic_when_ml_candidates_are_unavailable(self) -> None:
+        history_frame = _build_history_frame(self._build_daily_history())
+        dataset = _build_backtest_seed_dataset(history_frame)
+
+        with (
+            patch.object(ml_training_backtesting, '_fit_count_model_from_design', return_value=None),
+            patch.object(ml_training_backtesting, '_fit_event_model_from_design', return_value=None),
+        ):
+            result = _run_backtest(history_frame, dataset)
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        self.assertEqual(result['count_metrics'], {})
+        self.assertIn(result['selected_count_model_key'], {'seasonal_baseline', 'heuristic_forecast'})
+        self.assertEqual(
+            [row['method_key'] for row in result['count_comparison_rows']],
+            ['seasonal_baseline', 'heuristic_forecast'],
+        )
+        self.assertNotIn(ml_training.COUNT_MODEL_LABELS['poisson'], result['backtest_overview']['candidate_model_labels'])
+        self.assertGreater(len(result['rows']), 0)
+
+    def test_backtest_tracks_partial_window_coverage_for_ml_candidates_without_dropping_baseline_windows(self) -> None:
+        history_frame = _build_history_frame(self._build_daily_history())
+        dataset = _build_backtest_seed_dataset(history_frame)
+        poisson_fit_calls = 0
+
+        def _intermittent_fit_count_model(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray):
+            nonlocal poisson_fit_calls
+            if model_key == 'negative_binomial':
+                return None
+            if model_key == 'poisson':
+                poisson_fit_calls += 1
+                if poisson_fit_calls % 2 == 0:
+                    return None
+                return {
+                    'key': model_key,
+                    'backend': 'sklearn',
+                    'model': self._ColumnPredictor('lag_1', 0.8),
+                    'columns': list(X_train.columns),
+                }
+            return None
+
+        with (
+            patch.object(ml_training_backtesting, '_fit_count_model_from_design', side_effect=_intermittent_fit_count_model),
+            patch.object(ml_training_backtesting, '_fit_event_model_from_design', return_value=None),
+        ):
+            result = _run_backtest(history_frame, dataset)
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        overview = result['backtest_overview']
+        self.assertGreater(int(overview['candidate_window_count']), 0)
+        self.assertEqual(int(overview['candidate_window_count']), int(overview['folds']))
+        self.assertGreater(int(overview['candidate_covered_window_count_by_model']['poisson']), 0)
+        self.assertLess(
+            int(overview['candidate_covered_window_count_by_model']['poisson']),
+            int(overview['candidate_window_count']),
+        )
+        self.assertGreater(float(overview['candidate_window_coverage_by_model']['poisson']), 0.0)
+        self.assertLess(float(overview['candidate_window_coverage_by_model']['poisson']), 1.0)
+        self.assertNotIn('poisson', result['count_metrics'])
+        self.assertGreater(len(result['rows']), 0)
+
+    def test_run_backtest_sanitizes_non_finite_predictions_before_metrics_and_intervals(self) -> None:
+        history_frame = _build_history_frame(self._build_daily_history())
+        dataset = _build_backtest_seed_dataset(history_frame)
+
+        def _overflowing_fit_count_model(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray):
+            if model_key == 'negative_binomial':
+                return None
+            return {
+                'key': model_key,
+                'backend': 'sklearn',
+                'model': self._OverflowingPredictor([np.inf, np.nan, 1.0e300]),
+                'columns': list(X_train.columns),
+            }
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            with (
+                patch.object(ml_training_backtesting, '_fit_count_model_from_design', side_effect=_overflowing_fit_count_model),
+                patch.object(ml_training_backtesting, '_fit_event_model_from_design', return_value=None),
+            ):
+                result = _run_backtest(history_frame, dataset)
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        self.assertFalse(any('overflow encountered in exp' in str(item.message).lower() for item in caught))
+
+        backtest_values: list[float] = []
+        for row in result['rows']:
+            backtest_values.extend([float(row['predicted_count']), float(row['lower_bound']), float(row['upper_bound'])])
+        self.assertTrue(np.isfinite(np.asarray(backtest_values, dtype=float)).all())
+
+        for row in result['window_rows']:
+            for prediction in row['predictions'].values():
+                if prediction is not None:
+                    self.assertTrue(np.isfinite(float(prediction)))
+
+        calibration = result['prediction_interval_calibration']
+        self.assertTrue(np.isfinite(float(calibration['absolute_error_quantile'])))
+        for bin_row in calibration.get('adaptive_bins') or []:
+            self.assertTrue(np.isfinite(float(bin_row['absolute_error_quantile'])))
+
+        for metrics in result['count_metrics'].values():
+            for metric_name in ['mae', 'rmse', 'smape', 'poisson_deviance']:
+                metric_value = metrics[metric_name]
+                if metric_value is not None:
+                    self.assertTrue(np.isfinite(float(metric_value)), msg=f'{metric_name} should stay finite')
+
+
+class CountPredictionStressTests(unittest.TestCase):
+    class _ConstantPredictor:
+        def __init__(self, value: float) -> None:
+            self._value = float(value)
+
+        def predict(self, X: pd.DataFrame) -> np.ndarray:
+            return np.full(len(X), self._value, dtype=float)
+
+    @staticmethod
+    def _count_model_bundle(value: float) -> dict[str, object]:
+        return {
+            'key': 'poisson',
+            'backend': 'sklearn',
+            'model': CountPredictionStressTests._ConstantPredictor(value),
+            'columns': ['lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap'],
+        }
+
+    @staticmethod
+    def _history_frame(counts: list[float]) -> pd.DataFrame:
+        current_date = date(2024, 1, 1)
+        rows = []
+        for count in counts:
+            rows.append(
+                {
+                    'date': pd.Timestamp(current_date),
+                    'count': float(count),
+                    'avg_temperature': None,
+                }
+            )
+            current_date += timedelta(days=1)
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _daily_history_for_backtest(days: int = 96) -> list[dict[str, object]]:
+        history: list[dict[str, object]] = []
+        current_date = date(2024, 1, 1)
+        for index in range(days):
+            count = 0.0
+            if index in {41, 58, 73, 74, 90}:
+                count = float(15 + (index % 3) * 5)
+            history.append(
+                {
+                    'date': current_date,
+                    'count': count,
+                    'avg_temperature': float(-5.0 + (index % 7)),
+                }
+            )
+            current_date += timedelta(days=1)
+        return history
+
+    def test_sanitize_count_predictions_stays_finite_without_truncating_plausible_extremes_too_early(self) -> None:
+        scenarios = [
+            (
+                'very_sparse_series',
+                {'lag_1': 1.0, 'lag_7': 0.0, 'lag_14': 0.0, 'rolling_7': 0.2, 'rolling_28': 0.1, 'trend_gap': 0.1},
+                120.0,
+                120.0,
+            ),
+            (
+                'sudden_spike_after_zero_stretch',
+                {'lag_1': 0.0, 'lag_7': 0.0, 'lag_14': 0.0, 'rolling_7': 0.0, 'rolling_28': 0.0, 'trend_gap': 0.0},
+                120.0,
+                120.0,
+            ),
+            (
+                'regime_shift',
+                {'lag_1': 12.0, 'lag_7': 9.0, 'lag_14': 4.0, 'rolling_7': 10.0, 'rolling_28': 5.0, 'trend_gap': 5.0},
+                180.0,
+                180.0,
+            ),
+            (
+                'noisy_burst',
+                {'lag_1': 25.0, 'lag_7': 14.0, 'lag_14': 3.0, 'rolling_7': 16.0, 'rolling_28': 7.0, 'trend_gap': 9.0},
+                400.0,
+                400.0,
+            ),
+        ]
+
+        for scenario_name, row, raw_prediction, expected in scenarios:
+            with self.subTest(scenario=scenario_name):
+                design = pd.DataFrame([row])
+                predictions = ml_training_models._sanitize_count_predictions(np.asarray([raw_prediction], dtype=float), design)
+                self.assertTrue(np.isfinite(predictions).all())
+                self.assertAlmostEqual(float(predictions[0]), expected)
+
+    def test_sanitize_count_predictions_still_caps_only_numeric_explosions_on_extreme_series(self) -> None:
+        scenarios = [
+            (
+                'long_zero_stretch',
+                {'lag_1': 0.0, 'lag_7': 0.0, 'lag_14': 0.0, 'rolling_7': 0.0, 'rolling_28': 0.0, 'trend_gap': 0.0},
+                250.0,
+            ),
+            (
+                'regime_shift',
+                {'lag_1': 12.0, 'lag_7': 9.0, 'lag_14': 4.0, 'rolling_7': 10.0, 'rolling_28': 5.0, 'trend_gap': 5.0},
+                290.0,
+            ),
+            (
+                'noisy_burst',
+                {'lag_1': 25.0, 'lag_7': 14.0, 'lag_14': 3.0, 'rolling_7': 16.0, 'rolling_28': 7.0, 'trend_gap': 9.0},
+                550.0,
+            ),
+        ]
+
+        for scenario_name, row, expected_cap in scenarios:
+            with self.subTest(scenario=scenario_name):
+                design = pd.DataFrame([row])
+                predictions = ml_training_models._sanitize_count_predictions(np.asarray([1.0e300], dtype=float), design)
+                self.assertTrue(np.isfinite(predictions).all())
+                self.assertAlmostEqual(float(predictions[0]), expected_cap)
+
+    def test_future_forecast_rows_keep_plausible_spikes_after_zero_stretch_and_noisy_bursts(self) -> None:
+        scenarios = [
+            ('long_zero_stretch', [0.0] * 40, 120.0, 120.0),
+            ('noisy_burst', [0.0, 2.0, 18.0, 4.0, 25.0] * 8, 400.0, 400.0),
+        ]
+        interval_calibration = {
+            'absolute_error_quantile': 1.0,
+            'level': 0.8,
+            'level_display': '80%',
+            'method_label': 'Adaptive conformal interval with predicted-count bins',
+            'coverage_validated': False,
+            'validated_coverage': None,
+        }
+
+        for scenario_name, counts, raw_prediction, expected in scenarios:
+            with self.subTest(scenario=scenario_name):
+                forecast_rows = ml_training_forecast._build_future_forecast_rows(
+                    frame=self._history_frame(counts),
+                    selected_count_model_key='poisson',
+                    count_model=self._count_model_bundle(raw_prediction),
+                    event_model=None,
+                    forecast_days=1,
+                    scenario_temperature=None,
+                    interval_calibration=interval_calibration,
+                    baseline_expected_count=lambda train, target_date: 0.0,
+                    temperature_stats={'usable': False},
+                )
+                self.assertEqual(len(forecast_rows), 1)
+                self.assertTrue(np.isfinite(float(forecast_rows[0]['forecast_value'])))
+                self.assertAlmostEqual(float(forecast_rows[0]['forecast_value']), expected)
+
+    def test_run_backtest_keeps_large_sparse_candidate_predictions_finite_without_truncating_them_to_tiny_values(self) -> None:
+        history_frame = _build_history_frame(self._daily_history_for_backtest())
+        dataset = _build_backtest_seed_dataset(history_frame)
+
+        def _fit_large_sparse_candidate(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray):
+            if model_key == 'negative_binomial':
+                return None
+            return {
+                'key': model_key,
+                'backend': 'sklearn',
+                'model': self._ConstantPredictor(120.0),
+                'columns': list(X_train.columns),
+            }
+
+        with (
+            patch.object(ml_training_backtesting, '_fit_count_model_from_design', side_effect=_fit_large_sparse_candidate),
+            patch.object(ml_training_backtesting, '_fit_event_model_from_design', return_value=None),
+        ):
+            result = _run_backtest(history_frame, dataset)
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        poisson_predictions = [
+            float(row['predictions']['poisson'])
+            for row in result['window_rows']
+            if row['predictions'].get('poisson') is not None
+        ]
+        self.assertTrue(poisson_predictions)
+        self.assertTrue(np.isfinite(np.asarray(poisson_predictions, dtype=float)).all())
+        self.assertGreaterEqual(max(poisson_predictions), 100.0)
 
 
 class EventSelectionTests(unittest.TestCase):
@@ -482,6 +811,30 @@ class EventSelectionTests(unittest.TestCase):
         self.assertEqual(metrics['event_probability_reason_code'], 'single_class_evaluation')
         self.assertIn('одному классу', str(metrics['event_probability_note']))
         self.assertIn('только дни с пожаром', str(metrics['event_probability_note']))
+
+
+    def test_marks_saturated_event_rate_as_uninformative_even_when_both_classes_exist(self) -> None:
+        rows = []
+        for index in range(100):
+            actual_event = 0 if index % 20 == 0 else 1
+            rows.append(
+                {
+                    'actual_event': actual_event,
+                    'baseline_event_probability': 0.08 if actual_event == 0 else 0.92,
+                    'heuristic_event_probability': 0.03 if actual_event == 0 else 0.97,
+                    'predicted_event_probability': 0.04 if actual_event == 0 else 0.96,
+                }
+            )
+
+        metrics = _compute_event_metrics(rows)
+
+        self.assertTrue(metrics['available'])
+        self.assertTrue(metrics['logistic_available'])
+        self.assertFalse(metrics['event_probability_informative'])
+        self.assertEqual(metrics['event_probability_reason_code'], 'saturated_event_rate')
+        self.assertEqual(metrics['selected_model_key'], 'heuristic_probability')
+        self.assertTrue(metrics['comparison_rows'])
+        self.assertIn('95.0%', str(metrics['event_probability_note']))
 
 
 class EventProbabilityExplanationTests(unittest.TestCase):
@@ -681,6 +1034,43 @@ class ProbabilityPayloadTests(unittest.TestCase):
         self.assertEqual(probabilities.tolist(), [1.0, 0.0])
         self.assertTrue(metrics['available'])
         self.assertLess(float(metrics['brier_score']), 0.001)
+
+
+class DesignMatrixShortcutTests(unittest.TestCase):
+    def test_build_design_row_matches_full_design_matrix_encoding(self) -> None:
+        reference_frame = pd.DataFrame(
+            [
+                {
+                    'temp_value': 4.0,
+                    'weekday': 0.0,
+                    'month': 1.0,
+                    'lag_1': 1.0,
+                    'lag_7': 1.0,
+                    'lag_14': 0.0,
+                    'rolling_7': 1.2,
+                    'rolling_28': 1.0,
+                    'trend_gap': 0.2,
+                },
+                {
+                    'temp_value': 8.0,
+                    'weekday': 3.0,
+                    'month': 4.0,
+                    'lag_1': 2.0,
+                    'lag_7': 1.5,
+                    'lag_14': 1.0,
+                    'rolling_7': 1.8,
+                    'rolling_28': 1.3,
+                    'trend_gap': 0.5,
+                },
+            ]
+        )
+        expected_columns = list(ml_training._build_design_matrix(reference_frame).columns)
+        feature_row = reference_frame.iloc[1].to_dict()
+
+        fast_row = _build_design_row(feature_row, expected_columns=expected_columns)
+        full_row = ml_training._build_design_matrix(pd.DataFrame([feature_row]), expected_columns=expected_columns)
+
+        pd.testing.assert_frame_equal(fast_row, full_row)
 
 
 class PredictionIntervalCalibrationTests(unittest.TestCase):
@@ -898,6 +1288,302 @@ class PredictionIntervalBacktestIntegrationTests(unittest.TestCase):
             self.assertLessEqual(float(row['lower_bound']), float(row['upper_bound']))
 
 
+class LeadTimeAwareTrainingTests(unittest.TestCase):
+    @staticmethod
+    def _build_long_horizon_history(days: int = 180) -> list[dict[str, object]]:
+        history = []
+        current_date = date(2024, 1, 1)
+        for index in range(days):
+            if index < 60:
+                count = float((1 if index % 6 == 0 else 0) + (1 if index % 17 == 0 else 0))
+            elif index < 120:
+                count = float(1 + (index % 4 == 0) + (2 if index % 19 == 0 else 0))
+            else:
+                count = float(2 + (index % 3 == 0) + (3 if index % 13 == 0 else 0))
+            history.append(
+                {
+                    'date': current_date,
+                    'count': count,
+                    'avg_temperature': float(-10.0 + (index % 25)),
+                }
+            )
+            current_date += timedelta(days=1)
+        return history
+
+    def test_run_backtest_exposes_horizon_specific_validation_for_7_14_30_days(self) -> None:
+        history_frame = _build_history_frame(self._build_long_horizon_history())
+        dataset = _build_backtest_seed_dataset(history_frame)
+        result = _run_backtest(
+            history_frame,
+            dataset,
+            validation_horizon_days=30,
+            max_horizon_days=30,
+        )
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        overview = result['backtest_overview']
+        calibration_map = result['prediction_interval_calibration_by_horizon']['by_horizon']
+
+        self.assertEqual(int(overview['validation_horizon_days']), 30)
+        self.assertEqual(int(overview['forecast_horizon_days']), 30)
+        for horizon_day in (7, 14, 30):
+            self.assertIn(horizon_day, calibration_map)
+            self.assertIn(str(horizon_day), result['horizon_summaries'])
+            self.assertIn(str(horizon_day), overview['prediction_interval_coverage_by_horizon'])
+        self.assertGreaterEqual(
+            float(calibration_map[30]['absolute_error_quantile']),
+            float(calibration_map[7]['absolute_error_quantile']),
+        )
+
+    def test_lead_time_specific_calibration_is_wider_for_longer_horizons(self) -> None:
+        history_frame = _build_history_frame(self._build_long_horizon_history())
+        dataset = _build_backtest_seed_dataset(history_frame)
+        result = _run_backtest(
+            history_frame,
+            dataset,
+            validation_horizon_days=30,
+            max_horizon_days=30,
+        )
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        calibration_map = result['prediction_interval_calibration_by_horizon']['by_horizon']
+        width_1 = _count_interval(3.0, calibration_map[1])[1] - _count_interval(3.0, calibration_map[1])[0]
+        width_7 = _count_interval(3.0, calibration_map[7])[1] - _count_interval(3.0, calibration_map[7])[0]
+        width_14 = _count_interval(3.0, calibration_map[14])[1] - _count_interval(3.0, calibration_map[14])[0]
+        width_30 = _count_interval(3.0, calibration_map[30])[1] - _count_interval(3.0, calibration_map[30])[0]
+
+        self.assertGreaterEqual(width_7, width_1)
+        self.assertGreaterEqual(width_14, width_7)
+        self.assertGreaterEqual(width_30, width_14)
+
+
+    def test_train_ml_model_keeps_horizon_metadata_consistent_for_1_7_14_30_without_temperature(self) -> None:
+        daily_history = [{**row, 'avg_temperature': None} for row in self._build_long_horizon_history()]
+
+        for forecast_days in (1, 7, 14, 30):
+            with self.subTest(forecast_days=forecast_days):
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    result = ml_training._train_ml_model(daily_history, forecast_days, None)
+
+                self.assertTrue(result['is_ready'], msg=result.get('message'))
+                self.assertFalse(result['temperature_feature_enabled'])
+                self.assertEqual(int(result['temperature_non_null_days']), 0)
+                self.assertEqual(int(result['temperature_total_days']), len(daily_history))
+                self.assertEqual(len(result['forecast_rows']), forecast_days)
+
+                overview = result['backtest_overview']
+                self.assertEqual(int(overview['validation_horizon_days']), forecast_days)
+                self.assertEqual(int(overview['forecast_horizon_days']), forecast_days)
+
+                expected_key_horizons = tuple(horizon for horizon in (1, 7, 14, 30) if horizon <= forecast_days)
+                unexpected_key_horizons = tuple(horizon for horizon in (1, 7, 14, 30) if horizon > forecast_days)
+
+                for horizon_day in expected_key_horizons:
+                    summary = result['horizon_summaries'][str(horizon_day)]
+                    row = result['forecast_rows'][horizon_day - 1]
+
+                    self.assertEqual(int(summary['horizon_days']), horizon_day)
+                    self.assertEqual(int(row['horizon_days']), horizon_day)
+                    self.assertTrue(summary['prediction_interval_coverage_validated'])
+                    self.assertIsNotNone(summary['prediction_interval_coverage'])
+                    self.assertAlmostEqual(
+                        float(overview['prediction_interval_coverage_by_horizon'][str(horizon_day)]),
+                        float(summary['prediction_interval_coverage']),
+                    )
+                    self.assertEqual(
+                        overview['prediction_interval_coverage_display_by_horizon'][str(horizon_day)],
+                        summary['prediction_interval_coverage_display'],
+                    )
+                    self.assertAlmostEqual(
+                        float(row['prediction_interval_coverage']),
+                        float(summary['prediction_interval_coverage']),
+                    )
+                    self.assertEqual(
+                        row['prediction_interval_coverage_display'],
+                        summary['prediction_interval_coverage_display'],
+                    )
+                    self.assertEqual(
+                        bool(row['prediction_interval_coverage_validated']),
+                        bool(summary['prediction_interval_coverage_validated']),
+                    )
+
+                for horizon_day in unexpected_key_horizons:
+                    self.assertNotIn(str(horizon_day), result['horizon_summaries'])
+                    self.assertNotIn(str(horizon_day), overview['prediction_interval_coverage_by_horizon'])
+                    self.assertNotIn(str(horizon_day), overview['prediction_interval_coverage_display_by_horizon'])
+
+                selected_summary = result['horizon_summaries'][str(forecast_days)]
+                self.assertTrue(overview['prediction_interval_coverage_validated'])
+                self.assertIsNotNone(result['prediction_interval_coverage'])
+                self.assertAlmostEqual(
+                    float(result['prediction_interval_coverage']),
+                    float(selected_summary['prediction_interval_coverage']),
+                )
+                self.assertEqual(
+                    result['prediction_interval_coverage_display'],
+                    selected_summary['prediction_interval_coverage_display'],
+                )
+                self.assertAlmostEqual(
+                    float(overview['prediction_interval_coverage']),
+                    float(selected_summary['prediction_interval_coverage']),
+                )
+                self.assertEqual(
+                    overview['prediction_interval_coverage_display'],
+                    selected_summary['prediction_interval_coverage_display'],
+                )
+
+
+class IntervalMetadataSyncTests(unittest.TestCase):
+    @staticmethod
+    def _build_window_rows(
+        horizon_days: int,
+        actuals: list[float],
+        prediction: float = 1.0,
+        model_key: str = 'poisson',
+    ) -> list[BacktestWindowRow]:
+        rows: list[BacktestWindowRow] = []
+        current_date = date(2024, 1, 1)
+        for actual in actuals:
+            rows.append(
+                BacktestWindowRow(
+                    origin_date=current_date.isoformat(),
+                    date=current_date.isoformat(),
+                    horizon_days=horizon_days,
+                    actual_count=float(actual),
+                    baseline_count=float(prediction),
+                    heuristic_count=float(prediction),
+                    actual_event=0,
+                    baseline_event_probability=None,
+                    heuristic_event_probability=None,
+                    predictions={model_key: float(prediction)},
+                    predicted_event_probabilities={},
+                )
+            )
+            current_date += timedelta(days=1)
+        return rows
+
+    @staticmethod
+    def _build_calibration(
+        *,
+        absolute_error_quantile: float,
+        validated_coverage: float,
+    ) -> dict[str, object]:
+        return {
+            'level': 0.8,
+            'level_display': '80%',
+            'absolute_error_quantile': float(absolute_error_quantile),
+            'residual_count': 10,
+            'adaptive_binning_strategy': 'global_absolute_error_quantile',
+            'adaptive_bin_count': 0,
+            'adaptive_bin_edges': [],
+            'adaptive_bins': [],
+            'method_label': 'Adaptive conformal interval with predicted-count bins; validated by Forward rolling split conformal',
+            'coverage_validated': True,
+            'validated_coverage': float(validated_coverage),
+            'coverage_note': (
+                'Coverage is evaluated only on later 4 windows after an initial calibration prefix of first 6 windows. '
+                'Deployment intervals are recalibrated on all available rolling-origin residuals after validation.'
+            ),
+            'calibration_window_count': 6,
+            'evaluation_window_count': 4,
+            'calibration_window_range_label': 'first 6 windows',
+            'evaluation_window_range_label': 'later 4 windows',
+            'validation_scheme_key': 'rolling_split_conformal',
+            'validation_scheme_label': 'Forward rolling split conformal',
+            'validation_scheme_explanation': 'Forward rolling split conformal was selected.',
+        }
+
+    def test_monotonic_widening_remeasures_coverage_and_keeps_forecast_metadata_in_sync(self) -> None:
+        horizon_rows = {
+            7: self._build_window_rows(7, [1.0] * 10),
+            14: self._build_window_rows(14, [1.0] * 8 + [6.0, 6.0]),
+        }
+        horizon_summaries = {
+            '7': HorizonSummary(
+                horizon_days=7,
+                horizon_label='7 days',
+                folds=10,
+                count_metrics=CountMetrics(mae=0.0),
+                prediction_interval_coverage=0.75,
+                prediction_interval_coverage_display='75%',
+                prediction_interval_coverage_validated=True,
+                prediction_interval_coverage_note='stale',
+                prediction_interval_validation_scheme_key='rolling_split_conformal',
+                prediction_interval_validation_scheme_label='Forward rolling split conformal',
+                prediction_interval_method_label='Adaptive conformal interval',
+            ),
+            '14': HorizonSummary(
+                horizon_days=14,
+                horizon_label='14 days',
+                folds=10,
+                count_metrics=CountMetrics(mae=0.0),
+                prediction_interval_coverage=0.5,
+                prediction_interval_coverage_display='50%',
+                prediction_interval_coverage_validated=True,
+                prediction_interval_coverage_note='stale',
+                prediction_interval_validation_scheme_key='rolling_split_conformal',
+                prediction_interval_validation_scheme_label='Forward rolling split conformal',
+                prediction_interval_method_label='Adaptive conformal interval',
+            ),
+        }
+        calibrations = {
+            7: self._build_calibration(absolute_error_quantile=5.0, validated_coverage=0.75),
+            14: self._build_calibration(absolute_error_quantile=1.0, validated_coverage=0.5),
+        }
+
+        widened = ml_training_backtesting._enforce_monotonic_horizon_interval_calibrations(calibrations)
+        self.assertTrue(widened[14]['monotone_horizon_adjusted'])
+        self.assertAlmostEqual(float(widened[14]['validated_coverage']), 0.5)
+
+        reconciled_calibrations, reconciled_summaries = ml_training_backtesting._reconcile_horizon_interval_metadata(
+            widened,
+            horizon_rows,
+            horizon_summaries,
+            selected_count_model_key='poisson',
+        )
+
+        self.assertAlmostEqual(float(reconciled_calibrations[14]['validated_coverage_reference']), 0.5)
+        self.assertAlmostEqual(float(reconciled_calibrations[14]['validated_coverage']), 1.0)
+        self.assertEqual(
+            reconciled_calibrations[14]['validated_coverage_scope'],
+            'deployed_interval_remeasured_after_monotonic_horizon_widening',
+        )
+        self.assertIn(
+            'deployed interval is remeasured on the same later evaluation windows after monotonic horizon widening',
+            str(reconciled_calibrations[14]['coverage_note']).lower(),
+        )
+        self.assertAlmostEqual(float(reconciled_summaries['14'].prediction_interval_coverage), 1.0)
+
+        frame = pd.DataFrame(
+            [
+                {
+                    'date': pd.Timestamp(date(2024, 1, 1) + timedelta(days=index)),
+                    'count': 1.0,
+                    'avg_temperature': None,
+                }
+                for index in range(40)
+            ]
+        )
+        forecast_rows = ml_training_forecast._build_future_forecast_rows(
+            frame=frame,
+            selected_count_model_key='seasonal_baseline',
+            count_model=None,
+            event_model=None,
+            forecast_days=14,
+            scenario_temperature=None,
+            interval_calibration=reconciled_calibrations,
+            baseline_expected_count=lambda train, target_date: 1.0,
+            temperature_stats={'usable': False},
+        )
+
+        self.assertAlmostEqual(float(forecast_rows[13]['prediction_interval_coverage']), 1.0)
+        self.assertAlmostEqual(
+            float(forecast_rows[13]['prediction_interval_coverage']),
+            float(reconciled_summaries['14'].prediction_interval_coverage),
+        )
+
+
 class TemperatureBacktestLeakageTests(unittest.TestCase):
     @staticmethod
     def _build_daily_history() -> list[dict[str, object]]:
@@ -990,9 +1676,10 @@ class TemperatureBacktestLeakageTests(unittest.TestCase):
             self.assertGreaterEqual(float(row['lower_bound']), 0.0)
             self.assertLessEqual(float(row['lower_bound']), float(row['upper_bound']))
 
-    def test_backtest_out_of_sample_coverage_is_not_computed_on_all_residuals(self) -> None:
+    def test_backtest_coverage_metadata_is_remeasured_on_deployed_interval_evaluation_slice(self) -> None:
         result = self._run_temperature_backtest(self._build_daily_history())
         overview = result['backtest_overview']
+        calibration = result['prediction_interval_calibration']
 
         self.assertGreater(int(overview['prediction_interval_calibration_windows']), 0)
         self.assertGreater(int(overview['prediction_interval_evaluation_windows']), 0)
@@ -1006,8 +1693,89 @@ class TemperatureBacktestLeakageTests(unittest.TestCase):
 
         actuals = np.asarray([row['actual_count'] for row in result['rows']], dtype=float)
         predictions = np.asarray([row['predicted_count'] for row in result['rows']], dtype=float)
-        pooled_coverage = _interval_coverage(actuals, predictions, result['prediction_interval_calibration'])
+        evaluation_start = int(calibration['calibration_window_count'])
+        evaluation_end = evaluation_start + int(calibration['evaluation_window_count'])
+        evaluation_coverage = _interval_coverage(
+            actuals[evaluation_start:evaluation_end],
+            predictions[evaluation_start:evaluation_end],
+            calibration,
+        )
 
         self.assertIsNotNone(overview['prediction_interval_coverage'])
-        self.assertIsNotNone(pooled_coverage)
-        self.assertNotAlmostEqual(float(overview['prediction_interval_coverage']), float(pooled_coverage), places=6)
+        self.assertIsNotNone(evaluation_coverage)
+        self.assertEqual(calibration['validated_coverage_scope'], 'deployed_interval_remeasured')
+        self.assertIn('deployed interval is remeasured', str(overview['prediction_interval_coverage_note']).lower())
+        self.assertAlmostEqual(float(overview['prediction_interval_coverage']), float(evaluation_coverage), places=6)
+
+
+class TrainingGuardrailTests(unittest.TestCase):
+    def test_train_ml_model_returns_not_ready_before_backtest_when_history_is_too_short(self) -> None:
+        daily_history = []
+        current_date = date(2024, 1, 1)
+        for index in range(ml_training.MIN_DAILY_HISTORY - 1):
+            daily_history.append(
+                {
+                    'date': current_date,
+                    'count': float(1 if index % 3 == 0 else 0),
+                    'avg_temperature': float((index % 9) - 4),
+                }
+            )
+            current_date += timedelta(days=1)
+
+        result = ml_training._train_ml_model(daily_history, 7, None)
+        overview = result['backtest_overview']
+
+        self.assertFalse(result['is_ready'])
+        self.assertEqual(result['forecast_rows'], [])
+        self.assertEqual(result['horizon_summaries'], {})
+        self.assertEqual(int(overview['folds']), 0)
+        self.assertEqual(int(overview['candidate_window_count']), 0)
+        self.assertFalse(overview['prediction_interval_coverage_validated'])
+        self.assertEqual(overview['prediction_interval_validation_scheme_key'], 'not_validated')
+        self.assertIn(str(ml_training.MIN_DAILY_HISTORY), str(result['message']))
+        self.assertIn('rolling-origin backtesting', str(result['message']))
+
+
+class ExplainabilityFallbackTests(unittest.TestCase):
+    @staticmethod
+    def _build_daily_history(days: int = 120) -> list[dict[str, object]]:
+        history = []
+        current_date = date(2024, 1, 1)
+        for index in range(days):
+            history.append(
+                {
+                    'date': current_date,
+                    'count': float((1 if index % 4 == 0 else 0) + (1 if index % 7 == 0 else 0)),
+                    'avg_temperature': float((index % 15) - 5),
+                }
+            )
+            current_date += timedelta(days=1)
+        return history
+
+    def test_train_ml_model_keeps_explainability_when_working_method_is_seasonal_baseline(self) -> None:
+        daily_history = self._build_daily_history()
+        frame = _build_history_frame(daily_history)
+        dataset = _build_backtest_seed_dataset(frame)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            backtest = _run_backtest(frame.copy(), dataset)
+
+        forced_backtest = dict(backtest)
+        forced_backtest['selected_count_model_key'] = 'seasonal_baseline'
+        forced_backtest['selected_metrics'] = dict(backtest['baseline_metrics'])
+        forced_backtest['selected_count_model_reason_short'] = 'Рабочим методом оставлен seasonal baseline.'
+        forced_backtest['selected_count_model_reason'] = (
+            'Seasonal baseline оставлен рабочим методом, но explainability всё равно должна остаться доступной.'
+        )
+
+        with patch.object(ml_training, '_run_backtest', return_value=forced_backtest):
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                result = ml_training._train_ml_model(daily_history, 7, None)
+
+        self.assertTrue(result['is_ready'], msg=result.get('message'))
+        self.assertEqual(result['selected_count_model_key'], 'seasonal_baseline')
+        self.assertTrue(result['feature_importance'])
+        self.assertEqual(result['feature_importance_source_key'], 'poisson')
+        self.assertEqual(result['feature_importance_source_label'], 'Регрессия Пуассона')
+        self.assertIn('Рабочий метод прогноза:', str(result['feature_importance_note']))

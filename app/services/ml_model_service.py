@@ -6,8 +6,7 @@ Prefer direct imports from ``app.services.ml_model.core`` and
 ``app.services.ml_model.jobs`` in new code.
 """
 
-from importlib import import_module
-from typing import Any
+from app.compat import install_lazy_exports
 
 _EXPORTS = {
     "clear_ml_model_cache": ("app.services.ml_model.core", "clear_ml_model_cache"),
@@ -17,16 +16,4 @@ _EXPORTS = {
     "start_ml_model_job": ("app.services.ml_model.jobs", "start_ml_model_job"),
 }
 
-__all__ = list(_EXPORTS)
-
-
-def __getattr__(name: str) -> Any:
-    try:
-        module_name, attr_name = _EXPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-    return getattr(import_module(module_name), attr_name)
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+__all__, __getattr__, __dir__ = install_lazy_exports(__name__, globals(), _EXPORTS)

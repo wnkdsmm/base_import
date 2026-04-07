@@ -3,10 +3,13 @@ __pycache__/
 
 # runtime outputs and generated artifacts
 *.log
+*.err.log
+*.out.log
 logs/
 results/
 data/results/
 data/uploads/
+tmp_*.txt
 
 # local tool caches
 .pytest_cache/
@@ -14,3 +17,13 @@ data/uploads/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# local environments and IDE files
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.idea/
+.DS_Store
+Thumbs.db

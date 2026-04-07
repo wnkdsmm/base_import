@@ -115,6 +115,75 @@ class AccessPointsPointDataTests(unittest.TestCase):
         self.assertIn("average_response_minutes", feature_frame.columns)
         self.assertIn("no_water_share", feature_frame.columns)
 
+    def test_generic_object_name_does_not_split_same_address(self) -> None:
+        base_record = {
+            "year": 2025,
+            "source_table": "fires",
+            "district": "Район А",
+            "territory_label": "Село А",
+            "settlement": "Село А",
+            "settlement_type": "село",
+            "object_category": "Жилой сектор",
+            "address": "ул. Центральная, 1",
+            "address_comment": "",
+            "latitude": 56.1,
+            "longitude": 92.1,
+            "fire_station_distance": 10.0,
+            "has_water_supply": False,
+            "response_minutes": 25.0,
+            "long_arrival": True,
+            "heating_season": True,
+            "night_incident": False,
+            "victims_present": False,
+            "major_damage": False,
+            "severe_consequence": False,
+        }
+        records = [
+            {**base_record, "date": date(2025, 1, 1), "object_name": "жилой дом"},
+            {**base_record, "date": date(2025, 1, 2), "object_name": ""},
+        ]
+
+        entity_frame, _feature_frame = _build_point_entity_frames(records)
+
+        self.assertEqual(len(entity_frame), 1)
+        self.assertEqual(entity_frame.loc[0, "entity_code"], "address")
+        self.assertEqual(int(entity_frame.loc[0, "incident_count"]), 2)
+
+    def test_invalid_coordinate_identity_falls_back_to_settlement(self) -> None:
+        records = [
+            {
+                "date": date(2025, 1, 1),
+                "year": 2025,
+                "source_table": "fires",
+                "district": "Район А",
+                "territory_label": "Село А",
+                "settlement": "Село А",
+                "settlement_type": "село",
+                "object_category": "",
+                "address": "",
+                "address_comment": "",
+                "object_name": "",
+                "latitude": float("nan"),
+                "longitude": 92.1,
+                "fire_station_distance": None,
+                "has_water_supply": None,
+                "response_minutes": None,
+                "long_arrival": False,
+                "heating_season": False,
+                "night_incident": False,
+                "victims_present": False,
+                "major_damage": False,
+                "severe_consequence": False,
+            }
+        ]
+
+        entity_frame, _feature_frame = _build_point_entity_frames(records)
+
+        self.assertEqual(len(entity_frame), 1)
+        self.assertEqual(entity_frame.loc[0, "entity_code"], "settlement")
+        self.assertIsNone(entity_frame.loc[0, "latitude"])
+        self.assertIsNone(entity_frame.loc[0, "longitude"])
+
     def test_low_support_points_are_flagged_and_fractional_features_are_smoothed(self) -> None:
         records = [
             {

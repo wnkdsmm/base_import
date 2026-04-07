@@ -8,6 +8,7 @@ set "APP_PORT=8000"
 set "APP_URL=http://%APP_HOST%:%APP_PORT%/"
 set "READY_URL=http://%APP_HOST%:%APP_PORT%/favicon.ico"
 set "SERVER_TITLE=Fire Data FastAPI"
+set "VENV_PYTHON=%PROJECT_ROOT%\.venv\Scripts\python.exe"
 
 call :wait_for_url
 if "%errorlevel%"=="0" (
@@ -18,7 +19,7 @@ if "%errorlevel%"=="0" (
 call :resolve_server_command
 if not "%errorlevel%"=="0" (
     echo Could not find Python or uvicorn to start the FastAPI server.
-    echo Edit start_web_app.cmd if you want to pin a different interpreter path.
+    echo Set APP_PYTHON or create .venv\Scripts\python.exe if you want to pin a different interpreter.
     pause
     exit /b 1
 )
@@ -40,6 +41,16 @@ exit /b 0
 :resolve_server_command
 set "SERVER_COMMAND="
 
+if defined APP_PYTHON if exist "%APP_PYTHON%" (
+    set "SERVER_COMMAND=""%APP_PYTHON%"" -m uvicorn app.main:app --host %APP_HOST% --port %APP_PORT% --reload"
+    exit /b 0
+)
+
+if exist "%VENV_PYTHON%" (
+    set "SERVER_COMMAND=""%VENV_PYTHON%"" -m uvicorn app.main:app --host %APP_HOST% --port %APP_PORT% --reload"
+    exit /b 0
+)
+
 where uvicorn >nul 2>nul
 if not errorlevel 1 (
     set "SERVER_COMMAND=uvicorn app.main:app --host %APP_HOST% --port %APP_PORT% --reload"
@@ -58,11 +69,19 @@ if not errorlevel 1 (
     exit /b 0
 )
 
-if exist "%LocalAppData%\Python\pythoncore-3.14-64\python.exe" (
-    set "SERVER_COMMAND=""%LocalAppData%\Python\pythoncore-3.14-64\python.exe"" -m uvicorn app.main:app --host %APP_HOST% --port %APP_PORT% --reload"
+call :resolve_local_python "%LocalAppData%\Programs\Python\Python*\python.exe"
+if "%errorlevel%"=="0" exit /b 0
+
+call :resolve_local_python "%LocalAppData%\Python\*\python.exe"
+if "%errorlevel%"=="0" exit /b 0
+
+exit /b 1
+
+:resolve_local_python
+for /f "delims=" %%I in ('dir /b /s "%~1" 2^>nul') do (
+    set "SERVER_COMMAND=""%%~fI"" -m uvicorn app.main:app --host %APP_HOST% --port %APP_PORT% --reload"
     exit /b 0
 )
-
 exit /b 1
 
 :wait_for_url

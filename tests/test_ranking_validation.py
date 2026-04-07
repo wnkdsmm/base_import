@@ -1,8 +1,10 @@
 import unittest
 from datetime import date
 
+from app.services.forecast_risk.profile_resolution import resolve_weight_profile_for_records
 from app.services.forecast_risk.scoring import _build_territory_rows
 from app.services.forecast_risk.validation import _evaluate_ranking_window
+from unittest.mock import patch
 
 
 class RankingValidationTests(unittest.TestCase):
@@ -102,6 +104,26 @@ class RankingValidationTests(unittest.TestCase):
         ):
             self.assertIn(key, north_row)
             self.assertTrue(str(north_row[key]))
+
+    def test_weight_profile_resolution_skips_historical_calibration_when_disabled(self) -> None:
+        with patch(
+            "app.services.forecast_risk.validation._build_historical_windows",
+            side_effect=AssertionError("historical calibration should stay disabled"),
+        ):
+            profile = resolve_weight_profile_for_records(
+                [],
+                planning_horizon_days=14,
+                weight_mode="adaptive",
+                enable_calibration=False,
+                disabled_summary="Lightweight snapshot uses the base profile.",
+            )
+
+        calibration = profile.get("calibration") or {}
+        self.assertFalse(calibration.get("ready"))
+        self.assertFalse(calibration.get("used_fallback"))
+        self.assertEqual(calibration.get("candidate_count"), 0)
+        self.assertEqual(calibration.get("windows_used"), 0)
+        self.assertEqual(calibration.get("summary"), "Lightweight snapshot uses the base profile.")
 
 
 if __name__ == '__main__':

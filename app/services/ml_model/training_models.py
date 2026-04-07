@@ -7,12 +7,11 @@ import numpy as np
 import pandas as pd
 
 try:
-    from sklearn.linear_model import LogisticRegression, PoissonRegressor, TweedieRegressor
+    from sklearn.linear_model import LogisticRegression, PoissonRegressor
 except Exception:  # pragma: no cover - graceful fallback for older sklearn
     from sklearn.linear_model import LogisticRegression
 
     PoissonRegressor = None
-    TweedieRegressor = None
 
 try:
     from sklearn.compose import ColumnTransformer
@@ -41,13 +40,18 @@ except Exception:  # pragma: no cover - optional dependency
 from .constants import (
     COUNT_MODEL_CONTINUOUS_COLUMNS,
     MIN_EVENT_CLASS_COUNT,
+    NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS,
+    NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD,
     MIN_POSITIVE_PREDICTION,
     WARNING_INSTABILITY_MESSAGE_TOKENS,
     _LOGISTIC_PARAMS,
     _POISSON_PARAMS,
-    _TWEEDIE_PARAMS,
 )
 from .training_dataset import _build_design_matrix
+
+
+COUNT_PREDICTION_FALLBACK_COLUMNS = ('lag_1', 'rolling_7', 'lag_7', 'rolling_28', 'lag_14')
+COUNT_PREDICTION_SUPPORT_COLUMNS = ('lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28')
 
 
 def _build_count_model(model_key: str):
@@ -55,10 +59,6 @@ def _build_count_model(model_key: str):
         if PoissonRegressor is None:
             return None
         return PoissonRegressor(**_POISSON_PARAMS)
-    if model_key == 'tweedie':
-        if TweedieRegressor is None:
-            return None
-        return TweedieRegressor(**_TWEEDIE_PARAMS)
     raise ValueError(f'Unsupported count model: {model_key}')
 
 
@@ -138,6 +138,8 @@ def _fit_count_model(model_key: str, frame: pd.DataFrame, feature_columns: Optio
 
 def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[Dict[str, Any]]:
     if model_key == 'negative_binomial':
+        if not _can_train_negative_binomial(y_train):
+            return None
         return _fit_negative_binomial_model_from_design(X_train, y_train)
 
     model = _build_count_model_pipeline(model_key, X_train)
@@ -161,6 +163,7 @@ def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.
     if sm is None:
         return None
 
+    overdispersion_ratio = _estimate_count_overdispersion_ratio(y_train)
     alpha = _estimate_negative_binomial_alpha(y_train)
     try:
         prepared_X, scaled_columns, scaler = _prepare_statsmodels_count_design(X_train)
@@ -189,6 +192,7 @@ def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.
         'model': result,
         'columns': list(X_train.columns),
         'alpha': alpha,
+        'overdispersion_ratio': overdispersion_ratio,
         'scaled_columns': scaled_columns,
         'scaler': scaler,
     }
@@ -199,19 +203,68 @@ def _predict_count_model(model_bundle: Dict[str, Any], frame: pd.DataFrame) -> n
     return _predict_count_from_design(model_bundle, X)
 
 
+def _nonnegative_finite_column(X: pd.DataFrame, column_name: str, fill_value: float) -> np.ndarray:
+    if column_name not in X.columns:
+        return np.full(len(X), fill_value, dtype=float)
+    column_values = np.asarray(X[column_name], dtype=float)
+    return np.where(np.isfinite(column_values), np.clip(column_values, 0.0, None), fill_value)
+
+
+def _count_prediction_fallbacks(X: pd.DataFrame) -> np.ndarray:
+    fallback = np.full(len(X), np.nan, dtype=float)
+    for column_name in COUNT_PREDICTION_FALLBACK_COLUMNS:
+        column_values = _nonnegative_finite_column(X, column_name, np.nan)
+        replace_mask = ~np.isfinite(fallback) & np.isfinite(column_values)
+        fallback[replace_mask] = column_values[replace_mask]
+    return np.where(np.isfinite(fallback), fallback, 0.0)
+
+
+def _count_prediction_support(X: pd.DataFrame, fallback: np.ndarray) -> np.ndarray:
+    support = np.zeros(len(X), dtype=float)
+    for column_name in COUNT_PREDICTION_SUPPORT_COLUMNS:
+        support = np.maximum(support, _nonnegative_finite_column(X, column_name, 0.0))
+    return np.maximum(support, fallback)
+
+
+def _count_prediction_upper_cap_from_support(support: np.ndarray | float) -> np.ndarray | float:
+    # Keep a very generous cap so plausible burst days survive, while still cutting
+    # obviously explosive numeric artifacts such as 1e300 after unstable exp().
+    return np.maximum(250.0, support * 20.0 + 50.0)
+
+
+def _count_prediction_upper_caps(X: pd.DataFrame, fallback: np.ndarray) -> np.ndarray:
+    return _count_prediction_upper_cap_from_support(_count_prediction_support(X, fallback))
+
+
+def _sanitize_count_predictions(predictions: np.ndarray, X: pd.DataFrame) -> np.ndarray:
+    normalized = np.asarray(predictions, dtype=float).reshape(-1)
+    fallback = _count_prediction_fallbacks(X)
+    if normalized.size != len(X):
+        normalized = np.full(len(X), np.nan, dtype=float)
+    sanitized = np.where(np.isfinite(normalized), normalized, fallback)
+    sanitized = np.clip(sanitized, 0.0, None)
+    sanitized = np.minimum(sanitized, _count_prediction_upper_caps(X, fallback))
+    return np.where(np.isfinite(sanitized), sanitized, fallback)
+
+
 def _predict_count_from_design(model_bundle: Dict[str, Any], X: pd.DataFrame) -> np.ndarray:
     X = X.reindex(columns=model_bundle['columns'], fill_value=0.0)
-    if model_bundle.get('backend') == 'statsmodels':
-        scaled_columns = list(model_bundle.get('scaled_columns') or [])
-        scaler = model_bundle.get('scaler')
-        prepared_X = X.copy()
-        if scaler is not None and scaled_columns:
-            prepared_X.loc[:, scaled_columns] = scaler.transform(prepared_X[scaled_columns])
-        exog = sm.add_constant(prepared_X, has_constant='add')
-        predictions = np.asarray(model_bundle['model'].predict(exog), dtype=float)
-    else:
-        predictions = np.asarray(model_bundle['model'].predict(X), dtype=float)
-    return np.clip(predictions, 0.0, None)
+    try:
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            if model_bundle.get('backend') == 'statsmodels':
+                scaled_columns = list(model_bundle.get('scaled_columns') or [])
+                scaler = model_bundle.get('scaler')
+                prepared_X = X.copy()
+                if scaler is not None and scaled_columns:
+                    prepared_X.loc[:, scaled_columns] = scaler.transform(prepared_X[scaled_columns])
+                exog = sm.add_constant(prepared_X, has_constant='add')
+                predictions = np.asarray(model_bundle['model'].predict(exog), dtype=float)
+            else:
+                predictions = np.asarray(model_bundle['model'].predict(X), dtype=float)
+    except Exception:
+        predictions = np.full(len(X), np.nan, dtype=float)
+    return _sanitize_count_predictions(predictions, X)
 
 
 def _estimate_negative_binomial_alpha(counts: np.ndarray) -> float:
@@ -222,6 +275,22 @@ def _estimate_negative_binomial_alpha(counts: np.ndarray) -> float:
     variance = float(np.var(values, ddof=1))
     alpha = max((variance - mean_value) / max(mean_value ** 2, MIN_POSITIVE_PREDICTION), 1e-4)
     return min(alpha, 5.0)
+
+
+def _estimate_count_overdispersion_ratio(counts: np.ndarray) -> float:
+    values = np.asarray(counts, dtype=float)
+    if values.size == 0:
+        return 1.0
+    mean_value = max(float(np.mean(values)), MIN_POSITIVE_PREDICTION)
+    variance = float(np.var(values, ddof=1)) if values.size > 1 else float(np.var(values))
+    return max(variance / mean_value, 1.0)
+
+
+def _can_train_negative_binomial(counts: np.ndarray) -> bool:
+    values = np.asarray(counts, dtype=float)
+    if sm is None or values.size < NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS:
+        return False
+    return _estimate_count_overdispersion_ratio(values) >= NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD
 
 
 def _can_train_event_model(event_series: pd.Series) -> bool:

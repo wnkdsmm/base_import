@@ -263,10 +263,13 @@ def _build_access_point_rows_from_entity_frame(
         for code, weight in FACTOR_WEIGHTS.items()
     }
 
-    working_frame = entity_frame.copy().reset_index(drop=True)
+    working_frame = entity_frame.reset_index(drop=True)
     if feature_frame is not None and not feature_frame.empty:
         aligned_features = feature_frame.reset_index(drop=True)
-        for column in aligned_features.columns:
+        extra_columns = [column for column in aligned_features.columns if column not in working_frame.columns]
+        if extra_columns:
+            working_frame = working_frame.copy()
+        for column in extra_columns:
             working_frame[column] = aligned_features[column]
 
     max_incidents = max(1.0, float(pd.to_numeric(working_frame["incident_count"], errors="coerce").max() or 1.0))
@@ -502,8 +505,8 @@ def _build_access_point_rows(
     records: Sequence[Dict[str, Any]],
     selected_features: Sequence[str] | None = None,
 ) -> List[Dict[str, Any]]:
-    entity_frame, feature_frame = _build_point_entity_frames(records)
-    return _build_access_point_rows_from_entity_frame(entity_frame, feature_frame, selected_features=selected_features)
+    entity_frame, _feature_frame = _build_point_entity_frames(records)
+    return _build_access_point_rows_from_entity_frame(entity_frame, selected_features=selected_features)
 
 
 def _select_top_points(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:

@@ -17,7 +17,6 @@ from app.services.forecast_risk.utils import (
     _pick_territory_label,
     _quote_identifier,
     _resolve_column_name,
-    _risk_category_score,
     _text_expression,
     _to_float_or_none,
     _truthy_value,
@@ -329,7 +328,6 @@ def _load_access_point_records(
                 "victims_present": bool(casualty_flag) or injuries > 0 or deaths > 0,
                 "major_damage": registered_damage > 0 or destroyed_buildings > 0 or destroyed_area > 0,
                 "severe_consequence": bool(consequence_flag) or injuries > 0 or deaths > 0 or registered_damage > 0 or destroyed_buildings > 0 or destroyed_area > 0,
-                "risk_category_score": _risk_category_score(""),
             }
         )
     return records

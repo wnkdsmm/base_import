@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 import pandas as pd
 
-from app.services.forecast_risk.utils import _format_number, _format_percent
+from app.services.forecast_risk.utils import _format_percent
 
 from .constants import (
     ACCESS_POINT_FEATURE_METADATA,

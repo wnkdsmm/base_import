@@ -131,6 +131,8 @@ class MlModelPayloadTests(unittest.TestCase):
         "subtitle",
         "methodology_items",
         "metric_cards",
+        "event_metric_cards",
+        "interval_card",
         "model_choice",
         "count_table",
         "event_table",
@@ -199,12 +201,19 @@ class MlModelPayloadTests(unittest.TestCase):
             elif isinstance(current, (list, tuple, set)):
                 values_to_visit.extend(current)
 
-    def _build_service_payload(self, days: int) -> dict[str, object]:
+    def _build_service_payload(
+        self,
+        days: int,
+        *,
+        forecast_days: int = 7,
+        daily_history: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
         table_options = [{"value": "fires", "label": "fires"}]
         option_catalog = {
             "causes": [{"value": "all", "label": "all"}],
             "object_categories": [{"value": "all", "label": "all"}],
         }
+        history = daily_history if daily_history is not None else self._build_daily_history(days)
         metadata_items = [
             {
                 "table_name": "fires",
@@ -221,31 +230,31 @@ class MlModelPayloadTests(unittest.TestCase):
                 patch.object(ml_core, "_build_forecasting_table_options", return_value=table_options),
                 patch.object(ml_core, "_resolve_forecasting_selection", return_value="fires"),
                 patch.object(ml_core, "_selected_source_tables", return_value=["fires"]),
-                patch.object(ml_core, "_parse_forecast_days", return_value=7),
+                patch.object(ml_core, "_parse_forecast_days", return_value=forecast_days),
                 patch.object(ml_core, "_parse_history_window", return_value="all"),
                 patch.object(ml_core, "_collect_forecasting_metadata", return_value=(metadata_items, [])),
                 patch.object(ml_core, "_build_option_catalog_sql", return_value=option_catalog),
                 patch.object(ml_core, "_resolve_option_value", side_effect=_resolve_option),
-                patch.object(ml_core, "_build_daily_history_sql", return_value=self._build_daily_history(days)),
-                patch.object(ml_core, "_count_forecasting_records_sql", return_value=days),
+                patch.object(ml_core, "_build_daily_history_sql", return_value=history),
+                patch.object(ml_core, "_count_forecasting_records_sql", return_value=len(history)),
             ):
                 return ml_core.get_ml_model_data(
                     table_name="fires",
                     cause="all",
                     object_category="all",
                     temperature="",
-                    forecast_days="7",
+                    forecast_days=str(forecast_days),
                     history_window="all",
                 )
 
-    def _coverage_metric_card(self, quality: dict[str, object]) -> dict[str, object]:
-        return next(item for item in quality["metric_cards"] if "Out-of-sample coverage" in item["label"])
+    def _interval_card(self, quality: dict[str, object]) -> dict[str, object]:
+        return quality["interval_card"]
 
     def _interval_methodology_item(self, quality: dict[str, object]) -> dict[str, object]:
         return next(
             item
             for item in quality["methodology_items"]
-            if "Adaptive conformal interval with predicted-count bins" in str(item.get("meta", ""))
+            if item.get("label") == "Интервал прогноза"
         )
 
     def _assert_backtest_overview_shape(self, overview: dict[str, object]) -> None:
@@ -266,7 +275,7 @@ class MlModelPayloadTests(unittest.TestCase):
         summary: dict[str, object],
         quality: dict[str, object],
     ) -> None:
-        coverage_card = self._coverage_metric_card(quality)
+        coverage_card = self._interval_card(quality)
         interval_item = self._interval_methodology_item(quality)
 
         self.assertTrue(overview["prediction_interval_coverage_validated"])
@@ -274,17 +283,64 @@ class MlModelPayloadTests(unittest.TestCase):
         self.assertNotEqual(summary["prediction_interval_coverage_display"], "—")
         self.assertEqual(summary["prediction_interval_coverage_display"], coverage_card["value"])
         self.assertEqual(interval_item["value"], summary["prediction_interval_level_display"])
-        self.assertEqual(summary["prediction_interval_method_label"], overview["prediction_interval_method_label"])
+        self.assertIn("Адаптивный конформный интервал", summary["prediction_interval_method_label"])
         self.assertIn(summary["prediction_interval_method_label"], coverage_card["meta"])
         self.assertIn(summary["prediction_interval_method_label"], interval_item["meta"])
-        self.assertIn(
-            f"validated by {overview['prediction_interval_validation_scheme_label']}",
-            summary["prediction_interval_method_label"],
-        )
-        self.assertIn(str(overview["prediction_interval_validation_explanation"]), coverage_card["meta"])
-        self.assertIn("Coverage is evaluated only on", coverage_card["meta"])
-        self.assertIn("Jackknife+ for time series was not adopted", coverage_card["meta"])
+        self.assertIn("проверка схемой", summary["prediction_interval_method_label"])
+        self.assertIn("проверка по истории", coverage_card["meta"])
+        self.assertIn("Покрытие оценивается только на", coverage_card["meta"])
+        self.assertIn("jackknife+ для временного ряда", coverage_card["meta"])
         self.assertEqual(coverage_card["meta"], interval_item["meta"])
+
+    def test_service_payload_forecast_rows_stay_in_sync_with_training_horizon_metadata_for_30_day_forecast(self) -> None:
+        daily_history = self._build_daily_history(180)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            training_result = ml_training._train_ml_model(daily_history, 30, None)
+
+        self.assertTrue(training_result["is_ready"], msg=training_result.get("message"))
+        payload = self._build_service_payload(180, forecast_days=30, daily_history=daily_history)
+        summary = payload["summary"]
+        self._assert_summary_shape(summary)
+
+        self.assertEqual(summary["prediction_interval_coverage_display"], training_result["prediction_interval_coverage_display"])
+
+        overview = training_result["backtest_overview"]
+        for horizon_day in (1, 7, 14, 30):
+            training_summary = training_result["horizon_summaries"][str(horizon_day)]
+            training_row = training_result["forecast_rows"][horizon_day - 1]
+            payload_row = payload["forecast_rows"][horizon_day - 1]
+
+            self.assertEqual(int(payload_row["horizon_days"]), horizon_day)
+            self.assertAlmostEqual(
+                float(overview["prediction_interval_coverage_by_horizon"][str(horizon_day)]),
+                float(training_summary["prediction_interval_coverage"]),
+            )
+            self.assertEqual(
+                overview["prediction_interval_coverage_display_by_horizon"][str(horizon_day)],
+                training_summary["prediction_interval_coverage_display"],
+            )
+            self.assertAlmostEqual(
+                float(training_row["prediction_interval_coverage"]),
+                float(training_summary["prediction_interval_coverage"]),
+            )
+            self.assertAlmostEqual(
+                float(payload_row["prediction_interval_coverage"]),
+                float(training_summary["prediction_interval_coverage"]),
+            )
+            self.assertEqual(
+                payload_row["prediction_interval_coverage_display"],
+                training_summary["prediction_interval_coverage_display"],
+            )
+            self.assertEqual(
+                bool(payload_row["prediction_interval_coverage_validated"]),
+                bool(training_summary["prediction_interval_coverage_validated"]),
+            )
+
+        self.assertEqual(
+            summary["prediction_interval_coverage_display"],
+            training_result["horizon_summaries"]["30"]["prediction_interval_coverage_display"],
+        )
 
     def _assert_unavailable_contract_consistency(
         self,
@@ -292,7 +348,7 @@ class MlModelPayloadTests(unittest.TestCase):
         summary: dict[str, object],
         quality: dict[str, object],
     ) -> None:
-        coverage_card = self._coverage_metric_card(quality)
+        coverage_card = self._interval_card(quality)
         interval_item = self._interval_methodology_item(quality)
 
         self.assertFalse(overview["prediction_interval_coverage_validated"])
@@ -301,12 +357,12 @@ class MlModelPayloadTests(unittest.TestCase):
         self.assertEqual(summary["prediction_interval_coverage_display"], "—")
         self.assertEqual(coverage_card["value"], "—")
         self.assertEqual(interval_item["value"], summary["prediction_interval_level_display"])
-        self.assertEqual(summary["prediction_interval_method_label"], overview["prediction_interval_method_label"])
+        self.assertIn("Адаптивный конформный интервал", summary["prediction_interval_method_label"])
         self.assertIn(summary["prediction_interval_method_label"], coverage_card["meta"])
         self.assertIn(summary["prediction_interval_method_label"], interval_item["meta"])
-        self.assertIn("validated out-of-sample coverage unavailable", summary["prediction_interval_method_label"])
-        self.assertIn("Validated out-of-sample coverage is unavailable", coverage_card["meta"])
-        self.assertIn("forward-only interval validation", coverage_card["meta"])
+        self.assertIn("проверка покрытия на отложенных окнах пока недоступна", summary["prediction_interval_method_label"])
+        self.assertIn("Покрытие на отложенных окнах пока недоступно", coverage_card["meta"])
+        self.assertIn("последовательной проверки интервала", coverage_card["meta"])
         self.assertEqual(coverage_card["meta"], interval_item["meta"])
 
     def test_training_payload_exposes_interval_validation_metadata_in_backtest_overview(self) -> None:
@@ -322,9 +378,13 @@ class MlModelPayloadTests(unittest.TestCase):
         self.assertGreater(int(overview["prediction_interval_evaluation_windows"]), 0)
         self.assertNotEqual(overview["prediction_interval_calibration_range_label"], "—")
         self.assertNotEqual(overview["prediction_interval_evaluation_range_label"], "—")
-        self.assertEqual(overview["prediction_interval_validation_scheme_key"], "blocked_forward_cv")
-        self.assertEqual(overview["prediction_interval_validation_scheme_label"], "Blocked forward CV conformal")
-        self.assertIn("Blocked forward CV conformal was selected", overview["prediction_interval_validation_explanation"])
+        self.assertEqual(int(overview["validation_horizon_days"]), 7)
+        self.assertIn(
+            overview["prediction_interval_validation_scheme_key"],
+            {"blocked_forward_cv", "rolling_split_conformal"},
+        )
+        self.assertTrue(overview["prediction_interval_validation_scheme_label"])
+        self.assertIn("validated out-of-sample coverage", overview["prediction_interval_validation_explanation"])
         self.assertIn("Coverage is evaluated only on", overview["prediction_interval_coverage_note"])
 
     def test_service_payload_hides_unvalidated_coverage_when_honest_split_is_unavailable(self) -> None:
@@ -370,43 +430,37 @@ class MlModelPayloadTests(unittest.TestCase):
         payload = self._build_service_payload(75)
         summary = payload["summary"]
         quality = payload["quality_assessment"]
-        coverage_card = self._coverage_metric_card(quality)
+        coverage_card = self._interval_card(quality)
         interval_item = self._interval_methodology_item(quality)
 
         self._assert_summary_shape(summary)
         self._assert_quality_assessment_shape(quality)
         self.assertEqual(summary["prediction_interval_level_display"], "80%")
-        self.assertTrue(str(coverage_card["label"]).startswith("Out-of-sample coverage 80%"))
+        self.assertTrue(str(coverage_card["label"]).startswith("Покрытие 80% интервала"))
         self.assertTrue(str(interval_item["label"]))
-        self.assertEqual(summary["prediction_interval_method_label"], overview["prediction_interval_method_label"])
-        self.assertIn(str(overview["prediction_interval_validation_explanation"]), coverage_card["meta"])
-        self.assertIn(str(overview["prediction_interval_validation_scheme_label"]), summary["prediction_interval_method_label"])
-        self.assertIn(str(overview["prediction_interval_evaluation_range_label"]), coverage_card["meta"])
-        self.assertIn(
-            "Deployment intervals are recalibrated on all available rolling-origin residuals after validation.",
-            coverage_card["meta"],
-        )
+        self.assertIn("Адаптивный конформный интервал", summary["prediction_interval_method_label"])
+        self.assertIn("проверка по истории", summary["prediction_interval_method_label"])
+        self.assertIn("Покрытие оценивается только на", coverage_card["meta"])
+        self.assertIn("начиная с 20", coverage_card["meta"])
+        self.assertIn("перекалибруются", coverage_card["meta"])
         self.assertEqual(coverage_card["meta"], interval_item["meta"])
 
     def test_service_payload_contract_shape_and_notes_for_unavailable_interval_status(self) -> None:
         payload = self._build_service_payload(65)
         summary = payload["summary"]
         quality = payload["quality_assessment"]
-        coverage_card = self._coverage_metric_card(quality)
+        coverage_card = self._interval_card(quality)
         interval_item = self._interval_methodology_item(quality)
 
         self._assert_summary_shape(summary)
         self._assert_quality_assessment_shape(quality)
         self.assertEqual(summary["prediction_interval_level_display"], "80%")
-        self.assertTrue(str(coverage_card["label"]).startswith("Out-of-sample coverage 80%"))
+        self.assertTrue(str(coverage_card["label"]).startswith("Покрытие 80% интервала"))
         self.assertTrue(str(interval_item["label"]))
         self.assertEqual(
             summary["prediction_interval_method_label"],
-            "Adaptive conformal interval with predicted-count bins (validated out-of-sample coverage unavailable)",
+            "Адаптивный конформный интервал по группам ожидаемого числа пожаров; проверка покрытия на отложенных окнах пока недоступна",
         )
         self.assertEqual(coverage_card["value"], "—")
-        self.assertIn(
-            "Validated out-of-sample coverage is unavailable because the backtest has too few rolling-origin windows for forward-only interval validation.",
-            coverage_card["meta"],
-        )
+        self.assertIn("Покрытие на отложенных окнах пока недоступно", coverage_card["meta"])
         self.assertEqual(coverage_card["meta"], interval_item["meta"])

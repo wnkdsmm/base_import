@@ -27,7 +27,6 @@ FEATURE_LABELS = {
 COUNT_MODEL_LABELS = {
     'poisson': 'Регрессия Пуассона',
     'negative_binomial': 'Negative Binomial GLM',
-    'tweedie': 'Tweedie GLM (compound Poisson-Gamma)',
     'heuristic_forecast': 'Сценарный эвристический прогноз',
     'seasonal_baseline': 'Сезонная базовая модель',
 }
@@ -49,8 +48,10 @@ COUNT_MODEL_SELECTION_TOLERANCE = 0.05
 FEATURE_COLUMNS = ['temp_value', 'weekday', 'month', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
 NON_TEMPERATURE_FEATURE_COLUMNS = [column for column in FEATURE_COLUMNS if column != 'temp_value']
 COUNT_MODEL_CONTINUOUS_COLUMNS = ['temp_value', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
-COUNT_MODEL_KEYS = ['poisson', 'negative_binomial', 'tweedie']
+COUNT_MODEL_KEYS = ['poisson', 'negative_binomial']
 EXPLAINABLE_COUNT_MODEL_KEY = 'poisson'
+NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD = 1.35
+NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS = 56
 MIN_POSITIVE_PREDICTION = 1e-6
 CLASSIFICATION_THRESHOLD = 0.5
 PREDICTION_INTERVAL_LEVEL = 0.8
@@ -100,17 +101,13 @@ ML_PREDICTIVE_BLOCK_DESCRIPTION = (
     'Этот экран не ранжирует территории и не заменяет сценарный прогноз по вероятности пожара.'
 )
 
+ML_CACHE_SCHEMA_VERSION = 2
+
 _CACHE_LIMIT = 12
-_ML_CACHE: 'OrderedDict[Tuple[str, str, str, str, int, str], Dict[str, Any]]' = OrderedDict()
+_ML_CACHE: 'OrderedDict[Tuple[int, str, str, str, str, int, str], Dict[str, Any]]' = OrderedDict()
 
 _POISSON_PARAMS = {
     'alpha': 0.40,
-    'max_iter': 2000,
-}
-
-_TWEEDIE_PARAMS = {
-    'power': 1.5,
-    'alpha': 0.20,
     'max_iter': 2000,
 }
 

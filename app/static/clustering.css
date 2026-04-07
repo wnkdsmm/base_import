@@ -107,6 +107,11 @@
     min-height: clamp(280px, 40vh, 340px);
 }
 
+.clustering-main .chart-empty:empty,
+.clustering-main .mini-empty:empty {
+    display: none;
+}
+
 .cluster-overview-grid {
     display: grid;
     gap: 12px;

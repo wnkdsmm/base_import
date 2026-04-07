@@ -18,10 +18,20 @@ def resolve_weight_profile_for_records(
     records: Sequence[Dict[str, Any]],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
+    *,
+    enable_calibration: bool = True,
+    disabled_summary: str = "",
 ) -> Dict[str, Any]:
+    requested_profile = get_risk_weight_profile(weight_mode)
+    if not enable_calibration:
+        return _build_uncalibrated_profile(
+            requested_profile=requested_profile,
+            summary=disabled_summary
+            or "Автоматическая калибровка весов временно отключена для облегченного сценария чтения; используется базовый профиль.",
+        )
+
     from . import validation as validation_module
 
-    requested_profile = get_risk_weight_profile(weight_mode)
     if weight_mode == "expert":
         profile = deepcopy(requested_profile)
         calibration = profile.get("calibration") or {}
@@ -119,6 +129,27 @@ def resolve_weight_profile_for_records(
         candidate_count=len(evaluations),
         improvement=improvement,
     )
+
+
+def _build_uncalibrated_profile(
+    *,
+    requested_profile: Dict[str, Any],
+    summary: str,
+) -> Dict[str, Any]:
+    profile = deepcopy(requested_profile)
+    calibration = deepcopy(profile.get("calibration") or {})
+    calibration.update(
+        {
+            "ready": False,
+            "used_fallback": False,
+            "windows_used": 0,
+            "candidate_count": 0,
+            "summary": summary,
+            "notes": _unique_non_empty(list(calibration.get("notes") or []) + [summary]),
+        }
+    )
+    profile["calibration"] = calibration
+    return profile
 
 
 def _generate_weight_candidates(profile: Dict[str, Any]) -> List[Dict[str, Any]]:

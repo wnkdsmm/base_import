@@ -1,14 +1,18 @@
 from tests.ml_model_comparison_model_cases import (
     ClassificationMetricsTests,
     CountModelConvergenceTests,
+    CountPredictionStressTests,
     CountModelSelectionTests,
     EventPayloadLabelTests,
     EventProbabilityExplanationTests,
     EventSelectionTests,
+    IntervalMetadataSyncTests,
+    LeadTimeAwareTrainingTests,
     PredictionIntervalBacktestIntegrationTests,
     PredictionIntervalCalibrationTests,
     ProbabilityPayloadTests,
     TemperatureBacktestLeakageTests,
+    TrainingGuardrailTests,
 )
 from tests.ml_model_comparison_presentation_cases import (
     PresentationMissingMetricsRegressionTests,
@@ -19,10 +23,13 @@ from tests.ml_model_comparison_presentation_cases import (
 __all__ = [
     "ClassificationMetricsTests",
     "CountModelConvergenceTests",
+    "CountPredictionStressTests",
     "CountModelSelectionTests",
     "EventPayloadLabelTests",
     "EventProbabilityExplanationTests",
     "EventSelectionTests",
+    "IntervalMetadataSyncTests",
+    "LeadTimeAwareTrainingTests",
     "PredictionIntervalBacktestIntegrationTests",
     "PredictionIntervalCalibrationTests",
     "PresentationMissingMetricsRegressionTests",
@@ -30,4 +37,5 @@ __all__ = [
     "QualityAssessmentPresentationTests",
     "SummaryPresentationTests",
     "TemperatureBacktestLeakageTests",
+    "TrainingGuardrailTests",
 ]

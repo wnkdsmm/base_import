@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from app.log_manager import add_log
 from app.state import FINAL_JOB_STATUSES, job_store
+from app.services.job_support import (
+    build_job_payload_from_snapshot,
+    build_missing_job_payload,
+    discard_reusable_job_id,
+    find_reusable_job_id,
+    serialize_job_cache_key,
+)
 
 from .core import _build_ml_request_state, _cache_get, get_ml_model_data
 
@@ -43,7 +49,11 @@ def start_ml_model_job(
     )
 
     with _ML_JOB_LOCK:
-        reusable_job_id = _get_reusable_job_id(session_id, cache_key_token)
+        reusable_job_id = find_reusable_job_id(
+            session_id,
+            cache_key_token,
+            job_ids_by_cache_key=_ML_JOB_IDS_BY_CACHE_KEY,
+        )
         if reusable_job_id:
             return _build_job_status_payload(
                 session_id,
@@ -148,9 +158,12 @@ def _run_ml_model_job(
     finally:
         if final_status != "completed":
             with _ML_JOB_LOCK:
-                current_job_id = _ML_JOB_IDS_BY_CACHE_KEY.get((session_id, cache_key_token))
-                if current_job_id == main_job_id:
-                    _ML_JOB_IDS_BY_CACHE_KEY.pop((session_id, cache_key_token), None)
+                discard_reusable_job_id(
+                    session_id,
+                    cache_key_token,
+                    main_job_id,
+                    job_ids_by_cache_key=_ML_JOB_IDS_BY_CACHE_KEY,
+                )
 
 
 def _attach_job_metadata(
@@ -182,40 +195,19 @@ def _attach_job_metadata(
 def _build_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> Dict[str, Any]:
     snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
     if snapshot is None:
-        return {
-            "job_id": job_id,
-            "status": "missing",
-            "kind": "",
-            "logs": [],
-            "result": None,
-            "error_message": "Job не найден для текущей сессии.",
-            "reused": reused,
-            "is_final": True,
-        }
+        return build_missing_job_payload(job_id, reused=reused, include_meta=False)
 
     meta = snapshot.get("meta") or {}
     backtest_job_id = str(meta.get("backtest_job_id") or "")
     backtest_snapshot = job_store.get_job_snapshot(session_id, job_id=backtest_job_id) if backtest_job_id else None
-    payload = {
-        "job_id": snapshot["job_id"],
-        "kind": snapshot["kind"],
-        "status": snapshot["status"],
-        "logs": snapshot.get("logs") or [],
-        "result": snapshot.get("result"),
-        "error_message": snapshot.get("error_message") or "",
-        "meta": meta,
-        "reused": reused,
-        "is_final": snapshot["status"] in FINAL_JOB_STATUSES,
-    }
+    payload = build_job_payload_from_snapshot(snapshot, reused=reused)
     if backtest_snapshot is not None:
-        payload["backtest_job"] = {
-            "job_id": backtest_snapshot["job_id"],
-            "kind": backtest_snapshot["kind"],
-            "status": backtest_snapshot["status"],
-            "logs": backtest_snapshot.get("logs") or [],
-            "error_message": backtest_snapshot.get("error_message") or "",
-            "is_final": backtest_snapshot["status"] in FINAL_JOB_STATUSES,
-        }
+        payload["backtest_job"] = build_job_payload_from_snapshot(
+            backtest_snapshot,
+            reused=None,
+            include_result=False,
+            include_meta=False,
+        )
     else:
         payload["backtest_job"] = None
     return payload
@@ -252,24 +244,8 @@ def _extract_backtest_result(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _get_reusable_job_id(session_id: str, cache_key_token: str) -> Optional[str]:
-    job_id = _ML_JOB_IDS_BY_CACHE_KEY.get((session_id, cache_key_token))
-    if not job_id:
-        return None
-    snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
-    if snapshot is None:
-        _ML_JOB_IDS_BY_CACHE_KEY.pop((session_id, cache_key_token), None)
-        return None
-    if snapshot["status"] == "failed":
-        _ML_JOB_IDS_BY_CACHE_KEY.pop((session_id, cache_key_token), None)
-        return None
-    if snapshot["status"] not in {"pending", "running"}:
-        return None
-    return job_id
-
-
 def _serialize_cache_key(cache_key: Tuple[Any, ...]) -> str:
-    return json.dumps(list(cache_key), ensure_ascii=False, default=str)
+    return serialize_job_cache_key(cache_key)
 
 
 class _MlJobProgressReporter:

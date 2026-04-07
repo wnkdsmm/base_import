@@ -74,7 +74,10 @@ def _build_ml_payload(
         'features': _build_feature_cards_with_quality(metadata_items, temperature_quality=temperature_quality),
         'charts': {
             'forecast': _build_forecast_chart(daily_history, ml_result),
-            'importance': _build_importance_chart(ml_result.get('feature_importance', [])),
+            'importance': _build_importance_chart(
+                ml_result.get('feature_importance', []),
+                note=str(ml_result.get('feature_importance_note') or '').strip(),
+            ),
         },
         'forecast_rows': ml_result.get('forecast_rows', []),
         'feature_importance': ml_result.get('feature_importance', []),
@@ -172,7 +175,7 @@ def _empty_ml_model_data(
         'features': [],
         'charts': {
             'forecast': _empty_light_chart('ML-прогноз ожидаемого числа пожаров', 'Недостаточно данных для обучения модели.'),
-            'importance': _empty_light_chart('Что сильнее всего влияет на ML-прогноз', 'Модель пока не обучена.', kind='bars'),
+            'importance': _build_importance_chart([], note=''),
         },
         'forecast_rows': [],
         'feature_importance': [],

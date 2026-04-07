@@ -148,6 +148,12 @@ def build_decision_support_payload(
                 filtered_records,
                 planning_horizon_days,
                 weight_mode=weight_mode,
+                enable_calibration=include_historical_validation,
+                disabled_summary=(
+                    "Для облегченного территориального snapshot автоматическая калибровка весов не запускалась; используется базовый профиль."
+                    if not include_historical_validation
+                    else ""
+                ),
             )
             territories = _build_territory_rows(
                 filtered_records,

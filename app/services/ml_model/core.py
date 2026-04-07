@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
 from app.services.forecasting.data import (
@@ -28,10 +28,10 @@ from app.services.forecasting.utils import (
 )
 from config.db import engine
 
-from .constants import _CACHE_LIMIT, _ML_CACHE
+from .constants import ML_CACHE_SCHEMA_VERSION, _CACHE_LIMIT, _ML_CACHE
 from .payloads import _build_ml_payload, _compact_ui_notes, _empty_ml_model_data
 from .runtime import MlProgressCallback, _emit_progress
-from .training import _empty_ml_result, _train_ml_model
+from .training import _train_ml_model
 
 
 def get_ml_model_page_context(
@@ -85,6 +85,7 @@ def get_ml_model_shell_context(
     temperature: str = '',
     forecast_days: str = '14',
     history_window: str = 'all',
+    prefer_cached: bool = False,
 ) -> Dict[str, Any]:
     request_state = _build_ml_request_state(
         table_name=table_name,
@@ -94,7 +95,7 @@ def get_ml_model_shell_context(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    cached = _cache_get(request_state['cache_key'])
+    cached = _cache_get(request_state['cache_key']) if prefer_cached else None
     if cached is not None:
         return {
             'generated_at': _format_datetime(datetime.now()),
@@ -115,6 +116,9 @@ def get_ml_model_shell_context(
         selected_history_window,
     )
     initial_data['bootstrap_mode'] = 'deferred'
+    initial_data['charts']['importance']['empty_message'] = (
+        'Собираем драйверы прогноза: блок заполнится после фонового расчёта.'
+    )
     initial_data['notes'].extend(request_state['source_table_notes'])
     initial_data['notes'] = _compact_ui_notes(initial_data['notes'])
     initial_data['filters']['cause'] = cause or 'all'
@@ -265,7 +269,7 @@ def get_ml_model_data(
     return _cache_store(cache_key, payload)
 
 
-def _cache_get(cache_key: Tuple[str, str, str, str, int, str]) -> Optional[Dict[str, Any]]:
+def _cache_get(cache_key: Tuple[int, str, str, str, str, int, str]) -> Optional[Dict[str, Any]]:
     cached = _ML_CACHE.get(cache_key)
     if cached is None:
         return None
@@ -273,7 +277,7 @@ def _cache_get(cache_key: Tuple[str, str, str, str, int, str]) -> Optional[Dict[
     return deepcopy(cached)
 
 
-def _cache_store(cache_key: Tuple[str, str, str, str, int, str], payload: Dict[str, Any]) -> Dict[str, Any]:
+def _cache_store(cache_key: Tuple[int, str, str, str, str, int, str], payload: Dict[str, Any]) -> Dict[str, Any]:
     _ML_CACHE[cache_key] = deepcopy(payload)
     _ML_CACHE.move_to_end(cache_key)
     while len(_ML_CACHE) > _CACHE_LIMIT:
@@ -297,6 +301,7 @@ def _build_ml_request_state(
     selected_history_window = _parse_history_window(history_window)
     scenario_temperature = _parse_float(temperature)
     cache_key = (
+        ML_CACHE_SCHEMA_VERSION,
         selected_table,
         cause or 'all',
         object_category or 'all',

@@ -423,7 +423,6 @@ def get_access_points_data(
     filters["available_features"] = _build_access_point_feature_options(candidate_features, selected_features)
     rows = _build_access_point_rows_from_entity_frame(
         dataset["entity_frame"],
-        dataset["feature_frame"],
         selected_features=selected_features,
     )
     incomplete_points = _select_incomplete_points(rows)

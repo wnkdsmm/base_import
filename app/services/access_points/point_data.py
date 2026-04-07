@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -27,6 +28,18 @@ def _normalize_identity_token(value: Any) -> str:
     return _normalize_match_text(_clean_text(value))
 
 
+def _normalize_coordinate(value: Any, lower_bound: float, upper_bound: float) -> float | None:
+    if value is None:
+        return None
+    try:
+        coordinate = float(value)
+    except Exception:
+        return None
+    if not math.isfinite(coordinate) or not (lower_bound <= coordinate <= upper_bound):
+        return None
+    return coordinate
+
+
 def _is_generic_object_name(value: str) -> bool:
     normalized = _normalize_identity_token(value)
     if not normalized or len(normalized) < 4:
@@ -50,8 +63,8 @@ def _resolve_point_identity(record: Dict[str, Any]) -> Dict[str, Any]:
     settlement = _clean_text(record.get("settlement"))
     territory_label = _clean_text(record.get("territory_label"))
     district = _clean_text(record.get("district"))
-    latitude = record.get("latitude")
-    longitude = record.get("longitude")
+    latitude = _normalize_coordinate(record.get("latitude"), -90.0, 90.0)
+    longitude = _normalize_coordinate(record.get("longitude"), -180.0, 180.0)
 
     normalized_address = _normalize_identity_token(address)
     normalized_comment = _normalize_identity_token(address_comment)
@@ -59,22 +72,24 @@ def _resolve_point_identity(record: Dict[str, Any]) -> Dict[str, Any]:
     normalized_settlement = _normalize_identity_token(settlement)
     normalized_territory = _normalize_identity_token(territory_label)
     normalized_district = _normalize_identity_token(district)
+    meaningful_object = bool(object_name and not _is_generic_object_name(object_name))
+    normalized_address_object = normalized_object if meaningful_object else ""
 
     if address:
         label = address
-        if object_name and not _is_generic_object_name(object_name) and normalized_object not in normalized_address:
+        if meaningful_object and normalized_object not in normalized_address:
             label = f"{object_name}, {address}"
         if address_comment and normalized_comment not in normalized_address:
             label = f"{label} ({address_comment})"
         return {
-            "point_id": f"address:{normalized_address}|{normalized_object}",
+            "point_id": f"address:{normalized_address}|{normalized_address_object}",
             "label": label,
             "entity_type": "Объект / адрес",
             "entity_code": "address",
             "granularity_rank": 5,
         }
 
-    if object_name and not _is_generic_object_name(object_name):
+    if meaningful_object:
         return {
             "point_id": f"object:{normalized_object}",
             "label": object_name,
@@ -259,12 +274,11 @@ def _build_point_entity_frames(
             bucket["rural_count"] += 1
             total_rural += 1
 
-        latitude = record.get("latitude")
-        longitude = record.get("longitude")
-        if latitude is not None:
-            bucket["latitude_values"].append(float(latitude))
-        if longitude is not None:
-            bucket["longitude_values"].append(float(longitude))
+        latitude = _normalize_coordinate(record.get("latitude"), -90.0, 90.0)
+        longitude = _normalize_coordinate(record.get("longitude"), -180.0, 180.0)
+        if latitude is not None and longitude is not None:
+            bucket["latitude_values"].append(latitude)
+            bucket["longitude_values"].append(longitude)
 
     priors = {
         "long_arrival": _share(total_long_arrivals, total_response_count),

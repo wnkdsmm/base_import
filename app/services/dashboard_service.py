@@ -5,8 +5,7 @@ from __future__ import annotations
 Prefer direct imports from ``app.dashboard.service`` in new code.
 """
 
-from importlib import import_module
-from typing import Any
+from app.compat import install_lazy_exports
 
 _EXPORTS = {
     "_build_dashboard_error_context": ("app.dashboard.service", "_build_dashboard_error_context"),
@@ -21,16 +20,4 @@ _EXPORTS = {
     "get_dashboard_shell_context": ("app.dashboard.service", "get_dashboard_shell_context"),
 }
 
-__all__ = list(_EXPORTS)
-
-
-def __getattr__(name: str) -> Any:
-    try:
-        module_name, attr_name = _EXPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-    return getattr(import_module(module_name), attr_name)
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+__all__, __getattr__, __dir__ = install_lazy_exports(__name__, globals(), _EXPORTS)

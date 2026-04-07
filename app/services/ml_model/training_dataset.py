@@ -58,20 +58,48 @@ def _build_design_matrix(
     return design.astype(float)
 
 
-def _build_backtest_seed_dataset(frame: pd.DataFrame) -> pd.DataFrame:
+def _build_design_row(
+    feature_row: Dict[str, float],
+    expected_columns: Optional[List[str]] = None,
+    feature_columns: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    selected_columns = feature_columns or FEATURE_COLUMNS
+    if expected_columns is None:
+        return _build_design_matrix(pd.DataFrame([feature_row], columns=selected_columns), feature_columns=selected_columns)
+
+    row_values = {column: 0.0 for column in expected_columns}
+    for column in selected_columns:
+        value = feature_row.get(column, 0.0)
+        if column in ('weekday', 'month'):
+            dummy_column = f'{column}_{int(float(value))}'
+            if dummy_column in row_values:
+                row_values[dummy_column] = 1.0
+            continue
+        if column in row_values:
+            row_values[column] = float(value)
+    return pd.DataFrame([row_values], columns=expected_columns, dtype=float)
+
+
+def _build_backtest_seed_dataset(
+    frame: pd.DataFrame,
+    *,
+    frame_is_prepared: bool = False,
+) -> pd.DataFrame:
     from .training_temperature import _temperature_source_series
 
-    seed_frame = _prepare_reference_frame(frame)
+    seed_frame = frame if frame_is_prepared else _prepare_reference_frame(frame)
     seed_frame['temp_value'] = _temperature_source_series(seed_frame)
     featured = _feature_frame(seed_frame)
-    dataset = featured.dropna(subset=NON_TEMPERATURE_FEATURE_COLUMNS + ['count']).copy().reset_index(drop=True)
-    dataset['event'] = (dataset['count'] > 0).astype(int)
+    valid_rows = featured[NON_TEMPERATURE_FEATURE_COLUMNS + ['count']].notna().all(axis=1)
+    dataset = featured.loc[valid_rows].reset_index(drop=True)
     return dataset
 
 
 def _prepare_training_dataset(
     frame: pd.DataFrame,
     temperature_stats: Optional[Dict[str, Any]] = None,
+    *,
+    frame_is_prepared: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
     from .training_temperature import (
         _apply_temperature_statistics,
@@ -80,10 +108,10 @@ def _prepare_training_dataset(
     )
 
     if temperature_stats is None:
-        temperature_stats = _fit_temperature_statistics(frame)
-    prepared = _apply_temperature_statistics(frame, temperature_stats)
+        temperature_stats = _fit_temperature_statistics(frame, frame_is_prepared=frame_is_prepared)
+    prepared = _apply_temperature_statistics(frame, temperature_stats, frame_is_prepared=frame_is_prepared)
     featured = _feature_frame(prepared)
     feature_columns = _temperature_feature_columns(temperature_stats)
-    dataset = featured.dropna(subset=feature_columns + ['count']).copy().reset_index(drop=True)
-    dataset['event'] = (dataset['count'] > 0).astype(int)
+    valid_rows = featured[feature_columns + ['count']].notna().all(axis=1)
+    dataset = featured.loc[valid_rows].reset_index(drop=True)
     return prepared, dataset, temperature_stats

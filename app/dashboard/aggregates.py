@@ -6,8 +6,7 @@ Prefer direct imports from ``app.dashboard.summary``, ``app.dashboard.distributi
 and ``app.dashboard.impact`` in new code.
 """
 
-from importlib import import_module
-from typing import Any
+from app.compat import install_lazy_exports
 
 _EXPORTS = {
     "_build_area_buckets_chart": ("app.dashboard.impact", "_build_area_buckets_chart"),
@@ -32,16 +31,4 @@ _EXPORTS = {
     "_collect_positive_column_counts": ("app.dashboard.distribution", "_collect_positive_column_counts"),
 }
 
-__all__ = list(_EXPORTS)
-
-
-def __getattr__(name: str) -> Any:
-    try:
-        module_name, attr_name = _EXPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-    return getattr(import_module(module_name), attr_name)
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+__all__, __getattr__, __dir__ = install_lazy_exports(__name__, globals(), _EXPORTS)

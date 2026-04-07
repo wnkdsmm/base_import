@@ -5,8 +5,7 @@ from __future__ import annotations
 Prefer direct imports from ``app.services.forecast_risk`` submodules in new code.
 """
 
-from importlib import import_module
-from typing import Any
+from app.compat import install_lazy_exports
 
 _EXPORTS = {
     "DEFAULT_RISK_WEIGHT_MODE": ("app.services.forecast_risk.profiles", "DEFAULT_RISK_WEIGHT_MODE"),
@@ -17,19 +16,9 @@ _EXPORTS = {
     "empty_historical_validation_payload": ("app.services.forecast_risk.validation", "empty_historical_validation_payload"),
     "get_risk_weight_profile": ("app.services.forecast_risk.profiles", "get_risk_weight_profile"),
     "resolve_component_weights": ("app.services.forecast_risk.profiles", "resolve_component_weights"),
+    # Keep the validation-module import surface for legacy callers even though
+    # the canonical implementation now lives in profile_resolution.
     "resolve_weight_profile_for_records": ("app.services.forecast_risk.validation", "resolve_weight_profile_for_records"),
 }
 
-__all__ = list(_EXPORTS)
-
-
-def __getattr__(name: str) -> Any:
-    try:
-        module_name, attr_name = _EXPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-    return getattr(import_module(module_name), attr_name)
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+__all__, __getattr__, __dir__ = install_lazy_exports(__name__, globals(), _EXPORTS)

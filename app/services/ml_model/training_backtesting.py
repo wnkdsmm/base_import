@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -9,13 +10,12 @@ from sklearn.metrics import log_loss, roc_auc_score
 
 from app.perf import current_perf_trace
 from app.services.forecasting.data import _build_forecast_rows as _build_scenario_forecast_rows
-from app.services.model_quality import compute_classification_metrics, compute_count_metrics, relative_delta
+from app.services.model_quality import compute_classification_metrics, compute_count_metrics
 
 from .constants import (
     CLASSIFICATION_THRESHOLD,
     COUNT_MODEL_KEYS,
     COUNT_MODEL_LABELS,
-    COUNT_MODEL_SELECTION_TOLERANCE,
     COUNT_SELECTION_RULE,
     EVENT_BASELINE_METHOD_LABEL,
     EVENT_BASELINE_ROLE_LABEL,
@@ -28,23 +28,46 @@ from .constants import (
     EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS,
     EVENT_RATE_SATURATION_MARGIN,
     EVENT_SELECTION_RULE,
-    EXPLAINABLE_COUNT_MODEL_KEY,
     MAX_BACKTEST_POINTS,
     MIN_BACKTEST_POINTS,
     MIN_FEATURE_ROWS,
     MIN_POSITIVE_PREDICTION,
     ROLLING_MIN_TRAIN_ROWS,
 )
+from .domain_types import (
+    BacktestEvaluationRow,
+    BacktestFailure,
+    BacktestOverview,
+    BacktestRunResult,
+    BacktestSuccess,
+    BacktestWindowRow,
+    CountMetrics,
+    EventComparisonRow,
+    EventMetrics,
+    HorizonSummary,
+    PredictionIntervalCalibrationByHorizon,
+)
 from .runtime import MlProgressCallback, _emit_progress
-from .training_dataset import _build_design_matrix, _prepare_reference_frame, _prepare_training_dataset
-from .training_forecast import _bound_probability, _count_interval, _evaluate_prediction_interval_backtest, _format_ratio_percent
+from .training_selection import (
+    _available_count_model_labels,
+    _build_count_comparison_rows,
+    _build_count_selection_details,
+    _select_count_method,
+)
+from .training_dataset import _build_design_matrix, _feature_frame, _prepare_reference_frame
+from .training_forecast import (
+    _bound_probability,
+    _count_interval,
+    _evaluate_prediction_interval_backtest,
+    _format_ratio_percent,
+    _interval_coverage,
+    _simulate_recursive_forecast_path,
+)
 from .training_models import (
     _fit_count_model_from_design,
     _fit_event_model_from_design,
-    _predict_count_from_design,
-    _predict_event_probability_from_design,
 )
-from .training_temperature import _fit_temperature_statistics, _temperature_feature_columns
+from .training_temperature import _apply_temperature_statistics, _fit_temperature_statistics, _temperature_feature_columns
 
 
 def _baseline_expected_count(train: pd.DataFrame, target_date: pd.Timestamp) -> float:
@@ -65,6 +88,12 @@ def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) 
     else:
         probability = recent_rate
     return _bound_probability(probability)
+
+
+def _optional_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    return float(value)
 
 
 def _scenario_reference_forecast(
@@ -101,144 +130,523 @@ def _scenario_reference_forecast(
     return max(0.0, float(row.get('forecast_value', 0.0))), _bound_probability(probability if probability is not None else 0.0)
 
 
+def _lead_time_label(horizon_days: int) -> str:
+    return '1 day' if int(horizon_days) == 1 else f'{int(horizon_days)} days'
+
+
+def _lead_time_validation_horizons(max_horizon_days: int) -> List[int]:
+    return list(range(1, max(1, int(max_horizon_days)) + 1))
+
+
+def _enforce_monotonic_horizon_interval_calibrations(
+    interval_calibration_by_horizon: Dict[int, Dict[str, Any]],
+) -> Dict[int, Dict[str, Any]]:
+    monotonic_calibrations: Dict[int, Dict[str, Any]] = {}
+    running_floor = 0.0
+    for horizon_day in sorted(interval_calibration_by_horizon):
+        calibration = dict(interval_calibration_by_horizon[horizon_day])
+        original_floor = float(calibration.get('absolute_error_quantile', 0.0) or 0.0)
+        horizon_floor = max(running_floor, original_floor)
+        running_floor = horizon_floor
+
+        adaptive_bins: List[Dict[str, Any]] = []
+        for bin_row in calibration.get('adaptive_bins') or []:
+            normalized_bin = dict(bin_row)
+            normalized_bin['absolute_error_quantile'] = max(
+                horizon_floor,
+                float(normalized_bin.get('absolute_error_quantile', 0.0) or 0.0),
+            )
+            adaptive_bins.append(normalized_bin)
+
+        calibration['absolute_error_quantile'] = horizon_floor
+        calibration['adaptive_bins'] = adaptive_bins
+        calibration['minimum_absolute_error_quantile'] = horizon_floor
+        calibration['monotone_horizon_adjusted'] = not math.isclose(
+            original_floor,
+            horizon_floor,
+            rel_tol=1e-9,
+            abs_tol=1e-9,
+        )
+        monotonic_calibrations[horizon_day] = calibration
+    return monotonic_calibrations
+
+
+def _selected_count_predictions(
+    rows: List[BacktestWindowRow],
+    selected_count_model_key: str,
+) -> np.ndarray:
+    return np.asarray(
+        [float(_selected_count_prediction(row, selected_count_model_key)) for row in rows],
+        dtype=float,
+    )
+
+
+def _prediction_interval_evaluation_slice(calibration: Dict[str, Any], total_rows: int) -> Optional[slice]:
+    if not bool(calibration.get('coverage_validated')):
+        return None
+
+    calibration_windows = max(0, int(calibration.get('calibration_window_count') or 0))
+    evaluation_windows = max(0, int(calibration.get('evaluation_window_count') or 0))
+    if evaluation_windows <= 0:
+        return None
+
+    start = min(calibration_windows, total_rows)
+    end = min(total_rows, start + evaluation_windows)
+    if end <= start:
+        return None
+    return slice(start, end)
+
+
+def _remeasure_deployed_interval_calibration(
+    rows_for_horizon: List[BacktestWindowRow],
+    *,
+    selected_count_model_key: str,
+    calibration: Dict[str, Any],
+) -> Dict[str, Any]:
+    updated_calibration = dict(calibration)
+    evaluation_slice = _prediction_interval_evaluation_slice(updated_calibration, len(rows_for_horizon))
+    if evaluation_slice is None:
+        return updated_calibration
+
+    actuals = np.asarray([row.actual_count for row in rows_for_horizon[evaluation_slice]], dtype=float)
+    predictions = _selected_count_predictions(rows_for_horizon, selected_count_model_key)[evaluation_slice]
+    deployed_coverage = _interval_coverage(actuals, predictions, updated_calibration)
+    reference_coverage = updated_calibration.get('validated_coverage')
+
+    updated_calibration['validated_coverage_reference'] = reference_coverage
+    updated_calibration['validated_coverage_reference_display'] = _format_ratio_percent(reference_coverage)
+    updated_calibration['validated_coverage'] = deployed_coverage
+    updated_calibration['validated_coverage_scope'] = (
+        'deployed_interval_remeasured_after_monotonic_horizon_widening'
+        if updated_calibration.get('monotone_horizon_adjusted')
+        else 'deployed_interval_remeasured'
+    )
+
+    note = str(updated_calibration.get('coverage_note') or '').strip()
+    if 'deployed interval is remeasured on the same later evaluation windows' not in note:
+        remeasured_note = (
+            'Coverage shown for the deployed interval is remeasured on the same later evaluation windows'
+        )
+        if updated_calibration.get('monotone_horizon_adjusted'):
+            remeasured_note = f'{remeasured_note} after monotonic horizon widening.'
+        else:
+            remeasured_note = f'{remeasured_note}.'
+        note = f'{note} {remeasured_note}'.strip() if note else remeasured_note
+    updated_calibration['coverage_note'] = note
+    return updated_calibration
+
+
+def _sync_horizon_summary_with_calibration(
+    summary: HorizonSummary,
+    calibration: Dict[str, Any],
+) -> HorizonSummary:
+    return summary.clone(
+        prediction_interval_coverage=calibration.get('validated_coverage'),
+        prediction_interval_coverage_display=_format_ratio_percent(calibration.get('validated_coverage')),
+        prediction_interval_coverage_validated=bool(calibration.get('coverage_validated', False)),
+        prediction_interval_coverage_note=calibration.get('coverage_note'),
+        prediction_interval_validation_scheme_key=calibration.get('validation_scheme_key'),
+        prediction_interval_validation_scheme_label=calibration.get('validation_scheme_label'),
+        prediction_interval_method_label=calibration.get('method_label'),
+    )
+
+
+def _reconcile_horizon_interval_metadata(
+    interval_calibration_by_horizon: Dict[int, Dict[str, Any]],
+    horizon_rows: Dict[int, List[BacktestWindowRow]],
+    horizon_summaries: Dict[str, HorizonSummary],
+    *,
+    selected_count_model_key: str,
+) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, HorizonSummary]]:
+    updated_calibrations: Dict[int, Dict[str, Any]] = {}
+    updated_summaries: Dict[str, HorizonSummary] = {}
+    for horizon_day, calibration in interval_calibration_by_horizon.items():
+        updated_calibration = _remeasure_deployed_interval_calibration(
+            horizon_rows.get(horizon_day, []),
+            selected_count_model_key=selected_count_model_key,
+            calibration=calibration,
+        )
+        updated_calibrations[horizon_day] = updated_calibration
+        updated_summaries[str(horizon_day)] = _sync_horizon_summary_with_calibration(
+            horizon_summaries[str(horizon_day)],
+            updated_calibration,
+        )
+    return updated_calibrations, updated_summaries
+
+
+def _not_ready_backtest(message: str) -> BacktestFailure:
+    return BacktestFailure(message=message)
+
+
+@dataclass
+class _BacktestWindow:
+    origin_date: pd.Timestamp
+    prepared_train: pd.DataFrame
+    future_rows: pd.DataFrame
+    feature_columns: List[str]
+    model_train_design: pd.DataFrame
+    count_targets: np.ndarray
+    event_targets: np.ndarray
+    temperature_stats: Dict[str, Any]
+
+
+@dataclass
+class _WindowCandidateFits:
+    event_bundle: Optional[Dict[str, Any]]
+    forecast_paths: Dict[str, Optional[List[Dict[str, Any]]]]
+
+
+@dataclass
+class _CandidateCoverage:
+    covered_window_count: int
+    window_count: int
+    window_coverage: float
+
+
+@dataclass
+class _ScoredCandidates:
+    baseline_metrics: CountMetrics
+    heuristic_metrics: CountMetrics
+    count_metrics: Dict[str, CountMetrics]
+    coverage_by_model: Dict[str, _CandidateCoverage]
+
+
+def _build_window(
+    *,
+    history_frame: pd.DataFrame,
+    history_dates: np.ndarray,
+    origin_date: pd.Timestamp,
+    max_horizon_days: int,
+    min_train_rows: int,
+) -> Optional[_BacktestWindow]:
+    origin_cutoff = int(np.searchsorted(history_dates, origin_date.to_datetime64(), side='right'))
+    reference_train = history_frame.iloc[:origin_cutoff]
+    future_rows = history_frame.iloc[origin_cutoff : origin_cutoff + max_horizon_days]
+    if reference_train.empty or len(future_rows) < max_horizon_days:
+        return None
+
+    window_temperature_stats = _fit_temperature_statistics(reference_train, frame_is_prepared=True)
+    prepared_train = _apply_temperature_statistics(
+        reference_train,
+        window_temperature_stats,
+        frame_is_prepared=True,
+    )
+    window_feature_columns = _temperature_feature_columns(window_temperature_stats)
+    featured_train = _feature_frame(prepared_train)
+    valid_train_rows = featured_train[window_feature_columns + ['count']].notna().all(axis=1)
+    model_train = featured_train.loc[valid_train_rows]
+    if len(model_train) < min_train_rows:
+        return None
+
+    return _BacktestWindow(
+        origin_date=origin_date,
+        prepared_train=prepared_train,
+        future_rows=future_rows,
+        feature_columns=window_feature_columns,
+        model_train_design=_build_design_matrix(model_train, feature_columns=window_feature_columns),
+        count_targets=model_train['count'].to_numpy(dtype=float),
+        event_targets=model_train['event'].to_numpy(dtype=int),
+        temperature_stats=window_temperature_stats,
+    )
+
+
+def _simulate_candidate_paths(
+    *,
+    window: _BacktestWindow,
+    count_model_bundles: Dict[str, Optional[Dict[str, Any]]],
+    event_bundle: Optional[Dict[str, Any]],
+    forecast_days: int,
+) -> Dict[str, Optional[List[Dict[str, Any]]]]:
+    forecast_paths: Dict[str, Optional[List[Dict[str, Any]]]] = {}
+    candidate_specs: List[Tuple[str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]] = [
+        ('seasonal_baseline', None, None),
+        ('heuristic_forecast', None, None),
+    ]
+    candidate_specs.extend(
+        (model_key, count_model_bundles.get(model_key), event_bundle)
+        for model_key in COUNT_MODEL_KEYS
+    )
+
+    for model_key, count_model, event_model in candidate_specs:
+        if model_key in COUNT_MODEL_KEYS and count_model is None:
+            forecast_paths[model_key] = None
+            continue
+        forecast_paths[model_key] = _simulate_recursive_forecast_path(
+            frame=window.prepared_train,
+            selected_count_model_key=model_key,
+            count_model=count_model,
+            event_model=event_model,
+            forecast_days=forecast_days,
+            scenario_temperature=None,
+            baseline_expected_count=_baseline_expected_count,
+            temperature_stats=window.temperature_stats,
+            baseline_event_probability=_baseline_event_probability,
+        )
+    return forecast_paths
+
+
+def _fit_candidates(
+    window: _BacktestWindow,
+    *,
+    forecast_days: int,
+) -> _WindowCandidateFits:
+    count_model_bundles = {
+        model_key: _fit_count_model_from_design(model_key, window.model_train_design, window.count_targets)
+        for model_key in COUNT_MODEL_KEYS
+    }
+    event_bundle = _fit_event_model_from_design(window.model_train_design, window.event_targets)
+    return _WindowCandidateFits(
+        event_bundle=event_bundle,
+        forecast_paths=_simulate_candidate_paths(
+            window=window,
+            count_model_bundles=count_model_bundles,
+            event_bundle=event_bundle,
+            forecast_days=forecast_days,
+        ),
+    )
+
+
+def _build_window_rows(
+    *,
+    window: _BacktestWindow,
+    candidate_fits: _WindowCandidateFits,
+    horizon_days: List[int],
+) -> List[BacktestWindowRow]:
+    baseline_path = candidate_fits.forecast_paths['seasonal_baseline'] or []
+    heuristic_path = candidate_fits.forecast_paths['heuristic_forecast'] or []
+    rows: List[BacktestWindowRow] = []
+    for horizon_day in horizon_days:
+        step_index = horizon_day - 1
+        actual_row = window.future_rows.iloc[step_index]
+        baseline_step = baseline_path[step_index]
+        heuristic_step = heuristic_path[step_index]
+        rows.append(
+            BacktestWindowRow(
+                origin_date=window.origin_date.date().isoformat(),
+                date=pd.Timestamp(actual_row['date']).date().isoformat(),
+                horizon_days=horizon_day,
+                actual_count=float(actual_row['count']),
+                baseline_count=float(baseline_step['forecast_value']),
+                heuristic_count=float(heuristic_step['forecast_value']),
+                actual_event=int(actual_row['event']),
+                baseline_event_probability=baseline_step['event_probability'],
+                heuristic_event_probability=heuristic_step['event_probability'],
+                predictions={
+                    model_key: (
+                        None
+                        if candidate_fits.forecast_paths.get(model_key) is None
+                        else float(candidate_fits.forecast_paths[model_key][step_index]['forecast_value'])
+                    )
+                    for model_key in COUNT_MODEL_KEYS
+                },
+                predicted_event_probabilities={
+                    model_key: (
+                        None
+                        if candidate_fits.forecast_paths.get(model_key) is None
+                        else candidate_fits.forecast_paths[model_key][step_index]['event_probability']
+                    )
+                    for model_key in COUNT_MODEL_KEYS
+                },
+            )
+        )
+    return rows
+
+
+def _candidate_window_coverage(rows: List[BacktestWindowRow], model_key: str) -> _CandidateCoverage:
+    window_count = len(rows)
+    covered_window_count = sum(1 for row in rows if row.predictions.get(model_key) is not None)
+    window_coverage = float(covered_window_count / window_count) if window_count else 0.0
+    return _CandidateCoverage(
+        covered_window_count=covered_window_count,
+        window_count=window_count,
+        window_coverage=window_coverage,
+    )
+
+
+def _score_candidates(rows: List[BacktestWindowRow]) -> _ScoredCandidates:
+    actuals = np.asarray([row.actual_count for row in rows], dtype=float)
+    baseline_predictions = np.asarray([row.baseline_count for row in rows], dtype=float)
+    heuristic_predictions = np.asarray([row.heuristic_count for row in rows], dtype=float)
+    baseline_metrics = CountMetrics.coerce(compute_count_metrics(actuals, baseline_predictions))
+    heuristic_metrics = CountMetrics.coerce(
+        compute_count_metrics(actuals, heuristic_predictions, baseline_metrics)
+    )
+
+    count_metrics: Dict[str, CountMetrics] = {}
+    coverage_by_model = {
+        model_key: _candidate_window_coverage(rows, model_key)
+        for model_key in COUNT_MODEL_KEYS
+    }
+    for model_key, coverage in coverage_by_model.items():
+        if coverage.covered_window_count != coverage.window_count:
+            continue
+        predictions = np.asarray([float(row.predictions[model_key]) for row in rows], dtype=float)
+        count_metrics[model_key] = CountMetrics.coerce(
+            compute_count_metrics(actuals, predictions, baseline_metrics)
+        )
+
+    return _ScoredCandidates(
+        baseline_metrics=baseline_metrics,
+        heuristic_metrics=heuristic_metrics,
+        count_metrics=count_metrics,
+        coverage_by_model=coverage_by_model,
+    )
+
+
+def _select_working_method(
+    scored_candidates: _ScoredCandidates,
+) -> Tuple[str, CountMetrics, Dict[str, Any]]:
+    return _select_count_method(
+        scored_candidates.baseline_metrics,
+        scored_candidates.heuristic_metrics,
+        scored_candidates.count_metrics,
+    )
+
+
+def _evaluate_horizon_rows(
+    rows_for_horizon: List[BacktestWindowRow],
+    *,
+    selected_count_model_key: str,
+    horizon_day: int,
+) -> Tuple[HorizonSummary, Dict[str, Any]]:
+    actuals_h = np.asarray([row.actual_count for row in rows_for_horizon], dtype=float)
+    baseline_predictions_h = np.asarray([row.baseline_count for row in rows_for_horizon], dtype=float)
+    heuristic_predictions_h = np.asarray([row.heuristic_count for row in rows_for_horizon], dtype=float)
+    baseline_metrics_h = CountMetrics.coerce(compute_count_metrics(actuals_h, baseline_predictions_h))
+    heuristic_metrics_h = CountMetrics.coerce(
+        compute_count_metrics(actuals_h, heuristic_predictions_h, baseline_metrics_h)
+    )
+    selected_predictions_h = _selected_count_predictions(rows_for_horizon, selected_count_model_key)
+    selected_metrics_h = CountMetrics.coerce(
+        compute_count_metrics(actuals_h, selected_predictions_h, baseline_metrics_h)
+    )
+    prediction_interval_backtest_h = _evaluate_prediction_interval_backtest(
+        actuals_h,
+        selected_predictions_h,
+        [row.date for row in rows_for_horizon],
+        horizon_days=horizon_day,
+    )
+    return (
+        HorizonSummary(
+            horizon_days=horizon_day,
+            horizon_label=_lead_time_label(horizon_day),
+            folds=len(rows_for_horizon),
+            count_metrics=selected_metrics_h,
+            baseline_count_mae=baseline_metrics_h.mae,
+            heuristic_count_mae=heuristic_metrics_h.mae,
+            prediction_interval_coverage=prediction_interval_backtest_h['coverage'],
+            prediction_interval_coverage_display=_format_ratio_percent(prediction_interval_backtest_h['coverage']),
+            prediction_interval_coverage_validated=prediction_interval_backtest_h['coverage_validated'],
+            prediction_interval_coverage_note=prediction_interval_backtest_h['coverage_note'],
+            prediction_interval_validation_scheme_key=prediction_interval_backtest_h.get('validation_scheme_key'),
+            prediction_interval_validation_scheme_label=prediction_interval_backtest_h.get('validation_scheme_label'),
+            prediction_interval_method_label=prediction_interval_backtest_h['calibration'].get('method_label'),
+        ),
+        prediction_interval_backtest_h['calibration'],
+    )
+
 def _run_backtest(
     history_frame: pd.DataFrame,
     dataset: pd.DataFrame,
     progress_callback: MlProgressCallback = None,
-) -> Dict[str, Any]:
+    validation_horizon_days: int = 1,
+    max_horizon_days: Optional[int] = None,
+    history_frame_is_prepared: bool = False,
+) -> BacktestRunResult:
     perf = current_perf_trace()
-    history_frame = _prepare_reference_frame(history_frame)
+    history_frame = history_frame if history_frame_is_prepared else _prepare_reference_frame(history_frame)
     dataset = dataset.sort_values('date').reset_index(drop=True)
     history_dates = history_frame['date'].to_numpy(dtype='datetime64[ns]')
+    validation_horizon_days = max(1, int(validation_horizon_days or 1))
+    max_horizon_days = max(validation_horizon_days, int(max_horizon_days or validation_horizon_days))
+    horizon_days = _lead_time_validation_horizons(max_horizon_days)
+
     min_train_rows = min(max(ROLLING_MIN_TRAIN_ROWS, MIN_FEATURE_ROWS), len(dataset) - MIN_BACKTEST_POINTS)
-    available_backtest_points = len(dataset) - min_train_rows
+    if len(history_frame) <= max_horizon_days or min_train_rows <= 0:
+        return _not_ready_backtest(
+            f'Lead-time-aware rolling-origin backtesting is unavailable for the {_lead_time_label(validation_horizon_days)} '
+            'lead because the history is too short after lagged features are built.'
+        )
+
+    latest_origin_date = pd.Timestamp(history_frame['date'].iloc[-(max_horizon_days + 1)])
+    eligible_origin_dates = dataset.loc[dataset['date'] <= latest_origin_date, 'date'].iloc[min_train_rows - 1 :].reset_index(drop=True)
+    available_backtest_points = len(eligible_origin_dates)
+
     if perf is not None:
         perf.update(
             history_rows=len(history_frame),
             dataset_rows=len(dataset),
             min_train_rows=min_train_rows,
             available_backtest_points=available_backtest_points,
+            validation_horizon_days=validation_horizon_days,
+            max_horizon_days=max_horizon_days,
         )
-    if available_backtest_points < MIN_BACKTEST_POINTS:
-        return {
-            'is_ready': False,
-            'message': (
-                f'Для rolling-origin backtesting нужно хотя бы {MIN_BACKTEST_POINTS} одношаговых проверок, '
-                f'а сейчас после лагов доступно только {available_backtest_points}.'
-            ),
-        }
 
-    start_index = max(min_train_rows, len(dataset) - min(MAX_BACKTEST_POINTS, available_backtest_points))
-    total_windows = len(dataset) - start_index
+    if available_backtest_points <= 0:
+        return _not_ready_backtest(
+            f'Lead-time-aware rolling-origin backtesting for the {_lead_time_label(validation_horizon_days)} lead '
+            'has no comparable origins after lagged features are built.'
+        )
+
+    selected_origin_dates = eligible_origin_dates.iloc[-min(MAX_BACKTEST_POINTS, available_backtest_points) :].tolist()
+    total_windows = len(selected_origin_dates)
     if perf is not None:
         perf.update(total_windows=total_windows)
     _emit_progress(
         progress_callback,
         'ml_backtest.running',
-        f"Backtesting запущен: {total_windows} rolling-origin окон для проверки на истории.",
+        (
+            f'Backtesting started: {total_windows} rolling origins with lead-time-aware evaluation '
+            f'for horizons 1-{max_horizon_days} days.'
+        ),
     )
-    rows: List[Dict[str, Any]] = []
 
-    for index in range(start_index, len(dataset)):
-        test_date = pd.Timestamp(dataset['date'].iloc[index])
-        train_cutoff = int(np.searchsorted(history_dates, test_date.to_datetime64(), side='left'))
-        window_cutoff = int(np.searchsorted(history_dates, test_date.to_datetime64(), side='right'))
-        reference_train = _prepare_reference_frame(history_frame.iloc[:train_cutoff])
-        if reference_train.empty:
+    horizon_rows: Dict[int, List[BacktestWindowRow]] = {horizon_day: [] for horizon_day in horizon_days}
+    comparable_windows = 0
+
+    for completed_windows, origin_date_value in enumerate(selected_origin_dates, start=1):
+        origin_date = pd.Timestamp(origin_date_value)
+        window = _build_window(
+            history_frame=history_frame,
+            history_dates=history_dates,
+            origin_date=origin_date,
+            max_horizon_days=max_horizon_days,
+            min_train_rows=min_train_rows,
+        )
+        if window is None:
             continue
 
-        _, window_dataset, window_temperature_stats = _prepare_training_dataset(
-            history_frame.iloc[:window_cutoff],
-            temperature_stats=_fit_temperature_statistics(reference_train),
-        )
-        model_train = window_dataset.loc[window_dataset['date'] < test_date].copy()
-        test = window_dataset.loc[window_dataset['date'] == test_date].tail(1).copy()
-        if model_train.empty or test.empty:
-            continue
+        candidate_fits = _fit_candidates(window, forecast_days=max_horizon_days)
 
-        window_feature_columns = _temperature_feature_columns(window_temperature_stats)
-        model_train_design = _build_design_matrix(model_train, feature_columns=window_feature_columns)
-        test_design = _build_design_matrix(test, model_train_design.columns, feature_columns=window_feature_columns)
-        actual_count = float(test['count'].iloc[0])
-        actual_event = int(test['event'].iloc[0])
-        baseline_count = _baseline_expected_count(reference_train, test_date)
-        baseline_event_probability = _baseline_event_probability(reference_train, test_date)
-        heuristic_count, heuristic_event_probability = _scenario_reference_forecast(
-            reference_train,
-            test,
-            temperature_stats=window_temperature_stats,
-        )
+        comparable_windows += 1
+        for row in _build_window_rows(
+            window=window,
+            candidate_fits=candidate_fits,
+            horizon_days=horizon_days,
+        ):
+            horizon_rows[row.horizon_days].append(row)
 
-        model_predictions: Dict[str, Optional[float]] = {key: None for key in COUNT_MODEL_KEYS}
-        y_train_count = model_train['count'].to_numpy(dtype=float)
-        for model_key in COUNT_MODEL_KEYS:
-            model_bundle = _fit_count_model_from_design(model_key, model_train_design, y_train_count)
-            if model_bundle is None:
-                continue
-            prediction = float(_predict_count_from_design(model_bundle, test_design)[0])
-            model_predictions[model_key] = prediction
-
-        event_prediction = None
-        y_train_event = model_train['event'].to_numpy(dtype=int)
-        event_bundle = _fit_event_model_from_design(model_train_design, y_train_event)
-        if event_bundle is not None:
-            event_prediction = float(_predict_event_probability_from_design(event_bundle, test_design)[0])
-
-        rows.append(
-            {
-                'date': test_date.date().isoformat(),
-                'actual_count': actual_count,
-                'baseline_count': baseline_count,
-                'heuristic_count': heuristic_count,
-                'actual_event': actual_event,
-                'baseline_event_probability': baseline_event_probability,
-                'heuristic_event_probability': heuristic_event_probability,
-                'predictions': model_predictions,
-                'predicted_event_probability': event_prediction,
-            }
-        )
-        completed_windows = index - start_index + 1
         if completed_windows == 1 or completed_windows == total_windows or completed_windows % 5 == 0:
             _emit_progress(
                 progress_callback,
                 'ml_backtest.running',
-                f"Backtesting: обработано {completed_windows} из {total_windows} окон.",
+                f'Backtesting: processed {completed_windows} of {total_windows} rolling origins.',
             )
 
-    valid_rows = [row for row in rows if any(row['predictions'].get(model_key) is not None for model_key in COUNT_MODEL_KEYS)]
+    valid_rows = horizon_rows.get(validation_horizon_days, [])
     if perf is not None:
-        perf.update(valid_windows=len(valid_rows))
-    if len(valid_rows) < MIN_BACKTEST_POINTS:
-        return {
-            'is_ready': False,
-            'message': 'Не удалось собрать достаточное количество валидных окон для проверки на истории.',
-        }
+        perf.update(valid_windows=len(valid_rows), comparable_windows=comparable_windows)
+    if not valid_rows:
+        return _not_ready_backtest(
+            f'Lead-time-aware validation collected no comparable origins for the '
+            f'{_lead_time_label(validation_horizon_days)} lead.'
+        )
 
-    actuals = np.asarray([row['actual_count'] for row in valid_rows], dtype=float)
-    baseline_predictions = np.asarray([row['baseline_count'] for row in valid_rows], dtype=float)
-    heuristic_predictions = np.asarray([row['heuristic_count'] for row in valid_rows], dtype=float)
-    baseline_metrics = compute_count_metrics(actuals, baseline_predictions)
-    heuristic_metrics = compute_count_metrics(actuals, heuristic_predictions, baseline_metrics)
-
-    count_metrics: Dict[str, Dict[str, Optional[float]]] = {}
-    for model_key in COUNT_MODEL_KEYS:
-        model_predictions = [row['predictions'].get(model_key) for row in valid_rows]
-        if any(prediction is None for prediction in model_predictions):
-            continue
-        predictions = np.asarray([float(prediction) for prediction in model_predictions], dtype=float)
-        count_metrics[model_key] = compute_count_metrics(actuals, predictions, baseline_metrics)
-
-    if not count_metrics:
-        return {
-            'is_ready': False,
-            'message': 'Не удалось обучить ни одной интерпретируемой модели по числу пожаров для проверки на истории.',
-        }
-
-    selected_count_model_key, selected_metrics, selection_context = _select_count_method(
-        baseline_metrics,
-        heuristic_metrics,
-        count_metrics,
-    )
+    scored_candidates = _score_candidates(valid_rows)
+    baseline_metrics = scored_candidates.baseline_metrics
+    heuristic_metrics = scored_candidates.heuristic_metrics
+    count_metrics = scored_candidates.count_metrics
+    selected_count_model_key, selected_metrics, selection_context = _select_working_method(scored_candidates)
     overdispersion_ratio = _estimate_overdispersion_ratio(dataset['count'].to_numpy(dtype=float))
     selection_details = _build_count_selection_details(
         selected_count_model_key=selected_count_model_key,
@@ -250,103 +658,161 @@ def _run_backtest(
         raw_best_key=selection_context.get('raw_best_key'),
         tie_break_reason=selection_context.get('tie_break_reason'),
     )
-    selected_predictions = np.asarray(
-        [_selected_count_prediction(row, selected_count_model_key) for row in valid_rows],
-        dtype=float,
-    )
-    prediction_interval_backtest = _evaluate_prediction_interval_backtest(
-        actuals,
-        selected_predictions,
-        [row['date'] for row in valid_rows],
-    )
-    prediction_interval_calibration = prediction_interval_backtest['calibration']
-    prediction_interval_coverage = prediction_interval_backtest['coverage']
 
-    backtest_rows = []
+    interval_calibration_by_horizon: Dict[int, Dict[str, Any]] = {}
+    horizon_summaries: Dict[str, HorizonSummary] = {}
+    for horizon_day in horizon_days:
+        rows_for_horizon = horizon_rows[horizon_day]
+        horizon_summary, interval_calibration = _evaluate_horizon_rows(
+            rows_for_horizon,
+            selected_count_model_key=selected_count_model_key,
+            horizon_day=horizon_day,
+        )
+        interval_calibration_by_horizon[horizon_day] = interval_calibration
+        horizon_summaries[str(horizon_day)] = horizon_summary
+
+    interval_calibration_by_horizon = _enforce_monotonic_horizon_interval_calibrations(interval_calibration_by_horizon)
+    interval_calibration_by_horizon, horizon_summaries = _reconcile_horizon_interval_metadata(
+        interval_calibration_by_horizon,
+        horizon_rows,
+        horizon_summaries,
+        selected_count_model_key=selected_count_model_key,
+    )
+    prediction_interval_calibration = interval_calibration_by_horizon[validation_horizon_days]
+    validation_summary = horizon_summaries[str(validation_horizon_days)]
+    prediction_interval_coverage = validation_summary.prediction_interval_coverage
+
+    backtest_rows: List[BacktestEvaluationRow] = []
     for row in valid_rows:
         predicted_count = float(_selected_count_prediction(row, selected_count_model_key))
         lower_bound, upper_bound = _count_interval(predicted_count, prediction_interval_calibration)
         backtest_rows.append(
-            {
-                'date': row['date'],
-                'actual_count': row['actual_count'],
-                'predicted_count': predicted_count,
-                'lower_bound': lower_bound,
-                'upper_bound': upper_bound,
-                'baseline_count': row['baseline_count'],
-                'heuristic_count': row['heuristic_count'],
-                'actual_event': row['actual_event'],
-                'predicted_event_probability': row['predicted_event_probability'],
-                'baseline_event_probability': row['baseline_event_probability'],
-                'heuristic_event_probability': row['heuristic_event_probability'],
-            }
+            BacktestEvaluationRow(
+                origin_date=row.origin_date,
+                horizon_days=validation_horizon_days,
+                date=row.date,
+                actual_count=row.actual_count,
+                predicted_count=predicted_count,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                baseline_count=row.baseline_count,
+                heuristic_count=row.heuristic_count,
+                actual_event=row.actual_event,
+                predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key),
+                baseline_event_probability=row.baseline_event_probability,
+                heuristic_event_probability=row.heuristic_event_probability,
+            )
         )
 
     event_metrics = _compute_event_metrics(backtest_rows)
     _emit_progress(
         progress_callback,
         'ml_backtest.completed',
-        f"Backtesting завершён: {len(backtest_rows)} валидных окон, метрики качества готовы.",
+        (
+            f'Backtesting completed: {len(backtest_rows)} comparable origins, '
+            f'lead-time-aware summary on the {_lead_time_label(validation_horizon_days)} lead.'
+        ),
     )
 
     if perf is not None:
         perf.update(
-            completed_windows=len(rows),
+            completed_windows=total_windows,
             valid_windows=len(valid_rows),
             candidate_models=len(count_metrics),
             payload_rows=len(backtest_rows),
         )
 
-    return {
-        'is_ready': True,
-        'message': '',
-        'rows': backtest_rows,
-        'window_rows': valid_rows,
-        'baseline_metrics': baseline_metrics,
-        'heuristic_metrics': heuristic_metrics,
-        'count_metrics': count_metrics,
-        'count_comparison_rows': _build_count_comparison_rows(
+    window_rows: List[BacktestWindowRow] = []
+    for row in valid_rows:
+        window_rows.append(
+            row.clone(predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key))
+        )
+
+    overview = BacktestOverview(
+        folds=len(backtest_rows),
+        min_train_rows=min_train_rows,
+        validation_horizon_days=validation_horizon_days,
+        validation_horizon_label=_lead_time_label(validation_horizon_days),
+        forecast_horizon_days=max_horizon_days,
+        forecast_horizon_label=_lead_time_label(max_horizon_days),
+        validated_horizon_days=horizon_days,
+        selection_rule=COUNT_SELECTION_RULE,
+        event_selection_rule=EVENT_SELECTION_RULE,
+        classification_threshold=CLASSIFICATION_THRESHOLD,
+        event_backtest_event_rate=event_metrics.event_rate,
+        event_probability_informative=event_metrics.event_probability_informative,
+        event_probability_note=event_metrics.event_probability_note,
+        event_probability_reason_code=event_metrics.event_probability_reason_code,
+        candidate_model_labels=_available_count_model_labels(count_metrics),
+        candidate_window_count=len(valid_rows),
+        candidate_covered_window_count_by_model={
+            model_key: scored_candidates.coverage_by_model[model_key].covered_window_count
+            for model_key in COUNT_MODEL_KEYS
+        },
+        candidate_window_coverage_by_model={
+            model_key: scored_candidates.coverage_by_model[model_key].window_coverage
+            for model_key in COUNT_MODEL_KEYS
+        },
+        dispersion_ratio=overdispersion_ratio,
+        prediction_interval_level=prediction_interval_calibration['level'],
+        prediction_interval_level_display=prediction_interval_calibration['level_display'],
+        prediction_interval_coverage=prediction_interval_coverage,
+        prediction_interval_coverage_display=_format_ratio_percent(prediction_interval_coverage),
+        prediction_interval_method_label=prediction_interval_calibration['method_label'],
+        prediction_interval_coverage_validated=validation_summary.prediction_interval_coverage_validated,
+        prediction_interval_coverage_note=validation_summary.prediction_interval_coverage_note,
+        prediction_interval_calibration_windows=prediction_interval_calibration['calibration_window_count'],
+        prediction_interval_evaluation_windows=prediction_interval_calibration['evaluation_window_count'],
+        prediction_interval_validation_scheme_key=prediction_interval_calibration.get('validation_scheme_key'),
+        prediction_interval_validation_scheme_label=prediction_interval_calibration.get('validation_scheme_label'),
+        prediction_interval_validation_explanation=prediction_interval_calibration.get('validation_scheme_explanation'),
+        prediction_interval_calibration_range_label=prediction_interval_calibration['calibration_window_range_label'],
+        prediction_interval_evaluation_range_label=prediction_interval_calibration['evaluation_window_range_label'],
+        prediction_interval_validated_horizon_days=[
+            horizon_day
+            for horizon_day in horizon_days
+            if horizon_summaries[str(horizon_day)].prediction_interval_coverage_validated
+        ],
+        prediction_interval_coverage_by_horizon={
+            str(horizon_day): horizon_summaries[str(horizon_day)].prediction_interval_coverage
+            for horizon_day in horizon_days
+        },
+        prediction_interval_coverage_display_by_horizon={
+            str(horizon_day): horizon_summaries[str(horizon_day)].prediction_interval_coverage_display
+            for horizon_day in horizon_days
+        },
+        rolling_scheme_label=(
+            'Rolling-origin backtesting (expanding window, lead-time-aware): '
+            f'{len(backtest_rows)} origins, horizons 1-{max_horizon_days} days, '
+            f'summary on the {_lead_time_label(validation_horizon_days)} lead'
+        ),
+    )
+
+    return BacktestSuccess(
+        message='',
+        rows=backtest_rows,
+        window_rows=window_rows,
+        baseline_metrics=baseline_metrics,
+        heuristic_metrics=heuristic_metrics,
+        count_metrics=count_metrics,
+        count_comparison_rows=_build_count_comparison_rows(
             baseline_metrics=baseline_metrics,
             heuristic_metrics=heuristic_metrics,
             count_metrics=count_metrics,
             selected_count_model_key=selected_count_model_key,
         ),
-        'selected_count_model_key': selected_count_model_key,
-        'selected_count_model_reason': selection_details['long'],
-        'selected_count_model_reason_short': selection_details['short'],
-        'selected_metrics': selected_metrics,
-        'prediction_interval_calibration': prediction_interval_calibration,
-        'event_metrics': event_metrics,
-        'backtest_overview': {
-            'folds': len(backtest_rows),
-            'min_train_rows': min_train_rows,
-            'validation_horizon_days': 1,
-            'selection_rule': COUNT_SELECTION_RULE,
-            'event_selection_rule': EVENT_SELECTION_RULE,
-            'classification_threshold': CLASSIFICATION_THRESHOLD,
-            'event_backtest_event_rate': event_metrics.get('event_rate'),
-            'event_probability_informative': event_metrics.get('event_probability_informative', False),
-            'event_probability_note': event_metrics.get('event_probability_note'),
-            'event_probability_reason_code': event_metrics.get('event_probability_reason_code'),
-            'candidate_model_labels': _available_count_model_labels(count_metrics),
-            'dispersion_ratio': overdispersion_ratio,
-            'prediction_interval_level': prediction_interval_calibration['level'],
-            'prediction_interval_level_display': prediction_interval_calibration['level_display'],
-            'prediction_interval_coverage': prediction_interval_coverage,
-            'prediction_interval_coverage_display': _format_ratio_percent(prediction_interval_coverage),
-            'prediction_interval_method_label': prediction_interval_calibration['method_label'],
-            'prediction_interval_coverage_validated': prediction_interval_backtest['coverage_validated'],
-            'prediction_interval_coverage_note': prediction_interval_backtest['coverage_note'],
-            'prediction_interval_calibration_windows': prediction_interval_backtest['calibration_window_count'],
-            'prediction_interval_evaluation_windows': prediction_interval_backtest['evaluation_window_count'],
-            'prediction_interval_validation_scheme_key': prediction_interval_backtest.get('validation_scheme_key'),
-            'prediction_interval_validation_scheme_label': prediction_interval_backtest.get('validation_scheme_label'),
-            'prediction_interval_validation_explanation': prediction_interval_backtest.get('validation_scheme_explanation'),
-            'prediction_interval_calibration_range_label': prediction_interval_backtest['calibration_window_range_label'],
-            'prediction_interval_evaluation_range_label': prediction_interval_backtest['evaluation_window_range_label'],
-            'rolling_scheme_label': f'Rolling-origin backtesting (expanding window): {len(backtest_rows)} одношаговых окон',
-        },
-    }
+        selected_count_model_key=selected_count_model_key,
+        selected_count_model_reason=selection_details['long'],
+        selected_count_model_reason_short=selection_details['short'],
+        selected_metrics=selected_metrics,
+        prediction_interval_calibration=prediction_interval_calibration,
+        prediction_interval_calibration_by_horizon=PredictionIntervalCalibrationByHorizon(
+            by_horizon=interval_calibration_by_horizon
+        ),
+        event_metrics=event_metrics,
+        horizon_summaries=horizon_summaries,
+        backtest_overview=overview,
+    )
 
 
 def _estimate_overdispersion_ratio(counts: np.ndarray) -> float:
@@ -358,229 +824,10 @@ def _estimate_overdispersion_ratio(counts: np.ndarray) -> float:
     return max(variance / mean_value, 1.0)
 
 
-def _available_count_model_labels(count_metrics: Dict[str, Dict[str, Optional[float]]]) -> List[str]:
-    labels = [
-        COUNT_MODEL_LABELS.get('seasonal_baseline', 'Сезонная базовая модель'),
-        COUNT_MODEL_LABELS.get('heuristic_forecast', 'Сценарный эвристический прогноз'),
-    ]
-    labels.extend(COUNT_MODEL_LABELS.get(model_key, model_key) for model_key in COUNT_MODEL_KEYS if model_key in count_metrics)
-    return labels
-
-
-def _all_count_metrics(
-    baseline_metrics: Dict[str, Optional[float]],
-    heuristic_metrics: Dict[str, Optional[float]],
-    count_metrics: Dict[str, Dict[str, Optional[float]]],
-) -> Dict[str, Dict[str, Optional[float]]]:
-    metrics: Dict[str, Dict[str, Optional[float]]] = {
-        'seasonal_baseline': baseline_metrics,
-        'heuristic_forecast': heuristic_metrics,
-    }
-    metrics.update({model_key: values for model_key, values in count_metrics.items() if values})
-    return metrics
-
-
-def _metrics_within_selection_tolerance(
-    candidate_metrics: Dict[str, Optional[float]],
-    reference_metrics: Dict[str, Optional[float]],
-) -> bool:
-    return _within_relative_margin(
-        candidate_metrics.get('poisson_deviance'),
-        reference_metrics.get('poisson_deviance'),
-        COUNT_MODEL_SELECTION_TOLERANCE,
-    ) and _within_relative_margin(
-        candidate_metrics.get('mae'),
-        reference_metrics.get('mae'),
-        COUNT_MODEL_SELECTION_TOLERANCE,
-    ) and _within_relative_margin(
-        candidate_metrics.get('rmse'),
-        reference_metrics.get('rmse'),
-        COUNT_MODEL_SELECTION_TOLERANCE,
-    )
-
-
-def _select_count_method(
-    baseline_metrics: Dict[str, Optional[float]],
-    heuristic_metrics: Dict[str, Optional[float]],
-    count_metrics: Dict[str, Dict[str, Optional[float]]],
-) -> Tuple[str, Dict[str, Optional[float]], Dict[str, Any]]:
-    all_metrics = _all_count_metrics(baseline_metrics, heuristic_metrics, count_metrics)
-    ranking = sorted(all_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
-    raw_best_key, raw_best_metrics = ranking[0]
-
-    selected_key = raw_best_key
-    tie_break_reason = None
-    if raw_best_key in COUNT_MODEL_KEYS and _metrics_within_selection_tolerance(heuristic_metrics, raw_best_metrics):
-        selected_key = 'heuristic_forecast'
-        tie_break_reason = 'heuristic_over_ml'
-    elif raw_best_key in COUNT_MODEL_KEYS:
-        selected_ml_key, _ = _select_count_model(count_metrics)
-        if selected_ml_key != raw_best_key:
-            selected_key = selected_ml_key
-            tie_break_reason = 'poisson_over_ml'
-
-    runner_up_key = raw_best_key if raw_best_key != selected_key else None
-    if runner_up_key is None:
-        runner_up_key = next((candidate_key for candidate_key, _ in ranking if candidate_key != selected_key), None)
-
-    return selected_key, all_metrics[selected_key], {
-        'raw_best_key': raw_best_key,
-        'raw_best_metrics': raw_best_metrics,
-        'runner_up_key': runner_up_key,
-        'tie_break_reason': tie_break_reason,
-        'all_metrics': all_metrics,
-    }
-
-
-def _build_count_selection_details(
+def _selected_count_prediction(
+    row: Dict[str, Any] | BacktestWindowRow,
     selected_count_model_key: str,
-    selected_metrics: Dict[str, Optional[float]],
-    count_metrics: Dict[str, Dict[str, Optional[float]]],
-    baseline_metrics: Dict[str, Optional[float]],
-    heuristic_metrics: Dict[str, Optional[float]],
-    overdispersion_ratio: float,
-    raw_best_key: Optional[str] = None,
-    tie_break_reason: Optional[str] = None,
-) -> Dict[str, str]:
-    all_metrics = _all_count_metrics(baseline_metrics, heuristic_metrics, count_metrics)
-    ranking = sorted(all_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
-    raw_best_key = raw_best_key or ranking[0][0]
-    runner_up_key = raw_best_key if raw_best_key != selected_count_model_key else None
-    if runner_up_key is None:
-        runner_up_key = next((candidate_key for candidate_key, _ in ranking if candidate_key != selected_count_model_key), None)
-
-    selected_label = COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)
-    runner_up_label = COUNT_MODEL_LABELS.get(runner_up_key, runner_up_key) if runner_up_key else None
-    baseline_delta = selected_metrics.get('mae_delta_vs_baseline')
-
-    if selected_count_model_key == 'seasonal_baseline':
-        short_reason = 'Выбран seasonal baseline: на rolling-origin окнах это был лучший рабочий метод среди всех кандидатов.'
-        long_reason = (
-            'Seasonal baseline стал рабочим count-методом по результатам rolling-origin backtesting, '
-            'потому что по правилу отбора обошёл heuristic forecast и обучаемые count-model.'
-        )
-    elif selected_count_model_key == 'heuristic_forecast' and tie_break_reason == 'heuristic_over_ml' and raw_best_key in COUNT_MODEL_KEYS:
-        short_reason = (
-            'Выбран heuristic forecast: он почти не хуже лучшей count-model, '
-            'а explainability tie-break сохраняет более объяснимый метод.'
-        )
-        long_reason = (
-            f'Лучшей обучаемой count-model по метрикам была {COUNT_MODEL_LABELS.get(raw_best_key, raw_best_key)}, '
-            f'но heuristic forecast уступил менее чем на {int(COUNT_MODEL_SELECTION_TOLERANCE * 100)}% '
-            'по Poisson deviance, MAE и RMSE. По explainability tie-break рабочим методом оставлен '
-            'heuristic forecast.'
-        )
-    elif selected_count_model_key == 'heuristic_forecast':
-        short_reason = 'Выбран heuristic forecast: на rolling-origin окнах это был лучший рабочий метод среди всех кандидатов.'
-        long_reason = (
-            'Heuristic forecast стал рабочим count-методом по результатам rolling-origin backtesting, '
-            'потому что обошёл seasonal baseline и обучаемые count-model по правилу отбора.'
-        )
-    elif selected_count_model_key == EXPLAINABLE_COUNT_MODEL_KEY and raw_best_key != selected_count_model_key:
-        short_reason = 'Выбрана регрессия Пуассона: качество близко к лучшей count-model, а интерпретация проще.'
-        long_reason = (
-            'Регрессия Пуассона оставлена рабочим count-методом, потому что на rolling-origin backtesting '
-            f'её Poisson deviance, MAE и RMSE отличаются от лидера {COUNT_MODEL_LABELS.get(raw_best_key, raw_best_key)} '
-            f'менее чем на {int(COUNT_MODEL_SELECTION_TOLERANCE * 100)}%, но эта модель проще для интерпретации.'
-        )
-    elif selected_count_model_key in {'negative_binomial', 'tweedie'} and overdispersion_ratio > 1.15:
-        short_reason = f'Выбрана {selected_label}: ряд пере-дисперсный, и эта модель лучше удерживает deviance.'
-        long_reason = (
-            f'{selected_label} выбрана как рабочий count-метод, потому что ряд показывает пере-дисперсию '
-            f'(отношение variance/mean = {overdispersion_ratio:.2f}), а на rolling-origin backtesting именно '
-            'эта модель дала наименьшую Poisson deviance при сохранении интерпретируемой GLM-структуры.'
-        )
-    else:
-        short_reason = f'Выбрана {selected_label}: лучший баланс deviance, MAE и RMSE на rolling-origin.'
-        long_reason = (
-            f'{selected_label} выбрана по результатам rolling-origin backtesting, потому что показала лучший '
-            'результат по Poisson deviance, MAE и RMSE среди всех count-кандидатов.'
-        )
-
-    if runner_up_label:
-        long_reason += f' Ближайший альтернативный кандидат: {runner_up_label}.'
-    if baseline_delta is not None:
-        long_reason += f' Изменение MAE относительно seasonal baseline составило {baseline_delta * 100.0:+.1f}%.'
-    heuristic_improvement = relative_delta(selected_metrics.get('mae'), heuristic_metrics.get('mae'))
-    if heuristic_improvement is not None and selected_count_model_key != 'heuristic_forecast':
-        long_reason += f' Изменение MAE относительно heuristic forecast составило {heuristic_improvement * 100.0:+.1f}%.'
-
-    return {
-        'short': short_reason,
-        'long': long_reason,
-    }
-
-
-def _select_count_model(count_metrics: Dict[str, Dict[str, Optional[float]]]) -> Tuple[str, Dict[str, Optional[float]]]:
-    ranking = sorted(count_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
-    best_key, best_metrics = ranking[0]
-    for candidate_key in COUNT_MODEL_KEYS:
-        candidate_metrics = count_metrics.get(candidate_key)
-        if not candidate_metrics or candidate_key == best_key:
-            continue
-        if _within_relative_margin(candidate_metrics.get('poisson_deviance'), best_metrics.get('poisson_deviance'), COUNT_MODEL_SELECTION_TOLERANCE) and _within_relative_margin(
-            candidate_metrics.get('mae'), best_metrics.get('mae'), COUNT_MODEL_SELECTION_TOLERANCE
-        ) and _within_relative_margin(candidate_metrics.get('rmse'), best_metrics.get('rmse'), COUNT_MODEL_SELECTION_TOLERANCE):
-            return candidate_key, candidate_metrics
-    return best_key, best_metrics
-
-
-def _metric_sort_key(metrics: Dict[str, Optional[float]]) -> Tuple[float, float, float, float]:
-    return (
-        metrics.get('poisson_deviance') if metrics.get('poisson_deviance') is not None else float('inf'),
-        metrics.get('mae') if metrics.get('mae') is not None else float('inf'),
-        metrics.get('rmse') if metrics.get('rmse') is not None else float('inf'),
-        metrics.get('smape') if metrics.get('smape') is not None else float('inf'),
-    )
-
-
-def _within_relative_margin(candidate: Optional[float], reference: Optional[float], tolerance: float) -> bool:
-    if candidate is None or reference is None:
-        return False
-    if reference <= MIN_POSITIVE_PREDICTION:
-        return candidate <= reference + tolerance
-    return candidate <= reference * (1.0 + tolerance)
-
-
-def _build_count_comparison_rows(
-    baseline_metrics: Dict[str, Optional[float]],
-    heuristic_metrics: Dict[str, Optional[float]],
-    count_metrics: Dict[str, Dict[str, Optional[float]]],
-    selected_count_model_key: str,
-) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = [
-        {
-            'method_key': 'seasonal_baseline',
-            'method_label': COUNT_MODEL_LABELS.get('seasonal_baseline', 'Сезонная базовая модель'),
-            'role_label': 'Базовая модель',
-            'is_selected': selected_count_model_key == 'seasonal_baseline',
-            **baseline_metrics,
-        },
-        {
-            'method_key': 'heuristic_forecast',
-            'method_label': COUNT_MODEL_LABELS.get('heuristic_forecast', 'Сценарный эвристический прогноз'),
-            'role_label': 'Сценарный прогноз',
-            'is_selected': selected_count_model_key == 'heuristic_forecast',
-            **heuristic_metrics,
-        },
-    ]
-    for model_key in COUNT_MODEL_KEYS:
-        metrics = count_metrics.get(model_key)
-        if not metrics:
-            continue
-        rows.append(
-            {
-                'method_key': model_key,
-                'method_label': COUNT_MODEL_LABELS.get(model_key, model_key),
-                'role_label': 'Интерпретируемая count-модель',
-                'is_selected': model_key == selected_count_model_key,
-                **metrics,
-            }
-        )
-    return rows
-
-
-def _selected_count_prediction(row: Dict[str, Any], selected_count_model_key: str) -> Optional[float]:
+) -> Optional[float]:
     if selected_count_model_key == 'seasonal_baseline':
         return row.get('baseline_count')
     if selected_count_model_key == 'heuristic_forecast':
@@ -651,37 +898,25 @@ def _empty_event_metrics(
     event_rate: Optional[float],
     evaluation_has_both_classes: bool,
     reason_code: Optional[str],
-) -> Dict[str, Optional[float]]:
-    return {
-        'available': False,
-        'logistic_available': False,
-        'selected_model_key': None,
-        'selected_model_label': None,
-        'brier_score': None,
-        'baseline_brier_score': None,
-        'heuristic_brier_score': None,
-        'roc_auc': None,
-        'baseline_roc_auc': None,
-        'heuristic_roc_auc': None,
-        'f1': None,
-        'baseline_f1': None,
-        'heuristic_f1': None,
-        'log_loss': None,
-        'baseline_log_loss': None,
-        'heuristic_log_loss': None,
-        'comparison_rows': [],
-        'rows_used': rows_used,
-        'selection_rule': EVENT_SELECTION_RULE,
-        'event_rate': event_rate,
-        'evaluation_has_both_classes': evaluation_has_both_classes,
-        'event_probability_informative': False,
-        'event_probability_note': _event_probability_note(
+) -> EventMetrics:
+    return EventMetrics(
+        available=False,
+        logistic_available=False,
+        selected_model_key=None,
+        selected_model_label=None,
+        comparison_rows=[],
+        rows_used=rows_used,
+        selection_rule=EVENT_SELECTION_RULE,
+        event_rate=event_rate,
+        evaluation_has_both_classes=evaluation_has_both_classes,
+        event_probability_informative=False,
+        event_probability_note=_event_probability_note(
             reason_code,
             rows_used=rows_used,
             event_rate=event_rate,
         ),
-        'event_probability_reason_code': reason_code,
-    }
+        event_probability_reason_code=reason_code,
+    )
 
 
 def _normalized_event_model_label(selected_model_key: Optional[str], fallback_label: Optional[str]) -> Optional[str]:
@@ -694,25 +929,33 @@ def _normalized_event_model_label(selected_model_key: Optional[str], fallback_la
     return fallback_label
 
 
-def _normalize_event_comparison_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    normalized_rows: List[Dict[str, Any]] = []
+def _normalize_event_comparison_rows(
+    rows: List[Dict[str, Any] | EventComparisonRow],
+) -> List[EventComparisonRow]:
+    normalized_rows: List[EventComparisonRow] = []
     for row in rows:
-        normalized_row = dict(row)
-        method_key = str(normalized_row.get('method_key') or '')
+        normalized_row = EventComparisonRow.coerce(row)
+        method_key = str(normalized_row.method_key or '')
         if method_key == 'event_baseline':
-            normalized_row['method_label'] = EVENT_BASELINE_METHOD_LABEL
-            normalized_row['role_label'] = EVENT_BASELINE_ROLE_LABEL
+            normalized_row = normalized_row.clone(
+                method_label=EVENT_BASELINE_METHOD_LABEL,
+                role_label=EVENT_BASELINE_ROLE_LABEL,
+            )
         elif method_key == 'heuristic_probability':
-            normalized_row['method_label'] = EVENT_HEURISTIC_METHOD_LABEL
-            normalized_row['role_label'] = EVENT_HEURISTIC_ROLE_LABEL
+            normalized_row = normalized_row.clone(
+                method_label=EVENT_HEURISTIC_METHOD_LABEL,
+                role_label=EVENT_HEURISTIC_ROLE_LABEL,
+            )
         elif method_key == 'logistic_regression':
-            normalized_row['method_label'] = EVENT_MODEL_LABEL
-            normalized_row['role_label'] = EVENT_CLASSIFIER_ROLE_LABEL
+            normalized_row = normalized_row.clone(
+                method_label=EVENT_MODEL_LABEL,
+                role_label=EVENT_CLASSIFIER_ROLE_LABEL,
+            )
         normalized_rows.append(normalized_row)
     return normalized_rows
 
 
-def _compute_event_metrics(rows: List[Dict[str, Any]]) -> Dict[str, Optional[float]]:
+def _compute_event_metrics(rows: List[Dict[str, Any] | BacktestEvaluationRow]) -> EventMetrics:
     common_rows = [
         row
         for row in rows
@@ -766,26 +1009,26 @@ def _compute_event_metrics(rows: List[Dict[str, Any]]) -> Dict[str, Optional[flo
     heuristic_log_loss = _safe_log_loss(actuals, heuristic_probabilities)
 
     comparison_rows = [
-        {
-            'method_key': 'event_baseline',
-            'method_label': EVENT_BASELINE_METHOD_LABEL,
-            'role_label': EVENT_BASELINE_ROLE_LABEL,
-            'brier_score': heuristic_metrics.get('baseline_brier_score'),
-            'roc_auc': baseline_roc_auc,
-            'f1': heuristic_metrics.get('baseline_f1'),
-            'log_loss': baseline_log_loss,
-            'is_selected': False,
-        },
-        {
-            'method_key': 'heuristic_probability',
-            'method_label': EVENT_HEURISTIC_METHOD_LABEL,
-            'role_label': EVENT_HEURISTIC_ROLE_LABEL,
-            'brier_score': heuristic_metrics.get('brier_score'),
-            'roc_auc': heuristic_roc_auc,
-            'f1': heuristic_metrics.get('f1'),
-            'log_loss': heuristic_log_loss,
-            'is_selected': True,
-        },
+        EventComparisonRow(
+            method_key='event_baseline',
+            method_label=EVENT_BASELINE_METHOD_LABEL,
+            role_label=EVENT_BASELINE_ROLE_LABEL,
+            brier_score=_optional_float(heuristic_metrics.get('baseline_brier_score')),
+            roc_auc=baseline_roc_auc,
+            f1=_optional_float(heuristic_metrics.get('baseline_f1')),
+            log_loss=baseline_log_loss,
+            is_selected=False,
+        ),
+        EventComparisonRow(
+            method_key='heuristic_probability',
+            method_label=EVENT_HEURISTIC_METHOD_LABEL,
+            role_label=EVENT_HEURISTIC_ROLE_LABEL,
+            brier_score=_optional_float(heuristic_metrics.get('brier_score')),
+            roc_auc=heuristic_roc_auc,
+            f1=_optional_float(heuristic_metrics.get('f1')),
+            log_loss=heuristic_log_loss,
+            is_selected=True,
+        ),
     ]
 
     selected_model_key = 'heuristic_probability'
@@ -820,51 +1063,51 @@ def _compute_event_metrics(rows: List[Dict[str, Any]]) -> Dict[str, Optional[flo
             )
         )
         comparison_rows.append(
-            {
-                'method_key': 'logistic_regression',
-                'method_label': EVENT_MODEL_LABEL,
-                'role_label': EVENT_CLASSIFIER_ROLE_LABEL,
-                'brier_score': classifier_metrics.get('brier_score'),
-                'roc_auc': classifier_roc_auc,
-                'f1': classifier_metrics.get('f1'),
-                'log_loss': classifier_log_loss,
-                'is_selected': classifier_selected,
-            }
+            EventComparisonRow(
+                method_key='logistic_regression',
+                method_label=EVENT_MODEL_LABEL,
+                role_label=EVENT_CLASSIFIER_ROLE_LABEL,
+                brier_score=_optional_float(classifier_metrics.get('brier_score')),
+                roc_auc=classifier_roc_auc,
+                f1=_optional_float(classifier_metrics.get('f1')),
+                log_loss=classifier_log_loss,
+                is_selected=classifier_selected,
+            )
         )
         if classifier_selected:
-            comparison_rows[1]['is_selected'] = False
+            comparison_rows[1] = comparison_rows[1].clone(is_selected=False)
             selected_model_key = 'logistic_regression'
             selected_model_label = EVENT_MODEL_LABEL
             selected_metrics = classifier_metrics
             selected_roc_auc = classifier_roc_auc
             selected_log_loss = classifier_log_loss
 
-    return {
-        'available': True,
-        'logistic_available': logistic_available,
-        'selected_model_key': selected_model_key,
-        'selected_model_label': _normalized_event_model_label(selected_model_key, selected_model_label),
-        'brier_score': selected_metrics.get('brier_score'),
-        'baseline_brier_score': heuristic_metrics.get('baseline_brier_score'),
-        'heuristic_brier_score': heuristic_metrics.get('brier_score'),
-        'roc_auc': selected_roc_auc,
-        'baseline_roc_auc': baseline_roc_auc,
-        'heuristic_roc_auc': heuristic_roc_auc,
-        'f1': selected_metrics.get('f1'),
-        'baseline_f1': heuristic_metrics.get('baseline_f1'),
-        'heuristic_f1': heuristic_metrics.get('f1'),
-        'log_loss': selected_log_loss,
-        'baseline_log_loss': baseline_log_loss,
-        'heuristic_log_loss': heuristic_log_loss,
-        'comparison_rows': _normalize_event_comparison_rows(comparison_rows),
-        'rows_used': len(evaluation_rows),
-        'selection_rule': EVENT_SELECTION_RULE,
-        'event_rate': event_rate,
-        'evaluation_has_both_classes': evaluation_has_both_classes,
-        'event_probability_informative': event_probability_informative,
-        'event_probability_note': event_probability_note,
-        'event_probability_reason_code': event_probability_reason_code,
-    }
+    return EventMetrics(
+        available=True,
+        logistic_available=logistic_available,
+        selected_model_key=selected_model_key,
+        selected_model_label=_normalized_event_model_label(selected_model_key, selected_model_label),
+        brier_score=_optional_float(selected_metrics.get('brier_score')),
+        baseline_brier_score=_optional_float(heuristic_metrics.get('baseline_brier_score')),
+        heuristic_brier_score=_optional_float(heuristic_metrics.get('brier_score')),
+        roc_auc=selected_roc_auc,
+        baseline_roc_auc=baseline_roc_auc,
+        heuristic_roc_auc=heuristic_roc_auc,
+        f1=_optional_float(selected_metrics.get('f1')),
+        baseline_f1=_optional_float(heuristic_metrics.get('baseline_f1')),
+        heuristic_f1=_optional_float(heuristic_metrics.get('f1')),
+        log_loss=selected_log_loss,
+        baseline_log_loss=baseline_log_loss,
+        heuristic_log_loss=heuristic_log_loss,
+        comparison_rows=_normalize_event_comparison_rows(comparison_rows),
+        rows_used=len(evaluation_rows),
+        selection_rule=EVENT_SELECTION_RULE,
+        event_rate=event_rate,
+        evaluation_has_both_classes=evaluation_has_both_classes,
+        event_probability_informative=event_probability_informative,
+        event_probability_note=event_probability_note,
+        event_probability_reason_code=event_probability_reason_code,
+    )
 
 
 def _event_metric_sort_key(

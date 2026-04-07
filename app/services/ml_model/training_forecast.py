@@ -11,7 +11,6 @@ from app.services.forecasting.data import _build_forecast_rows as _build_scenari
 from app.services.forecasting.utils import _format_number, _format_percent
 
 from .constants import (
-    FEATURE_COLUMNS,
     MIN_INTERVAL_BIN_RESIDUALS,
     MIN_INTERVAL_CALIBRATION_WINDOWS,
     MIN_INTERVAL_EVALUATION_WINDOWS,
@@ -24,8 +23,12 @@ from .constants import (
     PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL,
     PREDICTION_INTERVAL_TARGET_BINS,
 )
-from .training_dataset import _prepare_reference_frame
-from .training_models import _predict_count_model, _predict_event_probability
+from .training_dataset import _build_design_row, _prepare_reference_frame
+from .training_models import (
+    _count_prediction_upper_cap_from_support,
+    _predict_count_from_design,
+    _predict_event_probability_from_design,
+)
 
 
 def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = True) -> List[Dict[str, Any]]:
@@ -39,6 +42,32 @@ def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = 
     ]
 
 
+def _predict_heuristic_future_step(
+    history_records: List[Dict[str, Any]],
+    target_date: date,
+    temp_value: float,
+    temperature_usable: bool,
+    baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
+    reference_train_factory: Optional[Callable[[], pd.DataFrame]] = None,
+) -> Tuple[float, Optional[float]]:
+    forecast_rows = _build_scenario_forecast_rows(history_records, 1, temp_value if temperature_usable else None)
+    if forecast_rows:
+        row = forecast_rows[0]
+        probability = row.get('fire_probability')
+        return (
+            max(0.0, float(row.get('forecast_value', 0.0))),
+            _bound_probability(probability if probability is not None else 0.0),
+        )
+
+    reference_train = (
+        reference_train_factory()
+        if reference_train_factory is not None
+        else _prepare_reference_frame(pd.DataFrame(history_records))
+    )
+    fallback_count = float(baseline_expected_count(reference_train, pd.Timestamp(target_date)))
+    return fallback_count, _bound_probability(1.0 - math.exp(-max(0.0, fallback_count)))
+
+
 def _predict_future_count(
     selected_count_model_key: str,
     history_records: List[Dict[str, Any]],
@@ -48,24 +77,200 @@ def _predict_future_count(
     count_model: Optional[Dict[str, Any]],
     temperature_usable: bool,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
+    feature_design_row: Optional[pd.DataFrame] = None,
+    reference_train_factory: Optional[Callable[[], pd.DataFrame]] = None,
 ) -> float:
     if selected_count_model_key == 'seasonal_baseline':
-        reference_train = _prepare_reference_frame(pd.DataFrame(history_records))
+        reference_train = (
+            reference_train_factory()
+            if reference_train_factory is not None
+            else _prepare_reference_frame(pd.DataFrame(history_records))
+        )
         return float(baseline_expected_count(reference_train, pd.Timestamp(target_date)))
 
     if selected_count_model_key == 'heuristic_forecast':
-        forecast_rows = _build_scenario_forecast_rows(history_records, 1, temp_value if temperature_usable else None)
-        if forecast_rows:
-            return max(0.0, float(forecast_rows[0].get('forecast_value', 0.0)))
-        reference_train = _prepare_reference_frame(pd.DataFrame(history_records))
-        return float(baseline_expected_count(reference_train, pd.Timestamp(target_date)))
+        prediction, _ = _predict_heuristic_future_step(
+            history_records=history_records,
+            target_date=target_date,
+            temp_value=temp_value,
+            temperature_usable=temperature_usable,
+            baseline_expected_count=baseline_expected_count,
+            reference_train_factory=reference_train_factory,
+        )
+        return prediction
 
     if count_model is None:
         return 0.0
 
-    feature_row = _future_feature_row(history_counts, target_date, temp_value)
-    feature_frame = pd.DataFrame([feature_row], columns=FEATURE_COLUMNS)
-    return float(_predict_count_model(count_model, feature_frame)[0])
+    if feature_design_row is None:
+        feature_row = _future_feature_row(history_counts, target_date, temp_value)
+        feature_design_row = _build_design_row(feature_row, expected_columns=count_model['columns'])
+    return float(_predict_count_from_design(count_model, feature_design_row)[0])
+
+
+def _sanitize_recursive_count_prediction(prediction: float, history_counts: List[float]) -> float:
+    finite_history = np.asarray([float(value) for value in history_counts if np.isfinite(value)], dtype=float)
+    recent_support = float(np.max(finite_history[-28:])) if finite_history.size else 0.0
+    upper_cap = float(_count_prediction_upper_cap_from_support(recent_support))
+    bounded_prediction = min(max(0.0, float(prediction)), upper_cap)
+    if not np.isfinite(bounded_prediction):
+        return max(0.0, min(upper_cap, recent_support))
+    return bounded_prediction
+
+
+def _simulate_recursive_forecast_path(
+    frame: pd.DataFrame,
+    selected_count_model_key: str,
+    count_model: Optional[Dict[str, Any]],
+    event_model: Optional[Dict[str, Any]],
+    forecast_days: int,
+    scenario_temperature: Optional[float],
+    baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
+    temperature_stats: Optional[Dict[str, Any]] = None,
+    baseline_event_probability: Optional[Callable[[pd.DataFrame, pd.Timestamp], Optional[float]]] = None,
+) -> List[Dict[str, Any]]:
+    temperature_usable = bool((temperature_stats or {}).get('usable', True))
+    monthly_temp = frame.groupby(frame['date'].dt.month)['temp_value'].mean().to_dict() if temperature_usable else {}
+    overall_temp = float(frame['temp_value'].mean()) if temperature_usable and not frame.empty else 0.0
+    history_counts = list(frame['count'].astype(float))
+    history_records = _history_records_from_frame(frame, temperature_usable=temperature_usable)
+    last_date = frame['date'].dt.date.iloc[-1]
+
+    forecast_path: List[Dict[str, Any]] = []
+    for step in range(1, forecast_days + 1):
+        target_date = last_date + timedelta(days=step)
+        historical_temp_value = (
+            float(monthly_temp.get(target_date.month, overall_temp))
+            if temperature_usable and (monthly_temp or not frame.empty)
+            else None
+        )
+        temp_value = scenario_temperature if temperature_usable and scenario_temperature is not None else historical_temp_value
+        model_temp_value = float(temp_value) if temp_value is not None else 0.0
+        feature_row = _future_feature_row(history_counts, target_date, model_temp_value)
+        design_rows_by_columns: Dict[Tuple[str, ...], pd.DataFrame] = {}
+        reference_train: Optional[pd.DataFrame] = None
+
+        def _design_row_for(columns: Optional[List[str]]) -> pd.DataFrame:
+            key = tuple(columns or [])
+            design_row = design_rows_by_columns.get(key)
+            if design_row is None:
+                design_row = _build_design_row(feature_row, expected_columns=list(columns or []))
+                design_rows_by_columns[key] = design_row
+            return design_row
+
+        def _reference_train() -> pd.DataFrame:
+            nonlocal reference_train
+            if reference_train is None:
+                reference_train = _prepare_reference_frame(pd.DataFrame(history_records))
+            return reference_train
+
+        heuristic_probability = None
+        if selected_count_model_key == 'heuristic_forecast':
+            point_prediction, heuristic_probability = _predict_heuristic_future_step(
+                history_records=history_records,
+                target_date=target_date,
+                temp_value=model_temp_value,
+                temperature_usable=temperature_usable,
+                baseline_expected_count=baseline_expected_count,
+                reference_train_factory=_reference_train,
+            )
+        else:
+            try:
+                point_prediction = _predict_future_count(
+                    selected_count_model_key=selected_count_model_key,
+                    history_records=history_records,
+                    history_counts=history_counts,
+                    target_date=target_date,
+                    temp_value=model_temp_value,
+                    count_model=count_model,
+                    temperature_usable=temperature_usable,
+                    baseline_expected_count=baseline_expected_count,
+                    feature_design_row=(
+                        None
+                        if count_model is None
+                        else _design_row_for(list(count_model.get('columns') or []))
+                    ),
+                    reference_train_factory=_reference_train,
+                )
+            except Exception:
+                point_prediction = float(baseline_expected_count(_reference_train(), pd.Timestamp(target_date)))
+
+        point_prediction = _sanitize_recursive_count_prediction(point_prediction, history_counts)
+
+        event_probability = None
+        if event_model is not None:
+            try:
+                event_probability = float(
+                    _predict_event_probability_from_design(
+                        event_model,
+                        _design_row_for(list(event_model.get('columns') or [])),
+                    )[0]
+                )
+            except Exception:
+                event_probability = None
+        elif selected_count_model_key == 'heuristic_forecast':
+            event_probability = heuristic_probability
+        elif selected_count_model_key == 'seasonal_baseline' and baseline_event_probability is not None:
+            event_probability = baseline_event_probability(_reference_train(), pd.Timestamp(target_date))
+
+        forecast_path.append(
+            {
+                'step': step,
+                'target_date': target_date,
+                'temp_value': temp_value,
+                'forecast_value': max(0.0, float(point_prediction)),
+                'event_probability': _bound_probability(event_probability) if event_probability is not None else None,
+            }
+        )
+        history_counts.append(point_prediction)
+        history_records.append(
+            {
+                'date': pd.Timestamp(target_date),
+                'count': point_prediction,
+                'avg_temperature': temp_value if temperature_usable else None,
+            }
+        )
+
+    return forecast_path
+
+
+def _resolve_interval_calibration(interval_calibration: Dict[str, Any], horizon_days: int) -> Dict[str, Any]:
+    if 'absolute_error_quantile' in interval_calibration:
+        return interval_calibration
+
+    calibration_map = interval_calibration.get('by_horizon') if isinstance(interval_calibration, dict) else None
+    if calibration_map is None and isinstance(interval_calibration, dict):
+        calibration_map = interval_calibration
+    if not calibration_map:
+        raise KeyError(f'Prediction interval calibration for horizon {horizon_days} is unavailable.')
+
+    direct_match = calibration_map.get(horizon_days) or calibration_map.get(str(horizon_days))
+    if direct_match is not None:
+        return direct_match
+
+    available_horizons: List[int] = []
+    for key in calibration_map.keys():
+        try:
+            available_horizons.append(int(key))
+        except (TypeError, ValueError):
+            continue
+    if not available_horizons:
+        raise KeyError(f'Prediction interval calibration for horizon {horizon_days} is unavailable.')
+
+    fallback_horizon = max((candidate for candidate in available_horizons if candidate <= horizon_days), default=max(available_horizons))
+    fallback = calibration_map.get(fallback_horizon) or calibration_map.get(str(fallback_horizon))
+    if fallback is None:
+        raise KeyError(f'Prediction interval calibration for horizon {horizon_days} is unavailable.')
+    return fallback
+
+
+def _forecast_interval_coverage_metadata(calibration: Dict[str, Any]) -> Dict[str, Any]:
+    validated_coverage = calibration.get('validated_coverage')
+    return {
+        'prediction_interval_coverage_validated': bool(calibration.get('coverage_validated', False)),
+        'prediction_interval_coverage': validated_coverage,
+        'prediction_interval_coverage_display': _format_ratio_percent(validated_coverage),
+    }
 
 
 def _build_future_forecast_rows(
@@ -79,50 +284,40 @@ def _build_future_forecast_rows(
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
     temperature_stats: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    temperature_usable = bool((temperature_stats or {}).get('usable', True))
-    monthly_temp = frame.groupby(frame['date'].dt.month)['temp_value'].mean().to_dict() if temperature_usable else {}
-    overall_temp = float(frame['temp_value'].mean()) if temperature_usable and not frame.empty else 0.0
     history_counts = list(frame['count'].astype(float))
-    history_records = _history_records_from_frame(frame, temperature_usable=temperature_usable)
     sorted_history_counts = np.sort(np.asarray(history_counts, dtype=float)) if history_counts else np.asarray([], dtype=float)
-    last_date = frame['date'].dt.date.iloc[-1]
+    forecast_path = _simulate_recursive_forecast_path(
+        frame=frame,
+        selected_count_model_key=selected_count_model_key,
+        count_model=count_model,
+        event_model=event_model,
+        forecast_days=forecast_days,
+        scenario_temperature=scenario_temperature,
+        baseline_expected_count=baseline_expected_count,
+        temperature_stats=temperature_stats,
+    )
+    reference_calibration = _resolve_interval_calibration(interval_calibration, 1)
 
     interval_label = str(
-        interval_calibration.get('level_display')
-        or f'{int(round(float(interval_calibration.get("level", PREDICTION_INTERVAL_LEVEL)) * 100.0))}%'
+        reference_calibration.get('level_display')
+        or f'{int(round(float(reference_calibration.get("level", PREDICTION_INTERVAL_LEVEL)) * 100.0))}%'
     )
     forecast_rows: List[Dict[str, Any]] = []
-    for step in range(1, forecast_days + 1):
-        target_date = last_date + timedelta(days=step)
-        historical_temp_value = (
-            float(monthly_temp.get(target_date.month, overall_temp))
-            if temperature_usable and (monthly_temp or not frame.empty)
-            else None
-        )
-        temp_value = scenario_temperature if temperature_usable and scenario_temperature is not None else historical_temp_value
-        model_temp_value = float(temp_value) if temp_value is not None else 0.0
-        feature_row = _future_feature_row(history_counts, target_date, model_temp_value)
-        feature_frame = pd.DataFrame([feature_row], columns=FEATURE_COLUMNS)
+    for point in forecast_path:
+        step = int(point['step'])
+        target_date = point['target_date']
+        temp_value = point['temp_value']
+        point_prediction = float(point['forecast_value'])
+        event_probability = point['event_probability']
+        row_interval_calibration = _resolve_interval_calibration(interval_calibration, step)
 
-        point_prediction = _predict_future_count(
-            selected_count_model_key=selected_count_model_key,
-            history_records=history_records,
-            history_counts=history_counts,
-            target_date=target_date,
-            temp_value=model_temp_value,
-            count_model=count_model,
-            temperature_usable=temperature_usable,
-            baseline_expected_count=baseline_expected_count,
-        )
-        lower_bound, upper_bound = _count_interval(point_prediction, interval_calibration)
+        lower_bound, upper_bound = _count_interval(point_prediction, row_interval_calibration)
         risk_index = _risk_index(point_prediction, sorted_history_counts)
         risk_level_label, risk_level_tone = _risk_band_from_index(risk_index)
-        event_probability = None
-        if event_model is not None:
-            event_probability = float(_predict_event_probability(event_model, feature_frame)[0])
 
         forecast_rows.append(
             {
+                'horizon_days': step,
                 'date': target_date.isoformat(),
                 'date_display': target_date.strftime('%d.%m.%Y'),
                 'forecast_value': round(point_prediction, 3),
@@ -138,19 +333,11 @@ def _build_future_forecast_rows(
                 'risk_index_display': f"{int(round(risk_index))} / 100",
                 'risk_level_label': risk_level_label,
                 'risk_level_tone': risk_level_tone,
+                **_forecast_interval_coverage_metadata(row_interval_calibration),
                 'event_probability': round(event_probability, 4) if event_probability is not None else None,
                 'event_probability_display': _format_probability(event_probability) if event_probability is not None else '—',
             }
         )
-        history_counts.append(point_prediction)
-        history_records.append(
-            {
-                'date': pd.Timestamp(target_date),
-                'count': point_prediction,
-                'avg_temperature': temp_value if temperature_usable else None,
-            }
-        )
-
     return forecast_rows
 
 
@@ -567,10 +754,18 @@ def _prediction_interval_candidate_sort_key(candidate: Dict[str, Any]) -> Tuple[
     )
 
 
+def _prediction_interval_horizon_prefix(horizon_days: Optional[int]) -> str:
+    if horizon_days is None:
+        return ''
+    day_label = '1-day lead' if int(horizon_days) == 1 else f'{int(horizon_days)}-day lead'
+    return f'For the {day_label}, '
+
+
 def _build_prediction_interval_validation_explanation(
     selected_candidate: Dict[str, Any],
     runner_up_candidate: Optional[Dict[str, Any]],
     reference_candidate: Optional[Dict[str, Any]],
+    horizon_days: Optional[int] = None,
 ) -> str:
     selected_label = selected_candidate.get('scheme_label') or PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL
     runner_up_label = runner_up_candidate.get('scheme_label') if runner_up_candidate else None
@@ -596,6 +791,7 @@ def _build_prediction_interval_validation_explanation(
             reference_text = ' while remaining at least as stable as the previous fixed 60/40 chrono split'
 
     return (
+        f'{_prediction_interval_horizon_prefix(horizon_days)}'
         f'{selected_label} was selected for validated out-of-sample coverage because {comparison_text}{reference_text}. '
         f'{PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL} was not adopted because an honest time-series variant would '
         'require leave-one-block-out refits for every checkpoint.'
@@ -607,6 +803,7 @@ def _evaluate_prediction_interval_backtest(
     predictions: np.ndarray,
     window_dates: List[Any],
     level: float = PREDICTION_INTERVAL_LEVEL,
+    horizon_days: Optional[int] = None,
 ) -> Dict[str, Any]:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)
@@ -625,11 +822,13 @@ def _evaluate_prediction_interval_backtest(
             method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL} (validated out-of-sample coverage unavailable)',
         )
         note = (
+            f'{_prediction_interval_horizon_prefix(horizon_days)}'
             'Validated out-of-sample coverage is unavailable because the backtest has too few rolling-origin windows '
             'for forward-only interval validation.'
         )
         calibration.update(
             coverage_validated=False,
+            validated_coverage=None,
             coverage_note=note,
             calibration_window_count=total_windows,
             evaluation_window_count=0,
@@ -685,6 +884,7 @@ def _evaluate_prediction_interval_backtest(
         selected_candidate,
         runner_up_candidate,
         fixed_candidate,
+        horizon_days=horizon_days,
     )
 
     calibration = _build_prediction_interval_calibration(
@@ -703,6 +903,7 @@ def _evaluate_prediction_interval_backtest(
     )
     calibration.update(
         coverage_validated=True,
+        validated_coverage=selected_candidate['coverage'],
         coverage_note=note,
         calibration_window_count=selected_candidate['calibration_window_count'],
         evaluation_window_count=selected_candidate['evaluation_window_count'],
@@ -733,6 +934,8 @@ def _evaluate_prediction_interval_backtest(
 
 def _prediction_interval_margin(prediction: float, calibration: Dict[str, Any]) -> float:
     center = max(0.0, float(prediction))
+    minimum_floor_raw = calibration.get('minimum_absolute_error_quantile')
+    minimum_floor = None if minimum_floor_raw is None else max(0.0, float(minimum_floor_raw or 0.0))
     adaptive_bins = calibration.get('adaptive_bins') or []
     edge_values = calibration.get('adaptive_bin_edges') or []
     if adaptive_bins:
@@ -740,8 +943,11 @@ def _prediction_interval_margin(prediction: float, calibration: Dict[str, Any]) 
         bin_index = min(max(bin_index, 0), len(adaptive_bins) - 1)
         bin_quantile = adaptive_bins[bin_index].get('absolute_error_quantile')
         if bin_quantile is not None:
-            return max(0.0, float(bin_quantile))
-    return max(0.0, float(calibration.get('absolute_error_quantile', 0.0)))
+            margin = max(0.0, float(bin_quantile))
+            return max(minimum_floor, margin) if minimum_floor is not None else margin
+
+    fallback_margin = max(0.0, float(calibration.get('absolute_error_quantile', 0.0)))
+    return max(minimum_floor, fallback_margin) if minimum_floor is not None else fallback_margin
 
 
 def _count_interval(prediction: float, calibration: Dict[str, Any]) -> Tuple[float, float]:

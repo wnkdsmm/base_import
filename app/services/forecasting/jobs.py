@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from app.log_manager import add_log
-from app.state import FINAL_JOB_STATUSES, job_store
+from app.services.job_support import (
+    StageTrackingJobProgressReporter,
+    attach_standard_job_metadata,
+    build_standard_job_status_payload,
+    discard_reusable_job_id,
+    find_reusable_job_id,
+    serialize_job_cache_key,
+)
+from app.state import job_store
 
 from .core import (
     _FORECASTING_CACHE,
@@ -42,7 +49,7 @@ def start_forecasting_decision_support_job(
         history_window=history_window,
         include_decision_support=True,
     )
-    cache_key_token = _serialize_cache_key(request_state["cache_key"])
+    cache_key_token = serialize_job_cache_key(request_state["cache_key"])
     params_payload = _build_params_payload(
         table_name=table_name,
         district=district,
@@ -54,14 +61,18 @@ def start_forecasting_decision_support_job(
     )
 
     with _FORECASTING_DECISION_SUPPORT_LOCK:
-        reusable_job_id = _get_reusable_job_id(session_id, cache_key_token)
+        reusable_job_id = find_reusable_job_id(
+            session_id,
+            cache_key_token,
+            job_ids_by_cache_key=_FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY,
+        )
         if reusable_job_id:
-            return _build_job_status_payload(session_id, reusable_job_id, reused=True)
+            return build_standard_job_status_payload(session_id, reusable_job_id, reused=True)
 
         cached_payload = _FORECASTING_CACHE.get(request_state["cache_key"])
         if cached_payload is not None:
             job = job_store.create_or_reset_job(session_id=session_id, kind="forecasting_decision_support")
-            _attach_job_metadata(
+            attach_standard_job_metadata(
                 session_id=session_id,
                 job_id=job.job_id,
                 cache_key_token=cache_key_token,
@@ -75,10 +86,10 @@ def start_forecasting_decision_support_job(
             job_store.mark_job_status(session_id, job.job_id, "completed")
             add_log(session_id, job.job_id, "Decision support уже был рассчитан ранее и взят из кэша.")
             _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY[(session_id, cache_key_token)] = job.job_id
-            return _build_job_status_payload(session_id, job.job_id, reused=False)
+            return build_standard_job_status_payload(session_id, job.job_id, reused=False)
 
         job = job_store.create_or_reset_job(session_id=session_id, kind="forecasting_decision_support")
-        _attach_job_metadata(
+        attach_standard_job_metadata(
             session_id=session_id,
             job_id=job.job_id,
             cache_key_token=cache_key_token,
@@ -98,11 +109,11 @@ def start_forecasting_decision_support_job(
             params_payload,
             cache_key_token,
         )
-        return _build_job_status_payload(session_id, job.job_id, reused=False)
+        return build_standard_job_status_payload(session_id, job.job_id, reused=False)
 
 
 def get_forecasting_decision_support_job_status(session_id: str, job_id: str) -> Dict[str, Any]:
-    return _build_job_status_payload(session_id, job_id, reused=False)
+    return build_standard_job_status_payload(session_id, job_id, reused=False)
 
 
 def _run_forecasting_decision_support_job(
@@ -150,59 +161,12 @@ def _run_forecasting_decision_support_job(
     finally:
         if final_status != "completed":
             with _FORECASTING_DECISION_SUPPORT_LOCK:
-                current_job_id = _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY.get((session_id, cache_key_token))
-                if current_job_id == job_id:
-                    _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY.pop((session_id, cache_key_token), None)
-
-
-def _attach_job_metadata(
-    *,
-    session_id: str,
-    job_id: str,
-    cache_key_token: str,
-    params_payload: Dict[str, str],
-    cache_hit: bool,
-    stage_index: int,
-    stage_label: str,
-    stage_message: str,
-) -> None:
-    job_store.update_job_meta(
-        session_id,
-        job_id,
-        cache_key=cache_key_token,
-        cache_hit=cache_hit,
-        params=params_payload,
-        stage_index=stage_index,
-        stage_label=stage_label,
-        stage_message=stage_message,
-    )
-
-
-def _build_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> Dict[str, Any]:
-    snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
-    if snapshot is None:
-        return {
-            "job_id": job_id,
-            "status": "missing",
-            "kind": "",
-            "logs": [],
-            "result": None,
-            "error_message": "Job не найден для текущей сессии.",
-            "meta": {},
-            "reused": reused,
-            "is_final": True,
-        }
-    return {
-        "job_id": snapshot["job_id"],
-        "kind": snapshot["kind"],
-        "status": snapshot["status"],
-        "logs": snapshot.get("logs") or [],
-        "result": snapshot.get("result"),
-        "error_message": snapshot.get("error_message") or "",
-        "meta": snapshot.get("meta") or {},
-        "reused": reused,
-        "is_final": snapshot["status"] in FINAL_JOB_STATUSES,
-    }
+                discard_reusable_job_id(
+                    session_id,
+                    cache_key_token,
+                    job_id,
+                    job_ids_by_cache_key=_FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY,
+                )
 
 
 def _build_params_payload(
@@ -226,65 +190,11 @@ def _build_params_payload(
     }
 
 
-def _get_reusable_job_id(session_id: str, cache_key_token: str) -> Optional[str]:
-    job_id = _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY.get((session_id, cache_key_token))
-    if not job_id:
-        return None
-    snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
-    if snapshot is None:
-        _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY.pop((session_id, cache_key_token), None)
-        return None
-    if snapshot["status"] == "failed":
-        _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY.pop((session_id, cache_key_token), None)
-        return None
-    if snapshot["status"] not in {"pending", "running"}:
-        return None
-    return job_id
-
-
-def _serialize_cache_key(cache_key: Tuple[Any, ...]) -> str:
-    return json.dumps(list(cache_key), ensure_ascii=False, default=str)
-
-
-class _ForecastingDecisionSupportProgressReporter:
-    def __init__(self, session_id: str, job_id: str) -> None:
-        self._session_id = session_id
-        self._job_id = job_id
-        self._last_message = ""
-
-    def handle_progress(self, phase: str, message: str) -> None:
-        normalized_phase = str(phase or "").strip().lower()
-        normalized_message = str(message or "").strip()
-        if not normalized_message:
-            return
-        if normalized_message != self._last_message:
-            add_log(self._session_id, self._job_id, normalized_message)
-            self._last_message = normalized_message
-        stage_meta = _stage_meta_for_phase(normalized_phase)
-        if stage_meta is not None:
-            job_store.update_job_meta(
-                self._session_id,
-                self._job_id,
-                stage_index=stage_meta["stage_index"],
-                stage_label=stage_meta["stage_label"],
-                stage_message=normalized_message,
-            )
+class _ForecastingDecisionSupportProgressReporter(StageTrackingJobProgressReporter):
+    def _update_status(self, normalized_phase: str, normalized_message: str) -> None:
         if normalized_phase.endswith(".pending"):
             job_store.mark_job_status(self._session_id, self._job_id, "pending")
         elif normalized_phase.endswith(".completed"):
             return
         elif normalized_phase.startswith("decision_support.") or normalized_phase.startswith("forecasting_decision_support."):
             job_store.mark_job_status(self._session_id, self._job_id, "running")
-
-
-def _stage_meta_for_phase(phase: str) -> Optional[Dict[str, Any]]:
-    normalized_phase = str(phase or "").strip().lower()
-    if "loading" in normalized_phase:
-        return {"stage_index": 0, "stage_label": "Загрузка данных"}
-    if "aggregation" in normalized_phase:
-        return {"stage_index": 1, "stage_label": "Агрегация"}
-    if "training" in normalized_phase:
-        return {"stage_index": 2, "stage_label": "Обучение / валидация"}
-    if "render" in normalized_phase or "completed" in normalized_phase:
-        return {"stage_index": 3, "stage_label": "Построение визуализаций"}
-    return None

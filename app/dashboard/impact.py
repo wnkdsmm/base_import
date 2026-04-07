@@ -29,6 +29,8 @@ from .data_access import (
 )
 from .utils import _format_chart_date, _format_number, _quote_identifier
 
+_AREA_BUCKET_ORDER = ["До 1 га", "1-5 га", "5-20 га", "20-100 га", "100+ га", "Не указано"]
+
 
 def _collect_cause_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
     grouped: Dict[str, int] = defaultdict(int)
@@ -168,6 +170,133 @@ def _collect_month_counts(selected_tables: List[Dict[str, Any]], selected_year: 
     return dict(grouped)
 
 
+def _collect_dashboard_grouped_counts(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    selected_group_column: Optional[str] = None,
+) -> Dict[str, Dict[Any, int]]:
+    cause_counts: Dict[str, int] = defaultdict(int)
+    district_counts: Dict[str, int] = defaultdict(int)
+    month_counts: Dict[int, int] = defaultdict(int)
+    area_bucket_counts: Dict[str, int] = defaultdict(int)
+    distribution_counts: Dict[str, int] = defaultdict(int)
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            where_clause = _build_year_filter_clause(table, selected_year)
+            if where_clause is None:
+                continue
+
+            table_sql = _quote_identifier(table["name"])
+            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
+            subqueries: List[str] = []
+
+            cause_column = _resolve_cause_column(table)
+            if cause_column:
+                subqueries.append(
+                    f"""
+                    SELECT
+                        'cause' AS metric_kind,
+                        COALESCE(NULLIF(TRIM(CAST({_quote_identifier(cause_column)} AS TEXT)), ''), 'Не указано') AS label,
+                        COUNT(*) AS fire_count
+                    FROM {table_sql}
+                    WHERE {where_clause}
+                    GROUP BY label
+                    """
+                )
+
+            if selected_group_column and selected_group_column not in CAUSE_COLUMNS:
+                distribution_column = _resolve_table_column_name(table, selected_group_column)
+                if distribution_column:
+                    subqueries.append(
+                        f"""
+                        SELECT
+                            'distribution' AS metric_kind,
+                            COALESCE(NULLIF(TRIM(CAST({_quote_identifier(distribution_column)} AS TEXT)), ''), 'РќРµ СѓРєР°Р·Р°РЅРѕ') AS label,
+                            COUNT(*) AS fire_count
+                        FROM {table_sql}
+                        WHERE {where_clause}
+                        GROUP BY label
+                        """
+                    )
+
+            district_column = _resolve_district_column(table)
+            if district_column:
+                subqueries.append(
+                    f"""
+                    SELECT
+                        'district' AS metric_kind,
+                        COALESCE(NULLIF(TRIM(CAST({_quote_identifier(district_column)} AS TEXT)), ''), 'Не указано') AS label,
+                        COUNT(*) AS fire_count
+                    FROM {table_sql}
+                    WHERE {where_clause}
+                    GROUP BY label
+                    """
+                )
+
+            if DATE_COLUMN in table["column_set"]:
+                month_expression = _month_expression(DATE_COLUMN)
+                subqueries.append(
+                    f"""
+                    SELECT
+                        'month' AS metric_kind,
+                        CAST({month_expression} AS TEXT) AS label,
+                        COUNT(*) AS fire_count
+                    FROM {table_sql}
+                    WHERE {where_clause} AND {month_expression} BETWEEN 1 AND 12
+                    GROUP BY label
+                    """
+                )
+
+            area_expression = _area_expression(table)
+            subqueries.append(
+                f"""
+                SELECT
+                    'area_bucket' AS metric_kind,
+                    CASE
+                        WHEN {area_expression} IS NULL THEN 'Не указано'
+                        WHEN {area_expression} < 1 THEN 'До 1 га'
+                        WHEN {area_expression} < 5 THEN '1-5 га'
+                        WHEN {area_expression} < 20 THEN '5-20 га'
+                        WHEN {area_expression} < 100 THEN '20-100 га'
+                        ELSE '100+ га'
+                    END AS label,
+                    COUNT(*) AS fire_count
+                FROM {table_sql}
+                WHERE {where_clause}
+                GROUP BY label
+                """
+            )
+
+            for row in conn.execute(text("\nUNION ALL\n".join(subqueries)), params).mappings().all():
+                metric_kind = str(row["metric_kind"] or "")
+                label = row["label"]
+                fire_count = int(row["fire_count"] or 0)
+                if metric_kind == "cause":
+                    cause_counts[str(label or "Не указано")] += fire_count
+                elif metric_kind == "distribution":
+                    distribution_counts[str(label or "РќРµ СѓРєР°Р·Р°РЅРѕ")] += fire_count
+                elif metric_kind == "district":
+                    district_counts[str(label or "Не указано")] += fire_count
+                elif metric_kind == "month":
+                    try:
+                        month_value = int(label)
+                    except (TypeError, ValueError):
+                        continue
+                    if 1 <= month_value <= 12:
+                        month_counts[month_value] += fire_count
+                elif metric_kind == "area_bucket":
+                    area_bucket_counts[str(label or "Не указано")] += fire_count
+
+    return {
+        "cause_counts": dict(cause_counts),
+        "district_counts": dict(district_counts),
+        "distribution_counts": dict(cause_counts) if selected_group_column in CAUSE_COLUMNS else dict(distribution_counts),
+        "month_counts": dict(month_counts),
+        "area_bucket_counts": dict(area_bucket_counts),
+    }
+
+
 def _build_monthly_profile_chart(
     selected_tables: List[Dict[str, Any]],
     selected_year: Optional[int],
@@ -236,16 +365,36 @@ def _build_area_buckets_chart(selected_tables: List[Dict[str, Any]], selected_ye
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
 
 
+def _build_area_buckets_chart_from_counts(bucket_counts: Dict[str, int]) -> Dict[str, Any]:
+    items = [
+        {
+            "label": bucket,
+            "value": int(bucket_counts.get(bucket, 0) or 0),
+            "value_display": _format_number(bucket_counts.get(bucket, 0), integer=True),
+        }
+        for bucket in _AREA_BUCKET_ORDER
+        if int(bucket_counts.get(bucket, 0) or 0) > 0
+    ]
+    title = "РЎС‚СЂСѓРєС‚СѓСЂР° РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°"
+    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°."
+    return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
+
+
 def _build_sql_widgets(
     selected_tables: List[Dict[str, Any]],
     selected_year: Optional[int],
     *,
     cause_counts: Optional[Dict[str, int]] = None,
     month_counts: Optional[Dict[int, int]] = None,
+    district_counts: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     return {
         "causes": _build_sql_cause_widget(selected_tables, selected_year, cause_counts=cause_counts),
-        "districts": _build_sql_district_widget(selected_tables, selected_year),
+        "districts": (
+            _build_sql_district_widget_from_counts(district_counts)
+            if district_counts is not None
+            else _build_sql_district_widget(selected_tables, selected_year)
+        ),
         "seasons": _build_sql_season_widget(selected_tables, selected_year, month_counts=month_counts),
     }
 
@@ -310,6 +459,21 @@ def _build_sql_district_widget(selected_tables: List[Dict[str, Any]], selected_y
     )
 
 
+def _build_sql_district_widget_from_counts(district_counts: Dict[str, int]) -> Dict[str, Any]:
+    items = [
+        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
+        for label, value in sorted(district_counts.items(), key=lambda item: item[1], reverse=True)[:8]
+    ]
+    title = "SQL-РІРёРґР¶РµС‚: СЂР°Р№РѕРЅС‹"
+    empty_message = "Р’ РІС‹Р±СЂР°РЅРЅС‹С… С‚Р°Р±Р»РёС†Р°С… РЅРµ РЅР°Р№РґРµРЅРѕ РєРѕР»РѕРЅРѕРє СЂР°Р№РѕРЅР°."
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="РџРѕР¶Р°СЂРѕРІ"),
+    )
+
+
 def _build_sql_season_widget(
     selected_tables: List[Dict[str, Any]],
     selected_year: Optional[int],
@@ -349,11 +513,14 @@ def _build_sql_season_widget(
 
 
 __all__ = [
+    "_collect_dashboard_grouped_counts",
     "_collect_cause_counts",
     "_collect_month_counts",
     "_build_area_buckets_chart",
+    "_build_area_buckets_chart_from_counts",
     "_build_cause_chart",
     "_build_combined_impact_timeline_chart",
     "_build_monthly_profile_chart",
+    "_build_sql_district_widget_from_counts",
     "_build_sql_widgets",
 ]

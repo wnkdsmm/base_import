@@ -1,5 +1,4 @@
 /* Misc Pages */
-
 .simple-page-grid {
     display: grid;
     gap: 18px;
@@ -321,7 +320,6 @@
 .danger-inline-action:hover {
     background: linear-gradient(135deg, #d46649 0%, #a13a2b 100%);
 }
-
 
 .map-toolbar {
     align-items: end;
@@ -728,4 +726,17 @@
     margin: 0;
     line-height: 1.6;
     color: var(--muted);
+}
+
+
+
+.executive-detail-panel {
+    margin-bottom: 18px;
+}
+
+@media (max-width: 1180px) {
+    .table-management-layout,
+    .table-import-layout {
+        grid-template-columns: 1fr;
+    }
 }

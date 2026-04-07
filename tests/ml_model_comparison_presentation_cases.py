@@ -1,31 +1,7 @@
-import warnings
 import unittest
-from datetime import date, timedelta
-from unittest.mock import patch
+from datetime import date
 
-import numpy as np
-import pandas as pd
-from sklearn.exceptions import ConvergenceWarning
-
-from app.services.ml_model import training as ml_training
-from app.services.model_quality import compute_classification_metrics
-from app.services.ml_model.presentation import _build_notes, _build_quality_assessment, _build_summary
-from app.services.ml_model.training import (
-    _build_backtest_seed_dataset,
-    _build_count_selection_details,
-    _build_history_frame,
-    _build_prediction_interval_calibration,
-    _count_interval,
-    _compute_event_metrics,
-    _evaluate_prediction_interval_backtest,
-    _fit_count_model_from_design,
-    _interval_coverage,
-    _predict_event_probability_from_design,
-    _prediction_interval_margin,
-    _run_backtest,
-    _select_count_method,
-    _select_count_model,
-)
+from app.services.ml_model.presentation import _build_quality_assessment, _build_summary
 
 class SummaryPresentationTests(unittest.TestCase):
     @staticmethod
@@ -406,9 +382,9 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
                 },
             ],
         )
-        self.assertEqual(quality['metric_cards'][4]['label'], 'Out-of-sample coverage — интервала')
-        self.assertEqual(quality['metric_cards'][4]['value'], '—')
-        self.assertIn('validated out-of-sample coverage не показывается', quality['metric_cards'][4]['meta'])
+        self.assertEqual(quality['interval_card']['label'], 'Покрытие интервала на отложенных окнах')
+        self.assertEqual(quality['interval_card']['value'], '—')
+        self.assertIn('Покрытие на отложенных окнах пока не показывается', quality['interval_card']['meta'])
         self.assertEqual(quality['count_table']['rows'][0]['mae_delta_display'], '—')
         self.assertNotIn('0%', quality['count_table']['rows'][0].values())
 
@@ -437,10 +413,10 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
                 'RMSE по числу пожаров',
                 'sMAPE по числу пожаров',
                 'Poisson deviance',
-                'Out-of-sample coverage — интервала',
             ],
         )
         self.assertTrue(all(card['value'] == '—' for card in quality['metric_cards']))
+        self.assertEqual(quality['interval_card']['label'], 'Покрытие интервала на отложенных окнах')
         self.assertEqual(
             [item['label'] for item in quality['methodology_items'][:6]],
             [
@@ -602,12 +578,12 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
             }
         )
 
-        interval_card = next(item for item in quality['metric_cards'] if item['label'] == 'Out-of-sample coverage 80% интервала')
+        interval_card = quality['interval_card']
         interval_item = next(item for item in quality['methodology_items'] if item['label'] == 'Интервал прогноза')
 
         self.assertEqual(interval_card['value'], '—')
-        self.assertIn('validated out-of-sample coverage', interval_card['meta'])
-        self.assertIn('validated out-of-sample coverage', interval_item['meta'])
+        self.assertIn('Покрытие на отложенных окнах пока', interval_card['meta'])
+        self.assertIn('Покрытие на отложенных окнах пока', interval_item['meta'])
 
     def test_quality_assessment_shows_real_selected_working_method(self) -> None:
         ml_result = {
@@ -675,7 +651,7 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
                 'selection_rule': 'Minimum Poisson deviance with explainability tie-break',
                 'event_selection_rule': 'Brier score, then log-loss and ROC-AUC',
                 'classification_threshold': 0.5,
-                'candidate_model_labels': ['Poisson GLM', 'Tweedie GLM'],
+                    'candidate_model_labels': ['Poisson GLM', 'Negative Binomial GLM'],
                 'dispersion_ratio': 1.18,
                 'prediction_interval_level_display': '80%',
                 'prediction_interval_coverage_display': '83.3%',
@@ -692,7 +668,7 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
         self.assertEqual(quality['count_table']['rows'][1]['selection_label'], 'Рабочий метод')
         interval_item = next(item for item in quality['methodology_items'] if item['label'] == 'Интервал прогноза')
         self.assertEqual(interval_item['value'], '80%')
-        self.assertIn('Forward rolling split conformal', interval_item['meta'])
+        self.assertIn('скользящая проверка по истории', interval_item['meta'])
 
     def test_quality_assessment_exposes_poisson_deviance_and_model_choice(self) -> None:
         ml_result = {
@@ -750,7 +726,7 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
                 'selection_rule': 'Poisson deviance, then MAE and RMSE',
                 'event_selection_rule': 'Brier score, then log-loss and ROC-AUC',
                 'classification_threshold': 0.5,
-                'candidate_model_labels': ['Poisson GLM', 'Tweedie GLM'],
+                    'candidate_model_labels': ['Poisson GLM', 'Negative Binomial GLM'],
                 'dispersion_ratio': 1.42,
                 'prediction_interval_level_display': '80%',
                 'prediction_interval_coverage_display': '91.7%',
@@ -764,7 +740,7 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
         methodology_labels = [item['label'] for item in quality['methodology_items']]
 
         self.assertIn('Poisson deviance', metric_labels)
-        self.assertIn('Out-of-sample coverage 80% интервала', metric_labels)
+        self.assertEqual(quality['interval_card']['label'], 'Покрытие 80% интервала на отложенных окнах')
         self.assertTrue(any('count' in label.lower() for label in methodology_labels))
         self.assertTrue(quality['model_choice']['title'])
         self.assertTrue(quality['model_choice']['facts'])

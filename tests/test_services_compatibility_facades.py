@@ -1,5 +1,6 @@
 import unittest
 
+from app import dashboard as dashboard_package
 from app import statistics as legacy_statistics
 from app import services as services_package
 from app.dashboard import aggregates as legacy_dashboard_aggregates
@@ -14,13 +15,17 @@ from app.services import clustering_service as legacy_clustering_service
 from app.services import dashboard_service as legacy_dashboard_service
 from app.services import forecast_risk_service as legacy_forecast_risk_service
 from app.services import forecasting_service as legacy_forecasting_service
+from app.services import fire_map_service, pipeline_service, table_options
 from app.services import ml_model_service as legacy_ml_model_service
 from app.services.access_points import core as access_points_core
 from app.services.clustering import core as clustering_core
 from app.services.clustering import jobs as clustering_jobs
 from app.services.forecast_risk import core as forecast_risk_core
+from app.services.forecast_risk import profile_resolution as forecast_risk_profile_resolution
 from app.services.forecast_risk import profiles as forecast_risk_profiles
+from app.services.forecast_risk import utils as forecast_risk_utils
 from app.services.forecast_risk import validation as forecast_risk_validation
+from app.services.forecast_risk import weights as legacy_forecast_risk_weights
 from app.services.forecasting import core as forecasting_core
 from app.services.forecasting import jobs as forecasting_jobs
 from app.services.ml_model import core as ml_model_core
@@ -31,12 +36,44 @@ class ServicesCompatibilityFacadeTests(unittest.TestCase):
         for export_name, canonical in exports.items():
             self.assertIs(getattr(facade, export_name), canonical, export_name)
 
+    def assert_exports_are_visible(self, facade: object, export_names: list[str]) -> None:
+        self.assertEqual(list(getattr(facade, "__all__")), export_names)
+        visible_names = dir(facade)
+        for export_name in export_names:
+            self.assertIn(export_name, visible_names)
+
     def test_dashboard_service_reexports_canonical_dashboard_context_functions(self) -> None:
         self.assertIs(legacy_dashboard_service.get_dashboard_page_context, dashboard_service_core.get_dashboard_page_context)
         self.assertIs(legacy_dashboard_service.get_dashboard_shell_context, dashboard_service_core.get_dashboard_shell_context)
 
     def test_services_package_reexports_canonical_dashboard_page_context(self) -> None:
         self.assertIs(services_package.get_dashboard_page_context, dashboard_service_core.get_dashboard_page_context)
+
+    def test_services_package_reexports_canonical_helpers(self) -> None:
+        self.assert_exports_match(
+            services_package,
+            {
+                "build_fire_map_html": fire_map_service.build_fire_map_html,
+                "get_column_search_table_options": table_options.get_column_search_table_options,
+                "get_dashboard_page_context": dashboard_service_core.get_dashboard_page_context,
+                "get_fire_map_table_options": table_options.get_fire_map_table_options,
+                "import_uploaded_data": pipeline_service.import_uploaded_data,
+                "resolve_selected_table": table_options.resolve_selected_table,
+                "run_profiling_for_table": pipeline_service.run_profiling_for_table,
+                "save_uploaded_file": pipeline_service.save_uploaded_file,
+            },
+        )
+
+    def test_dashboard_package_reexports_canonical_dashboard_functions(self) -> None:
+        self.assert_exports_match(
+            dashboard_package,
+            {
+                "build_dashboard_context": dashboard_service_core.build_dashboard_context,
+                "get_dashboard_data": dashboard_service_core.get_dashboard_data,
+                "get_dashboard_page_context": dashboard_service_core.get_dashboard_page_context,
+                "get_dashboard_shell_context": dashboard_service_core.get_dashboard_shell_context,
+            },
+        )
 
     def test_access_points_service_reexports_canonical_functions(self) -> None:
         self.assert_exports_match(
@@ -73,6 +110,16 @@ class ServicesCompatibilityFacadeTests(unittest.TestCase):
                 "get_risk_weight_profile": forecast_risk_profiles.get_risk_weight_profile,
                 "resolve_component_weights": forecast_risk_profiles.resolve_component_weights,
                 "resolve_weight_profile_for_records": forecast_risk_validation.resolve_weight_profile_for_records,
+            },
+        )
+
+    def test_forecast_risk_weights_module_reexports_canonical_helpers(self) -> None:
+        self.assert_exports_match(
+            legacy_forecast_risk_weights,
+            {
+                "_format_decimal": forecast_risk_utils._format_decimal,
+                "_rerank_predicted_rows_for_profile": forecast_risk_validation._rerank_predicted_rows_for_profile,
+                "resolve_weight_profile_for_records": forecast_risk_profile_resolution.resolve_weight_profile_for_records,
             },
         )
 
@@ -133,6 +180,19 @@ class ServicesCompatibilityFacadeTests(unittest.TestCase):
                 "_build_yearly_chart": dashboard_summary._build_yearly_chart,
             },
         )
+
+    def test_target_compatibility_facades_keep_all_and_dir_exports(self) -> None:
+        self.assert_exports_are_visible(services_package, list(services_package.__all__))
+        self.assert_exports_are_visible(dashboard_package, list(dashboard_package.__all__))
+        self.assert_exports_are_visible(legacy_statistics, list(legacy_statistics.__all__))
+        self.assert_exports_are_visible(legacy_dashboard_aggregates, list(legacy_dashboard_aggregates.__all__))
+        self.assert_exports_are_visible(legacy_access_points_service, list(legacy_access_points_service.__all__))
+        self.assert_exports_are_visible(legacy_clustering_service, list(legacy_clustering_service.__all__))
+        self.assert_exports_are_visible(legacy_dashboard_service, list(legacy_dashboard_service.__all__))
+        self.assert_exports_are_visible(legacy_forecast_risk_service, list(legacy_forecast_risk_service.__all__))
+        self.assert_exports_are_visible(legacy_forecasting_service, list(legacy_forecasting_service.__all__))
+        self.assert_exports_are_visible(legacy_ml_model_service, list(legacy_ml_model_service.__all__))
+        self.assert_exports_are_visible(legacy_forecast_risk_weights, list(legacy_forecast_risk_weights.__all__))
 
 
 if __name__ == "__main__":

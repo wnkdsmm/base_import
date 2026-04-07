@@ -20,8 +20,12 @@ def _temperature_source_series(frame: pd.DataFrame) -> pd.Series:
     return pd.Series(np.nan, index=frame.index, dtype=float)
 
 
-def _temperature_quality_summary(frame: pd.DataFrame) -> Dict[str, object]:
-    reference = _prepare_reference_frame(frame)
+def _temperature_quality_summary(
+    frame: pd.DataFrame,
+    *,
+    frame_is_prepared: bool = False,
+) -> Dict[str, object]:
+    reference = frame if frame_is_prepared else _prepare_reference_frame(frame)
     temperature_source = _temperature_source_series(reference)
     history_rows = [
         {
@@ -55,9 +59,13 @@ def _temperature_feature_columns(temperature_stats: Optional[Dict[str, object]])
     return FEATURE_COLUMNS
 
 
-def _fit_temperature_statistics(frame: pd.DataFrame) -> Dict[str, object]:
-    reference = _prepare_reference_frame(frame)
-    quality = _temperature_quality_summary(reference)
+def _fit_temperature_statistics(
+    frame: pd.DataFrame,
+    *,
+    frame_is_prepared: bool = False,
+) -> Dict[str, object]:
+    reference = frame if frame_is_prepared else _prepare_reference_frame(frame)
+    quality = _temperature_quality_summary(reference, frame_is_prepared=True)
     if reference.empty or not quality['usable']:
         return {
             'monthly': {},
@@ -80,8 +88,13 @@ def _fit_temperature_statistics(frame: pd.DataFrame) -> Dict[str, object]:
     }
 
 
-def _apply_temperature_statistics(frame: pd.DataFrame, temperature_stats: Dict[str, object]) -> pd.DataFrame:
-    result = _prepare_reference_frame(frame)
+def _apply_temperature_statistics(
+    frame: pd.DataFrame,
+    temperature_stats: Dict[str, object],
+    *,
+    frame_is_prepared: bool = False,
+) -> pd.DataFrame:
+    result = frame.copy() if frame_is_prepared else _prepare_reference_frame(frame)
     temperature_source = _temperature_source_series(result)
     if not bool(temperature_stats.get('usable', True)):
         result['avg_temperature'] = np.nan

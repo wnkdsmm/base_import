@@ -56,6 +56,20 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertEqual(widgets["causes"]["items"][0]["label"], "cause_a")
         self.assertEqual([item["value"] for item in widgets["seasons"]["items"]], [2, 3])
 
+    def test_sql_widgets_reuse_precomputed_district_counts_without_sql(self) -> None:
+        with patch(
+            "app.dashboard.impact._build_sql_district_widget",
+            side_effect=AssertionError("district counts should be reused"),
+        ):
+            widgets = impact._build_sql_widgets(
+                [],
+                None,
+                district_counts={"district_a": 4, "district_b": 2},
+            )
+
+        self.assertEqual([item["label"] for item in widgets["districts"]["items"]], ["district_a", "district_b"])
+        self.assertEqual([item["value"] for item in widgets["districts"]["items"]], [4, 2])
+
     def test_table_breakdown_reuses_summary_rows_without_extra_sql(self) -> None:
         with patch("app.dashboard.distribution.engine.connect", side_effect=AssertionError("summary rows should avoid extra SQL")):
             chart = distribution._build_table_breakdown_chart(
@@ -89,7 +103,7 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
 
         self.assertEqual(selected, ["fires_2024"])
 
-    def test_service_reuses_cause_counts_for_distribution_when_group_matches(self) -> None:
+    def test_service_reuses_grouped_counts_bundle_for_distribution_widgets_and_area_buckets(self) -> None:
         metadata = {
             "tables": [{"name": "fires", "column_set": {GENERAL_CAUSE_COLUMN}, "years": [2024], "table_year": None}],
             "table_options": [{"value": "all", "label": "all"}, {"value": "fires", "label": "fires"}],
@@ -106,6 +120,12 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         }
         empty_chart = {"items": []}
         widgets = {"districts": {"items": []}}
+        grouped_counts_bundle = {
+            "cause_counts": {"cause_a": 5},
+            "month_counts": {1: 2, 7: 3},
+            "district_counts": {"district_a": 4},
+            "area_bucket_counts": {"До 1 га": 6},
+        }
 
         with ExitStack() as stack:
             stack.enter_context(patch("app.dashboard.service._collect_dashboard_metadata_cached", return_value=metadata))
@@ -116,19 +136,40 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             stack.enter_context(patch("app.dashboard.service._build_summary", return_value={"fires_count": 0}))
             stack.enter_context(patch("app.dashboard.service._build_yearly_chart", return_value=empty_chart))
             stack.enter_context(patch("app.dashboard.service._build_table_breakdown_chart", return_value=empty_chart))
-            stack.enter_context(patch("app.dashboard.service._collect_cause_counts", return_value={"cause_a": 5}))
+            stack.enter_context(
+                patch("app.dashboard.service._collect_dashboard_grouped_counts", return_value=grouped_counts_bundle)
+            )
+            stack.enter_context(
+                patch(
+                    "app.dashboard.service._collect_cause_counts",
+                    side_effect=AssertionError("cause counts should come from grouped bundle"),
+                )
+            )
             stack.enter_context(patch("app.dashboard.service._build_cause_chart", return_value=empty_chart))
-            stack.enter_context(patch("app.dashboard.service._collect_month_counts", return_value={}))
+            stack.enter_context(
+                patch(
+                    "app.dashboard.service._collect_month_counts",
+                    side_effect=AssertionError("month counts should come from grouped bundle"),
+                )
+            )
             distribution_mock = stack.enter_context(
                 patch("app.dashboard.service._build_distribution_chart", return_value=empty_chart)
             )
             stack.enter_context(patch("app.dashboard.service._build_combined_impact_timeline_chart", return_value=empty_chart))
             stack.enter_context(patch("app.dashboard.service._build_monthly_profile_chart", return_value=empty_chart))
-            stack.enter_context(patch("app.dashboard.service._build_area_buckets_chart", return_value=empty_chart))
+            stack.enter_context(
+                patch(
+                    "app.dashboard.service._build_area_buckets_chart",
+                    side_effect=AssertionError("area buckets should come from grouped bundle"),
+                )
+            )
+            area_buckets_mock = stack.enter_context(
+                patch("app.dashboard.service._build_area_buckets_chart_from_counts", return_value=empty_chart)
+            )
             stack.enter_context(patch("app.dashboard.service._build_trend", return_value={}))
             stack.enter_context(patch("app.dashboard.service._build_rankings", return_value={}))
             stack.enter_context(patch("app.dashboard.service._build_highlights", return_value=[]))
-            stack.enter_context(patch("app.dashboard.service._build_sql_widgets", return_value=widgets))
+            sql_widgets_mock = stack.enter_context(patch("app.dashboard.service._build_sql_widgets", return_value=widgets))
             stack.enter_context(patch("app.dashboard.service._build_management_snapshot", return_value={}))
             stack.enter_context(
                 patch(
@@ -140,6 +181,10 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             service.get_dashboard_data(table_name="fires", year="2024", group_column=GENERAL_CAUSE_COLUMN, allow_fallback=False)
 
         self.assertEqual(distribution_mock.call_args.kwargs["grouped_counts"], {"cause_a": 5})
+        self.assertEqual(area_buckets_mock.call_args.args[0], {"До 1 га": 6})
+        self.assertEqual(sql_widgets_mock.call_args.kwargs["cause_counts"], {"cause_a": 5})
+        self.assertEqual(sql_widgets_mock.call_args.kwargs["month_counts"], {1: 2, 7: 3})
+        self.assertEqual(sql_widgets_mock.call_args.kwargs["district_counts"], {"district_a": 4})
 
 
 if __name__ == "__main__":
