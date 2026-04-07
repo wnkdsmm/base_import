@@ -44,6 +44,9 @@ class _DashboardQueryResult:
     def all(self):
         return list(self._rows)
 
+    def one(self):
+        return self._rows[0]
+
 
 class _DashboardConnection:
     def __init__(self, *, distribution_rows=None):
@@ -65,7 +68,7 @@ class _DashboardConnection:
         self.queries.append(query_text)
         self.params.append(dict(params or {}))
 
-        if "'cause' AS metric_kind" in query_text:
+        if "GROUPING SETS" in query_text and "'cause'" in query_text:
             rows = [
                 {"metric_kind": "cause", "label": "Электрика", "fire_count": 2},
                 {"metric_kind": "cause", "label": "Неосторожность", "fire_count": 1},
@@ -73,16 +76,35 @@ class _DashboardConnection:
                 {"metric_kind": "district", "label": "Северный", "fire_count": 1},
                 {"metric_kind": "month", "label": "1", "fire_count": 2},
                 {"metric_kind": "month", "label": "2", "fire_count": 1},
-                {"metric_kind": "area_bucket", "label": "До 1 га", "fire_count": 1},
-                {"metric_kind": "area_bucket", "label": "5-20 га", "fire_count": 1},
-                {"metric_kind": "area_bucket", "label": "Не указано", "fire_count": 1},
             ]
-            if "'distribution' AS metric_kind" in query_text:
+            if "'area_bucket'" in query_text:
+                rows.extend(
+                    [
+                        {"metric_kind": "area_bucket", "label": "До 1 га", "fire_count": 1},
+                        {"metric_kind": "area_bucket", "label": "5-20 га", "fire_count": 1},
+                        {"metric_kind": "area_bucket", "label": "Не указано", "fire_count": 1},
+                    ]
+                )
+            if "'distribution'" in query_text:
                 rows.extend(
                     [
                         {"metric_kind": "distribution", "label": "Жилое", "fire_count": 2},
                         {"metric_kind": "distribution", "label": "Склад", "fire_count": 1},
                     ]
+                )
+            if "'impact_timeline'" in query_text:
+                rows.append(
+                    {
+                        "metric_kind": "impact_timeline",
+                        "label": None,
+                        "fire_count": 0,
+                        "date_value": date(2024, 1, 2),
+                        "deaths": 1,
+                        "injuries": 2,
+                        "evacuated": 3,
+                        "evacuated_children": 4,
+                        "rescued_children": 5,
+                    }
                 )
             return _DashboardQueryResult(rows)
 
@@ -157,6 +179,23 @@ class _ImpactTimelineConnection:
                 }
             ]
         )
+
+
+class _PositiveColumnCountsConnection:
+    def __init__(self):
+        self.queries = []
+        self.params = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def execute(self, query, params=None):
+        self.queries.append(str(query))
+        self.params.append(dict(params or {}))
+        return _DashboardQueryResult([{"metric_0": 3, "metric_1": 0}])
 
 
 class DashboardAnalyticsOptimizationTests(unittest.TestCase):
@@ -305,12 +344,14 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertEqual(cause_bundle["district_counts"], {"Центральный": 2, "Северный": 1})
         self.assertEqual(cause_bundle["month_counts"], {1: 2, 2: 1})
         self.assertEqual(cause_bundle["area_bucket_counts"], {"До 1 га": 1, "5-20 га": 1, "Не указано": 1})
+        self.assertEqual(cause_bundle["impact_timeline_rows"][0]["date_value"], date(2024, 1, 2))
         self.assertEqual(cause_conn.params, [{"selected_year": 2024}])
         self.assertEqual(len(cause_conn.queries), 1)
         self.assertIn("fires_dashboard_next", cause_conn.queries[0])
-        for metric_kind in ("'cause'", "'district'", "'month'", "'area_bucket'"):
-            self.assertIn(f"{metric_kind} AS metric_kind", cause_conn.queries[0])
-        self.assertNotIn("'distribution' AS metric_kind", cause_conn.queries[0])
+        self.assertIn("GROUPING SETS", cause_conn.queries[0])
+        for metric_kind in ("'cause'", "'district'", "'month'", "'area_bucket'", "'impact_timeline'"):
+            self.assertIn(metric_kind, cause_conn.queries[0])
+        self.assertNotIn("'distribution'", cause_conn.queries[0])
         self.assertTrue(service._can_reuse_distribution_counts([table], GENERAL_CAUSE_COLUMN, cause_bundle["distribution_counts"]))
 
         non_cause_conn = _DashboardConnection()
@@ -322,10 +363,12 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertEqual(non_cause_bundle["district_counts"], {"Центральный": 2, "Северный": 1})
         self.assertEqual(non_cause_bundle["month_counts"], {1: 2, 2: 1})
         self.assertEqual(non_cause_bundle["area_bucket_counts"], {"До 1 га": 1, "5-20 га": 1, "Не указано": 1})
+        self.assertEqual(non_cause_bundle["impact_timeline_rows"][0]["deaths"], 1)
         self.assertEqual(non_cause_conn.params, [{"selected_year": 2024}])
-        for metric_kind in ("'cause'", "'distribution'", "'district'", "'month'", "'area_bucket'"):
-            self.assertIn(f"{metric_kind} AS metric_kind", non_cause_conn.queries[0])
-        self.assertIn("'distribution' AS metric_kind", non_cause_conn.queries[0])
+        self.assertIn("GROUPING SETS", non_cause_conn.queries[0])
+        for metric_kind in ("'cause'", "'distribution'", "'district'", "'month'", "'area_bucket'", "'impact_timeline'"):
+            self.assertIn(metric_kind, non_cause_conn.queries[0])
+        self.assertIn("'distribution'", non_cause_conn.queries[0])
         self.assertTrue(
             service._can_reuse_distribution_counts(
                 [table],
@@ -333,6 +376,21 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
                 non_cause_bundle["distribution_counts"],
             )
         )
+
+        trimmed_conn = _DashboardConnection()
+        with patch("app.dashboard.impact.engine.connect", return_value=trimmed_conn):
+            trimmed_bundle = impact._collect_dashboard_grouped_counts(
+                [table],
+                2024,
+                BUILDING_CATEGORY_COLUMN,
+                include_area_buckets=False,
+                include_impact_timeline=False,
+            )
+
+        self.assertEqual(trimmed_bundle["area_bucket_counts"], {})
+        self.assertEqual(trimmed_bundle["impact_timeline_rows"], [])
+        self.assertNotIn("'area_bucket'", trimmed_conn.queries[0])
+        self.assertNotIn("'impact_timeline'", trimmed_conn.queries[0])
 
     def test_impact_timeline_collects_selected_tables_in_one_union_query(self) -> None:
         tables = [
@@ -350,6 +408,42 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertIn("impact_timeline_1", conn.queries[0])
         self.assertEqual(conn.params, [{"selected_year": 2024}])
         self.assertEqual(chart["items"][0]["value"], 15.0)
+
+    def test_impact_timeline_reuses_grouped_bundle_rows_without_sql(self) -> None:
+        with patch("app.dashboard.impact.engine.connect", side_effect=AssertionError("timeline rows should be reused")):
+            chart = impact._build_combined_impact_timeline_chart(
+                [],
+                None,
+                impact_timeline_rows=[
+                    {
+                        "date_value": date(2024, 1, 2),
+                        "deaths": 1,
+                        "injuries": 2,
+                        "evacuated": 3,
+                        "evacuated_children": 4,
+                        "rescued_children": 5,
+                    }
+                ],
+            )
+
+        self.assertEqual(chart["items"][0]["date_value"], "2024-01-02")
+        self.assertEqual(chart["items"][0]["value"], 15.0)
+
+    def test_positive_column_counts_collects_selected_tables_in_one_union_query(self) -> None:
+        tables = [
+            {"name": "fires_dashboard", "column_set": {DATE_COLUMN, AREA_COLUMN}, "years": [2024], "table_year": None},
+            {"name": "fires_dashboard_next", "column_set": {DATE_COLUMN, AREA_COLUMN}, "years": [2024], "table_year": None},
+        ]
+        conn = _PositiveColumnCountsConnection()
+
+        with patch("app.dashboard.distribution.engine.connect", return_value=conn):
+            counts = distribution._collect_positive_column_counts(tables, 2024, [AREA_COLUMN, "missing_metric"])
+
+        self.assertEqual(len(conn.queries), 1)
+        self.assertIn("UNION ALL", conn.queries[0])
+        self.assertIn("positive_column_counts", conn.queries[0])
+        self.assertEqual(conn.params, [{"selected_year": 2024}])
+        self.assertEqual(counts, {AREA_COLUMN: 3, "missing_metric": 0})
 
     def test_distribution_fallback_keeps_sql_path_and_rejects_unsupported_grouped_counts(self) -> None:
         supported_table = {
@@ -433,6 +527,7 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             "month_counts": {1: 2, 7: 3},
             "district_counts": {"district_a": 4},
             "area_bucket_counts": {"До 1 га": 6},
+            "impact_timeline_rows": [{"date_value": date(2024, 1, 2)}],
         }
 
         with ExitStack() as stack:
@@ -470,7 +565,9 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             distribution_mock = stack.enter_context(
                 patch("app.dashboard.service._build_distribution_chart", return_value=empty_chart)
             )
-            stack.enter_context(patch("app.dashboard.service._build_combined_impact_timeline_chart", return_value=empty_chart))
+            impact_timeline_mock = stack.enter_context(
+                patch("app.dashboard.service._build_combined_impact_timeline_chart", return_value=empty_chart)
+            )
             stack.enter_context(patch("app.dashboard.service._build_monthly_profile_chart", return_value=empty_chart))
             stack.enter_context(
                 patch(
@@ -498,9 +595,16 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         summary_bundle_mock.assert_called_once_with(metadata["tables"], 2024)
         self.assertFalse(yearly_mock.call_args.kwargs["include_plotly"])
         self.assertFalse(table_breakdown_mock.call_args.kwargs["include_plotly"])
-        grouped_counts_mock.assert_called_once_with(metadata["tables"], 2024, GENERAL_CAUSE_COLUMN)
+        grouped_counts_mock.assert_called_once_with(
+            metadata["tables"],
+            2024,
+            GENERAL_CAUSE_COLUMN,
+            include_area_buckets=True,
+            include_impact_timeline=True,
+        )
         self.assertEqual(distribution_mock.call_args.kwargs["grouped_counts"], {"cause_a": 5})
         self.assertEqual(area_buckets_mock.call_args.args[0], {"До 1 га": 6})
+        self.assertEqual(impact_timeline_mock.call_args.kwargs["impact_timeline_rows"], [{"date_value": date(2024, 1, 2)}])
         self.assertEqual(sql_widgets_mock.call_args.kwargs["cause_counts"], {"cause_a": 5})
         self.assertEqual(sql_widgets_mock.call_args.kwargs["month_counts"], {1: 2, 7: 3})
         self.assertEqual(sql_widgets_mock.call_args.kwargs["district_counts"], {"district_a": 4})
@@ -535,6 +639,7 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             "month_counts": {1: 2},
             "district_counts": {},
             "area_bucket_counts": {},
+            "impact_timeline_rows": [{"date_value": date(2024, 1, 2)}],
         }
 
         with ExitStack() as stack:
@@ -570,7 +675,9 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             distribution_mock = stack.enter_context(
                 patch("app.dashboard.service._build_distribution_chart", return_value=empty_chart)
             )
-            stack.enter_context(patch("app.dashboard.service._build_combined_impact_timeline_chart", return_value=empty_chart))
+            impact_timeline_mock = stack.enter_context(
+                patch("app.dashboard.service._build_combined_impact_timeline_chart", return_value=empty_chart)
+            )
             stack.enter_context(patch("app.dashboard.service._build_monthly_profile_chart", return_value=empty_chart))
             stack.enter_context(patch("app.dashboard.service._build_area_buckets_chart", return_value=empty_chart))
             stack.enter_context(patch("app.dashboard.service._build_trend", return_value={}))
@@ -592,8 +699,15 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
                 allow_fallback=False,
             )
 
-        grouped_counts_mock.assert_called_once_with(metadata["tables"], 2024, BUILDING_CATEGORY_COLUMN)
+        grouped_counts_mock.assert_called_once_with(
+            metadata["tables"],
+            2024,
+            BUILDING_CATEGORY_COLUMN,
+            include_area_buckets=True,
+            include_impact_timeline=True,
+        )
         self.assertEqual(distribution_mock.call_args.kwargs["grouped_counts"], {"category_a": 7})
+        self.assertEqual(impact_timeline_mock.call_args.kwargs["impact_timeline_rows"], [{"date_value": date(2024, 1, 2)}])
 
     def test_service_falls_back_when_distribution_counts_are_empty_or_unsupported(self) -> None:
         self.assertFalse(

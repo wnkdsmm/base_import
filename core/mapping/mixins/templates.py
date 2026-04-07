@@ -293,38 +293,25 @@ class MapCreatorTemplateMixin:
         ]
         return '\n'.join(lines)
 
-    def _generate_tab_content(
-        self,
-        idx: int,
-        table: Dict[str, Any],
-        use_tab_wrapper: bool = True,
-        active: bool = True,
-    ) -> str:
-        analytics = table.get('spatial_analytics') or {}
-        analytics_layers = self._build_analytics_layer_geojsons(analytics)
-        analytics_defaults = analytics.get(
-            'layer_defaults',
-            {
-                'incidents': True,
-                'heatmap': False,
-                'hotspots': False,
-                'clusters': False,
-                'risk_zones': False,
-                'priorities': False,
-            },
-        )
-        heatmap_config = analytics.get('heatmap', {'enabled': False, 'points': [], 'radius': 20, 'blur': 26})
-        analytics_panel_html = self._build_analytics_panel_html(analytics, idx) if analytics else ''
+    @staticmethod
+    def _default_analytics_layer_flags() -> Dict[str, bool]:
+        return {
+            'incidents': True,
+            'heatmap': False,
+            'hotspots': False,
+            'clusters': False,
+            'risk_zones': False,
+            'priorities': False,
+        }
 
-        container_id = 'map-container-%s' % idx
-        center_lon, center_lat = table['center']
-        initial_zoom = min(table.get('initial_zoom', 6) + 4, 13)
-        styles_json = self._json_for_script({key: vars(value) for key, value in self.CATEGORY_STYLES.items()})
-        geojson_json = self._json_for_script(table['geojson'])
-        analytics_layers_json = self._json_for_script(analytics_layers)
-        analytics_defaults_json = self._json_for_script(analytics_defaults)
-        heatmap_json = self._json_for_script(heatmap_config)
+    def _analytics_layer_defaults(self, analytics: Dict[str, Any]) -> Dict[str, bool]:
+        return analytics.get('layer_defaults', self._default_analytics_layer_flags())
 
+    @staticmethod
+    def _analytics_heatmap_config(analytics: Dict[str, Any]) -> Dict[str, Any]:
+        return analytics.get('heatmap', {'enabled': False, 'points': [], 'radius': 20, 'blur': 26})
+
+    def _build_category_filter_items(self, table: Dict[str, Any]) -> List[str]:
         category_items: List[str] = []
         for cat_id, style in self.CATEGORY_STYLES.items():
             count = table['counts'].get(cat_id, 0)
@@ -340,8 +327,11 @@ class MapCreatorTemplateMixin:
                     '</div>',
                 ])
             )
+        return category_items
 
-        layer_definitions = [
+    @staticmethod
+    def _analytics_layer_definitions(analytics_layers: Dict[str, Dict[str, Any]]) -> List[tuple[str, str, str, bool]]:
+        return [
             ('incidents', '&#128506;', '\u0422\u043e\u0447\u043a\u0438 \u043f\u043e\u0436\u0430\u0440\u043e\u0432', True),
             ('heatmap', '&#128293;', 'KDE / heatmap', bool(analytics_layers.get('heatmap', {}).get('features'))),
             ('hotspots', '&#128205;', 'Hotspot detection', bool(analytics_layers.get('hotspots', {}).get('features'))),
@@ -349,8 +339,14 @@ class MapCreatorTemplateMixin:
             ('risk_zones', '&#9888;', '\u0417\u043e\u043d\u044b \u0440\u0438\u0441\u043a\u0430', bool(analytics_layers.get('risk_zones', {}).get('features'))),
             ('priorities', '&#127919;', '\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u044b\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0438', bool(analytics_layers.get('priorities', {}).get('features'))),
         ]
+
+    def _build_layer_filter_items(
+        self,
+        analytics_layers: Dict[str, Dict[str, Any]],
+        analytics_defaults: Dict[str, bool],
+    ) -> List[str]:
         layer_items: List[str] = []
-        for layer_id, icon_html, label, available in layer_definitions:
+        for layer_id, icon_html, label, available in self._analytics_layer_definitions(analytics_layers):
             if not available:
                 continue
             checked = ' checked' if analytics_defaults.get(layer_id, layer_id == 'incidents') else ''
@@ -365,7 +361,15 @@ class MapCreatorTemplateMixin:
                     '</div>',
                 ])
             )
+        return layer_items
 
+    def _build_filter_panel_html(
+        self,
+        idx: int,
+        table: Dict[str, Any],
+        analytics_layers: Dict[str, Dict[str, Any]],
+        analytics_defaults: Dict[str, bool],
+    ) -> str:
         filter_panel_lines = [
             '<div id="filter-panel-%s">' % idx,
             '    <h5 style="margin-bottom: 15px;">&#128269; \u0424\u0438\u043b\u044c\u0442\u0440\u044b \u0438 \u0441\u043b\u043e\u0438</h5>',
@@ -374,16 +378,26 @@ class MapCreatorTemplateMixin:
             '        <button id="deselect-all-%s" class="btn btn-secondary btn-sm" style="flex:1;">\u0421\u0431\u0440\u043e\u0441</button>' % idx,
             '    </div>',
             '    <div class="layer-group-title">\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438 \u043f\u043e\u0436\u0430\u0440\u043e\u0432</div>',
-            ''.join(category_items),
+            ''.join(self._build_category_filter_items(table)),
         ]
+        layer_items = self._build_layer_filter_items(analytics_layers, analytics_defaults)
         if layer_items:
             filter_panel_lines.extend([
                 '    <div class="layer-group-title">\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u043b\u043e\u0438</div>',
                 ''.join(layer_items),
             ])
         filter_panel_lines.append('</div>')
-        filter_panel = '\n'.join(filter_panel_lines)
+        return '\n'.join(filter_panel_lines)
 
+    @staticmethod
+    def _build_tab_outer_lines(
+        idx: int,
+        container_id: str,
+        filter_panel_html: str,
+        analytics_panel_html: str,
+        use_tab_wrapper: bool,
+        active: bool,
+    ) -> List[str]:
         if use_tab_wrapper:
             outer_lines = ['<div class="tab-pane fade%s" id="tab%s">' % (' show active' if active else '', idx)]
         else:
@@ -391,15 +405,28 @@ class MapCreatorTemplateMixin:
 
         outer_lines.extend([
             '<div class="map-container" id="%s">' % container_id,
-            filter_panel,
+            filter_panel_html,
             analytics_panel_html,
             '<div id="map%s" style="height:100%%; width:100%%;"></div>' % idx,
             '</div>',
         ])
         if use_tab_wrapper:
             outer_lines.append('</div>')
+        return outer_lines
 
-        script_lines = [
+    def _build_map_setup_script_lines(
+        self,
+        idx: int,
+        center_lon: Any,
+        center_lat: Any,
+        initial_zoom: Any,
+        styles_json: str,
+        analytics_layers_json: str,
+        analytics_defaults_json: str,
+        heatmap_json: str,
+        geojson_json: str,
+    ) -> List[str]:
+        return [
             '<script>',
             '(function() {',
             '    const map = new ol.Map({',
@@ -469,6 +496,11 @@ class MapCreatorTemplateMixin:
             '        view.setZoom(%s);' % initial_zoom,
             '    };',
             '',
+        ]
+
+    @staticmethod
+    def _build_map_layer_script_lines() -> List[str]:
+        return [
             '    const categoryLayers = {};',
             '    ["deaths", "injured", "children", "evacuated", "other"].forEach(cat => {',
             '        const catFeatures = features.filter(feature => feature.get("category") === cat);',
@@ -539,6 +571,11 @@ class MapCreatorTemplateMixin:
             '        map.addLayer(analyticsLayers.priorities);',
             '    }',
             '',
+        ]
+
+    @staticmethod
+    def _build_popup_script_lines() -> List[str]:
+        return [
             '    const overlay = new ol.Overlay({',
             '        element: document.createElement("div"),',
             '        positioning: "bottom-center",',
@@ -592,6 +629,11 @@ class MapCreatorTemplateMixin:
             '        }',
             '    });',
             '',
+        ]
+
+    @staticmethod
+    def _build_filter_script_lines(idx: int, container_id: str) -> List[str]:
+        return [
             '    const categoryCheckboxes = document.querySelectorAll("#%s .category-filter");' % container_id,
             '    const layerCheckboxes = document.querySelectorAll("#%s .layer-filter");' % container_id,
             '',
@@ -647,5 +689,68 @@ class MapCreatorTemplateMixin:
             '</script>',
         ]
 
+    def _build_tab_script_lines(
+        self,
+        idx: int,
+        table: Dict[str, Any],
+        container_id: str,
+        analytics_layers: Dict[str, Dict[str, Any]],
+        analytics_defaults: Dict[str, bool],
+        heatmap_config: Dict[str, Any],
+    ) -> List[str]:
+        center_lon, center_lat = table['center']
+        initial_zoom = min(table.get('initial_zoom', 6) + 4, 13)
+        styles_json = self._json_for_script({key: vars(value) for key, value in self.CATEGORY_STYLES.items()})
+        geojson_json = self._json_for_script(table['geojson'])
+        analytics_layers_json = self._json_for_script(analytics_layers)
+        analytics_defaults_json = self._json_for_script(analytics_defaults)
+        heatmap_json = self._json_for_script(heatmap_config)
+        return (
+            self._build_map_setup_script_lines(
+                idx,
+                center_lon,
+                center_lat,
+                initial_zoom,
+                styles_json,
+                analytics_layers_json,
+                analytics_defaults_json,
+                heatmap_json,
+                geojson_json,
+            )
+            + self._build_map_layer_script_lines()
+            + self._build_popup_script_lines()
+            + self._build_filter_script_lines(idx, container_id)
+        )
+
+    def _generate_tab_content(
+        self,
+        idx: int,
+        table: Dict[str, Any],
+        use_tab_wrapper: bool = True,
+        active: bool = True,
+    ) -> str:
+        analytics = table.get('spatial_analytics') or {}
+        analytics_layers = self._build_analytics_layer_geojsons(analytics)
+        analytics_defaults = self._analytics_layer_defaults(analytics)
+        heatmap_config = self._analytics_heatmap_config(analytics)
+        analytics_panel_html = self._build_analytics_panel_html(analytics, idx) if analytics else ''
+        container_id = 'map-container-%s' % idx
+
+        outer_lines = self._build_tab_outer_lines(
+            idx,
+            container_id,
+            self._build_filter_panel_html(idx, table, analytics_layers, analytics_defaults),
+            analytics_panel_html,
+            use_tab_wrapper,
+            active,
+        )
+        script_lines = self._build_tab_script_lines(
+            idx,
+            table,
+            container_id,
+            analytics_layers,
+            analytics_defaults,
+            heatmap_config,
+        )
         return '\n'.join(outer_lines + script_lines)
 __all__ = ["MapCreatorTemplateMixin"]

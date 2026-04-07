@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
@@ -22,15 +22,17 @@ from .data_access import (
     _area_expression,
     _build_impact_timeline_query,
     _build_year_filter_clause,
+    _metric_expression,
     _month_expression,
     _resolve_cause_column,
     _resolve_district_column,
     _resolve_table_column_name,
     _year_expression,
 )
-from .utils import _format_chart_date, _format_number, _quote_identifier
+from .utils import _date_expression, _format_chart_date, _format_number, _quote_identifier
 
 _AREA_BUCKET_ORDER = ["До 1 га", "1-5 га", "5-20 га", "20-100 га", "100+ га", "Не указано"]
+_IMPACT_TIMELINE_METRIC_KEYS = ("deaths", "injuries", "evacuated", "evacuated_children", "rescued_children")
 
 
 def _collect_cause_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
@@ -77,7 +79,12 @@ def _build_cause_chart(
     return _finalize_chart(title, items, empty_message, plotly=_build_cause_plotly(title, items, empty_message))
 
 
-def _build_combined_impact_timeline_chart(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _build_combined_impact_timeline_chart(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    *,
+    impact_timeline_rows: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     grouped: Dict[str, Dict[str, Any]] = defaultdict(
         lambda: {
             "date_value": "",
@@ -90,22 +97,11 @@ def _build_combined_impact_timeline_chart(selected_tables: List[Dict[str, Any]],
         }
     )
 
-    queries = []
-    uses_selected_year_param = False
-    for index, table in enumerate(selected_tables):
-        query = _build_impact_timeline_query(table, selected_year, include_order_by=False)
-        if query is None:
-            continue
-        queries.append(f"SELECT * FROM ({query}) AS impact_timeline_{index}")
-        if selected_year is not None and DATE_COLUMN in table["column_set"]:
-            uses_selected_year_param = True
-
-    if queries:
-        params = {"selected_year": selected_year} if uses_selected_year_param else {}
-        with engine.connect() as conn:
-            rows = conn.execute(text("\nUNION ALL\n".join(queries)), params).mappings().all()
-    else:
-        rows = []
+    rows = (
+        list(impact_timeline_rows)
+        if impact_timeline_rows is not None
+        else _collect_impact_timeline_rows(selected_tables, selected_year)
+    )
 
     for row in rows:
         date_value = row["date_value"]
@@ -150,6 +146,28 @@ def _build_combined_impact_timeline_chart(selected_tables: List[Dict[str, Any]],
     )
 
 
+def _collect_impact_timeline_rows(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+) -> List[Dict[str, Any]]:
+    queries = []
+    uses_selected_year_param = False
+    for index, table in enumerate(selected_tables):
+        query = _build_impact_timeline_query(table, selected_year, include_order_by=False)
+        if query is None:
+            continue
+        queries.append(f"SELECT * FROM ({query}) AS impact_timeline_{index}")
+        if selected_year is not None and DATE_COLUMN in table["column_set"]:
+            uses_selected_year_param = True
+
+    if not queries:
+        return []
+
+    params = {"selected_year": selected_year} if uses_selected_year_param else {}
+    with engine.connect() as conn:
+        return [dict(row) for row in conn.execute(text("\nUNION ALL\n".join(queries)), params).mappings().all()]
+
+
 def _collect_month_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[int, int]:
     grouped: Dict[int, int] = defaultdict(int)
 
@@ -182,104 +200,173 @@ def _collect_month_counts(selected_tables: List[Dict[str, Any]], selected_year: 
     return dict(grouped)
 
 
+def _column_label_expression(column_name: str) -> str:
+    return f"COALESCE(NULLIF(TRIM(CAST({_quote_identifier(column_name)} AS TEXT)), ''), 'Не указано')"
+
+
+def _build_dashboard_grouped_counts_query(
+    table: Dict[str, Any],
+    selected_year: Optional[int],
+    selected_group_column: Optional[str],
+    query_index: int,
+    *,
+    include_area_buckets: bool = True,
+    include_impact_timeline: bool = True,
+) -> tuple[Optional[str], bool]:
+    where_clause = _build_year_filter_clause(table, selected_year)
+    if where_clause is None:
+        return None, False
+
+    cause_column = _resolve_cause_column(table)
+    distribution_column = (
+        _resolve_table_column_name(table, selected_group_column)
+        if selected_group_column and selected_group_column not in CAUSE_COLUMNS
+        else ""
+    )
+    district_column = _resolve_district_column(table)
+    has_date_column = DATE_COLUMN in table["column_set"]
+    has_timeline = include_impact_timeline and (has_date_column or table["table_year"] is not None)
+    dimensions: List[tuple[str, str]] = []
+    if cause_column:
+        dimensions.append(("cause", "cause_label"))
+    if distribution_column:
+        dimensions.append(("distribution", "distribution_label"))
+    if district_column:
+        dimensions.append(("district", "district_label"))
+    if has_date_column:
+        dimensions.append(("month", "month_label"))
+    if include_area_buckets:
+        dimensions.append(("area_bucket", "area_bucket_label"))
+    if has_timeline:
+        dimensions.append(("impact_timeline", "date_value"))
+    if not dimensions:
+        return None, False
+
+    metric_kind_case = "CASE\n" + "\n".join(
+        f"                    WHEN GROUPING({column_name}) = 0 THEN '{metric_kind}'"
+        for metric_kind, column_name in dimensions
+    ) + "\n                END"
+    label_case = "CASE\n" + "\n".join(
+        f"                    WHEN GROUPING({column_name}) = 0 THEN {column_name}"
+        for metric_kind, column_name in dimensions
+        if metric_kind != "impact_timeline"
+    ) + "\n                    ELSE CAST(NULL AS TEXT)\n                END"
+    grouping_sets = ", ".join(f"({column_name})" for _, column_name in dimensions)
+    having_clause = " OR ".join(
+        f"(GROUPING({column_name}) = 0 AND {column_name} IS NOT NULL)"
+        for _, column_name in dimensions
+    )
+
+    if has_date_column:
+        month_expression = _month_expression(DATE_COLUMN)
+        month_label_expression = (
+            f"CASE WHEN {month_expression} BETWEEN 1 AND 12 "
+            f"THEN CAST({month_expression} AS TEXT) ELSE NULL END"
+        )
+        date_value_expression = _date_expression(DATE_COLUMN)
+    else:
+        month_label_expression = "CAST(NULL AS TEXT)"
+        date_value_expression = (
+            f"MAKE_DATE({int(table['table_year'])}, 1, 1)"
+            if table["table_year"] is not None
+            else "CAST(NULL AS DATE)"
+        )
+
+    source_selects = []
+    if cause_column:
+        source_selects.append(f"{_column_label_expression(cause_column)} AS cause_label")
+    if distribution_column:
+        source_selects.append(f"{_column_label_expression(distribution_column)} AS distribution_label")
+    if district_column:
+        source_selects.append(f"{_column_label_expression(district_column)} AS district_label")
+    if has_date_column:
+        source_selects.append(f"{month_label_expression} AS month_label")
+    if include_area_buckets:
+        area_expression = _area_expression(table)
+        source_selects.append(
+            f"""
+            CASE
+                WHEN {area_expression} IS NULL THEN 'Не указано'
+                WHEN {area_expression} < 1 THEN 'До 1 га'
+                WHEN {area_expression} < 5 THEN '1-5 га'
+                WHEN {area_expression} < 20 THEN '5-20 га'
+                WHEN {area_expression} < 100 THEN '20-100 га'
+                ELSE '100+ га'
+            END AS area_bucket_label
+        """
+        )
+    if has_timeline:
+        source_selects.append(f"{date_value_expression} AS date_value")
+        source_selects.extend(
+            f"{_metric_expression(table, metric_key)} AS {metric_key}"
+            for metric_key in _IMPACT_TIMELINE_METRIC_KEYS
+        )
+
+    if has_timeline:
+        timeline_group = "GROUPING(date_value) = 0"
+        fire_count_select = f"CASE WHEN {timeline_group} THEN 0 ELSE COUNT(*) END AS fire_count"
+        date_value_select = f"CASE WHEN {timeline_group} THEN date_value ELSE CAST(NULL AS DATE) END AS date_value"
+        metric_selects = [
+            f"CASE WHEN {timeline_group} THEN COALESCE(SUM({metric_key}), 0) ELSE 0.0 END AS {metric_key}"
+            for metric_key in _IMPACT_TIMELINE_METRIC_KEYS
+        ]
+    else:
+        fire_count_select = "COUNT(*) AS fire_count"
+        date_value_select = "CAST(NULL AS DATE) AS date_value"
+        metric_selects = [f"0.0 AS {metric_key}" for metric_key in _IMPACT_TIMELINE_METRIC_KEYS]
+
+    query = f"""
+        SELECT * FROM (
+            SELECT
+                {metric_kind_case} AS metric_kind,
+                {label_case} AS label,
+                {fire_count_select},
+                {date_value_select},
+                {', '.join(metric_selects)}
+            FROM (
+                SELECT
+                    {', '.join(source_selects)}
+                FROM {_quote_identifier(table["name"])}
+                WHERE {where_clause}
+            ) AS grouped_source
+            GROUP BY GROUPING SETS ({grouping_sets})
+            HAVING {having_clause}
+        ) AS grouped_counts_bundle_{query_index}
+    """
+    uses_selected_year_param = selected_year is not None and has_date_column
+    return query, uses_selected_year_param
+
+
 def _collect_dashboard_grouped_counts(
     selected_tables: List[Dict[str, Any]],
     selected_year: Optional[int],
     selected_group_column: Optional[str] = None,
-) -> Dict[str, Dict[Any, int]]:
+    *,
+    include_area_buckets: bool = True,
+    include_impact_timeline: bool = True,
+) -> Dict[str, Any]:
     cause_counts: Dict[str, int] = defaultdict(int)
     district_counts: Dict[str, int] = defaultdict(int)
     month_counts: Dict[int, int] = defaultdict(int)
     area_bucket_counts: Dict[str, int] = defaultdict(int)
     distribution_counts: Dict[str, int] = defaultdict(int)
+    impact_timeline_rows: List[Dict[str, Any]] = []
     subqueries: List[str] = []
     uses_selected_year_param = False
 
     for table in selected_tables:
-        where_clause = _build_year_filter_clause(table, selected_year)
-        if where_clause is None:
-            continue
-
-        table_sql = _quote_identifier(table["name"])
-        if selected_year is not None and DATE_COLUMN in table["column_set"]:
-            uses_selected_year_param = True
-
-        cause_column = _resolve_cause_column(table)
-        if cause_column:
-            subqueries.append(
-                f"""
-                SELECT
-                    'cause' AS metric_kind,
-                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(cause_column)} AS TEXT)), ''), 'Не указано') AS label,
-                    COUNT(*) AS fire_count
-                FROM {table_sql}
-                WHERE {where_clause}
-                GROUP BY label
-                """
-            )
-
-        if selected_group_column and selected_group_column not in CAUSE_COLUMNS:
-            distribution_column = _resolve_table_column_name(table, selected_group_column)
-            if distribution_column:
-                subqueries.append(
-                    f"""
-                    SELECT
-                        'distribution' AS metric_kind,
-                        COALESCE(NULLIF(TRIM(CAST({_quote_identifier(distribution_column)} AS TEXT)), ''), 'Не указано') AS label,
-                        COUNT(*) AS fire_count
-                    FROM {table_sql}
-                    WHERE {where_clause}
-                    GROUP BY label
-                    """
-                )
-
-        district_column = _resolve_district_column(table)
-        if district_column:
-            subqueries.append(
-                f"""
-                SELECT
-                    'district' AS metric_kind,
-                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(district_column)} AS TEXT)), ''), 'Не указано') AS label,
-                    COUNT(*) AS fire_count
-                FROM {table_sql}
-                WHERE {where_clause}
-                GROUP BY label
-                """
-            )
-
-        if DATE_COLUMN in table["column_set"]:
-            month_expression = _month_expression(DATE_COLUMN)
-            subqueries.append(
-                f"""
-                SELECT
-                    'month' AS metric_kind,
-                    CAST({month_expression} AS TEXT) AS label,
-                    COUNT(*) AS fire_count
-                FROM {table_sql}
-                WHERE {where_clause} AND {month_expression} BETWEEN 1 AND 12
-                GROUP BY label
-                """
-            )
-
-        area_expression = _area_expression(table)
-        subqueries.append(
-            f"""
-            SELECT
-                'area_bucket' AS metric_kind,
-                CASE
-                    WHEN {area_expression} IS NULL THEN 'Не указано'
-                    WHEN {area_expression} < 1 THEN 'До 1 га'
-                    WHEN {area_expression} < 5 THEN '1-5 га'
-                    WHEN {area_expression} < 20 THEN '5-20 га'
-                    WHEN {area_expression} < 100 THEN '20-100 га'
-                    ELSE '100+ га'
-                END AS label,
-                COUNT(*) AS fire_count
-            FROM {table_sql}
-            WHERE {where_clause}
-            GROUP BY label
-            """
+        query, query_uses_selected_year_param = _build_dashboard_grouped_counts_query(
+            table,
+            selected_year,
+            selected_group_column,
+            len(subqueries),
+            include_area_buckets=include_area_buckets,
+            include_impact_timeline=include_impact_timeline,
         )
+        if query is None:
+            continue
+        subqueries.append(query)
+        uses_selected_year_param = uses_selected_year_param or query_uses_selected_year_param
 
     if subqueries:
         params = {"selected_year": selected_year} if uses_selected_year_param else {}
@@ -307,6 +394,8 @@ def _collect_dashboard_grouped_counts(
                 month_counts[month_value] += fire_count
         elif metric_kind == "area_bucket":
             area_bucket_counts[str(label or "Не указано")] += fire_count
+        elif metric_kind == "impact_timeline":
+            impact_timeline_rows.append(dict(row))
 
     return {
         "cause_counts": dict(cause_counts),
@@ -314,6 +403,7 @@ def _collect_dashboard_grouped_counts(
         "distribution_counts": dict(cause_counts) if selected_group_column in CAUSE_COLUMNS else dict(distribution_counts),
         "month_counts": dict(month_counts),
         "area_bucket_counts": dict(area_bucket_counts),
+        "impact_timeline_rows": impact_timeline_rows,
     }
 
 
@@ -535,6 +625,7 @@ def _build_sql_season_widget(
 
 __all__ = [
     "_collect_dashboard_grouped_counts",
+    "_collect_impact_timeline_rows",
     "_collect_cause_counts",
     "_collect_month_counts",
     "_build_area_buckets_chart",

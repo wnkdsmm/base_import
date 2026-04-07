@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
+from app.perf import current_perf_trace
 from app.runtime_cache import CopyingTtlCache
 from config.db import engine
 
@@ -503,6 +504,155 @@ def _load_daily_history_rows(
     ]
 
 
+def _daily_history_union_part_sql(
+    table_name: str,
+    resolved_columns: Dict[str, str],
+    params: Dict[str, Any],
+    *,
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    min_year: Optional[int] = None,
+) -> Optional[str]:
+    if not table_name:
+        return None
+
+    if _daily_aggregate_view_exists(table_name):
+        conditions, table_params, scope_is_valid = _build_materialized_scope_conditions(
+            resolved_columns,
+            min_year=min_year,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+        )
+        if not scope_is_valid:
+            return None
+        params.update(table_params)
+        return f"""
+            SELECT
+                fire_date,
+                SUM(incident_count) AS incident_count,
+                SUM(COALESCE(avg_temperature, 0.0) * temperature_samples) AS temperature_sum,
+                SUM(temperature_samples) AS temperature_samples
+            FROM {_quote_identifier(_daily_aggregate_view_name(table_name))}
+            WHERE {" AND ".join(conditions)}
+            GROUP BY fire_date
+        """
+
+    date_expression, conditions, table_params, scope_is_valid = _build_scope_conditions(
+        resolved_columns,
+        min_year=min_year,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+    )
+    if date_expression is None or not scope_is_valid:
+        return None
+
+    params.update(table_params)
+    temperature_column = resolved_columns.get("temperature")
+    if temperature_column:
+        temperature_expression = _numeric_expression_for_column(temperature_column)
+        temperature_sum_sql = f"COALESCE(SUM({temperature_expression}), 0.0)"
+        temperature_samples_sql = f"COUNT({temperature_expression})"
+    else:
+        temperature_sum_sql = "0.0::double precision"
+        temperature_samples_sql = "0::bigint"
+
+    return f"""
+        SELECT
+            {date_expression} AS fire_date,
+            COUNT(*) AS incident_count,
+            {temperature_sum_sql} AS temperature_sum,
+            {temperature_samples_sql} AS temperature_samples
+        FROM {_quote_identifier(table_name)}
+        WHERE {" AND ".join(conditions)}
+        GROUP BY fire_date
+    """
+
+
+def _load_daily_history_rows_union(
+    metadata_items: Sequence[Dict[str, Any]],
+    *,
+    district: str = "all",
+    cause: str = "all",
+    object_category: str = "all",
+    min_year: Optional[int] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    params: Dict[str, Any] = {}
+    query_parts: List[str] = []
+    for metadata in metadata_items:
+        table_name = str(metadata.get("table_name") or "")
+        resolved_columns = metadata.get("resolved_columns") or {}
+        query_part = _daily_history_union_part_sql(
+            table_name,
+            resolved_columns,
+            params,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            min_year=min_year,
+        )
+        if query_part:
+            query_parts.append(query_part)
+
+    if not query_parts:
+        return []
+
+    union_sql = "\nUNION ALL\n".join(query_parts)
+    query = text(
+        f"""
+        SELECT
+            fire_date,
+            SUM(incident_count) AS incident_count,
+            CASE
+                WHEN SUM(temperature_samples) > 0
+                THEN SUM(temperature_sum) / SUM(temperature_samples)
+                ELSE NULL
+            END AS avg_temperature,
+            SUM(temperature_samples) AS temperature_samples
+        FROM (
+            {union_sql}
+        ) AS daily_history_union
+        GROUP BY fire_date
+        ORDER BY fire_date
+        """
+    )
+    with engine.connect() as conn:
+        rows = conn.execute(query, params).mappings().all()
+
+    return [
+        {
+            "date": row.get("fire_date"),
+            "count": int(row.get("incident_count") or 0),
+            "avg_temperature": _to_float_or_none(row.get("avg_temperature")),
+            "temperature_samples": int(row.get("temperature_samples") or 0),
+        }
+        for row in rows
+        if row.get("fire_date") is not None
+    ]
+
+
+def _merge_daily_history_rows(
+    merged_rows: Dict[date, Dict[str, Any]],
+    table_rows: Sequence[Dict[str, Any]],
+) -> None:
+    for row in table_rows:
+        row_date = row.get("date")
+        if row_date is None:
+            continue
+        bucket = merged_rows.setdefault(
+            row_date,
+            {"count": 0, "temperature_sum": 0.0, "temperature_samples": 0},
+        )
+        bucket["count"] += int(row.get("count") or 0)
+        sample_count = int(row.get("temperature_samples") or 0)
+        avg_temperature = _to_float_or_none(row.get("avg_temperature"))
+        if sample_count > 0 and avg_temperature is not None:
+            bucket["temperature_sum"] += avg_temperature * sample_count
+            bucket["temperature_samples"] += sample_count
+
+
 def _load_scope_total_count(
     table_name: str,
     resolved_columns: Dict[str, str],
@@ -562,6 +712,7 @@ def _build_daily_history_sql(
 ) -> List[Dict[str, Any]]:
     from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
+    perf = current_perf_trace()
     normalized_tables = _canonicalize_source_tables(source_tables)[0]
     cache_key = _build_sql_cache_key(
         "daily_history",
@@ -581,62 +732,77 @@ def _build_daily_history_sql(
     cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
     if cached_history is not None:
         _FORECASTING_SQL_CACHE.set(count_cache_key, _daily_history_total_count(cached_history))
+        if perf is not None:
+            perf.update(
+                forecasting_daily_history_cache_hit=True,
+                forecasting_daily_history_rows=len(cached_history),
+            )
         return cached_history
 
     local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
     min_year = _resolve_history_window_min_year(local_metadata_items, history_window)
     merged_rows: Dict[date, Dict[str, Any]] = {}
+    used_union_fast_path = False
 
-    for metadata in local_metadata_items:
-        table_name = str(metadata.get("table_name") or "")
-        resolved_columns = metadata.get("resolved_columns") or {}
-        if not table_name:
-            continue
+    if len(local_metadata_items) > 1:
         try:
-            table_rows = _load_daily_history_rows(
-                table_name,
-                resolved_columns,
+            union_rows = _load_daily_history_rows_union(
+                local_metadata_items,
                 district=district,
                 cause=cause,
                 object_category=object_category,
                 min_year=min_year,
             )
         except Exception:
-            fallback_records = _load_forecasting_records(
-                table_name,
-                resolved_columns,
-                district=district,
-                cause=cause,
-                object_category=object_category,
-                min_year=min_year,
-            )
-            table_rows = [
-                {
-                    "date": item["date"],
-                    "count": int(item["count"]),
-                    "avg_temperature": item["avg_temperature"],
-                    "temperature_samples": 1 if item["avg_temperature"] is not None else 0,
-                }
-                for item in _build_daily_history(fallback_records)
-            ]
+            union_rows = None
+        if union_rows is not None:
+            used_union_fast_path = True
+            _merge_daily_history_rows(merged_rows, union_rows)
 
-        for row in table_rows:
-            row_date = row.get("date")
-            if row_date is None:
+    if not used_union_fast_path:
+        for metadata in local_metadata_items:
+            table_name = str(metadata.get("table_name") or "")
+            resolved_columns = metadata.get("resolved_columns") or {}
+            if not table_name:
                 continue
-            bucket = merged_rows.setdefault(
-                row_date,
-                {"count": 0, "temperature_sum": 0.0, "temperature_samples": 0},
-            )
-            bucket["count"] += int(row.get("count") or 0)
-            sample_count = int(row.get("temperature_samples") or 0)
-            avg_temperature = _to_float_or_none(row.get("avg_temperature"))
-            if sample_count > 0 and avg_temperature is not None:
-                bucket["temperature_sum"] += avg_temperature * sample_count
-                bucket["temperature_samples"] += sample_count
+            try:
+                table_rows = _load_daily_history_rows(
+                    table_name,
+                    resolved_columns,
+                    district=district,
+                    cause=cause,
+                    object_category=object_category,
+                    min_year=min_year,
+                )
+            except Exception:
+                fallback_records = _load_forecasting_records(
+                    table_name,
+                    resolved_columns,
+                    district=district,
+                    cause=cause,
+                    object_category=object_category,
+                    min_year=min_year,
+                )
+                table_rows = [
+                    {
+                        "date": item["date"],
+                        "count": int(item["count"]),
+                        "avg_temperature": item["avg_temperature"],
+                        "temperature_samples": 1 if item["avg_temperature"] is not None else 0,
+                    }
+                    for item in _build_daily_history(fallback_records)
+                ]
+            _merge_daily_history_rows(merged_rows, table_rows)
 
     if not merged_rows:
         _FORECASTING_SQL_CACHE.set(count_cache_key, 0)
+        if perf is not None:
+            perf.update(
+                forecasting_daily_history_cache_hit=False,
+                forecasting_daily_history_union_fast_path=used_union_fast_path,
+                forecasting_daily_history_tables=len(local_metadata_items),
+                forecasting_daily_history_rows=0,
+            )
         return _FORECASTING_SQL_CACHE.set(cache_key, [])
 
     history: List[Dict[str, Any]] = []
@@ -656,6 +822,13 @@ def _build_daily_history_sql(
         current_date += timedelta(days=1)
 
     _FORECASTING_SQL_CACHE.set(count_cache_key, _daily_history_total_count(history))
+    if perf is not None:
+        perf.update(
+            forecasting_daily_history_cache_hit=False,
+            forecasting_daily_history_union_fast_path=used_union_fast_path,
+            forecasting_daily_history_tables=len(local_metadata_items),
+            forecasting_daily_history_rows=len(history),
+        )
     return _FORECASTING_SQL_CACHE.set(cache_key, history)
 
 

@@ -1123,6 +1123,34 @@ class PredictionIntervalCalibrationTests(unittest.TestCase):
         self.assertIn('out-of-sample coverage', result['coverage_note'])
         self.assertIn('Forward rolling split conformal', result['coverage_note'])
 
+    def test_interval_backtest_reuses_identical_prefix_calibrations(self) -> None:
+        actuals = np.asarray([2.0, 2.0, 3.0, 2.0, 3.0, 2.0, 9.0, 10.0, 11.0, 10.0, 12.0, 11.0], dtype=float)
+        predictions = np.asarray([2.0, 2.0, 3.0, 2.0, 3.0, 2.0, 4.0, 4.5, 5.0, 5.0, 5.5, 5.5], dtype=float)
+        window_dates = [date(2024, 1, 1) + timedelta(days=index) for index in range(len(actuals))]
+        original_builder = ml_training_forecast._build_prediction_interval_calibration
+
+        with patch.object(
+            ml_training_forecast,
+            '_build_prediction_interval_calibration',
+            wraps=original_builder,
+        ) as calibration_mock:
+            result = _evaluate_prediction_interval_backtest(actuals, predictions, window_dates, level=0.8)
+
+        split = ml_training_forecast._split_prediction_interval_windows(len(actuals))
+        self.assertIsNotNone(split)
+        calibration_windows, _ = split
+        prefix_windows = {calibration_windows}
+        prefix_windows.update(
+            int(block[0])
+            for block in ml_training_forecast._prediction_interval_validation_blocks(calibration_windows, len(actuals))
+        )
+        prefix_windows.update(range(calibration_windows, len(actuals)))
+
+        self.assertTrue(result['coverage_validated'])
+        self.assertEqual(calibration_mock.call_count, len(prefix_windows) + 1)
+        self.assertIn('validation baseline', result['reference_candidate']['calibration']['method_label'])
+        self.assertIn('validated by', result['calibration']['method_label'])
+
     def test_forward_rolling_backtest_keeps_adaptive_low_and_peak_margins(self) -> None:
         actuals = np.asarray([0.1, 0.4, 1.2, 1.5, 10.0, 18.0, 0.5, 1.0, 13.0, 21.0], dtype=float)
         predictions = np.asarray([0.2, 0.5, 1.0, 1.2, 7.0, 14.0, 0.4, 1.1, 11.0, 15.0], dtype=float)

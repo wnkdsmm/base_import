@@ -1,17 +1,9 @@
 from __future__ import annotations
 
-"""Compatibility package exports for legacy ``app.dashboard`` imports.
+"""Dashboard package namespace.
 
-Prefer direct imports from ``app.dashboard.service`` in new code.
+Dashboard helpers live in ``app.dashboard.service`` and related canonical
+submodules; the package no longer provides legacy lazy reexports.
 """
 
-from app.compat import install_lazy_exports
-
-_EXPORTS = {
-    "build_dashboard_context": ("app.dashboard.service", "build_dashboard_context"),
-    "get_dashboard_data": ("app.dashboard.service", "get_dashboard_data"),
-    "get_dashboard_page_context": ("app.dashboard.service", "get_dashboard_page_context"),
-    "get_dashboard_shell_context": ("app.dashboard.service", "get_dashboard_shell_context"),
-}
-
-__all__, __getattr__, __dir__ = install_lazy_exports(__name__, globals(), _EXPORTS)
+__all__: list[str] = []

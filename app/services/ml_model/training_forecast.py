@@ -327,6 +327,10 @@ def _build_future_forecast_rows(
         temperature_stats=temperature_stats,
     )
     reference_calibration = _resolve_interval_calibration(interval_calibration, 1)
+    interval_calibrations_by_step = {
+        step: _resolve_interval_calibration(interval_calibration, step)
+        for step in range(1, forecast_days + 1)
+    }
 
     interval_label = str(
         reference_calibration.get('level_display')
@@ -339,7 +343,7 @@ def _build_future_forecast_rows(
         temp_value = point['temp_value']
         point_prediction = float(point['forecast_value'])
         event_probability = point['event_probability']
-        row_interval_calibration = _resolve_interval_calibration(interval_calibration, step)
+        row_interval_calibration = interval_calibrations_by_step[step]
 
         lower_bound, upper_bound = _count_interval(point_prediction, row_interval_calibration)
         risk_index = _risk_index(point_prediction, sorted_history_counts)
@@ -510,6 +514,38 @@ def _build_prediction_interval_calibration(
     }
 
 
+def _copy_prediction_interval_calibration(
+    calibration: Dict[str, Any],
+    *,
+    method_label: str,
+) -> Dict[str, Any]:
+    copied = dict(calibration)
+    copied['method_label'] = method_label
+    copied['adaptive_bin_edges'] = list(calibration.get('adaptive_bin_edges') or [])
+    copied['adaptive_bins'] = [dict(row) for row in calibration.get('adaptive_bins') or []]
+    return copied
+
+
+class _PredictionIntervalCalibrationCache:
+    def __init__(self, actuals: np.ndarray, predictions: np.ndarray, level: float) -> None:
+        self._actuals = np.asarray(actuals, dtype=float)
+        self._predictions = np.asarray(predictions, dtype=float)
+        self._level = float(level)
+        self._by_prefix: Dict[int, Dict[str, Any]] = {}
+
+    def for_prefix(self, prefix_windows: int, *, method_label: str) -> Dict[str, Any]:
+        prefix = max(0, min(int(prefix_windows), self._actuals.size, self._predictions.size))
+        calibration = self._by_prefix.get(prefix)
+        if calibration is None:
+            calibration = _build_prediction_interval_calibration(
+                self._actuals[:prefix],
+                self._predictions[:prefix],
+                level=self._level,
+            )
+            self._by_prefix[prefix] = calibration
+        return _copy_prediction_interval_calibration(calibration, method_label=method_label)
+
+
 def _split_prediction_interval_windows(total_windows: int) -> Optional[Tuple[int, int]]:
     minimum_windows = MIN_INTERVAL_CALIBRATION_WINDOWS + MIN_INTERVAL_EVALUATION_WINDOWS
     if total_windows < minimum_windows:
@@ -657,15 +693,15 @@ def _evaluate_fixed_chrono_prediction_interval(
     window_dates: List[Any],
     calibration_windows: int,
     level: float,
+    calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
 ) -> Dict[str, Any]:
     calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
         window_dates,
         calibration_windows,
     )
-    calibration = _build_prediction_interval_calibration(
-        actuals[:calibration_windows],
-        predictions[:calibration_windows],
-        level=level,
+    calibration_cache = calibration_cache or _PredictionIntervalCalibrationCache(actuals, predictions, level)
+    calibration = calibration_cache.for_prefix(
+        calibration_windows,
         method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL}; validation baseline: {PREDICTION_INTERVAL_FIXED_CHRONO_LABEL}',
     )
     covered_flags = _prediction_interval_coverage_flags(
@@ -695,6 +731,7 @@ def _evaluate_blocked_prediction_interval(
     window_dates: List[Any],
     calibration_windows: int,
     level: float,
+    calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
 ) -> Dict[str, Any]:
     calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
         window_dates,
@@ -703,12 +740,11 @@ def _evaluate_blocked_prediction_interval(
     )
     covered_flags: List[bool] = []
     blocks = _prediction_interval_validation_blocks(calibration_windows, len(window_dates))
+    calibration_cache = calibration_cache or _PredictionIntervalCalibrationCache(actuals, predictions, level)
     for block in blocks:
         block_start = int(block[0])
-        calibration = _build_prediction_interval_calibration(
-            actuals[:block_start],
-            predictions[:block_start],
-            level=level,
+        calibration = calibration_cache.for_prefix(
+            block_start,
             method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL}; validation candidate: {PREDICTION_INTERVAL_BLOCKED_CV_LABEL}',
         )
         covered_flags.extend(
@@ -738,6 +774,7 @@ def _evaluate_rolling_prediction_interval(
     window_dates: List[Any],
     calibration_windows: int,
     level: float,
+    calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
 ) -> Dict[str, Any]:
     calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
         window_dates,
@@ -745,11 +782,10 @@ def _evaluate_rolling_prediction_interval(
         evaluation_prefix='rolling evaluation',
     )
     covered_flags: List[bool] = []
+    calibration_cache = calibration_cache or _PredictionIntervalCalibrationCache(actuals, predictions, level)
     for index in range(calibration_windows, len(window_dates)):
-        calibration = _build_prediction_interval_calibration(
-            actuals[:index],
-            predictions[:index],
-            level=level,
+        calibration = calibration_cache.for_prefix(
+            index,
             method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL}; validation candidate: {PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL}',
         )
         covered_flags.extend(
@@ -885,12 +921,14 @@ def _evaluate_prediction_interval_backtest(
         }
 
     calibration_windows, _ = split
+    calibration_cache = _PredictionIntervalCalibrationCache(actual_values, prediction_values, level)
     fixed_candidate = _evaluate_fixed_chrono_prediction_interval(
         actual_values,
         prediction_values,
         normalized_dates,
         calibration_windows,
         level,
+        calibration_cache=calibration_cache,
     )
     blocked_candidate = _evaluate_blocked_prediction_interval(
         actual_values,
@@ -898,6 +936,7 @@ def _evaluate_prediction_interval_backtest(
         normalized_dates,
         calibration_windows,
         level,
+        calibration_cache=calibration_cache,
     )
     rolling_candidate = _evaluate_rolling_prediction_interval(
         actual_values,
@@ -905,6 +944,7 @@ def _evaluate_prediction_interval_backtest(
         normalized_dates,
         calibration_windows,
         level,
+        calibration_cache=calibration_cache,
     )
     selectable_candidates = [blocked_candidate, rolling_candidate]
     ranking = sorted(selectable_candidates, key=_prediction_interval_candidate_sort_key)

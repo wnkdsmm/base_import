@@ -217,15 +217,18 @@ def _build_dashboard_aggregation(
         summary_rows=summary_rows,
         include_plotly=False,
     )
+    is_damage_group = _is_damage_group_selection(selected_group_column)
     grouped_counts_bundle = _collect_dashboard_grouped_counts(
         selected_tables,
         selected_year,
         selected_group_column,
+        include_area_buckets=not is_damage_group,
+        include_impact_timeline=not is_damage_group,
     )
     cause_counts = grouped_counts_bundle["cause_counts"]
     cause_overview = _build_cause_chart(selected_tables, selected_year, cause_counts=cause_counts)
     month_counts = grouped_counts_bundle["month_counts"]
-    if _is_damage_group_selection(selected_group_column):
+    if is_damage_group:
         damage_counts = _collect_damage_counts(selected_tables, selected_year)
         damage_category_items = _build_damage_category_items(
             selected_tables,
@@ -273,7 +276,11 @@ def _build_dashboard_aggregation(
                 else None
             ),
         )
-        yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
+        yearly_area_chart = _build_combined_impact_timeline_chart(
+            selected_tables,
+            selected_year,
+            impact_timeline_rows=grouped_counts_bundle["impact_timeline_rows"],
+        )
         monthly_profile = _build_monthly_profile_chart(selected_tables, selected_year, month_counts=month_counts)
         area_bucket_counts = grouped_counts_bundle["area_bucket_counts"]
         area_buckets = (

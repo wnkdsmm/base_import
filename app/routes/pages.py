@@ -129,6 +129,7 @@ def home(
         else get_dashboard_shell_context(table_name=table_name, year=year, group_column=group_column)
     )
     return templates.TemplateResponse(
+        request,
         "index.html",
         _base_template_context(
             request,
@@ -159,6 +160,7 @@ def forecasting_page(
         history_window=history_window,
     )
     return templates.TemplateResponse(
+        request,
         "forecasting.html",
         _base_template_context(
             request,
@@ -203,6 +205,7 @@ def ml_model_page(
         )
     )
     return templates.TemplateResponse(
+        request,
         "ml_model.html",
         _base_template_context(
             request,
@@ -231,6 +234,7 @@ def clustering_page(
         cluster_count_is_explicit="cluster_count" in request.query_params,
     )
     return templates.TemplateResponse(
+        request,
         "clustering.html",
         _base_template_context(
             request,
@@ -258,6 +262,7 @@ def access_points_page(
         feature_columns=feature_columns or [],
     )
     return templates.TemplateResponse(
+        request,
         "access_points.html",
         _base_template_context(
             request,
@@ -274,6 +279,7 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
     selected_table = resolve_selected_table(table_options, table_name)
 
     return templates.TemplateResponse(
+        request,
         "column_search.html",
         _base_template_context(
             request,
@@ -290,6 +296,7 @@ def fire_map_page(request: Request, table_name: str = ""):
     fire_map = get_fire_map_page_context(table_name)
 
     return templates.TemplateResponse(
+        request,
         "fire_map.html",
         _base_template_context(
             request,
@@ -305,6 +312,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
 
     if not table_name or table_name != selected_table:
         return templates.TemplateResponse(
+            request,
             "fire_map_error.html",
             _base_template_context(
                 request,
@@ -317,6 +325,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
         map_html = build_fire_map_html(table_name)
         if not map_html:
             return templates.TemplateResponse(
+                request,
                 "fire_map_error.html",
                 _base_template_context(
                     request,
@@ -327,6 +336,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
         return HTMLResponse(map_html)
     except Exception as exc:
         return templates.TemplateResponse(
+            request,
             "fire_map_error.html",
             _base_template_context(request, message=str(exc)),
             status_code=500,
@@ -337,6 +347,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
 async def list_tables(request: Request):
     tables = get_all_tables()
     return templates.TemplateResponse(
+        request,
         "tables.html",
         _base_template_context(
             request,
@@ -366,6 +377,7 @@ async def view_table(
     rows = table_page["rows"]
 
     return templates.TemplateResponse(
+        request,
         "table_view.html",
         _base_template_context(
             request,
@@ -384,6 +396,7 @@ async def view_table(
 def select_table(request: Request):
     tables = get_all_tables()
     return templates.TemplateResponse(
+        request,
         "select_table.html",
         _base_template_context(
             request,

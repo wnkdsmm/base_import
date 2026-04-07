@@ -156,35 +156,54 @@ def _collect_positive_column_counts(
     columns: Sequence[str],
 ) -> Dict[str, int]:
     counts = {column_name: 0 for column_name in columns}
+    if not columns:
+        return counts
 
-    with engine.connect() as conn:
-        for table in selected_tables:
-            available_columns = [column_name for column_name in columns if column_name in table["column_set"]]
-            if not available_columns:
-                continue
-            where_clause = _build_year_filter_clause(table, selected_year)
-            if where_clause is None:
-                continue
+    aliases = [f"metric_{index}" for index, _ in enumerate(columns)]
+    query_parts = []
+    uses_selected_year_param = False
+    for table in selected_tables:
+        available_columns = {column_name for column_name in columns if column_name in table["column_set"]}
+        if not available_columns:
+            continue
+        where_clause = _build_year_filter_clause(table, selected_year)
+        if where_clause is None:
+            continue
+        if selected_year is not None and DATE_COLUMN in table["column_set"]:
+            uses_selected_year_param = True
 
-            selects = []
-            alias_to_column: Dict[str, str] = {}
-            for index, column_name in enumerate(available_columns):
-                alias = f"metric_{index}"
+        selects = []
+        for alias, column_name in zip(aliases, columns):
+            if column_name in available_columns:
                 numeric_expression = _numeric_expression_for_column(column_name)
-                selects.append(f"SUM(CASE WHEN COALESCE({numeric_expression}, 0) > 0 THEN 1 ELSE 0 END) AS {alias}")
-                alias_to_column[alias] = column_name
+                selects.append(f"COALESCE(SUM(CASE WHEN COALESCE({numeric_expression}, 0) > 0 THEN 1 ELSE 0 END), 0) AS {alias}")
+            else:
+                selects.append(f"0 AS {alias}")
 
-            query = text(
-                f"""
-                SELECT {', '.join(selects)}
-                FROM {_quote_identifier(table['name'])}
-                WHERE {where_clause}
-                """
-            )
-            params = {"selected_year": selected_year} if selected_year is not None and DATE_COLUMN in table["column_set"] else {}
-            row = conn.execute(query, params).mappings().one()
-            for alias, column_name in alias_to_column.items():
-                counts[column_name] += int(row[alias] or 0)
+        query_parts.append(
+            f"""
+            SELECT {', '.join(selects)}
+            FROM {_quote_identifier(table['name'])}
+            WHERE {where_clause}
+            """
+        )
+
+    if not query_parts:
+        return counts
+
+    query = text(
+        f"""
+        SELECT {', '.join(f'COALESCE(SUM({alias}), 0) AS {alias}' for alias in aliases)}
+        FROM (
+            {' UNION ALL '.join(query_parts)}
+        ) AS positive_column_counts
+        """
+    )
+    params = {"selected_year": selected_year} if uses_selected_year_param else {}
+    with engine.connect() as conn:
+        row = conn.execute(query, params).mappings().one()
+    for alias, column_name in zip(aliases, columns):
+        counts[column_name] += int(row[alias] or 0)
 
     return counts
 

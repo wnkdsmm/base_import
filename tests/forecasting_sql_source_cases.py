@@ -153,3 +153,98 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
 
         self.assertEqual(sum(int(item["count"]) for item in history), 5)
         self.assertEqual(count, 5)
+
+    def test_multi_table_daily_history_uses_union_fast_path_and_count_cache(self) -> None:
+        metadata_items = [
+            {"table_name": "fires_a", "resolved_columns": {"date": "fire_date"}},
+            {"table_name": "fires_b", "resolved_columns": {"date": "fire_date"}},
+        ]
+        union_rows = [
+            {
+                "date": date(2024, 1, 1),
+                "count": 3,
+                "avg_temperature": 10.0,
+                "temperature_samples": 2,
+            },
+            {
+                "date": date(2024, 1, 3),
+                "count": 2,
+                "avg_temperature": None,
+                "temperature_samples": 0,
+            },
+        ]
+
+        forecasting_sql.clear_forecasting_sql_cache()
+        with (
+            patch.object(forecasting_sql, "_load_daily_history_rows_union", return_value=union_rows) as union_mock,
+            patch.object(
+                forecasting_sql,
+                "_load_daily_history_rows",
+                side_effect=AssertionError("per-table daily history should not run after union fast path"),
+            ),
+        ):
+            history = forecasting_sql._build_daily_history_sql(
+                ["fires_a", "fires_b"],
+                metadata_items=metadata_items,
+            )
+
+        with patch.object(
+            forecasting_sql,
+            "_load_scope_total_count",
+            side_effect=AssertionError("count should reuse daily history cache"),
+        ):
+            count = forecasting_sql._count_forecasting_records_sql(
+                ["fires_a", "fires_b"],
+                metadata_items=metadata_items,
+            )
+
+        union_mock.assert_called_once()
+        self.assertEqual(
+            history,
+            [
+                {"date": date(2024, 1, 1), "count": 3, "avg_temperature": 10.0},
+                {"date": date(2024, 1, 2), "count": 0, "avg_temperature": None},
+                {"date": date(2024, 1, 3), "count": 2, "avg_temperature": None},
+            ],
+        )
+        self.assertEqual(count, 5)
+
+    def test_multi_table_daily_history_falls_back_when_union_fast_path_fails(self) -> None:
+        metadata_items = [
+            {"table_name": "fires_a", "resolved_columns": {"date": "fire_date"}},
+            {"table_name": "fires_b", "resolved_columns": {"date": "fire_date"}},
+        ]
+        rows_by_table = {
+            "fires_a": [
+                {
+                    "date": date(2024, 1, 1),
+                    "count": 1,
+                    "avg_temperature": 2.0,
+                    "temperature_samples": 1,
+                }
+            ],
+            "fires_b": [
+                {
+                    "date": date(2024, 1, 1),
+                    "count": 2,
+                    "avg_temperature": 4.0,
+                    "temperature_samples": 1,
+                }
+            ],
+        }
+
+        def _load_table_rows(table_name, *_args, **_kwargs):
+            return rows_by_table[table_name]
+
+        forecasting_sql.clear_forecasting_sql_cache()
+        with (
+            patch.object(forecasting_sql, "_load_daily_history_rows_union", side_effect=RuntimeError("boom")),
+            patch.object(forecasting_sql, "_load_daily_history_rows", side_effect=_load_table_rows) as table_mock,
+        ):
+            history = forecasting_sql._build_daily_history_sql(
+                ["fires_a", "fires_b"],
+                metadata_items=metadata_items,
+            )
+
+        self.assertEqual(table_mock.call_count, 2)
+        self.assertEqual(history, [{"date": date(2024, 1, 1), "count": 3, "avg_temperature": 3.0}])
