@@ -3,6 +3,8 @@
     const applyToneClass = shared.applyToneClass;
     const byId = shared.byId;
     const escapeHtml = shared.escapeHtml;
+    const fetchJson = shared.fetchJson;
+    const getApiErrorMessage = shared.getApiErrorMessage;
     const setHref = shared.setHref;
     const setSelectOptions = shared.setSelectOptions;
     const setText = shared.setText;
@@ -163,11 +165,12 @@
     function buildDashboardApiError(response, payload) {
         const errorPayload = payload && payload.error ? payload.error : {};
         const statusCode = Number(errorPayload.status_code || (response && response.status) || 0);
-        const message = errorPayload.message || (
+        const fallbackMessage = (
             statusCode >= 500
                 ? 'Не удалось обновить dashboard. Попробуйте повторить запрос.'
                 : 'Не удалось обработать параметры dashboard.'
         );
+        const message = getApiErrorMessage(payload, fallbackMessage);
         const error = new Error(message);
         error.dashboardStatusCode = statusCode;
         error.dashboardErrorId = errorPayload.error_id || '';
@@ -175,19 +178,7 @@
         return error;
     }
 
-    async function readDashboardResponse(response) {
-        let payload = null;
-
-        try {
-            payload = await response.json();
-        } catch (parseError) {
-            payload = null;
-        }
-
-        if (!response.ok || (payload && payload.ok === false)) {
-            throw buildDashboardApiError(response, payload);
-        }
-
+    function readDashboardPayload(payload) {
         if (!payload || typeof payload !== 'object') {
             const contractError = new Error('Dashboard API вернул пустой ответ.');
             contractError.dashboardStatusCode = 502;
@@ -201,6 +192,27 @@
         }
 
         return payload;
+    }
+
+    async function fetchDashboardPayload(url, options) {
+        try {
+            const result = await fetchJson(
+                url,
+                options,
+                'Не удалось обновить dashboard. Попробуйте повторить запрос.'
+            );
+            return readDashboardPayload(result.payload);
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                const contractError = new Error('Dashboard API вернул пустой ответ.');
+                contractError.dashboardStatusCode = 502;
+                throw contractError;
+            }
+            if (error && Object.prototype.hasOwnProperty.call(error, 'payload')) {
+                throw buildDashboardApiError(error, error.payload);
+            }
+            throw error;
+        }
     }
 
     function renderManagementCards(items) {
@@ -463,17 +475,11 @@
 
         try {
             hideDashboardError();
-            const response = await fetch('/api/dashboard-data?' + query, {
+            const data = await fetchDashboardPayload('/api/dashboard-data?' + query, {
                 headers: {
                     'Accept': 'application/json'
                 }
             });
-
-            /* response status handled in readDashboardResponse
-                throw new Error('Не удалось обновить панель');
-            */
-
-            const data = await readDashboardResponse(response);
             applyDashboardData(data);
             window.history.replaceState({}, '', buildDashboardPageHref(collectDashboardFiltersFromForm()));
         } catch (error) {

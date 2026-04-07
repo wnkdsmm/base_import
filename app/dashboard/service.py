@@ -63,6 +63,21 @@ def _can_reuse_distribution_counts(
             return False
     return True
 
+
+def _build_dashboard_cache_key(
+    metadata: Dict[str, Any],
+    table_name: str,
+    year: str,
+    normalized_group_column: str,
+) -> tuple[Any, ...]:
+    return (
+        tuple(sorted(table["name"] for table in metadata["tables"])),
+        table_name,
+        year,
+        normalized_group_column,
+    )
+
+
 def build_dashboard_context(
     table_name: str = "all",
     year: str = "all",
@@ -177,6 +192,206 @@ def get_dashboard_shell_context(
         return _build_dashboard_error_context(str(exc), plotly_js="")
 
 
+def _build_dashboard_aggregation(
+    *,
+    metadata: Dict[str, Any],
+    selected_tables: list[dict[str, Any]],
+    selected_year: Optional[int],
+    selected_group_column: str,
+    selected_table_name: str,
+    available_years: list[Dict[str, Any]],
+    available_group_columns: list[Dict[str, Any]],
+) -> Dict[str, Any]:
+    summary_bundle = _collect_dashboard_summary_bundle(selected_tables, selected_year)
+    summary_rows = summary_bundle["summary_rows"]
+    summary = _build_summary(selected_tables, selected_year, summary_rows=summary_rows)
+    yearly_fires_series = _build_yearly_chart(
+        selected_tables,
+        metric="count",
+        yearly_grouped=summary_bundle["yearly_grouped"],
+        include_plotly=False,
+    )
+    table_breakdown_series = _build_table_breakdown_chart(
+        selected_tables,
+        selected_year,
+        summary_rows=summary_rows,
+        include_plotly=False,
+    )
+    grouped_counts_bundle = _collect_dashboard_grouped_counts(
+        selected_tables,
+        selected_year,
+        selected_group_column,
+    )
+    cause_counts = grouped_counts_bundle["cause_counts"]
+    cause_overview = _build_cause_chart(selected_tables, selected_year, cause_counts=cause_counts)
+    month_counts = grouped_counts_bundle["month_counts"]
+    if _is_damage_group_selection(selected_group_column):
+        damage_counts = _collect_damage_counts(selected_tables, selected_year)
+        damage_category_items = _build_damage_category_items(
+            selected_tables,
+            selected_year,
+            counts=damage_counts,
+        )
+        damage_theme_items = _build_damage_theme_items(
+            selected_tables,
+            selected_year,
+            counts=damage_counts,
+        )
+        distribution = _build_damage_overview_chart(
+            selected_tables,
+            selected_year,
+            items=damage_category_items,
+        )
+        yearly_area_chart = _build_damage_pairs_chart(
+            selected_tables,
+            selected_year,
+            items=damage_category_items,
+        )
+        monthly_profile = _build_damage_standalone_chart(
+            selected_tables,
+            selected_year,
+            items=damage_theme_items,
+        )
+        area_buckets = _build_damage_share_chart(
+            selected_tables,
+            selected_year,
+            items=damage_theme_items,
+        )
+    else:
+        distribution_counts = grouped_counts_bundle["distribution_counts"]
+        distribution = _build_distribution_chart(
+            selected_tables,
+            selected_year,
+            selected_group_column,
+            grouped_counts=(
+                distribution_counts
+                if _can_reuse_distribution_counts(
+                    selected_tables,
+                    selected_group_column,
+                    distribution_counts,
+                )
+                else None
+            ),
+        )
+        yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
+        monthly_profile = _build_monthly_profile_chart(selected_tables, selected_year, month_counts=month_counts)
+        area_bucket_counts = grouped_counts_bundle["area_bucket_counts"]
+        area_buckets = (
+            _build_area_buckets_chart_from_counts(area_bucket_counts)
+            if area_bucket_counts is not None
+            else _build_area_buckets_chart(selected_tables, selected_year)
+        )
+    trend = _build_trend(yearly_fires_series)
+    rankings = _build_rankings(distribution, table_breakdown_series, yearly_fires_series)
+    highlights = _build_highlights(summary, yearly_fires_series, cause_overview)
+    district_counts = grouped_counts_bundle["district_counts"]
+    widgets = _build_sql_widgets(
+        selected_tables,
+        selected_year,
+        cause_counts=cause_counts,
+        month_counts=month_counts,
+        district_counts=district_counts,
+    )
+    if district_counts and not widgets.get("districts", {}).get("items"):
+        widgets["districts"] = _build_sql_district_widget_from_counts(district_counts)
+    management = _build_management_snapshot(
+        selected_tables=selected_tables,
+        selected_year=selected_year,
+        summary=summary,
+        trend=trend,
+        cause_overview=cause_overview,
+        district_widget=widgets["districts"],
+    )
+    scope = _build_scope(
+        summary=summary,
+        metadata=metadata,
+        selected_table_label=_find_option_label(metadata["table_options"], selected_table_name, "Все таблицы"),
+        selected_group_label=_find_option_label(available_group_columns, selected_group_column, "Нет доступных колонок"),
+        available_years=available_years,
+    )
+
+    return {
+        "summary": summary,
+        "yearly_fires_series": yearly_fires_series,
+        "cause_overview": cause_overview,
+        "distribution": distribution,
+        "yearly_area_chart": yearly_area_chart,
+        "monthly_profile": monthly_profile,
+        "area_buckets": area_buckets,
+        "trend": trend,
+        "rankings": rankings,
+        "highlights": highlights,
+        "widgets": widgets,
+        "management": management,
+        "scope": scope,
+    }
+
+
+def _build_dashboard_payload(
+    *,
+    metadata: Dict[str, Any],
+    aggregation: Dict[str, Any],
+    selected_tables: list[dict[str, Any]],
+    selected_table_name: str,
+    selected_year: Optional[int],
+    selected_group_column: str,
+    available_years: list[Dict[str, Any]],
+    available_group_columns: list[Dict[str, Any]],
+) -> Dict[str, Any]:
+    summary = aggregation["summary"]
+    scope = aggregation["scope"]
+    trend = aggregation["trend"]
+    management = aggregation["management"]
+    cause_overview = aggregation["cause_overview"]
+    distribution = aggregation["distribution"]
+    yearly_area_chart = aggregation["yearly_area_chart"]
+    monthly_profile = aggregation["monthly_profile"]
+    area_buckets = aggregation["area_buckets"]
+    scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
+
+    export_text = compose_executive_brief_text(
+        management.get("brief"),
+        scope_label=scope_label,
+        generated_at=_format_datetime(datetime.now()),
+    )
+    management["export_text"] = export_text
+    if isinstance(management.get("brief"), dict):
+        management["brief"]["export_text"] = export_text
+
+    notes = list(metadata["errors"][:5])
+    if not PLOTLY_AVAILABLE:
+        notes.append("Библиотека Plotly не найдена в окружении. Интерактивные графики не будут показаны.")
+
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "has_data": bool(selected_tables),
+        "summary": summary,
+        "scope": scope,
+        "trend": trend,
+        "management": management,
+        "highlights": aggregation["highlights"],
+        "rankings": aggregation["rankings"],
+        "widgets": aggregation["widgets"],
+        "charts": {
+            "yearly_fires": cause_overview,
+            "yearly_area": yearly_area_chart,
+            "distribution": distribution,
+            "table_breakdown": _finalize_chart("", [], ""),
+            "monthly_profile": monthly_profile,
+            "area_buckets": area_buckets,
+        },
+        "filters": {
+            "table_name": selected_table_name,
+            "year": str(selected_year) if selected_year is not None else "all",
+            "group_column": selected_group_column,
+            "available_tables": metadata["table_options"],
+            "available_years": available_years,
+            "available_group_columns": available_group_columns,
+        },
+        "notes": notes,
+    }
+
+
 def get_dashboard_data(
     table_name: str = "all",
     year: str = "all",
@@ -197,12 +412,7 @@ def get_dashboard_data(
                 metadata = metadata or _collect_dashboard_metadata_cached()
                 normalized_group_column = group_column or metadata["default_group_column"]
 
-                cache_key = (
-                    tuple(sorted(table["name"] for table in metadata["tables"])),
-                    table_name,
-                    year,
-                    normalized_group_column,
-                )
+                cache_key = _build_dashboard_cache_key(metadata, table_name, year, normalized_group_column)
                 cached = _get_dashboard_cache(cache_key)
                 if cached is not None:
                     perf.update(
@@ -234,161 +444,32 @@ def get_dashboard_data(
                 )
 
             with perf.span("aggregation"):
-                summary_bundle = _collect_dashboard_summary_bundle(selected_tables, selected_year)
-                summary_rows = summary_bundle["summary_rows"]
-                summary = _build_summary(selected_tables, selected_year, summary_rows=summary_rows)
-                yearly_fires_series = _build_yearly_chart(
-                    selected_tables,
-                    metric="count",
-                    yearly_grouped=summary_bundle["yearly_grouped"],
-                    include_plotly=False,
-                )
-                table_breakdown_series = _build_table_breakdown_chart(
-                    selected_tables,
-                    selected_year,
-                    summary_rows=summary_rows,
-                    include_plotly=False,
-                )
-                grouped_counts_bundle = _collect_dashboard_grouped_counts(
-                    selected_tables,
-                    selected_year,
-                    selected_group_column,
-                )
-                cause_counts = grouped_counts_bundle["cause_counts"]
-                cause_overview = _build_cause_chart(selected_tables, selected_year, cause_counts=cause_counts)
-                month_counts = grouped_counts_bundle["month_counts"]
-                if _is_damage_group_selection(selected_group_column):
-                    damage_counts = _collect_damage_counts(selected_tables, selected_year)
-                    damage_category_items = _build_damage_category_items(
-                        selected_tables,
-                        selected_year,
-                        counts=damage_counts,
-                    )
-                    damage_theme_items = _build_damage_theme_items(
-                        selected_tables,
-                        selected_year,
-                        counts=damage_counts,
-                    )
-                    distribution = _build_damage_overview_chart(
-                        selected_tables,
-                        selected_year,
-                        items=damage_category_items,
-                    )
-                    yearly_area_chart = _build_damage_pairs_chart(
-                        selected_tables,
-                        selected_year,
-                        items=damage_category_items,
-                    )
-                    monthly_profile = _build_damage_standalone_chart(
-                        selected_tables,
-                        selected_year,
-                        items=damage_theme_items,
-                    )
-                    area_buckets = _build_damage_share_chart(
-                        selected_tables,
-                        selected_year,
-                        items=damage_theme_items,
-                    )
-                else:
-                    distribution_counts = grouped_counts_bundle["distribution_counts"]
-                    distribution = _build_distribution_chart(
-                        selected_tables,
-                        selected_year,
-                        selected_group_column,
-                        grouped_counts=(
-                            distribution_counts
-                            if _can_reuse_distribution_counts(
-                                selected_tables,
-                                selected_group_column,
-                                distribution_counts,
-                            )
-                            else None
-                        ),
-                    )
-                    yearly_area_chart = _build_combined_impact_timeline_chart(selected_tables, selected_year)
-                    monthly_profile = _build_monthly_profile_chart(selected_tables, selected_year, month_counts=month_counts)
-                    area_bucket_counts = grouped_counts_bundle["area_bucket_counts"]
-                    area_buckets = (
-                        _build_area_buckets_chart_from_counts(area_bucket_counts)
-                        if area_bucket_counts is not None
-                        else _build_area_buckets_chart(selected_tables, selected_year)
-                    )
-                trend = _build_trend(yearly_fires_series)
-                rankings = _build_rankings(distribution, table_breakdown_series, yearly_fires_series)
-                highlights = _build_highlights(summary, yearly_fires_series, cause_overview)
-                district_counts = grouped_counts_bundle["district_counts"]
-                widgets = _build_sql_widgets(
-                    selected_tables,
-                    selected_year,
-                    cause_counts=cause_counts,
-                    month_counts=month_counts,
-                    district_counts=district_counts,
-                )
-                if district_counts and not widgets.get("districts", {}).get("items"):
-                    widgets["districts"] = _build_sql_district_widget_from_counts(district_counts)
-                management = _build_management_snapshot(
+                aggregation = _build_dashboard_aggregation(
+                    metadata=metadata,
                     selected_tables=selected_tables,
                     selected_year=selected_year,
-                    summary=summary,
-                    trend=trend,
-                    cause_overview=cause_overview,
-                    district_widget=widgets["districts"],
-                )
-                scope = _build_scope(
-                    summary=summary,
-                    metadata=metadata,
-                    selected_table_label=_find_option_label(metadata["table_options"], selected_table_name, "Все таблицы"),
-                    selected_group_label=_find_option_label(available_group_columns, selected_group_column, "Нет доступных колонок"),
+                    selected_group_column=selected_group_column,
+                    selected_table_name=selected_table_name,
                     available_years=available_years,
+                    available_group_columns=available_group_columns,
                 )
+                summary = aggregation["summary"]
                 perf.update(input_rows=summary.get("fires_count"))
 
-            scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
             with perf.span("payload_render"):
-                export_text = compose_executive_brief_text(
-                    management.get("brief"),
-                    scope_label=scope_label,
-                    generated_at=_format_datetime(datetime.now()),
+                data = _build_dashboard_payload(
+                    metadata=metadata,
+                    aggregation=aggregation,
+                    selected_tables=selected_tables,
+                    selected_table_name=selected_table_name,
+                    selected_year=selected_year,
+                    selected_group_column=selected_group_column,
+                    available_years=available_years,
+                    available_group_columns=available_group_columns,
                 )
-                management["export_text"] = export_text
-                if isinstance(management.get("brief"), dict):
-                    management["brief"]["export_text"] = export_text
-
-                notes = list(metadata["errors"][:5])
-                if not PLOTLY_AVAILABLE:
-                    notes.append("Библиотека Plotly не найдена в окружении. Интерактивные графики не будут показаны.")
-
-                data = {
-                    "generated_at": _format_datetime(datetime.now()),
-                    "has_data": bool(selected_tables),
-                    "summary": summary,
-                    "scope": scope,
-                    "trend": trend,
-                    "management": management,
-                    "highlights": highlights,
-                    "rankings": rankings,
-                    "widgets": widgets,
-                    "charts": {
-                        "yearly_fires": cause_overview,
-                        "yearly_area": yearly_area_chart,
-                        "distribution": distribution,
-                        "table_breakdown": _finalize_chart("", [], ""),
-                        "monthly_profile": monthly_profile,
-                        "area_buckets": area_buckets,
-                    },
-                    "filters": {
-                        "table_name": selected_table_name,
-                        "year": str(selected_year) if selected_year is not None else "all",
-                        "group_column": selected_group_column,
-                        "available_tables": metadata["table_options"],
-                        "available_years": available_years,
-                        "available_group_columns": available_group_columns,
-                    },
-                    "notes": notes,
-                }
                 perf.update(
                     payload_has_data=bool(data["has_data"]),
-                    payload_notes=len(notes),
+                    payload_notes=len(data.get("notes") or []),
                 )
 
             _set_dashboard_cache(cache_key, data)

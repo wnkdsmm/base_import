@@ -1,6 +1,10 @@
 const LOG_REFRESH_INTERVAL_MS = 2000;
 const IMPORT_JOB_STORAGE_KEY = "fire-monitor-import-job-id";
-let logsRefreshTimer = null;
+const shared = window.FireUi;
+const fetchJson = shared.fetchJson;
+const getApiErrorMessage = shared.getApiErrorMessage;
+const logsRefreshTimers = shared.createTimerGroup();
+let logsRefreshStarted = false;
 let currentImportJobId = null;
 
 function createLogLine(text) {
@@ -15,6 +19,13 @@ function replaceLogLines(logBox, items) {
 
 function appendLogLine(logBox, text) {
     logBox.appendChild(createLogLine(text));
+}
+
+function appendApiError(logBox, error, fallback) {
+    if (!logBox) {
+        return;
+    }
+    appendLogLine(logBox, getApiErrorMessage(error && error.payload, fallback));
 }
 
 function createJobId() {
@@ -59,8 +70,12 @@ async function refreshLogs(jobId = getCurrentImportJobId()) {
 
     try {
         const url = jobId ? `/logs?job_id=${encodeURIComponent(jobId)}` : "/logs";
-        const response = await fetch(url);
-        const payload = await response.json();
+        const result = await fetchJson(url, {
+            headers: {
+                "Accept": "application/json",
+            },
+        }, "Не удалось обновить лог импорта.");
+        const payload = result.payload || {};
         const items = Array.isArray(payload.logs) ? payload.logs : [];
         replaceLogLines(logBox, items);
         logBox.scrollTop = logBox.scrollHeight;
@@ -76,10 +91,13 @@ function initializeImportLogs() {
     }
 
     refreshLogs();
-    if (!logsRefreshTimer) {
-        logsRefreshTimer = window.setInterval(() => {
-            refreshLogs();
-        }, LOG_REFRESH_INTERVAL_MS);
+    if (!logsRefreshStarted) {
+        logsRefreshStarted = true;
+        const pollLogs = async () => {
+            await refreshLogs();
+            logsRefreshTimers.set(pollLogs, LOG_REFRESH_INTERVAL_MS);
+        };
+        logsRefreshTimers.set(pollLogs, LOG_REFRESH_INTERVAL_MS);
     }
 }
 
@@ -133,19 +151,18 @@ async function selectAndImport() {
         uploadData.append("file", file);
         uploadData.append("job_id", jobId);
 
-        const uploadResponse = await fetch("/upload", {
-            method: "POST",
-            body: uploadData,
-        });
-
-        if (!uploadResponse.ok) {
-            if (logBox) {
-                appendLogLine(logBox, "Ошибка при загрузке файла");
-            }
+        let uploadResult = null;
+        try {
+            const uploadApiResult = await fetchJson("/upload", {
+                method: "POST",
+                body: uploadData,
+            }, "Ошибка при загрузке файла");
+            uploadResult = uploadApiResult.payload || {};
+        } catch (error) {
+            appendApiError(logBox, error, "Ошибка при загрузке файла");
             return;
         }
 
-        const uploadResult = await uploadResponse.json();
         const resolvedJobId = uploadResult.job_id || jobId;
         setCurrentImportJobId(resolvedJobId);
 
@@ -165,19 +182,18 @@ async function selectAndImport() {
         const importData = new FormData();
         importData.append("job_id", resolvedJobId);
 
-        const importResponse = await fetch("/import_data", {
-            method: "POST",
-            body: importData,
-        });
-
-        if (!importResponse.ok) {
-            if (logBox) {
-                appendLogLine(logBox, "Ошибка при импорте данных");
-            }
+        let importResult = null;
+        try {
+            const importApiResult = await fetchJson("/import_data", {
+                method: "POST",
+                body: importData,
+            }, "Ошибка при импорте данных");
+            importResult = importApiResult.payload || {};
+        } catch (error) {
+            appendApiError(logBox, error, "Ошибка при импорте данных");
             return;
         }
 
-        const importResult = await importResponse.json();
         let message = importResult.status || "Импорт завершен";
         if (importResult.rows) {
             message += ` (${importResult.rows} строк, ${importResult.columns} колонок)`;

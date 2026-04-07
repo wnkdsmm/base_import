@@ -256,14 +256,11 @@ def _typology_for_row(row: Dict[str, Any]) -> tuple[str, str]:
     return "mixed", "Комбинированный риск"
 
 
-def _build_access_point_rows_from_entity_frame(
+def _prepare_access_point_row_context(
     entity_frame: pd.DataFrame,
-    feature_frame: pd.DataFrame | None = None,
-    selected_features: Sequence[str] | None = None,
-) -> List[Dict[str, Any]]:
-    if entity_frame is None or entity_frame.empty:
-        return []
-
+    feature_frame: pd.DataFrame | None,
+    selected_features: Sequence[str] | None,
+) -> Dict[str, Any]:
     normalized_selected_features = _normalize_selected_access_features(selected_features)
     active_reason_codes = set(normalized_selected_features)
     selected_weight_sum = sum(float(FACTOR_WEIGHTS[code]) for code in normalized_selected_features if code in FACTOR_WEIGHTS)
@@ -374,37 +371,59 @@ def _build_access_point_rows_from_entity_frame(
     )
     data_gap_score_series = uncertainty_factor_series * 100.0
 
-    precomputed = {
-        "incident_count": incident_count_series.tolist(),
-        "years_observed": years_observed_series.tolist(),
-        "incidents_per_year": incidents_per_year_series.tolist(),
-        "average_distance": average_distance_series.tolist(),
-        "average_response": average_response_series.tolist(),
-        "long_arrival_share": long_arrival_share_series.tolist(),
-        "no_water_share": no_water_share_series.tolist(),
-        "water_coverage_share": water_coverage_share_series.tolist(),
-        "water_unknown_share": water_unknown_share_series.tolist(),
-        "severe_share": severe_share_series.tolist(),
-        "night_share": night_share_series.tolist(),
-        "heating_share": heating_share_series.tolist(),
-        "rural_share": rural_share_series.tolist(),
-        "response_coverage_share": response_coverage_share_series.tolist(),
-        "distance_coverage_share": distance_coverage_share_series.tolist(),
-        "arrival_missing_share": arrival_missing_share_series.tolist(),
-        "distance_missing_share": distance_missing_share_series.tolist(),
-        "completeness_share": completeness_share_series.tolist(),
-        "distance_norm": distance_norm_series.tolist(),
-        "response_norm": response_norm_series.tolist(),
-        "support_weight": support_weight_series.tolist(),
-        "severity_factor": severity_factor_series.tolist(),
-        "recurrence_factor": recurrence_factor_series.tolist(),
-        "uncertainty_factor": uncertainty_factor_series.tolist(),
-        "access_score": access_score_series.tolist(),
-        "water_score": water_score_series.tolist(),
-        "severity_score": severity_score_series.tolist(),
-        "recurrence_score": recurrence_score_series.tolist(),
-        "data_gap_score": data_gap_score_series.tolist(),
+    return {
+        "working_frame": working_frame,
+        "normalized_selected_features": normalized_selected_features,
+        "active_reason_codes": active_reason_codes,
+        "normalized_factor_weights": normalized_factor_weights,
+        "precomputed": {
+            "incident_count": incident_count_series.tolist(),
+            "years_observed": years_observed_series.tolist(),
+            "incidents_per_year": incidents_per_year_series.tolist(),
+            "average_distance": average_distance_series.tolist(),
+            "average_response": average_response_series.tolist(),
+            "long_arrival_share": long_arrival_share_series.tolist(),
+            "no_water_share": no_water_share_series.tolist(),
+            "water_coverage_share": water_coverage_share_series.tolist(),
+            "water_unknown_share": water_unknown_share_series.tolist(),
+            "severe_share": severe_share_series.tolist(),
+            "night_share": night_share_series.tolist(),
+            "heating_share": heating_share_series.tolist(),
+            "rural_share": rural_share_series.tolist(),
+            "response_coverage_share": response_coverage_share_series.tolist(),
+            "distance_coverage_share": distance_coverage_share_series.tolist(),
+            "arrival_missing_share": arrival_missing_share_series.tolist(),
+            "distance_missing_share": distance_missing_share_series.tolist(),
+            "completeness_share": completeness_share_series.tolist(),
+            "distance_norm": distance_norm_series.tolist(),
+            "response_norm": response_norm_series.tolist(),
+            "support_weight": support_weight_series.tolist(),
+            "severity_factor": severity_factor_series.tolist(),
+            "recurrence_factor": recurrence_factor_series.tolist(),
+            "uncertainty_factor": uncertainty_factor_series.tolist(),
+            "access_score": access_score_series.tolist(),
+            "water_score": water_score_series.tolist(),
+            "severity_score": severity_score_series.tolist(),
+            "recurrence_score": recurrence_score_series.tolist(),
+            "data_gap_score": data_gap_score_series.tolist(),
+        },
     }
+
+
+def _build_access_point_rows_from_entity_frame(
+    entity_frame: pd.DataFrame,
+    feature_frame: pd.DataFrame | None = None,
+    selected_features: Sequence[str] | None = None,
+) -> List[Dict[str, Any]]:
+    if entity_frame is None or entity_frame.empty:
+        return []
+
+    row_context = _prepare_access_point_row_context(entity_frame, feature_frame, selected_features)
+    normalized_selected_features = row_context["normalized_selected_features"]
+    active_reason_codes = row_context["active_reason_codes"]
+    normalized_factor_weights = row_context["normalized_factor_weights"]
+    working_frame = row_context["working_frame"]
+    precomputed = row_context["precomputed"]
 
     normalized_rows: List[Dict[str, Any]] = []
     for row_index, record in enumerate(working_frame.to_dict("records")):

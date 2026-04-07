@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% set sidebar_title = "Таблицы" %}
+{% set sidebar_active = "tables" %}
 {% set sidebar_description %}Быстрый переход к исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` из базы данных.{% endset %}
 
 {% block charset %}utf-8{% endblock %}
@@ -111,8 +112,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/import.js?v={{ import_js_version }}"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/import.js?v={{ import_js_version }}"></script>
 <script src="/static/js/tables.js?v={{ tables_js_version }}"></script>
 {{ super() }}
 {% endblock %}

@@ -220,6 +220,144 @@ def get_clustering_shell_context(
         "plotly_js": "",
         "has_data": bool(initial_data["filters"]["available_tables"]),
     }
+
+
+def _prepare_clustering_feature_selection(
+    *,
+    base: Dict[str, Any],
+    dataset: Dict[str, Any],
+    normalized_feature_columns: Sequence[str],
+    selected_sampling_strategy: str,
+    requested_cluster_count: int,
+) -> Dict[str, Any]:
+    sampling_strategy_label = next(
+        (item["label"] for item in SAMPLING_STRATEGY_OPTIONS if item["value"] == selected_sampling_strategy),
+        SAMPLING_STRATEGY_OPTIONS[0]["label"],
+    )
+    summary = base["summary"]
+    summary["total_incidents_display"] = _format_integer(dataset["total_incidents"])
+    summary["total_entities_display"] = _format_integer(dataset["total_entities"])
+    summary["sampled_entities_display"] = _format_integer(dataset["sampled_entities"])
+    summary["sampling_strategy_label"] = sampling_strategy_label
+
+    candidate_features = dataset["candidate_features"]
+    feature_names = [item["name"] for item in candidate_features]
+    feature_selection_report = None
+    if normalized_feature_columns:
+        selected_features, selection_note = _resolve_selected_features(
+            feature_names,
+            normalized_feature_columns,
+            feature_frame=dataset["feature_frame"],
+            entity_frame=dataset["entity_frame"],
+            cluster_count=requested_cluster_count,
+        )
+    else:
+        feature_selection_report = _build_default_feature_selection_analysis(
+            feature_frame=dataset["feature_frame"],
+            entity_frame=dataset["entity_frame"],
+            available_features=feature_names,
+            cluster_count=requested_cluster_count,
+        )
+        selected_features = list(feature_selection_report.get("selected_features") or [])
+        selection_note = str(feature_selection_report.get("selection_note") or "")
+    feature_selection_report = _build_clustering_mode_context(selected_features, feature_selection_report)
+    base["filters"]["feature_columns"] = selected_features
+    base["filters"]["available_features"] = _build_feature_options(candidate_features, selected_features)
+    summary["candidate_features_display"] = _format_integer(len(candidate_features))
+    summary["selected_features_display"] = _format_integer(len(selected_features))
+
+    return {
+        "summary": summary,
+        "candidate_features": candidate_features,
+        "selected_features": selected_features,
+        "feature_selection_report": feature_selection_report,
+        "selection_note": selection_note,
+    }
+
+
+def _append_clustering_feature_notes(
+    base: Dict[str, Any],
+    dataset: Dict[str, Any],
+    selection_note: str,
+) -> None:
+    base["notes"].extend(dataset["notes"])
+    if selection_note:
+        base["notes"].append(selection_note)
+    if dataset["sampling_note"]:
+        base["notes"].append(dataset["sampling_note"])
+
+
+def _run_clustering_model_bundle(
+    *,
+    cluster_frame: Any,
+    entity_frame: Any,
+    feature_selection_report: Dict[str, Any],
+    actual_cluster_count: int,
+    actual_method_key: str,
+    actual_method_label: str,
+    actual_algorithm_key: str,
+    actual_weighting_strategy: str,
+) -> Dict[str, Any]:
+    runtime_feature_context = _build_runtime_clustering_context(
+        feature_selection_report,
+        method_label=actual_method_label,
+        algorithm_key=actual_algorithm_key,
+        weighting_strategy=actual_weighting_strategy,
+    )
+    clustering = _run_clustering(
+        cluster_frame,
+        entity_frame,
+        actual_cluster_count,
+        weighting_strategy=actual_weighting_strategy,
+        algorithm_key=actual_algorithm_key,
+        method_key=actual_method_key,
+    )
+    method_comparison = _compare_clustering_methods(
+        cluster_frame,
+        entity_frame,
+        actual_cluster_count,
+        weighting_strategy=str(feature_selection_report.get("weighting_strategy") or ""),
+        selected_method_key=actual_method_key,
+    )
+    labels = clustering["labels"]
+    cluster_labels = _cluster_labels(actual_cluster_count)
+    profiles = _build_cluster_profiles(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        labels=labels,
+        raw_centers=clustering["raw_centers"],
+        cluster_labels=cluster_labels,
+    )
+    centroid_columns, centroid_rows = _build_centroid_table(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        labels=labels,
+        raw_centers=clustering["raw_centers"],
+        cluster_labels=cluster_labels,
+        cluster_profiles=profiles,
+    )
+    representative_columns, representative_rows = _build_representative_rows(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        labels=labels,
+        scaled_points=clustering["scaled_points"],
+        scaled_centers=clustering["scaled_centers"],
+        cluster_labels=cluster_labels,
+    )
+    return {
+        "runtime_feature_context": runtime_feature_context,
+        "clustering": clustering,
+        "method_comparison": method_comparison,
+        "labels": labels,
+        "cluster_labels": cluster_labels,
+        "profiles": profiles,
+        "centroid_columns": centroid_columns,
+        "centroid_rows": centroid_rows,
+        "representative_columns": representative_columns,
+        "representative_rows": representative_rows,
+    }
+
+
 @profiled("clustering", engine=engine)
 def get_clustering_data(
     table_name: str = "",
@@ -310,52 +448,25 @@ def get_clustering_data(
     )
     filter_prep_context = perf.span("filter_prep") if perf is not None else nullcontext()
     with filter_prep_context:
-        sampling_strategy_label = next(
-            (item["label"] for item in SAMPLING_STRATEGY_OPTIONS if item["value"] == selected_sampling_strategy),
-            SAMPLING_STRATEGY_OPTIONS[0]["label"],
+        feature_selection = _prepare_clustering_feature_selection(
+            base=base,
+            dataset=dataset,
+            normalized_feature_columns=normalized_feature_columns,
+            selected_sampling_strategy=selected_sampling_strategy,
+            requested_cluster_count=requested_cluster_count,
         )
-        summary = base["summary"]
-        summary["total_incidents_display"] = _format_integer(dataset["total_incidents"])
-        summary["total_entities_display"] = _format_integer(dataset["total_entities"])
-        summary["sampled_entities_display"] = _format_integer(dataset["sampled_entities"])
-        summary["sampling_strategy_label"] = sampling_strategy_label
-
-        candidate_features = dataset["candidate_features"]
-        feature_names = [item["name"] for item in candidate_features]
-        feature_selection_report = None
-        if normalized_feature_columns:
-            selected_features, selection_note = _resolve_selected_features(
-                feature_names,
-                normalized_feature_columns,
-                feature_frame=dataset["feature_frame"],
-                entity_frame=dataset["entity_frame"],
-                cluster_count=requested_cluster_count,
-            )
-        else:
-            feature_selection_report = _build_default_feature_selection_analysis(
-                feature_frame=dataset["feature_frame"],
-                entity_frame=dataset["entity_frame"],
-                available_features=feature_names,
-                cluster_count=requested_cluster_count,
-            )
-            selected_features = list(feature_selection_report.get("selected_features") or [])
-            selection_note = str(feature_selection_report.get("selection_note") or "")
-        feature_selection_report = _build_clustering_mode_context(selected_features, feature_selection_report)
-        base["filters"]["feature_columns"] = selected_features
-        base["filters"]["available_features"] = _build_feature_options(candidate_features, selected_features)
-        summary["candidate_features_display"] = _format_integer(len(candidate_features))
-        summary["selected_features_display"] = _format_integer(len(selected_features))
+        summary = feature_selection["summary"]
+        candidate_features = feature_selection["candidate_features"]
+        selected_features = feature_selection["selected_features"]
+        feature_selection_report = feature_selection["feature_selection_report"]
+        selection_note = feature_selection["selection_note"]
         if perf is not None:
             perf.update(
                 candidate_features=len(candidate_features),
                 selected_features=len(selected_features),
             )
 
-    base["notes"].extend(dataset["notes"])
-    if selection_note:
-        base["notes"].append(selection_note)
-    if dataset["sampling_note"]:
-        base["notes"].append(dataset["sampling_note"])
+    _append_clustering_feature_notes(base, dataset, selection_note)
 
     if len(candidate_features) < 2:
         base["notes"].append("В таблице не хватило агрегированных признаков с вариативностью, чтобы стабильно кластеризовать территории.")
@@ -423,52 +534,26 @@ def get_clustering_data(
         actual_method_key = str(render_configuration.get("method_key") or f"kmeans_{weighting_strategy}")
         actual_algorithm_key = str(render_configuration.get("algorithm_key") or "kmeans")
         actual_weighting_strategy = str(render_configuration.get("weighting_strategy") or weighting_strategy)
-        runtime_feature_context = _build_runtime_clustering_context(
-            feature_selection_report,
-            method_label=str(render_configuration.get("method_label") or "KMeans"),
-            algorithm_key=actual_algorithm_key,
-            weighting_strategy=actual_weighting_strategy,
-        )
-        clustering = _run_clustering(
-            cluster_frame,
-            entity_frame,
-            actual_cluster_count,
-            weighting_strategy=actual_weighting_strategy,
-            algorithm_key=actual_algorithm_key,
-            method_key=actual_method_key,
-        )
-        method_comparison = _compare_clustering_methods(
-            cluster_frame,
-            entity_frame,
-            actual_cluster_count,
-            weighting_strategy=weighting_strategy,
-            selected_method_key=actual_method_key,
-        )
-        labels = clustering["labels"]
-        cluster_labels = _cluster_labels(actual_cluster_count)
-        profiles = _build_cluster_profiles(
+        model_bundle = _run_clustering_model_bundle(
             cluster_frame=cluster_frame,
             entity_frame=entity_frame,
-            labels=labels,
-            raw_centers=clustering["raw_centers"],
-            cluster_labels=cluster_labels,
+            feature_selection_report=feature_selection_report,
+            actual_cluster_count=actual_cluster_count,
+            actual_method_key=actual_method_key,
+            actual_method_label=str(render_configuration.get("method_label") or "KMeans"),
+            actual_algorithm_key=actual_algorithm_key,
+            actual_weighting_strategy=actual_weighting_strategy,
         )
-        centroid_columns, centroid_rows = _build_centroid_table(
-            cluster_frame=cluster_frame,
-            entity_frame=entity_frame,
-            labels=labels,
-            raw_centers=clustering["raw_centers"],
-            cluster_labels=cluster_labels,
-            cluster_profiles=profiles,
-        )
-        representative_columns, representative_rows = _build_representative_rows(
-            cluster_frame=cluster_frame,
-            entity_frame=entity_frame,
-            labels=labels,
-            scaled_points=clustering["scaled_points"],
-            scaled_centers=clustering["scaled_centers"],
-            cluster_labels=cluster_labels,
-        )
+        runtime_feature_context = model_bundle["runtime_feature_context"]
+        clustering = model_bundle["clustering"]
+        method_comparison = model_bundle["method_comparison"]
+        labels = model_bundle["labels"]
+        cluster_labels = model_bundle["cluster_labels"]
+        profiles = model_bundle["profiles"]
+        centroid_columns = model_bundle["centroid_columns"]
+        centroid_rows = model_bundle["centroid_rows"]
+        representative_columns = model_bundle["representative_columns"]
+        representative_rows = model_bundle["representative_rows"]
     if perf is not None:
         perf.update(
             clustered_entities=len(cluster_frame),

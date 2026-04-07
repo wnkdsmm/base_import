@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -548,6 +548,121 @@ def _evaluate_horizon_rows(
         prediction_interval_backtest_h['calibration'],
     )
 
+
+def _collect_backtest_horizon_rows(
+    *,
+    history_frame: pd.DataFrame,
+    history_dates: np.ndarray,
+    selected_origin_dates: Sequence[Any],
+    total_windows: int,
+    max_horizon_days: int,
+    min_train_rows: int,
+    horizon_days: List[int],
+    progress_callback: MlProgressCallback,
+) -> Tuple[Dict[int, List[BacktestWindowRow]], int]:
+    horizon_rows: Dict[int, List[BacktestWindowRow]] = {horizon_day: [] for horizon_day in horizon_days}
+    comparable_windows = 0
+
+    for completed_windows, origin_date_value in enumerate(selected_origin_dates, start=1):
+        origin_date = pd.Timestamp(origin_date_value)
+        window = _build_window(
+            history_frame=history_frame,
+            history_dates=history_dates,
+            origin_date=origin_date,
+            max_horizon_days=max_horizon_days,
+            min_train_rows=min_train_rows,
+        )
+        if window is None:
+            continue
+
+        candidate_fits = _fit_candidates(window, forecast_days=max_horizon_days)
+
+        comparable_windows += 1
+        for row in _build_window_rows(
+            window=window,
+            candidate_fits=candidate_fits,
+            horizon_days=horizon_days,
+        ):
+            horizon_rows[row.horizon_days].append(row)
+
+        if completed_windows == 1 or completed_windows == total_windows or completed_windows % 5 == 0:
+            _emit_progress(
+                progress_callback,
+                'ml_backtest.running',
+                f'Backtesting: processed {completed_windows} of {total_windows} rolling origins.',
+            )
+
+    return horizon_rows, comparable_windows
+
+
+def _evaluate_backtest_horizon_metadata(
+    *,
+    horizon_rows: Dict[int, List[BacktestWindowRow]],
+    horizon_days: List[int],
+    selected_count_model_key: str,
+) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, HorizonSummary]]:
+    interval_calibration_by_horizon: Dict[int, Dict[str, Any]] = {}
+    horizon_summaries: Dict[str, HorizonSummary] = {}
+    for horizon_day in horizon_days:
+        rows_for_horizon = horizon_rows[horizon_day]
+        horizon_summary, interval_calibration = _evaluate_horizon_rows(
+            rows_for_horizon,
+            selected_count_model_key=selected_count_model_key,
+            horizon_day=horizon_day,
+        )
+        interval_calibration_by_horizon[horizon_day] = interval_calibration
+        horizon_summaries[str(horizon_day)] = horizon_summary
+
+    interval_calibration_by_horizon = _enforce_monotonic_horizon_interval_calibrations(interval_calibration_by_horizon)
+    return _reconcile_horizon_interval_metadata(
+        interval_calibration_by_horizon,
+        horizon_rows,
+        horizon_summaries,
+        selected_count_model_key=selected_count_model_key,
+    )
+
+
+def _build_backtest_evaluation_rows(
+    *,
+    valid_rows: List[BacktestWindowRow],
+    selected_count_model_key: str,
+    prediction_interval_calibration: Dict[str, Any],
+    validation_horizon_days: int,
+) -> List[BacktestEvaluationRow]:
+    backtest_rows: List[BacktestEvaluationRow] = []
+    for row in valid_rows:
+        predicted_count = float(_selected_count_prediction(row, selected_count_model_key))
+        lower_bound, upper_bound = _count_interval(predicted_count, prediction_interval_calibration)
+        backtest_rows.append(
+            BacktestEvaluationRow(
+                origin_date=row.origin_date,
+                horizon_days=validation_horizon_days,
+                date=row.date,
+                actual_count=row.actual_count,
+                predicted_count=predicted_count,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                baseline_count=row.baseline_count,
+                heuristic_count=row.heuristic_count,
+                actual_event=row.actual_event,
+                predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key),
+                baseline_event_probability=row.baseline_event_probability,
+                heuristic_event_probability=row.heuristic_event_probability,
+            )
+        )
+    return backtest_rows
+
+
+def _build_backtest_window_rows(
+    valid_rows: List[BacktestWindowRow],
+    selected_count_model_key: str,
+) -> List[BacktestWindowRow]:
+    return [
+        row.clone(predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key))
+        for row in valid_rows
+    ]
+
+
 def _run_backtest(
     history_frame: pd.DataFrame,
     dataset: pd.DataFrame,
@@ -604,37 +719,16 @@ def _run_backtest(
         ),
     )
 
-    horizon_rows: Dict[int, List[BacktestWindowRow]] = {horizon_day: [] for horizon_day in horizon_days}
-    comparable_windows = 0
-
-    for completed_windows, origin_date_value in enumerate(selected_origin_dates, start=1):
-        origin_date = pd.Timestamp(origin_date_value)
-        window = _build_window(
-            history_frame=history_frame,
-            history_dates=history_dates,
-            origin_date=origin_date,
-            max_horizon_days=max_horizon_days,
-            min_train_rows=min_train_rows,
-        )
-        if window is None:
-            continue
-
-        candidate_fits = _fit_candidates(window, forecast_days=max_horizon_days)
-
-        comparable_windows += 1
-        for row in _build_window_rows(
-            window=window,
-            candidate_fits=candidate_fits,
-            horizon_days=horizon_days,
-        ):
-            horizon_rows[row.horizon_days].append(row)
-
-        if completed_windows == 1 or completed_windows == total_windows or completed_windows % 5 == 0:
-            _emit_progress(
-                progress_callback,
-                'ml_backtest.running',
-                f'Backtesting: processed {completed_windows} of {total_windows} rolling origins.',
-            )
+    horizon_rows, comparable_windows = _collect_backtest_horizon_rows(
+        history_frame=history_frame,
+        history_dates=history_dates,
+        selected_origin_dates=selected_origin_dates,
+        total_windows=total_windows,
+        max_horizon_days=max_horizon_days,
+        min_train_rows=min_train_rows,
+        horizon_days=horizon_days,
+        progress_callback=progress_callback,
+    )
 
     valid_rows = horizon_rows.get(validation_horizon_days, [])
     if perf is not None:
@@ -662,50 +756,21 @@ def _run_backtest(
         tie_break_reason=selection_context.get('tie_break_reason'),
     )
 
-    interval_calibration_by_horizon: Dict[int, Dict[str, Any]] = {}
-    horizon_summaries: Dict[str, HorizonSummary] = {}
-    for horizon_day in horizon_days:
-        rows_for_horizon = horizon_rows[horizon_day]
-        horizon_summary, interval_calibration = _evaluate_horizon_rows(
-            rows_for_horizon,
-            selected_count_model_key=selected_count_model_key,
-            horizon_day=horizon_day,
-        )
-        interval_calibration_by_horizon[horizon_day] = interval_calibration
-        horizon_summaries[str(horizon_day)] = horizon_summary
-
-    interval_calibration_by_horizon = _enforce_monotonic_horizon_interval_calibrations(interval_calibration_by_horizon)
-    interval_calibration_by_horizon, horizon_summaries = _reconcile_horizon_interval_metadata(
-        interval_calibration_by_horizon,
-        horizon_rows,
-        horizon_summaries,
+    interval_calibration_by_horizon, horizon_summaries = _evaluate_backtest_horizon_metadata(
+        horizon_rows=horizon_rows,
+        horizon_days=horizon_days,
         selected_count_model_key=selected_count_model_key,
     )
     prediction_interval_calibration = interval_calibration_by_horizon[validation_horizon_days]
     validation_summary = horizon_summaries[str(validation_horizon_days)]
     prediction_interval_coverage = validation_summary.prediction_interval_coverage
 
-    backtest_rows: List[BacktestEvaluationRow] = []
-    for row in valid_rows:
-        predicted_count = float(_selected_count_prediction(row, selected_count_model_key))
-        lower_bound, upper_bound = _count_interval(predicted_count, prediction_interval_calibration)
-        backtest_rows.append(
-            BacktestEvaluationRow(
-                origin_date=row.origin_date,
-                horizon_days=validation_horizon_days,
-                date=row.date,
-                actual_count=row.actual_count,
-                predicted_count=predicted_count,
-                lower_bound=lower_bound,
-                upper_bound=upper_bound,
-                baseline_count=row.baseline_count,
-                heuristic_count=row.heuristic_count,
-                actual_event=row.actual_event,
-                predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key),
-                baseline_event_probability=row.baseline_event_probability,
-                heuristic_event_probability=row.heuristic_event_probability,
-            )
-        )
+    backtest_rows = _build_backtest_evaluation_rows(
+        valid_rows=valid_rows,
+        selected_count_model_key=selected_count_model_key,
+        prediction_interval_calibration=prediction_interval_calibration,
+        validation_horizon_days=validation_horizon_days,
+    )
 
     event_metrics = _compute_event_metrics(backtest_rows)
     _emit_progress(
@@ -725,11 +790,7 @@ def _run_backtest(
             payload_rows=len(backtest_rows),
         )
 
-    window_rows: List[BacktestWindowRow] = []
-    for row in valid_rows:
-        window_rows.append(
-            row.clone(predicted_event_probability=row.predicted_event_probabilities.get(selected_count_model_key))
-        )
+    window_rows = _build_backtest_window_rows(valid_rows, selected_count_model_key)
 
     overview = BacktestOverview(
         folds=len(backtest_rows),

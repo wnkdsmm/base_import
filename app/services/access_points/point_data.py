@@ -122,6 +122,129 @@ def _resolve_point_identity(record: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _new_point_bucket(identity: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **identity,
+        "incident_count": 0,
+        "response_total": 0.0,
+        "response_count": 0,
+        "distance_total": 0.0,
+        "distance_count": 0,
+        "long_arrival_count": 0,
+        "water_yes_count": 0,
+        "water_no_count": 0,
+        "water_unknown_count": 0,
+        "severe_count": 0,
+        "victims_count": 0,
+        "major_damage_count": 0,
+        "night_count": 0,
+        "heating_count": 0,
+        "rural_count": 0,
+        "years": Counter(),
+        "districts": Counter(),
+        "territories": Counter(),
+        "settlements": Counter(),
+        "settlement_types": Counter(),
+        "object_categories": Counter(),
+        "source_tables": Counter(),
+        "latitude_values": [],
+        "longitude_values": [],
+    }
+
+
+def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, int]:
+    counters = {
+        "response_count": 0,
+        "long_arrivals": 0,
+        "known_water": 0,
+        "no_water": 0,
+        "severe": 0,
+        "victims": 0,
+        "major_damage": 0,
+        "night": 0,
+        "heating": 0,
+        "rural": 0,
+    }
+
+    bucket["incident_count"] += 1
+    bucket["years"][int(record.get("year") or record["date"].year)] += 1
+
+    district = _clean_text(record.get("district"))
+    territory_label = _clean_text(record.get("territory_label"))
+    settlement = _clean_text(record.get("settlement"))
+    settlement_type = _clean_text(record.get("settlement_type"))
+    object_category = _clean_text(record.get("object_category"))
+    source_table = _clean_text(record.get("source_table"))
+
+    if district:
+        bucket["districts"][district] += 1
+    if territory_label:
+        bucket["territories"][territory_label] += 1
+    if settlement:
+        bucket["settlements"][settlement] += 1
+    if settlement_type:
+        bucket["settlement_types"][settlement_type] += 1
+    if object_category:
+        bucket["object_categories"][object_category] += 1
+    if source_table:
+        bucket["source_tables"][source_table] += 1
+
+    response_minutes = record.get("response_minutes")
+    if response_minutes is not None:
+        bucket["response_total"] += float(response_minutes)
+        bucket["response_count"] += 1
+        counters["response_count"] += 1
+
+    distance_km = record.get("fire_station_distance")
+    if distance_km is not None:
+        bucket["distance_total"] += float(distance_km)
+        bucket["distance_count"] += 1
+
+    if record.get("long_arrival"):
+        bucket["long_arrival_count"] += 1
+        counters["long_arrivals"] += 1
+
+    has_water_supply = record.get("has_water_supply")
+    if has_water_supply is True:
+        bucket["water_yes_count"] += 1
+        counters["known_water"] += 1
+    elif has_water_supply is False:
+        bucket["water_no_count"] += 1
+        counters["known_water"] += 1
+        counters["no_water"] += 1
+    else:
+        bucket["water_unknown_count"] += 1
+
+    if record.get("severe_consequence"):
+        bucket["severe_count"] += 1
+        counters["severe"] += 1
+    if record.get("victims_present"):
+        bucket["victims_count"] += 1
+        counters["victims"] += 1
+    if record.get("major_damage"):
+        bucket["major_damage_count"] += 1
+        counters["major_damage"] += 1
+    if record.get("night_incident"):
+        bucket["night_count"] += 1
+        counters["night"] += 1
+    if record.get("heating_season"):
+        bucket["heating_count"] += 1
+        counters["heating"] += 1
+
+    rural_hint = settlement_type or settlement or territory_label or _clean_text(record.get("address"))
+    if _is_rural_label(rural_hint):
+        bucket["rural_count"] += 1
+        counters["rural"] += 1
+
+    latitude = _normalize_coordinate(record.get("latitude"), -90.0, 90.0)
+    longitude = _normalize_coordinate(record.get("longitude"), -180.0, 180.0)
+    if latitude is not None and longitude is not None:
+        bucket["latitude_values"].append(latitude)
+        bucket["longitude_values"].append(longitude)
+
+    return counters
+
+
 def _build_point_entity_frames(
     records: Sequence[Dict[str, Any]],
     *,
@@ -150,111 +273,21 @@ def _build_point_entity_frames(
         point_id = str(identity["point_id"])
         bucket = buckets.get(point_id)
         if bucket is None:
-            bucket = {
-                **identity,
-                "incident_count": 0,
-                "response_total": 0.0,
-                "response_count": 0,
-                "distance_total": 0.0,
-                "distance_count": 0,
-                "long_arrival_count": 0,
-                "water_yes_count": 0,
-                "water_no_count": 0,
-                "water_unknown_count": 0,
-                "severe_count": 0,
-                "victims_count": 0,
-                "major_damage_count": 0,
-                "night_count": 0,
-                "heating_count": 0,
-                "rural_count": 0,
-                "years": Counter(),
-                "districts": Counter(),
-                "territories": Counter(),
-                "settlements": Counter(),
-                "settlement_types": Counter(),
-                "object_categories": Counter(),
-                "source_tables": Counter(),
-                "latitude_values": [],
-                "longitude_values": [],
-            }
+            bucket = _new_point_bucket(identity)
             buckets[point_id] = bucket
 
         total_incidents += 1
-        bucket["incident_count"] += 1
-        bucket["years"][int(record.get("year") or record["date"].year)] += 1
-
-        district = _clean_text(record.get("district"))
-        territory_label = _clean_text(record.get("territory_label"))
-        settlement = _clean_text(record.get("settlement"))
-        settlement_type = _clean_text(record.get("settlement_type"))
-        object_category = _clean_text(record.get("object_category"))
-        source_table = _clean_text(record.get("source_table"))
-
-        if district:
-            bucket["districts"][district] += 1
-        if territory_label:
-            bucket["territories"][territory_label] += 1
-        if settlement:
-            bucket["settlements"][settlement] += 1
-        if settlement_type:
-            bucket["settlement_types"][settlement_type] += 1
-        if object_category:
-            bucket["object_categories"][object_category] += 1
-        if source_table:
-            bucket["source_tables"][source_table] += 1
-
-        response_minutes = record.get("response_minutes")
-        if response_minutes is not None:
-            bucket["response_total"] += float(response_minutes)
-            bucket["response_count"] += 1
-            total_response_count += 1
-
-        distance_km = record.get("fire_station_distance")
-        if distance_km is not None:
-            bucket["distance_total"] += float(distance_km)
-            bucket["distance_count"] += 1
-
-        if record.get("long_arrival"):
-            bucket["long_arrival_count"] += 1
-            total_long_arrivals += 1
-
-        has_water_supply = record.get("has_water_supply")
-        if has_water_supply is True:
-            bucket["water_yes_count"] += 1
-            total_known_water += 1
-        elif has_water_supply is False:
-            bucket["water_no_count"] += 1
-            total_known_water += 1
-            total_no_water += 1
-        else:
-            bucket["water_unknown_count"] += 1
-
-        if record.get("severe_consequence"):
-            bucket["severe_count"] += 1
-            total_severe += 1
-        if record.get("victims_present"):
-            bucket["victims_count"] += 1
-            total_victims += 1
-        if record.get("major_damage"):
-            bucket["major_damage_count"] += 1
-            total_major_damage += 1
-        if record.get("night_incident"):
-            bucket["night_count"] += 1
-            total_night += 1
-        if record.get("heating_season"):
-            bucket["heating_count"] += 1
-            total_heating += 1
-
-        rural_hint = settlement_type or settlement or territory_label or _clean_text(record.get("address"))
-        if _is_rural_label(rural_hint):
-            bucket["rural_count"] += 1
-            total_rural += 1
-
-        latitude = _normalize_coordinate(record.get("latitude"), -90.0, 90.0)
-        longitude = _normalize_coordinate(record.get("longitude"), -180.0, 180.0)
-        if latitude is not None and longitude is not None:
-            bucket["latitude_values"].append(latitude)
-            bucket["longitude_values"].append(longitude)
+        record_counters = _update_point_bucket_from_record(bucket, record)
+        total_response_count += record_counters["response_count"]
+        total_long_arrivals += record_counters["long_arrivals"]
+        total_known_water += record_counters["known_water"]
+        total_no_water += record_counters["no_water"]
+        total_severe += record_counters["severe"]
+        total_victims += record_counters["victims"]
+        total_major_damage += record_counters["major_damage"]
+        total_night += record_counters["night"]
+        total_heating += record_counters["heating"]
+        total_rural += record_counters["rural"]
 
     priors = {
         "long_arrival": _share(total_long_arrivals, total_response_count),
