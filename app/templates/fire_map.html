@@ -1,44 +1,18 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Карта пожаров</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
-<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
-<link rel="stylesheet" href="/static/css/page-misc.css?v={{ page_misc_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
+{% extends "base.html" %}
 {% set data = fire_map %}
 {% set brief = data.executive_brief %}
 {% set risk = data.risk_prediction %}
+{% set sidebar_title = "Fire-map" %}
+{% set sidebar_description %}Сначала показывает, где риск на карте выше, почему эта территория выходит в приоритет и что стоит проверить до просмотра всех слоев.{% endset %}
 
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Fire-map</h2>
-        <p>Сначала показывает, где риск на карте выше, почему эта территория выходит в приоритет и что стоит проверить до просмотра всех слоев.</p>
-    </div>
+{% block title %}Карта пожаров{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
+{% block page_styles %}
+<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
+<link rel="stylesheet" href="/static/css/page-misc.css?v={{ page_misc_css_version }}">
+{% endblock %}
 
+{% block sidebar_status %}
     <div class="sidebar-status">
         <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Карта готова к просмотру{% else %}Нет таблиц для карты{% endif %}</span>
         <div class="status-line">
@@ -54,9 +28,9 @@
             <strong>PostgreSQL</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 <main class="main dashboard-main map-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
@@ -220,6 +194,4 @@
         </div>
     </section>
 </main>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{% endblock %}

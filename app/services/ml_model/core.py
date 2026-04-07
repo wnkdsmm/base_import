@@ -31,7 +31,7 @@ from config.db import engine
 from .constants import ML_CACHE_SCHEMA_VERSION, _CACHE_LIMIT, _ML_CACHE
 from .payloads import _build_ml_payload, _compact_ui_notes, _empty_ml_model_data
 from .runtime import MlProgressCallback, _emit_progress
-from .training import _train_ml_model
+from .training import _train_ml_model, clear_training_artifact_cache
 
 
 def get_ml_model_page_context(
@@ -323,4 +323,5 @@ def _build_ml_request_state(
 
 def clear_ml_model_cache() -> None:
     _ML_CACHE.clear()
+    clear_training_artifact_cache()
     clear_forecasting_sql_cache()

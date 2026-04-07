@@ -1,4 +1,3 @@
-import re
 import unittest
 import warnings
 from datetime import date, timedelta
@@ -6,6 +5,7 @@ from unittest.mock import patch
 
 from app.services.ml_model import core as ml_core
 from app.services.ml_model import training as ml_training
+from tests.mojibake_check import MOJIBAKE_PATTERN as SHARED_MOJIBAKE_PATTERN
 
 
 def _resolve_option(options, value):
@@ -85,7 +85,7 @@ COUNT_TABLE_BASELINE_ROLE_LABEL = "\u0411\u0430\u0437\u043e\u0432\u0430\u044f \u
 
 
 class MlModelPayloadTests(unittest.TestCase):
-    MOJIBAKE_PATTERN = re.compile(r"(Р[ЂЃЉЊЋЌЍЎЏ]|С[ЂЃЉЊЋЌЍЎЏ]|вЂ|\?{3,}|РґРЅРµР№|РїРѕРєСЂ|РљРѕР»РѕРЅРєР°)")
+    MOJIBAKE_PATTERN = SHARED_MOJIBAKE_PATTERN
     BACKTEST_OVERVIEW_REQUIRED_KEYS = {
         "folds",
         "min_train_rows",
@@ -268,6 +268,26 @@ class MlModelPayloadTests(unittest.TestCase):
         self.assertTrue({"title", "lead", "body", "facts"}.issubset(set(quality["model_choice"])))
         self.assertTrue({"title", "rows", "empty_message"}.issubset(set(quality["count_table"])))
         self.assertTrue({"title", "rows", "empty_message"}.issubset(set(quality["event_table"])))
+
+    def test_training_artifacts_are_reused_across_scenario_temperature(self) -> None:
+        daily_history = self._build_daily_history(75)
+        ml_training.clear_training_artifact_cache()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with patch.object(ml_training, "_run_backtest", wraps=ml_training._run_backtest) as backtest_mock:
+                first = ml_training._train_ml_model(daily_history, 7, None)
+                second = ml_training._train_ml_model(daily_history, 7, 12.0)
+
+        self.assertTrue(first["is_ready"], msg=first.get("message"))
+        self.assertTrue(second["is_ready"], msg=second.get("message"))
+        self.assertEqual(backtest_mock.call_count, 1)
+        self.assertEqual(first["backtest_overview"], second["backtest_overview"])
+        self.assertEqual(first["count_mae"], second["count_mae"])
+        self.assertNotEqual(
+            first["forecast_rows"][0]["temperature_display"],
+            second["forecast_rows"][0]["temperature_display"],
+        )
 
     def _assert_validated_contract_consistency(
         self,

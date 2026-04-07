@@ -1,10 +1,10 @@
-import re
 import unittest
 import warnings
 from datetime import date, timedelta
 from unittest.mock import patch
 
 from app.services.ml_model import core as ml_core
+from tests.mojibake_check import MOJIBAKE_PATTERN as SHARED_MOJIBAKE_PATTERN
 
 
 def _resolve_option(options, value):
@@ -84,7 +84,7 @@ COUNT_TABLE_BASELINE_ROLE_LABEL = "\u0411\u0430\u0437\u043e\u0432\u0430\u044f \u
 
 
 class MlModelPayloadTests(unittest.TestCase):
-    MOJIBAKE_PATTERN = re.compile(r"(Р[ЂЃЉЊЋЌЍЎЏ]|С[ЂЃЉЊЋЌЍЎЏ]|вЂ|\?{3,}|РґРЅРµР№|РїРѕРєСЂ|РљРѕР»РѕРЅРєР°)")
+    MOJIBAKE_PATTERN = SHARED_MOJIBAKE_PATTERN
     BACKTEST_OVERVIEW_REQUIRED_KEYS = {
         "folds",
         "min_train_rows",

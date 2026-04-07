@@ -122,14 +122,168 @@
         }
     }
 
+    function createTimerGroup() {
+        var timers = [];
+        return {
+            clear: function () {
+                while (timers.length) {
+                    clearTimeout(timers.pop());
+                }
+            },
+            set: function (callback, delay) {
+                var timer = setTimeout(callback, delay);
+                timers.push(timer);
+                return timer;
+            },
+            push: function (timer) {
+                timers.push(timer);
+                return timer;
+            }
+        };
+    }
+
+    function createSingleTimer() {
+        var timer = null;
+        return {
+            clear: function () {
+                if (timer) {
+                    clearTimeout(timer);
+                    timer = null;
+                }
+            },
+            set: function (callback, delay) {
+                this.clear();
+                timer = setTimeout(callback, delay);
+                return timer;
+            }
+        };
+    }
+
+    function runProgressSequence(timerGroup, updateProgress, entries) {
+        var safeEntries = Array.isArray(entries) ? entries : [];
+        if (timerGroup && typeof timerGroup.clear === 'function') {
+            timerGroup.clear();
+        }
+        safeEntries.forEach(function (entry) {
+            var safeEntry = entry || {};
+            var run = function () {
+                updateProgress(safeEntry.activeIndex, safeEntry.options || {});
+            };
+            if (safeEntry.delay && safeEntry.delay > 0 && timerGroup && typeof timerGroup.set === 'function') {
+                timerGroup.set(run, safeEntry.delay);
+                return;
+            }
+            run();
+        });
+    }
+
+    function setStepProgress(config) {
+        var settings = config || {};
+        var activeIndex = settings.activeIndex;
+        var stepsNode = byId(settings.stepsId);
+        var lead = settings.lead || '';
+        var message = settings.message || '';
+        var isFinished = Boolean(settings.isFinished);
+        var isError = Boolean(settings.isError);
+        var stepSelector = settings.stepSelector || '.analysis-step';
+
+        setText(settings.leadId, lead);
+        setText(settings.messageId, message);
+
+        if (!stepsNode) {
+            return;
+        }
+
+        Array.prototype.forEach.call(stepsNode.querySelectorAll(stepSelector), function (node, index) {
+            node.classList.remove('is-active', 'is-done', 'is-error');
+            if (isError && index === activeIndex) {
+                node.classList.add('is-error');
+                return;
+            }
+            if (isFinished) {
+                if (index <= activeIndex) {
+                    node.classList.add('is-done');
+                }
+                return;
+            }
+            if (index < activeIndex) {
+                node.classList.add('is-done');
+                return;
+            }
+            if (index === activeIndex) {
+                node.classList.add('is-active');
+            }
+        });
+    }
+
+    function getApiErrorMessage(payload, fallback) {
+        var normalizedFallback = fallback || 'Request failed.';
+        if (!payload || typeof payload !== 'object') {
+            return normalizedFallback;
+        }
+
+        if (payload.error && typeof payload.error === 'object') {
+            var apiMessage = String(payload.error.message || payload.error.detail || payload.error.code || '').trim();
+            if (apiMessage) {
+                return apiMessage;
+            }
+        }
+
+        var legacyMessage = String(payload.error_message || payload.detail || payload.message || '').trim();
+        return legacyMessage || normalizedFallback;
+    }
+
+    function createApiError(response, payload, fallback) {
+        var error = new Error(getApiErrorMessage(payload, fallback));
+        error.status = response && typeof response.status === 'number' ? response.status : 0;
+        error.payload = payload || null;
+        return error;
+    }
+
+    function getErrorMessage(error, fallback) {
+        var message = error && typeof error.message === 'string' ? error.message.trim() : '';
+        return message || fallback;
+    }
+
+    async function fetchJson(url, options, fallback, invalidJsonFallback) {
+        var response = await fetch(url, options || {});
+        var payload;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            if (!response.ok) {
+                throw createApiError(response, null, invalidJsonFallback || fallback);
+            }
+            throw error;
+        }
+        if (!response.ok) {
+            throw createApiError(response, payload, fallback);
+        }
+        if (payload && payload.ok === false) {
+            throw createApiError(response, payload, fallback);
+        }
+        return {
+            payload: payload,
+            response: response
+        };
+    }
+
     global.FireUi = {
         applyToneClass: applyToneClass,
         byId: byId,
+        createApiError: createApiError,
+        createSingleTimer: createSingleTimer,
+        createTimerGroup: createTimerGroup,
         escapeHtml: escapeHtml,
+        fetchJson: fetchJson,
+        getApiErrorMessage: getApiErrorMessage,
+        getErrorMessage: getErrorMessage,
         normalizePercent: normalizePercent,
         renderPlotlyFigure: renderPlotlyFigure,
+        runProgressSequence: runProgressSequence,
         setHref: setHref,
         setSelectOptions: setSelectOptions,
+        setStepProgress: setStepProgress,
         setText: setText,
         setValue: setValue
     };

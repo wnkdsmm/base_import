@@ -161,9 +161,9 @@ class SummaryPresentationTests(unittest.TestCase):
         )
 
         self.assertFalse(summary['event_probability_enabled'])
-        self.assertEqual(summary['average_event_probability_display'], 'вЂ”')
-        self.assertEqual(summary['peak_event_probability_display'], 'вЂ”')
-        self.assertEqual(summary['peak_event_probability_day_display'], 'вЂ”')
+        self.assertEqual(summary['average_event_probability_display'], '—')
+        self.assertEqual(summary['peak_event_probability_display'], '—')
+        self.assertEqual(summary['peak_event_probability_day_display'], '—')
 
 
     def test_summary_hides_event_probability_block_when_it_is_disabled(self) -> None:
@@ -183,9 +183,9 @@ class SummaryPresentationTests(unittest.TestCase):
         )
 
         self.assertFalse(summary['event_probability_enabled'])
-        self.assertEqual(summary['average_event_probability_display'], 'вЂ”')
-        self.assertEqual(summary['peak_event_probability_display'], 'вЂ”')
-        self.assertEqual(summary['peak_event_probability_day_display'], 'вЂ”')
+        self.assertEqual(summary['average_event_probability_display'], '—')
+        self.assertEqual(summary['peak_event_probability_display'], '—')
+        self.assertEqual(summary['peak_event_probability_day_display'], '—')
 
 
     def test_summary_hides_event_probability_block_when_it_is_disabled(self) -> None:
@@ -482,11 +482,11 @@ class QualityAssessmentPresentationTests(unittest.TestCase):
         )
 
         heuristic_row = quality['count_table']['rows'][0]
-        self.assertEqual(heuristic_row['mae_display'], 'вЂ”')
-        self.assertEqual(heuristic_row['rmse_display'], 'вЂ”')
-        self.assertEqual(heuristic_row['smape_display'], 'вЂ”')
-        self.assertEqual(heuristic_row['poisson_display'], 'вЂ”')
-        self.assertEqual(heuristic_row['mae_delta_display'], 'вЂ”')
+        self.assertEqual(heuristic_row['mae_display'], '—')
+        self.assertEqual(heuristic_row['rmse_display'], '—')
+        self.assertEqual(heuristic_row['smape_display'], '—')
+        self.assertEqual(heuristic_row['poisson_display'], '—')
+        self.assertEqual(heuristic_row['mae_delta_display'], '—')
 
     def test_quality_assessment_uses_dash_for_missing_heuristic_row_metrics(self) -> None:
         quality = _build_quality_assessment(

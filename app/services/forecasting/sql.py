@@ -33,6 +33,28 @@ def _build_sql_cache_key(prefix: str, source_tables: Sequence[str], *parts: Any)
     return (prefix, *tuple(source_tables), *parts)
 
 
+def _filtered_record_count_cache_key(
+    source_tables: Sequence[str],
+    history_window: str,
+    district: str,
+    cause: str,
+    object_category: str,
+) -> tuple[Any, ...]:
+    normalized_tables = _canonicalize_source_tables(source_tables)[0]
+    return _build_sql_cache_key(
+        "filtered_record_count",
+        normalized_tables,
+        history_window,
+        _normalize_filter_value(district),
+        _normalize_filter_value(cause),
+        _normalize_filter_value(object_category),
+    )
+
+
+def _daily_history_total_count(history: Sequence[Dict[str, Any]]) -> int:
+    return sum(int(row.get("count") or 0) for row in history)
+
+
 def _materialized_view_suffix(value: str) -> str:
     raw_value = str(value or "").strip()
     normalized = "".join(character.lower() if character.isalnum() else "_" for character in raw_value)
@@ -549,8 +571,16 @@ def _build_daily_history_sql(
         _normalize_filter_value(cause),
         _normalize_filter_value(object_category),
     )
+    count_cache_key = _filtered_record_count_cache_key(
+        normalized_tables,
+        history_window,
+        district,
+        cause,
+        object_category,
+    )
     cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
     if cached_history is not None:
+        _FORECASTING_SQL_CACHE.set(count_cache_key, _daily_history_total_count(cached_history))
         return cached_history
 
     local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
@@ -606,6 +636,7 @@ def _build_daily_history_sql(
                 bucket["temperature_samples"] += sample_count
 
     if not merged_rows:
+        _FORECASTING_SQL_CACHE.set(count_cache_key, 0)
         return _FORECASTING_SQL_CACHE.set(cache_key, [])
 
     history: List[Dict[str, Any]] = []
@@ -624,6 +655,7 @@ def _build_daily_history_sql(
         )
         current_date += timedelta(days=1)
 
+    _FORECASTING_SQL_CACHE.set(count_cache_key, _daily_history_total_count(history))
     return _FORECASTING_SQL_CACHE.set(cache_key, history)
 
 
@@ -638,13 +670,12 @@ def _count_forecasting_records_sql(
     from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
     normalized_tables = _canonicalize_source_tables(source_tables)[0]
-    cache_key = _build_sql_cache_key(
-        "filtered_record_count",
+    cache_key = _filtered_record_count_cache_key(
         normalized_tables,
         history_window,
-        _normalize_filter_value(district),
-        _normalize_filter_value(cause),
-        _normalize_filter_value(object_category),
+        district,
+        cause,
+        object_category,
     )
     cached_count = _FORECASTING_SQL_CACHE.get(cache_key)
     if cached_count is not None:

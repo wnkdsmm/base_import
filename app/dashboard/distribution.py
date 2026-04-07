@@ -195,7 +195,7 @@ def _build_damage_category_items(
     *,
     counts: Optional[Dict[str, int]] = None,
 ) -> List[Dict[str, Any]]:
-    counts = counts or _collect_damage_counts(selected_tables, selected_year)
+    counts = counts if counts is not None else _collect_damage_counts(selected_tables, selected_year)
     items: List[Dict[str, Any]] = []
     used_columns = set()
 
@@ -254,7 +254,7 @@ def _build_damage_theme_items(
     *,
     counts: Optional[Dict[str, int]] = None,
 ) -> List[Dict[str, Any]]:
-    counts = counts or _collect_damage_counts(selected_tables, selected_year)
+    counts = counts if counts is not None else _collect_damage_counts(selected_tables, selected_year)
     items: List[Dict[str, Any]] = []
 
     for label, columns in _DAMAGE_THEME_COLUMNS.items():
@@ -363,6 +363,7 @@ def _build_table_breakdown_chart(
     selected_year: Optional[int],
     *,
     summary_rows: Optional[Sequence[Dict[str, Any]]] = None,
+    include_plotly: bool = True,
 ) -> Dict[str, Any]:
     items = []
     if summary_rows is not None:
@@ -405,7 +406,11 @@ def _build_table_breakdown_chart(
         "Количество пожаров по таблицам",
         items,
         empty_message,
-        plotly=_build_table_breakdown_plotly("Количество пожаров по таблицам", items, empty_message),
+        plotly=(
+            _build_table_breakdown_plotly("Количество пожаров по таблицам", items, empty_message)
+            if include_plotly
+            else None
+        ),
     )
 
 

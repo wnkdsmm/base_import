@@ -1,4 +1,8 @@
 (function () {
+    const shared = window.FireUi;
+    const escapeHtml = shared.escapeHtml;
+    const fetchJson = shared.fetchJson;
+    const setStepProgress = shared.setStepProgress;
     let selectedTable = null;
     let isRunning = false;
     const profilingDefaults = (function () {
@@ -13,10 +17,6 @@
             return {};
         }
     }());
-
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
 
     function formatPercent(value) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) return '0%';
@@ -37,12 +37,10 @@
         banner.innerHTML = message;
     }
 
-    const profilingStepTimers = [];
+    const profilingStepTimers = shared.createTimerGroup();
 
     function clearProfilingStepTimers() {
-        while (profilingStepTimers.length) {
-            clearTimeout(profilingStepTimers.pop());
-        }
+        profilingStepTimers.clear();
     }
 
     function setProfilingSkeletonVisible(visible) {
@@ -76,32 +74,16 @@
     }
 
     function setProfilingProgress(activeIndex, options = {}) {
-        const leadNode = document.getElementById('profilingLoadingLead');
-        const messageNode = document.getElementById('profilingLoadingMessage');
-        const stepsNode = document.getElementById('profilingProgressSteps');
-        const isFinished = Boolean(options.isFinished);
-        const isError = Boolean(options.isError);
-        if (leadNode) leadNode.textContent = options.lead || '';
-        if (messageNode) messageNode.textContent = options.message || '';
-        if (!stepsNode) return;
-
-        Array.from(stepsNode.querySelectorAll('.analysis-step')).forEach((node, index) => {
-            node.classList.remove('is-active', 'is-done', 'is-error');
-            if (isError && index === activeIndex) {
-                node.classList.add('is-error');
-                return;
-            }
-            if (isFinished) {
-                if (index <= activeIndex) node.classList.add('is-done');
-                return;
-            }
-            if (index < activeIndex) {
-                node.classList.add('is-done');
-                return;
-            }
-            if (index === activeIndex) {
-                node.classList.add('is-active');
-            }
+        setStepProgress({
+            activeIndex,
+            isError: options.isError,
+            isFinished: options.isFinished,
+            lead: options.lead,
+            leadId: 'profilingLoadingLead',
+            message: options.message,
+            messageId: 'profilingLoadingMessage',
+            stepSelector: '.analysis-step',
+            stepsId: 'profilingProgressSteps'
         });
     }
 
@@ -133,24 +115,24 @@
             lead: 'Загружаем таблицу и проверяем параметры',
             message: 'Получаем выбранную таблицу и пороги очистки.'
         });
-        profilingStepTimers.push(setTimeout(() => {
+        profilingStepTimers.set(() => {
             setProfilingProgress(1, {
                 lead: 'Агрегируем метрики по колонкам',
                 message: 'Считаем пропуски, доминирующие значения и дисперсию.'
             });
-        }, 260));
-        profilingStepTimers.push(setTimeout(() => {
+        }, 260);
+        profilingStepTimers.set(() => {
             setProfilingProgress(2, {
                 lead: 'Проверяем правила очистки',
                 message: 'Формируем итоговый набор колонок и валидируем результат.'
             });
-        }, 920));
-        profilingStepTimers.push(setTimeout(() => {
+        }, 920);
+        profilingStepTimers.set(() => {
             setProfilingProgress(3, {
                 lead: 'Собираем итоговую сводку',
                 message: 'Подготавливаем таблицу clean_* и файлы результата.'
             });
-        }, 1650));
+        }, 1650);
     }
 
     function renderRunSummary(summary = {}) {
@@ -323,13 +305,13 @@
 
         try {
             const jobId = createJobId();
-            const response = await fetch('/run_profiling', {
+            const apiResult = await fetchJson('/run_profiling', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ table: selectedTable, thresholds, job_id: jobId }),
-            });
-            const result = await response.json();
-            if (!response.ok || result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить очистку.');
+            }, 'Не удалось выполнить очистку.');
+            const result = apiResult.payload;
+            if (result.status !== 'success') throw new Error(result.message || result.status || 'Не удалось выполнить очистку.');
             renderSummary(result);
             setStatus('success', `Готово. Таблица <strong>${escapeHtml(selectedTable)}</strong> обработана по выбранным порогам.`);
             clearProfilingStepTimers();

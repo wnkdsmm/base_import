@@ -2,11 +2,15 @@
     var shared = window.FireUi;
     var applyToneClass = shared.applyToneClass;
     var byId = shared.byId;
+    var createSingleTimer = shared.createSingleTimer;
+    var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
+    var fetchJson = shared.fetchJson;
     var normalizePercent = shared.normalizePercent;
     var renderChart = shared.renderPlotlyFigure;
     var setHref = shared.setHref;
     var setSelectOptions = shared.setSelectOptions;
+    var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
     var setValue = shared.setValue;
 
@@ -308,13 +312,11 @@
 
     var currentForecastData = window.__FIRE_FORECAST_INITIAL__ || null;
     var forecastRequestToken = 0;
-    var forecastStepTimers = [];
-    var decisionSupportJobPollTimer = null;
+    var forecastStepTimers = createTimerGroup();
+    var decisionSupportJobPollTimer = createSingleTimer();
 
     function clearForecastStepTimers() {
-        while (forecastStepTimers.length) {
-            clearTimeout(forecastStepTimers.pop());
-        }
+        forecastStepTimers.clear();
     }
 
     function setForecastAsyncVisibility(visible) {
@@ -358,38 +360,17 @@
     }
 
     function setForecastProgress(activeIndex, options) {
-        var stepsNode = byId('forecastProgressSteps');
-        var lead = options && options.lead ? options.lead : '';
-        var message = options && options.message ? options.message : '';
-        var isFinished = Boolean(options && options.isFinished);
-        var isError = Boolean(options && options.isError);
-
-        setText('forecastLoadingLead', lead);
-        setText('forecastLoadingMessage', message);
-
-        if (!stepsNode) {
-            return;
-        }
-
-        Array.prototype.forEach.call(stepsNode.querySelectorAll('.analysis-step'), function (node, index) {
-            node.classList.remove('is-active', 'is-done', 'is-error');
-            if (isError && index === activeIndex) {
-                node.classList.add('is-error');
-                return;
-            }
-            if (isFinished) {
-                if (index <= activeIndex) {
-                    node.classList.add('is-done');
-                }
-                return;
-            }
-            if (index < activeIndex) {
-                node.classList.add('is-done');
-                return;
-            }
-            if (index === activeIndex) {
-                node.classList.add('is-active');
-            }
+        var settings = options || {};
+        setStepProgress({
+            activeIndex: activeIndex,
+            isError: settings.isError,
+            isFinished: settings.isFinished,
+            lead: settings.lead,
+            leadId: 'forecastLoadingLead',
+            message: settings.message,
+            messageId: 'forecastLoadingMessage',
+            stepSelector: '.analysis-step',
+            stepsId: 'forecastProgressSteps'
         });
     }
 
@@ -431,12 +412,12 @@
             lead: 'Загружаем фильтры и признаки',
             message: 'Подготавливаем данные для формы: доступные значения фильтров и найденные группы признаков.'
         });
-        forecastStepTimers.push(setTimeout(function () {
+        forecastStepTimers.set(function () {
             setForecastProgress(1, {
                 lead: 'Подготавливаем базовый прогноз',
                 message: 'Фильтры уже готовы. Переходим к сбору истории и базового сценарного прогноза.'
             });
-        }, 320));
+        }, 320);
     }
 
     function startBaseForecastProgressSequence() {
@@ -445,12 +426,12 @@
             lead: 'Агрегируем историю пожаров',
             message: 'Собираем дневной ряд и ключевые показатели по выбранным фильтрам.'
         });
-        forecastStepTimers.push(setTimeout(function () {
+        forecastStepTimers.set(function () {
             setForecastProgress(2, {
                 lead: 'Считаем базовый прогноз и проверку',
                 message: 'Обновляем базовый сценарий и метрики по историческому ряду.'
             });
-        }, 640));
+        }, 640);
     }
 
     function syncForecastAsyncState(data) {
@@ -659,52 +640,16 @@
             ' | К последним 4 неделям: ' + (safeSummary.forecast_vs_recent_display || '0%');
     }
 
-    function getForecastApiErrorMessage(payload, fallback) {
-        var normalizedFallback = fallback || 'Не удалось выполнить запрос прогноза.';
-        if (!payload || typeof payload !== 'object') {
-            return normalizedFallback;
-        }
-
-        if (payload.error && typeof payload.error === 'object') {
-            var apiMessage = String(payload.error.message || payload.error.detail || payload.error.code || '').trim();
-            if (apiMessage) {
-                return apiMessage;
-            }
-        }
-
-        var legacyMessage = String(payload.detail || payload.message || '').trim();
-        return legacyMessage || normalizedFallback;
-    }
-
-    function createForecastApiError(response, payload, fallback) {
-        var error = new Error(getForecastApiErrorMessage(payload, fallback));
-        error.status = response && typeof response.status === 'number' ? response.status : 0;
-        error.payload = payload || null;
-        return error;
-    }
-
-    function getForecastErrorMessage(error, fallback) {
-        var message = error && typeof error.message === 'string' ? error.message.trim() : '';
-        return message || fallback;
-    }
+    var getForecastErrorMessage = shared.getErrorMessage;
 
     async function requestForecastApiPayload(endpoint, query, options) {
-        var response = await fetch(endpoint + '?' + query, { headers: { Accept: 'application/json' } });
-        var payload;
-        try {
-            payload = await response.json();
-        } catch (error) {
-            if (!response.ok) {
-                throw createForecastApiError(response, null, 'API прогноза вернул ответ в неожиданном формате.');
-            }
-            throw error;
-        }
-        if (!response.ok) {
-            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос прогноза.');
-        }
-        if (payload && payload.ok === false) {
-            throw createForecastApiError(response, payload, 'Не удалось выполнить запрос прогноза.');
-        }
+        var result = await fetchJson(
+            endpoint + '?' + query,
+            { headers: { Accept: 'application/json' } },
+            'Не удалось выполнить запрос прогноза.',
+            'API прогноза вернул ответ в неожиданном формате.'
+        );
+        var payload = result.payload;
         if (options && options.expectResolved && payload && payload.bootstrap_mode === 'deferred') {
             throw new Error('API прогноза вернул стартовую заготовку вместо готового результата.');
         }
@@ -733,10 +678,7 @@
     }
 
     function stopDecisionSupportPolling() {
-        if (decisionSupportJobPollTimer) {
-            clearTimeout(decisionSupportJobPollTimer);
-            decisionSupportJobPollTimer = null;
-        }
+        decisionSupportJobPollTimer.clear();
     }
 
     function renderForecastJobRuntime(jobPayload) {
@@ -819,10 +761,11 @@
         }
 
         try {
-            response = await fetch('/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId), {
+            var result = await fetchJson('/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId), {
                 headers: { Accept: 'application/json' }
-            });
-            payload = await response.json();
+            }, 'Фоновая задача decision support завершилась с ошибкой.');
+            response = result.response;
+            payload = result.payload;
             if (requestToken !== forecastRequestToken) {
                 return;
             }
@@ -838,7 +781,7 @@
                 return;
             }
 
-            decisionSupportJobPollTimer = setTimeout(function () {
+            decisionSupportJobPollTimer.set(function () {
                 pollDecisionSupportJob(jobId, baseQuery, requestToken);
             }, 1200);
         } catch (error) {
@@ -1323,15 +1266,16 @@
         );
         setDecisionSupportStatus('Догружаем приоритеты территорий и рекомендации...', 'pending');
         try {
-            response = await fetch('/api/forecasting-decision-support-jobs', {
+            var result = await fetchJson('/api/forecasting-decision-support-jobs', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(buildForecastJobBody(baseQuery))
-            });
-            payload = await response.json();
+            }, 'Не удалось запустить блок поддержки решений.');
+            response = result.response;
+            payload = result.payload;
             if (requestToken !== forecastRequestToken) {
                 return;
             }

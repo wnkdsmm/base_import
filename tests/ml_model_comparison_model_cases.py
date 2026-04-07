@@ -31,6 +31,7 @@ from app.services.ml_model.training import (
     _select_count_method,
     _select_count_model,
 )
+from tests.mojibake_check import encode_as_mojibake
 
 
 class CountModelSelectionTests(unittest.TestCase):
@@ -988,8 +989,8 @@ class EventPayloadLabelTests(unittest.TestCase):
             + [row['method_label'] for row in event_rows]
             + [row['role_label'] for row in event_rows]
         )
-        self.assertNotIn('РЎ', text_blob)
-        self.assertNotIn('Р ', text_blob)
+        self.assertNotIn(encode_as_mojibake("\u0421"), text_blob)
+        self.assertNotIn(encode_as_mojibake("\u0420"), text_blob)
 
 
 class ClassificationMetricsTests(unittest.TestCase):

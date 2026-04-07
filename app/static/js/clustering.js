@@ -1,18 +1,20 @@
 (function () {
     var shared = window.FireUi;
     var byId = shared.byId;
+    var createSingleTimer = shared.createSingleTimer;
+    var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
+    var fetchJson = shared.fetchJson;
     var renderChart = shared.renderPlotlyFigure;
     var setSelectOptions = shared.setSelectOptions;
+    var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
 
-    var clusteringStepTimers = [];
-    var clusteringJobPollTimer = null;
+    var clusteringStepTimers = createTimerGroup();
+    var clusteringJobPollTimer = createSingleTimer();
 
     function clearClusteringStepTimers() {
-        while (clusteringStepTimers.length) {
-            clearTimeout(clusteringStepTimers.pop());
-        }
+        clusteringStepTimers.clear();
     }
 
     function setClusteringAsyncVisibility(visible) {
@@ -56,38 +58,17 @@
     }
 
     function setClusteringProgress(activeIndex, options) {
-        var stepsNode = byId('clusteringProgressSteps');
-        var lead = options && options.lead ? options.lead : '';
-        var message = options && options.message ? options.message : '';
-        var isFinished = Boolean(options && options.isFinished);
-        var isError = Boolean(options && options.isError);
-
-        setText('clusteringLoadingLead', lead);
-        setText('clusteringLoadingMessage', message);
-
-        if (!stepsNode) {
-            return;
-        }
-
-        Array.prototype.forEach.call(stepsNode.querySelectorAll('.analysis-step'), function (node, index) {
-            node.classList.remove('is-active', 'is-done', 'is-error');
-            if (isError && index === activeIndex) {
-                node.classList.add('is-error');
-                return;
-            }
-            if (isFinished) {
-                if (index <= activeIndex) {
-                    node.classList.add('is-done');
-                }
-                return;
-            }
-            if (index < activeIndex) {
-                node.classList.add('is-done');
-                return;
-            }
-            if (index === activeIndex) {
-                node.classList.add('is-active');
-            }
+        var settings = options || {};
+        setStepProgress({
+            activeIndex: activeIndex,
+            isError: settings.isError,
+            isFinished: settings.isFinished,
+            lead: settings.lead,
+            leadId: 'clusteringLoadingLead',
+            message: settings.message,
+            messageId: 'clusteringLoadingMessage',
+            stepSelector: '.analysis-step',
+            stepsId: 'clusteringProgressSteps'
         });
     }
 
@@ -141,24 +122,24 @@
             lead: 'Загружаем исходные данные',
             message: 'Получаем территориальные записи и выбранные параметры кластеризации.'
         });
-        clusteringStepTimers.push(setTimeout(function () {
+        clusteringStepTimers.set(function () {
             setClusteringProgress(1, {
                 lead: 'Агрегируем территориальные признаки',
                 message: 'Собираем агрегаты по территориям и проверяем заполненность признаков.'
             });
-        }, 320));
-        clusteringStepTimers.push(setTimeout(function () {
+        }, 320);
+        clusteringStepTimers.set(function () {
             setClusteringProgress(2, {
                 lead: 'Считаем кластеры и диагностики',
                 message: 'Запускаем сегментацию, quality-метрики и профили кластеров.'
             });
-        }, 980));
-        clusteringStepTimers.push(setTimeout(function () {
+        }, 980);
+        clusteringStepTimers.set(function () {
             setClusteringProgress(3, {
                 lead: 'Подготавливаем визуализации',
                 message: 'Собираем scatter, распределения и итоговые таблицы.'
             });
-        }, 1700));
+        }, 1700);
     }
 
     function syncClusteringAsyncState(data) {
@@ -438,34 +419,7 @@
         }).join('');
     }
 
-    function getClusteringApiErrorMessage(payload, fallback) {
-        var normalizedFallback = fallback || 'Clustering request failed.';
-        if (!payload || typeof payload !== 'object') {
-            return normalizedFallback;
-        }
-
-        if (payload.error && typeof payload.error === 'object') {
-            var apiMessage = String(payload.error.message || payload.error.detail || payload.error.code || '').trim();
-            if (apiMessage) {
-                return apiMessage;
-            }
-        }
-
-        var legacyMessage = String(payload.detail || payload.message || '').trim();
-        return legacyMessage || normalizedFallback;
-    }
-
-    function createClusteringApiError(response, payload, fallback) {
-        var error = new Error(getClusteringApiErrorMessage(payload, fallback));
-        error.status = response && typeof response.status === 'number' ? response.status : 0;
-        error.payload = payload || null;
-        return error;
-    }
-
-    function getClusteringErrorMessage(error, fallback) {
-        var message = error && typeof error.message === 'string' ? error.message.trim() : '';
-        return message || fallback;
-    }
+    var getClusteringErrorMessage = shared.getErrorMessage;
 
     function buildClusteringJobBody(form) {
         var formData = new FormData(form);
@@ -481,10 +435,7 @@
     }
 
     function stopClusteringJobPolling() {
-        if (clusteringJobPollTimer) {
-            clearTimeout(clusteringJobPollTimer);
-            clusteringJobPollTimer = null;
-        }
+        clusteringJobPollTimer.clear();
     }
 
     function renderClusteringJobRuntime(jobPayload) {
@@ -572,10 +523,11 @@
         }
 
         try {
-            response = await fetch('/api/clustering-jobs/' + encodeURIComponent(jobId), {
+            var result = await fetchJson('/api/clustering-jobs/' + encodeURIComponent(jobId), {
                 headers: { Accept: 'application/json' }
-            });
-            payload = await response.json();
+            }, 'Фоновая clustering-задача завершилась с ошибкой.');
+            response = result.response;
+            payload = result.payload;
             updateClusteringAsyncStateForJob(payload);
 
             if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
@@ -587,7 +539,7 @@
                 return;
             }
 
-            clusteringJobPollTimer = setTimeout(function () {
+            clusteringJobPollTimer.set(function () {
                 pollClusteringJob(jobId, query);
             }, 1200);
         } catch (error) {
@@ -670,29 +622,15 @@
         startClusteringProgressSequence();
 
         try {
-            var response = await fetch('/api/clustering-jobs', {
+            var result = await fetchJson('/api/clustering-jobs', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(body)
-            });
-            var data = null;
-            try {
-                data = await response.json();
-            } catch (error) {
-                if (!response.ok) {
-                    throw createClusteringApiError(response, null, 'От clustering API пришел не JSON-ответ.');
-                }
-                throw error;
-            }
-            if (!response.ok) {
-                throw createClusteringApiError(response, data, 'Не удалось выполнить запрос clustering.');
-            }
-            if (data && data.ok === false) {
-                throw createClusteringApiError(response, data, 'Не удалось выполнить запрос clustering.');
-            }
+            }, 'Не удалось выполнить запрос clustering.', 'От clustering API пришел не JSON-ответ.');
+            var data = result.payload;
             if (data && data.bootstrap_mode === 'deferred' && !data.has_data) {
                 throw new Error('В clustering API вернулся shell-пейлоад вместо готовых данных.');
             }

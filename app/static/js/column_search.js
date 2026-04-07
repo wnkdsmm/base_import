@@ -1,4 +1,10 @@
 (function () {
+    const shared = window.FireUi;
+    const byId = shared.byId;
+    const escapeHtml = shared.escapeHtml;
+    const fetchJson = shared.fetchJson;
+    const setText = shared.setText;
+
     const state = {
         payload: null,
         selectedColumns: new Set(),
@@ -7,26 +13,6 @@
         lastTableName: '',
         previewRequestId: 0
     };
-
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function setText(id, value) {
-        const node = byId(id);
-        if (node) {
-            node.textContent = value == null ? '' : value;
-        }
-    }
 
     function enableDragScroll(container) {
         if (!container || container.dataset.dragReady === '1') {
@@ -231,7 +217,7 @@
         }
 
         try {
-            const response = await fetch('/api/column-search/preview', {
+            const result = await fetchJson('/api/column-search/preview', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -241,8 +227,8 @@
                     table_name: tableSelect.value || '',
                     selected_columns: selectedColumns
                 })
-            });
-            const payload = await response.json();
+            }, 'Не удалось загрузить предпросмотр.');
+            const payload = result.payload;
             if (requestId !== state.previewRequestId) {
                 return;
             }
@@ -414,13 +400,10 @@
         }
 
         try {
-            const response = await fetch('/api/column-search?' + params.toString(), {
+            const result = await fetchJson('/api/column-search?' + params.toString(), {
                 headers: { Accept: 'application/json' }
-            });
-            if (!response.ok) {
-                throw new Error('Не удалось выполнить поиск колонок.');
-            }
-            const payload = await response.json();
+            }, 'Не удалось выполнить поиск колонок.');
+            const payload = result.payload;
             const tableChanged = state.lastTableName !== payload.table_name;
             state.payload = payload;
             state.lastTableName = payload.table_name || '';
@@ -484,7 +467,7 @@
         }
 
         try {
-            const response = await fetch('/api/column-search/create-modify-table', {
+            const result = await fetchJson('/api/column-search/create-modify-table', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -496,9 +479,9 @@
                     selected_columns: selectedColumns,
                     selected_groups: selectedGroups
                 })
-            });
-            const payload = await response.json();
-            if (!response.ok || payload.status === 'error') {
+            }, 'Не удалось создать таблицу с префиксом modify_.');
+            const payload = result.payload;
+            if (payload.status === 'error') {
                 throw new Error(payload.message || 'Не удалось создать таблицу с префиксом modify_.');
             }
 

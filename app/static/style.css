@@ -1,4 +1,0 @@
-/* Compatibility wrapper for legacy consumers. Templates load split modules directly. */
-@import url("/static/css/base.css");
-@import url("/static/css/layout.css");
-@import url("/static/css/shared-components.css");

@@ -57,6 +57,7 @@ from .training_selection import (
 from .training_dataset import _build_design_matrix, _feature_frame, _prepare_reference_frame
 from .training_forecast import (
     _bound_probability,
+    _build_recursive_forecast_seed,
     _count_interval,
     _evaluate_prediction_interval_backtest,
     _format_ratio_percent,
@@ -366,6 +367,7 @@ def _simulate_candidate_paths(
         (model_key, count_model_bundles.get(model_key), event_bundle)
         for model_key in COUNT_MODEL_KEYS
     )
+    simulation_seed = _build_recursive_forecast_seed(window.prepared_train, window.temperature_stats)
 
     for model_key, count_model, event_model in candidate_specs:
         if model_key in COUNT_MODEL_KEYS and count_model is None:
@@ -381,6 +383,7 @@ def _simulate_candidate_paths(
             baseline_expected_count=_baseline_expected_count,
             temperature_stats=window.temperature_stats,
             baseline_event_probability=_baseline_event_probability,
+            simulation_seed=simulation_seed,
         )
     return forecast_paths
 

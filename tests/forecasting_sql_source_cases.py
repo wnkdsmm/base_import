@@ -1,5 +1,7 @@
 from datetime import date
 
+from app.services.forecasting import sql as forecasting_sql
+from app.services.ml_model.training_result import _empty_ml_result
 from tests.forecasting_sql_support import (
     ForecastingSqlSupport,
     forecasting_data,
@@ -49,7 +51,7 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
             {"date": date(2024, 1, 1), "count": 1, "avg_temperature": 0.0},
             {"date": date(2024, 1, 2), "count": 2, "avg_temperature": 1.0},
         ]
-        empty_result = ml_core._empty_ml_result("Недостаточно данных для обучения.")
+        empty_result = _empty_ml_result("Недостаточно данных для обучения.")
 
         with (
             patch.object(ml_core, "_build_forecasting_table_options", return_value=table_options),
@@ -92,7 +94,7 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
             {"date": date(2024, 1, 1), "count": 1, "avg_temperature": 0.0},
             {"date": date(2024, 1, 2), "count": 2, "avg_temperature": 1.0},
         ]
-        empty_result = ml_core._empty_ml_result("Not enough data for training.")
+        empty_result = _empty_ml_result("Not enough data for training.")
 
         with (
             patch.object(ml_core, "_build_forecasting_table_options", return_value=table_options),
@@ -120,3 +122,34 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
         self.assertEqual(history_mock.call_args.args[0], [clean_table])
         self.assertEqual(count_mock.call_args.args[0], [clean_table])
         self.assertTrue(any(raw_table in note and clean_table in note for note in payload["notes"]))
+
+    def test_daily_history_populates_filtered_count_cache(self) -> None:
+        metadata_items = [{"table_name": "fires", "resolved_columns": {"date": "fire_date"}}]
+        table_rows = [
+            {
+                "date": date(2024, 1, 1),
+                "count": 3,
+                "avg_temperature": None,
+                "temperature_samples": 0,
+            },
+            {
+                "date": date(2024, 1, 3),
+                "count": 2,
+                "avg_temperature": 1.0,
+                "temperature_samples": 1,
+            },
+        ]
+
+        forecasting_sql.clear_forecasting_sql_cache()
+        with patch.object(forecasting_sql, "_load_daily_history_rows", return_value=table_rows):
+            history = forecasting_sql._build_daily_history_sql(["fires"], metadata_items=metadata_items)
+
+        with patch.object(
+            forecasting_sql,
+            "_load_scope_total_count",
+            side_effect=AssertionError("count should reuse daily history cache"),
+        ):
+            count = forecasting_sql._count_forecasting_records_sql(["fires"], metadata_items=metadata_items)
+
+        self.assertEqual(sum(int(item["count"]) for item in history), 5)
+        self.assertEqual(count, 5)

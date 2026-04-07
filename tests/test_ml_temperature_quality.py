@@ -5,6 +5,7 @@ from app.services.forecasting.core import _build_feature_cards_with_quality
 from app.services.forecasting.data import _temperature_quality_from_daily_history
 from app.services.ml_model.presentation import _build_notes
 from app.services.ml_model.training import _train_ml_model
+from tests.mojibake_check import encode_as_mojibake
 
 
 TEMPERATURE_LABEL = "\u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430"
@@ -24,7 +25,10 @@ SPARSE_OVERRIDE_DESCRIPTION = (
     "\u043d\u0430\u0434\u0451\u0436\u043d\u044b\u043c \u0434\u043b\u044f ML \u0438 \u0442\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u043d\u043e\u0439 "
     "\u043f\u043e\u043f\u0440\u0430\u0432\u043a\u0438."
 )
-MOJIBAKE_TOKENS = ("РґРЅРµР№", "РїРѕРєСЂ", "РљРѕР»РѕРЅРєР°")
+MOJIBAKE_TOKENS = tuple(
+    encode_as_mojibake(token)
+    for token in ("\u0434\u043d\u0435\u0439", "\u043f\u043e\u043a\u0440", "\u041a\u043e\u043b\u043e\u043d\u043a\u0430")
+)
 
 
 class SparseTemperatureCoverageTests(unittest.TestCase):

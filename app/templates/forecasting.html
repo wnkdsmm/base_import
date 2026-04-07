@@ -1,25 +1,4 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сценарный прогноз пожаров по дням</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
-<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
-<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
-<link rel="stylesheet" href="/static/forecasting.css?v={{ forecasting_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
+{% extends "base.html" %}
 {% set data = forecast.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
@@ -29,29 +8,19 @@
 {% set geo = risk.geo_summary %}
 {% set passport = risk.quality_passport %}
 {% set lead_territory = risk.territories[0] if risk.territories else None %}
+{% set sidebar_title = "Сценарный прогноз" %}
+{% set sidebar_active = "forecasting" %}
+{% set sidebar_description %}Календарь вероятности пожарной активности по ближайшим дням. Помогает понять, когда готовиться, а затем перейти к территориальному приоритету.{% endset %}
 
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Сценарный прогноз</h2>
-        <p>Календарь вероятности пожарной активности по ближайшим дням. Помогает понять, когда готовиться, а затем перейти к территориальному приоритету.</p>
-    </div>
+{% block title %}Сценарный прогноз пожаров по дням{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting" aria-current="page">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
+{% block page_styles %}
+<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
+<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
+<link rel="stylesheet" href="/static/forecasting.css?v={{ forecasting_css_version }}">
+{% endblock %}
 
+{% block sidebar_status %}
     <div class="sidebar-status">
         <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">{% if data.bootstrap_mode == 'deferred' %}Подготавливаем прогноз{% elif data.has_data %}Сценарный прогноз собран{% else %}Нужно уточнить фильтры{% endif %}</span>
         <div class="status-line">
@@ -67,19 +36,23 @@
             <strong id="forecastSidebarHorizon">{{ summary.forecast_days_display }} дн.</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 {% include 'includes/forecasting/hero_intro.html' %}
 {% include 'includes/forecasting/controls_overview.html' %}
 {% include 'includes/forecasting/analysis_sections.html' %}
+{% endblock %}
 
+{% block page_data %}
 <script>
 window.__FIRE_FORECAST_INITIAL__ = {{ data | tojson }};
 </script>
+{% endblock %}
+
+{% block scripts %}
 <script src="/assets/plotly.js"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/forecasting.js?v={{ forecasting_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

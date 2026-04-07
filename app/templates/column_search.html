@@ -1,48 +1,14 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Поиск колонок</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
+{% extends "base.html" %}
+{% set sidebar_title = "Колонки" %}
+{% set sidebar_description %}Natasha ищет похожие названия колонок, а ниже можно собрать из них таблицу <code>modify_...</code> и сразу выбрать тематические группы.{% endset %}
+
+{% block title %}Поиск колонок{% endblock %}
+
+{% block page_styles %}
 <link rel="stylesheet" href="/static/css/page-misc.css?v={{ page_misc_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Колонки</h2>
-        <p>Natasha ищет похожие названия колонок, а ниже можно собрать из них таблицу <code>modify_...</code> и сразу выбрать тематические группы.</p>
-    </div>
+{% endblock %}
 
-
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
-
+{% block content %}
 <main class="main column-search-main" id="page-content">
     <section class="column-search-toolbar">
         <h1>Таблица: <span id="columnSearchTableTitle">{{ selected_table or 'Не выбрана' }}</span></h1>
@@ -83,21 +49,20 @@
         <article class="panel column-builder-panel">
             <div class="panel-head">
                 <h2>Найденные колонки</h2>
-                <span class="panel-meta">Чекбоксы ниже попадут в новую таблицу. Найденные колонки по запросу отмечаются автоматически.</span>
+                <span id="columnSearchSelectionSummary" class="panel-meta">Выбрано колонок: 0 | Выбрано групп: 0</span>
             </div>
             <div class="column-builder-actions">
-                <button id="columnSearchSelectAll" class="secondary-action column-inline-action" type="button">Выбрать все найденные</button>
-                <button id="columnSearchClearSelection" class="secondary-action column-inline-action" type="button">Снять выбор</button>
-                <button id="columnSearchCreateTable" class="primary-action column-inline-primary" type="button">Создать таблицу modify_*</button>
+                <button id="columnSearchSelectAll" class="secondary-action" type="button">Выбрать все найденные</button>
+                <button id="columnSearchClearSelection" class="secondary-action" type="button">Сбросить выбор</button>
+                <button id="columnSearchCreateTable" class="primary-action" type="button">Создать modify_*</button>
             </div>
-            <div id="columnSearchSelectionSummary" class="column-search-selection-summary">Выбрано колонок: 0 | Выбрано групп: 0</div>
             <div id="columnSearchMatches" class="column-match-list">
                 <div class="mini-empty">После поиска здесь появятся найденные колонки.</div>
             </div>
         </article>
     </section>
 
-    <section class="column-search-table-section">
+    <section class="panel">
         <div class="panel-head">
             <h2>Предпросмотр</h2>
             <span class="panel-meta">Сначала показывается предпросмотр выбранных колонок, а после создания уже новая таблица <code>modify_...</code>.</span>
@@ -107,15 +72,19 @@
         </div>
     </section>
 </main>
+{% endblock %}
 
+{% block page_data %}
 <script>
 window.__COLUMN_SEARCH_INITIAL__ = {
     tableName: {{ selected_table | tojson }},
     query: {{ initial_query | tojson }}
 };
 </script>
-<script src="/static/js/column_search.js?v={{ column_search_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{% endblock %}
 
+{% block scripts %}
+<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/column_search.js?v={{ column_search_js_version }}"></script>
+{{ super() }}
+{% endblock %}

@@ -437,13 +437,6 @@
         window.history.replaceState({}, '', '/access-points?' + query.toString());
     }
 
-    function decodeErrorMessage(payload, fallback) {
-        if (payload && payload.error && payload.error.message) {
-            return payload.error.message;
-        }
-        return fallback;
-    }
-
     var currentController = null;
     var latestRequestId = 0;
 
@@ -473,16 +466,13 @@
         showLoading('Собираем incidents по точкам, считаем explainable score, decomposition и uncertainty notes.');
         try {
             var query = buildAccessPointsQuery(params);
-            var response = await fetch('/api/access-points-data?' + query.toString(), {
+            var result = await shared.fetchJson('/api/access-points-data?' + query.toString(), {
                 headers: { Accept: 'application/json' },
                 signal: controller.signal
-            });
-            var payload = await response.json();
+            }, 'Не удалось построить рейтинг проблемных точек.');
+            var payload = result.payload;
             if (requestId !== latestRequestId) {
                 return;
-            }
-            if (!response.ok || payload.ok === false) {
-                throw new Error(decodeErrorMessage(payload, 'Не удалось построить рейтинг проблемных точек.'));
             }
             render(payload);
             updateUrl(params);

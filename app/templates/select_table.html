@@ -1,46 +1,17 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Очистка таблиц</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
+{% extends "base.html" %}
+{% set sidebar_title = "Очистка" %}
+{% set sidebar_description %}Подготовка очищенной таблицы `clean_*` с понятными порогами и компактным итогом очистки без лишнего шума.{% endset %}
+
+{% block charset %}utf-8{% endblock %}
+{% block title %}Очистка таблиц{% endblock %}
+
+{% block page_styles %}
 <link rel="stylesheet" href="/static/profiling.css?v={{ profiling_css_version }}">
-</head>
-<body class="profiling-layout" data-profiling-defaults='{{ profiling_defaults | tojson | forceescape }}'>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Очистка</h2>
-        <p>Подготовка очищенной таблицы `clean_*` с понятными порогами и компактным итогом очистки без лишнего шума.</p>
-    </div>
+{% endblock %}
 
+{% block body_attributes %} class="profiling-layout" data-profiling-defaults='{{ profiling_defaults | tojson | forceescape }}'{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
-
+{% block sidebar_status %}
     <div class="sidebar-status">
         <span class="status-badge status-badge-live">Очистка готова к запуску</span>
         <div class="status-line">
@@ -56,9 +27,9 @@
             <strong>clean_*</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 <main class="main column-search-main profiling-page" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
@@ -313,8 +284,10 @@
         </section>
     </section>
 </main>
+{% endblock %}
 
+{% block scripts %}
+<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/select_table.js?v={{ select_table_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

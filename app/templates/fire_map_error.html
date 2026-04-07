@@ -1,18 +1,16 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Карта пожаров</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
+{% extends "base.html" %}
+
+{% block title %}Карта пожаров{% endblock %}
+
+{% block page_styles %}
 <link rel="stylesheet" href="/static/css/page-misc.css?v={{ page_misc_css_version }}">
-</head>
-<body class="map-error-page">
+{% endblock %}
+
+{% block body_attributes %} class="map-error-page"{% endblock %}
+
+{% block body %}
     <div class="map-error">
         <h1>Карта пока недоступна</h1>
         <p>{{ message }}</p>
     </div>
-</body>
-</html>
+{% endblock %}

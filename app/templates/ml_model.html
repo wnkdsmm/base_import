@@ -1,53 +1,22 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML-прогноз пожаров по дням</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
-<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
-<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
-<link rel="stylesheet" href="/static/ml_model.css?v={{ ml_model_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
+{% extends "base.html" %}
 {% set data = ml_model.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
 {% set charts = data.charts %}
 {% set quality = data.quality_assessment %}
+{% set sidebar_title = "ML-прогноз" %}
+{% set sidebar_active = "ml_model" %}
+{% set sidebar_description %}ML-оценка ожидаемого числа пожаров по дням. Нужна, когда важна нагрузка в штуках, а не только вероятность напряженного дня.{% endset %}
 
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>ML-прогноз</h2>
-        <p>ML-оценка ожидаемого числа пожаров по дням. Нужна, когда важна нагрузка в штуках, а не только вероятность напряженного дня.</p>
-    </div>
+{% block title %}ML-прогноз пожаров по дням{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model" aria-current="page">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
+{% block page_styles %}
+<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
+<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
+<link rel="stylesheet" href="/static/ml_model.css?v={{ ml_model_css_version }}">
+{% endblock %}
 
+{% block sidebar_status %}
     <div class="sidebar-status" id="mlSidebarStatus">
         <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">
             {% if data.bootstrap_mode == 'deferred' %}Собираем ML-прогноз{% elif data.has_data %}ML-прогноз готов{% else %}Нужно уточнить фильтры{% endif %}
@@ -69,18 +38,22 @@
             <strong>{{ summary.history_period_label }}</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 {% include 'includes/ml_model/hero_intro.html' %}
 {% include 'includes/ml_model/controls_and_quality.html' %}
 {% include 'includes/ml_model/forecast_sections.html' %}
+{% endblock %}
 
+{% block page_data %}
 <script>
 window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
 </script>
+{% endblock %}
+
+{% block scripts %}
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/ml_model.js?v={{ ml_model_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

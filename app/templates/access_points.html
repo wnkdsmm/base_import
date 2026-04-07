@@ -1,51 +1,21 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Проблемные точки пожарной доступности</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
-<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
-<link rel="stylesheet" href="/static/access_points.css?v={{ access_points_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
+{% extends "base.html" %}
 {% set data = access_points.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
 {% set charts = data.charts %}
+{% set sidebar_title = "Проблемные точки" %}
+{% set sidebar_active = "access_points" %}
+{% set sidebar_active_class = "access_points" %}
+{% set sidebar_description %}Отдельный экран для ranking отдельных населённых пунктов, объектов и локаций с плохой доступностью пожарных подразделений.{% endset %}
 
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Проблемные точки</h2>
-        <p>Отдельный экран для ranking отдельных населённых пунктов, объектов и локаций с плохой доступностью пожарных подразделений.</p>
-    </div>
+{% block title %}Проблемные точки пожарной доступности{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link is-active" href="/access-points" aria-current="page">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
+{% block page_styles %}
+<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
+<link rel="stylesheet" href="/static/access_points.css?v={{ access_points_css_version }}">
+{% endblock %}
 
+{% block sidebar_status %}
     <div class="sidebar-status" id="accessPointsSidebarStatus">
         <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">
             {% if data.bootstrap_mode == 'deferred' %}Собираем ranking{% elif data.has_data %}Рейтинг готов{% else %}Нужны данные{% endif %}
@@ -63,18 +33,22 @@
             <strong id="accessPointsSidebarLead">{{ summary.top_point_label }}</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 {% include 'includes/access_points/overview.html' %}
 {% include 'includes/access_points/analysis_sections.html' %}
+{% endblock %}
 
+{% block page_data %}
 <script>
 window.__FIRE_ACCESS_POINTS_INITIAL__ = {{ data | tojson }};
 </script>
+{% endblock %}
+
+{% block scripts %}
 <script src="/assets/plotly.js"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/access_points.js?v={{ access_points_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

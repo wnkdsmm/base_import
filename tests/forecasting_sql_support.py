@@ -1,4 +1,3 @@
-import re
 import unittest
 from datetime import date
 from unittest.mock import patch
@@ -6,6 +5,7 @@ from unittest.mock import patch
 from app.services.forecasting import core as forecasting_core
 from app.services.forecasting import data as forecasting_data
 from app.services.ml_model import core as ml_core
+from tests.mojibake_check import MOJIBAKE_PATTERN as SHARED_MOJIBAKE_PATTERN
 
 
 def resolve_option(options, value):
@@ -16,9 +16,7 @@ def resolve_option(options, value):
 
 
 class ForecastingSqlSupport(unittest.TestCase):
-    MOJIBAKE_PATTERN = re.compile(
-        r"(Р В [Р вЂљР С“Р вЂ°Р Р‰Р вЂ№Р РЉР РЊР Р‹Р РЏ]|Р РЋ[Р вЂљР С“Р вЂ°Р Р‰Р вЂ№Р РЉР РЊР Р‹Р РЏ]|Р Р†Р вЂљ|\?{3,}|Р В РўвЂР В Р вЂ¦Р В Р’ВµР В РІвЂћвЂ“|Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР РЋР вЂљ|Р В РЎв„ўР В РЎвЂўР В Р’В»Р В РЎвЂўР В Р вЂ¦Р В РЎвЂќР В Р’В°)"
-    )
+    MOJIBAKE_PATTERN = SHARED_MOJIBAKE_PATTERN
 
     def tearDown(self) -> None:
         forecasting_core.clear_forecasting_cache()
@@ -65,25 +63,25 @@ class ForecastingSqlSupport(unittest.TestCase):
             {
                 "date": date(2024, 1, 4),
                 "date_display": "04.01.2024",
-                "weekday_label": "С‡С‚",
+                "weekday_label": "чт",
                 "forecast_value": 2.0,
                 "forecast_value_display": "2",
                 "fire_probability": 0.5,
                 "fire_probability_display": "50%",
-                "scenario_label": "Р’С‹С€Рµ РѕР±С‹С‡РЅРѕРіРѕ",
-                "scenario_hint": "РўРµСЃС‚РѕРІС‹Р№ СЃС†РµРЅР°СЂРёР№",
+                "scenario_label": "Выше обычного",
+                "scenario_hint": "Тестовый сценарий",
                 "scenario_tone": "fire",
             },
             {
                 "date": date(2024, 1, 5),
                 "date_display": "05.01.2024",
-                "weekday_label": "РїС‚",
+                "weekday_label": "пт",
                 "forecast_value": 1.0,
                 "forecast_value_display": "1",
                 "fire_probability": 0.25,
                 "fire_probability_display": "25%",
-                "scenario_label": "РћРєРѕР»Рѕ РѕР±С‹С‡РЅРѕРіРѕ",
-                "scenario_hint": "РўРµСЃС‚РѕРІС‹Р№ СЃС†РµРЅР°СЂРёР№",
+                "scenario_label": "Около обычного",
+                "scenario_hint": "Тестовый сценарий",
                 "scenario_tone": "forest",
             },
         ]

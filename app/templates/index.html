@@ -1,24 +1,4 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель пожаров: общий срез</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
-<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
-<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
+{% extends "base.html" %}
 {% set data = dashboard.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
@@ -27,32 +7,21 @@
 {% set trend = data.trend %}
 {% set management = data.management %}
 {% set rankings = data.rankings %}
+{% set sidebar_title = "Панель: общий срез" %}
+{% set sidebar_active = "dashboard" %}
+{% set sidebar_description %}Быстрый обзор по выбранному срезу: ключевые показатели, краткий вывод и первая территория для проверки. Не заменяет прогноз по датам и прогноз ожидаемого числа пожаров.{% endset %}
 {% macro render_plotly_chart(container_id) %}
 <div id="{{ container_id }}" class="plotly-chart"></div>
 {% endmacro %}
 
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Панель: общий срез</h2>
-        <p>Быстрый обзор по выбранному срезу: ключевые показатели, краткий вывод и первая территория для проверки. Не заменяет прогноз по датам и прогноз ожидаемого числа пожаров.</p>
-    </div>
+{% block title %}Панель пожаров: общий срез{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/" aria-current="page">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
+{% block page_styles %}
+<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
+<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
+{% endblock %}
 
+{% block sidebar_status %}
     <div class="sidebar-status">
         <span class="status-badge{% if dashboard.has_data %} status-badge-live{% endif %}">
             {% if dashboard.has_data %}База доступна{% else %}Нет данных{% endif %}
@@ -70,19 +39,23 @@
             <strong id="sidebarPeriodLabel">{{ summary.period_label }}</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 {% include 'includes/dashboard/hero_intro.html' %}
 {% include 'includes/dashboard/overview_and_brief.html' %}
 {% include 'includes/dashboard/analytics_sections.html' %}
+{% endblock %}
 
+{% block page_data %}
 <script>
 window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
 </script>
+{% endblock %}
+
+{% block scripts %}
 <script src="/assets/plotly.js"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/dashboard.js?v={{ dashboard_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from contextlib import nullcontext
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
 
@@ -107,6 +109,124 @@ StatsmodelsConvergenceWarning = _models.StatsmodelsConvergenceWarning
 sm = _models.sm
 
 
+@dataclass
+class _TrainingArtifacts:
+    final_frame: Any
+    final_dataset: Any
+    final_temperature_stats: Dict[str, Any]
+    backtest: Any
+    final_count_model: Optional[Dict[str, Any]]
+    final_event_model: Optional[Dict[str, Any]]
+    selected_count_model_key: str
+    feature_importance: List[Dict[str, Any]]
+    feature_importance_source_key: Optional[str]
+    feature_importance_source_label: Optional[str]
+    feature_importance_note: Optional[str]
+
+
+_TRAINING_ARTIFACT_CACHE_LIMIT = 4
+_TRAINING_ARTIFACT_CACHE: OrderedDict[Tuple[int, Tuple[Tuple[Any, ...], ...]], _TrainingArtifacts] = OrderedDict()
+
+
+def clear_training_artifact_cache() -> None:
+    _TRAINING_ARTIFACT_CACHE.clear()
+
+
+def _signature_date(value: Any) -> str:
+    if hasattr(value, 'isoformat'):
+        return str(value.isoformat())
+    return str(value)
+
+
+def _signature_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric_value != numeric_value:
+        return None
+    return numeric_value
+
+
+def _daily_history_signature(daily_history: List[Dict[str, Any]]) -> Tuple[Tuple[Any, ...], ...]:
+    return tuple(
+        (
+            _signature_date(item.get('date')),
+            _signature_float(item.get('count')),
+            _signature_float(item.get('avg_temperature')),
+        )
+        for item in daily_history[-MAX_HISTORY_POINTS:]
+    )
+
+
+def _training_artifact_cache_key(
+    daily_history: List[Dict[str, Any]],
+    forecast_days: int,
+) -> Tuple[int, Tuple[Tuple[Any, ...], ...]]:
+    return (int(forecast_days), _daily_history_signature(daily_history))
+
+
+def _training_artifact_cache_get(
+    cache_key: Tuple[int, Tuple[Tuple[Any, ...], ...]],
+) -> Optional[_TrainingArtifacts]:
+    artifacts = _TRAINING_ARTIFACT_CACHE.get(cache_key)
+    if artifacts is not None:
+        _TRAINING_ARTIFACT_CACHE.move_to_end(cache_key)
+    return artifacts
+
+
+def _training_artifact_cache_store(
+    cache_key: Tuple[int, Tuple[Tuple[Any, ...], ...]],
+    artifacts: _TrainingArtifacts,
+) -> _TrainingArtifacts:
+    _TRAINING_ARTIFACT_CACHE[cache_key] = artifacts
+    _TRAINING_ARTIFACT_CACHE.move_to_end(cache_key)
+    while len(_TRAINING_ARTIFACT_CACHE) > _TRAINING_ARTIFACT_CACHE_LIMIT:
+        _TRAINING_ARTIFACT_CACHE.popitem(last=False)
+    return artifacts
+
+
+def _forecast_rows_from_training_artifacts(
+    artifacts: _TrainingArtifacts,
+    *,
+    forecast_days: int,
+    scenario_temperature: Optional[float],
+) -> List[Dict[str, Any]]:
+    return _forecast._build_future_forecast_rows(
+        frame=artifacts.final_frame,
+        selected_count_model_key=artifacts.selected_count_model_key,
+        count_model=artifacts.final_count_model,
+        event_model=artifacts.final_event_model,
+        forecast_days=forecast_days,
+        scenario_temperature=scenario_temperature,
+        interval_calibration=(
+            artifacts.backtest.prediction_interval_calibration_by_horizon.by_horizon
+            or artifacts.backtest.prediction_interval_calibration
+        ),
+        baseline_expected_count=_baseline_expected_count,
+        temperature_stats=artifacts.final_temperature_stats,
+    )
+
+
+def _assemble_training_artifacts_result(
+    artifacts: _TrainingArtifacts,
+    forecast_rows: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return _result._assemble_training_result(
+        backtest=artifacts.backtest,
+        forecast_rows=forecast_rows,
+        feature_importance=[dict(row) for row in artifacts.feature_importance],
+        feature_importance_source_key=artifacts.feature_importance_source_key,
+        feature_importance_source_label=artifacts.feature_importance_source_label,
+        feature_importance_note=artifacts.feature_importance_note,
+        final_temperature_stats=artifacts.final_temperature_stats,
+        final_event_model=artifacts.final_event_model,
+        selected_count_model_key=artifacts.selected_count_model_key,
+    )
+
+
 def _train_ml_model(
     daily_history,
     forecast_days: int,
@@ -118,6 +238,30 @@ def _train_ml_model(
         return _empty_ml_result(
             f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить rolling-origin backtesting и обучить модель.'
         )
+
+    artifact_cache_key = _training_artifact_cache_key(daily_history, forecast_days)
+    cached_artifacts = _training_artifact_cache_get(artifact_cache_key)
+    if cached_artifacts is not None:
+        result_render_context = perf.span('result_render') if perf is not None else nullcontext()
+        with result_render_context:
+            forecast_rows = _forecast_rows_from_training_artifacts(
+                cached_artifacts,
+                forecast_days=forecast_days,
+                scenario_temperature=scenario_temperature,
+            )
+            if perf is not None:
+                perf.update(
+                    training_artifact_cache_hit=True,
+                    history_points=len(artifact_cache_key[1]),
+                    feature_rows=len(cached_artifacts.final_dataset),
+                    forecast_rows=len(forecast_rows),
+                    feature_importance_rows=len(cached_artifacts.feature_importance),
+                    backtest_rows=len(cached_artifacts.backtest.rows),
+                )
+            return _assemble_training_artifacts_result(cached_artifacts, forecast_rows)
+
+    if perf is not None:
+        perf.update(training_artifact_cache_hit=False)
 
     _emit_progress(progress_callback, 'ml_model.running', 'Подготавливаем признаки и обучающую выборку для ML-модели.')
     feature_prep_context = perf.span('feature_prep') if perf is not None else nullcontext()
@@ -234,6 +378,23 @@ def _train_ml_model(
                 feature_importance_rows=len(feature_importance),
                 backtest_rows=len(backtest.rows),
             )
+
+        _training_artifact_cache_store(
+            artifact_cache_key,
+            _TrainingArtifacts(
+                final_frame=final_frame,
+                final_dataset=final_dataset,
+                final_temperature_stats=final_temperature_stats,
+                backtest=backtest,
+                final_count_model=final_count_model,
+                final_event_model=final_event_model,
+                selected_count_model_key=selected_count_model_key,
+                feature_importance=[dict(row) for row in feature_importance],
+                feature_importance_source_key=feature_importance_model_key if feature_importance else None,
+                feature_importance_source_label=feature_importance_source_label,
+                feature_importance_note=feature_importance_note,
+            ),
+        )
         return _result._assemble_training_result(
             backtest=backtest,
             forecast_rows=forecast_rows,

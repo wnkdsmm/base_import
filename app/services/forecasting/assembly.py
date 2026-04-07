@@ -141,7 +141,7 @@ def build_forecasting_base_payload(
         option_catalog["object_categories"],
         object_category,
     )
-    filtered_records_count = deps["count_forecasting_records_sql"](
+    daily_history = deps["build_daily_history_sql"](
         source_tables,
         history_window=selected_history_window,
         district=selected_district,
@@ -149,7 +149,7 @@ def build_forecasting_base_payload(
         object_category=selected_object_category,
         metadata_items=metadata_items,
     )
-    daily_history = deps["build_daily_history_sql"](
+    filtered_records_count = deps["count_forecasting_records_sql"](
         source_tables,
         history_window=selected_history_window,
         district=selected_district,

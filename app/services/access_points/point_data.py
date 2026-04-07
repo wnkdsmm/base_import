@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -10,34 +9,11 @@ from app.services.forecast_risk.utils import _clean_text, _is_rural_label, _norm
 
 from .constants import GENERIC_OBJECT_TOKENS, MIN_ACCESS_POINT_SUPPORT, POINT_FEATURE_COLUMNS
 from .data import _collect_access_point_inputs
-
-
-def _share(numerator: float, denominator: float) -> float:
-    if denominator <= 0:
-        return 0.0
-    return numerator / denominator
-
-
-def _safe_mean(total: float, count: int) -> Optional[float]:
-    if count <= 0:
-        return None
-    return total / float(count)
+from .numeric import _normalize_coordinate, _safe_mean, _share
 
 
 def _normalize_identity_token(value: Any) -> str:
     return _normalize_match_text(_clean_text(value))
-
-
-def _normalize_coordinate(value: Any, lower_bound: float, upper_bound: float) -> float | None:
-    if value is None:
-        return None
-    try:
-        coordinate = float(value)
-    except Exception:
-        return None
-    if not math.isfinite(coordinate) or not (lower_bound <= coordinate <= upper_bound):
-        return None
-    return coordinate
 
 
 def _is_generic_object_name(value: str) -> bool:

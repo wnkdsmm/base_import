@@ -58,7 +58,12 @@ def _collect_impact_totals(selected_tables: List[Dict[str, Any]], selected_year:
     return totals
 
 
-def _build_impact_timeline_query(table: Dict[str, Any], selected_year: Optional[int]) -> Optional[str]:
+def _build_impact_timeline_query(
+    table: Dict[str, Any],
+    selected_year: Optional[int],
+    *,
+    include_order_by: bool = True,
+) -> Optional[str]:
     where_conditions: List[str] = []
 
     if DATE_COLUMN in table["column_set"]:
@@ -77,6 +82,7 @@ def _build_impact_timeline_query(table: Dict[str, Any], selected_year: Optional[
         return None
 
     where_clause = " AND ".join(where_conditions) if where_conditions else "TRUE"
+    order_clause = "ORDER BY date_value" if include_order_by else ""
     return f"""
         SELECT
             {date_expression} AS date_value,
@@ -88,7 +94,7 @@ def _build_impact_timeline_query(table: Dict[str, Any], selected_year: Optional[
         FROM {_quote_identifier(table["name"])}
         WHERE {where_clause}
         GROUP BY date_value
-        ORDER BY date_value
+        {order_clause}
     """
 
 

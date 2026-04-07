@@ -1,54 +1,21 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Кластеризация территорий риска</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
-<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
-<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
-<link rel="stylesheet" href="/static/clustering.css?v={{ clustering_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
+{% extends "base.html" %}
 {% set data = clustering.initial_data %}
 {% set filters = data.filters %}
 {% set summary = data.summary %}
 {% set charts = data.charts %}
 {% set quality = data.quality_assessment %}
+{% set sidebar_title = "Кластеризация" %}
+{% set sidebar_description %}Группировка территорий по похожему профилю риска: частота пожаров, последствия, время прибытия и контур водоснабжения.{% endset %}
 
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Кластеризация</h2>
-        <p>Группировка территорий по похожему профилю риска: частота пожаров, последствия, время прибытия и контур водоснабжения.</p>
-    </div>
+{% block title %}Кластеризация территорий риска{% endblock %}
 
+{% block page_styles %}
+<link rel="stylesheet" href="/static/analytics.css?v={{ analytics_css_version }}">
+<link rel="stylesheet" href="/static/dashboard.css?v={{ dashboard_css_version }}">
+<link rel="stylesheet" href="/static/clustering.css?v={{ clustering_css_version }}">
+{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
-
+{% block sidebar_status %}
     <div class="sidebar-status" id="clusteringSidebarStatus">
         <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">
             {% if data.bootstrap_mode == 'deferred' %}Подготовка типологии{% elif data.has_data %}Типы территорий рассчитаны{% else %}Нужны агрегированные признаки{% endif %}
@@ -66,18 +33,22 @@
             <strong>{{ summary.silhouette_display }}</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 {% include 'includes/clustering/overview.html' %}
 {% include 'includes/clustering/analysis_sections.html' %}
+{% endblock %}
 
+{% block page_data %}
 <script>
 window.__FIRE_CLUSTERING_INITIAL__ = {{ data | tojson }};
 </script>
+{% endblock %}
+
+{% block scripts %}
 <script src="/assets/plotly.js"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/clustering.js?v={{ clustering_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

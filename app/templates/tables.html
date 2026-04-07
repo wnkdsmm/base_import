@@ -1,45 +1,15 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Таблицы в базе</title>
-<link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
-<link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
-<link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
+{% extends "base.html" %}
+{% set sidebar_title = "Таблицы" %}
+{% set sidebar_description %}Быстрый переход к исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` из базы данных.{% endset %}
+
+{% block charset %}utf-8{% endblock %}
+{% block title %}Таблицы в базе{% endblock %}
+
+{% block page_styles %}
 <link rel="stylesheet" href="/static/css/page-misc.css?v={{ page_misc_css_version }}">
-</head>
-<body>
-<a class="skip-link" href="#page-content">Перейти к содержимому</a>
-<a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
-<noscript>
-    <style>
-        .sidebar-actions-primary { display: none; }
-        .sidebar-noscript-nav { display: grid; }
-    </style>
-</noscript>
-<aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-mobile-head">
-        <a class="sidebar-dismiss" href="#page-content" aria-label="Закрыть меню">Закрыть</a>
-    </div>
-    <div class="brand-block">
-        <span class="brand-kicker">Монитор пожаров</span>
-        <h2>Таблицы</h2>
-        <p>Быстрый переход к исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` из базы данных.</p>
-    </div>
+{% endblock %}
 
-    <nav class="sidebar-actions" aria-label="Разделы мониторинга">
-        <a class="sidebar-link" href="/">Панель</a>
-        <a class="sidebar-link" href="/forecasting">Сценарный прогноз</a>
-        <a class="sidebar-link" href="/ml-model">ML-прогноз</a>
-        <a class="sidebar-link" href="/clustering">Кластеризация</a>
-        <a class="sidebar-link" href="/access-points">Проблемные точки</a>
-        <a class="sidebar-link" href="/fire-map">Fire-map</a>
-        <a class="sidebar-link" href="/column-search">Поиск колонок</a>
-        <a class="sidebar-link" href="/select_table">Очистка таблиц</a>
-        <a class="sidebar-link" href="/tables">Таблицы</a>
-    </nav>
-
+{% block sidebar_status %}
     <div class="sidebar-status">
         <span id="tableAvailabilityBadge" class="status-badge{% if tables %} status-badge-live{% endif %}">
             {% if tables %}База доступна{% else %}Таблиц нет{% endif %}
@@ -53,9 +23,9 @@
             <strong>Полный просмотр</strong>
         </div>
     </div>
-</aside>
-<a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
+{% endblock %}
 
+{% block content %}
 <main class="main dashboard-main simple-page-main" id="page-content">
     <section class="hero-panel simple-page-intro">
         <div class="hero-copy">
@@ -138,8 +108,11 @@
     </section>
 </main>
 <input type="file" id="fileInput" class="hidden-file-input">
+{% endblock %}
+
+{% block scripts %}
 <script src="/static/js/import.js?v={{ import_js_version }}"></script>
+<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/tables.js?v={{ tables_js_version }}"></script>
-<script src="/static/js/sidebar.js?v={{ sidebar_js_version }}"></script>
-</body>
-</html>
+{{ super() }}
+{% endblock %}

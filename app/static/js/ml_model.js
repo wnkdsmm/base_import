@@ -1,18 +1,23 @@
 (function () {
     var shared = window.FireUi;
     var byId = shared.byId;
+    var createSingleTimer = shared.createSingleTimer;
+    var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
+    var fetchJson = shared.fetchJson;
     var normalizePercent = shared.normalizePercent;
+    var runProgressSequence = shared.runProgressSequence;
     var setHref = shared.setHref;
     var setSelectOptions = shared.setSelectOptions;
+    var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
     var setValue = shared.setValue;
 
     var currentMlData = null;
     var currentJobState = null;
-    var jobPollTimer = null;
+    var jobPollTimer = createSingleTimer();
     var isFetching = false;
-    var progressTimers = [];
+    var progressTimers = createTimerGroup();
     var progressSteps = [
         {
             label: 'Загрузка данных',
@@ -697,60 +702,35 @@
     }
 
     function clearProgressTimers() {
-        while (progressTimers.length) {
-            clearTimeout(progressTimers.pop());
-        }
+        progressTimers.clear();
     }
 
     function updateProgressStep(activeIndex, options) {
         var settings = options || {};
-        var stepsContainer = byId('mlProgressSteps');
-        var leadNode = byId('mlLoadingLead');
-        var messageNode = byId('mlLoadingMessage');
         var activeStep = progressSteps[Math.max(0, Math.min(progressSteps.length - 1, activeIndex))];
-        var isFinished = !!settings.isFinished;
-        var isError = !!settings.isError;
         var leadText = settings.lead || activeStep.lead;
         var messageText = settings.message || activeStep.message;
 
-        if (leadNode) {
-            leadNode.textContent = leadText;
-        }
-        if (messageNode) {
-            messageNode.textContent = messageText;
-        }
-        if (!stepsContainer) {
-            return;
-        }
-
-        Array.prototype.forEach.call(stepsContainer.querySelectorAll('.ml-progress-step'), function (node, index) {
-            node.classList.remove('is-active', 'is-done', 'is-error');
-            if (isError && index === activeIndex) {
-                node.classList.add('is-error');
-                return;
-            }
-            if (isFinished) {
-                if (index <= activeIndex) {
-                    node.classList.add('is-done');
-                }
-                return;
-            }
-            if (index < activeIndex) {
-                node.classList.add('is-done');
-                return;
-            }
-            if (index === activeIndex) {
-                node.classList.add('is-active');
-            }
+        setStepProgress({
+            activeIndex: activeIndex,
+            isError: settings.isError,
+            isFinished: settings.isFinished,
+            lead: leadText,
+            leadId: 'mlLoadingLead',
+            message: messageText,
+            messageId: 'mlLoadingMessage',
+            stepSelector: '.ml-progress-step',
+            stepsId: 'mlProgressSteps'
         });
     }
 
     function startProgressSequence() {
-        clearProgressTimers();
-        updateProgressStep(0);
-        progressTimers.push(setTimeout(function () { updateProgressStep(1); }, 350));
-        progressTimers.push(setTimeout(function () { updateProgressStep(2); }, 1100));
-        progressTimers.push(setTimeout(function () { updateProgressStep(3); }, 1800));
+        runProgressSequence(progressTimers, updateProgressStep, [
+            { activeIndex: 0 },
+            { activeIndex: 1, delay: 350 },
+            { activeIndex: 2, delay: 1100 },
+            { activeIndex: 3, delay: 1800 }
+        ]);
     }
 
     function setRefreshButtonState(isBusy) {
@@ -922,10 +902,7 @@
     }
 
     function stopJobPolling() {
-        if (jobPollTimer) {
-            clearTimeout(jobPollTimer);
-            jobPollTimer = null;
-        }
+        jobPollTimer.clear();
     }
 
     function updateAsyncStateForJob(jobPayload) {
@@ -974,10 +951,11 @@
         }
 
         try {
-            response = await fetch('/api/ml-model-jobs/' + encodeURIComponent(jobId), {
+            var result = await fetchJson('/api/ml-model-jobs/' + encodeURIComponent(jobId), {
                 headers: { Accept: 'application/json' }
-            });
-            payload = await response.json();
+            }, 'Фоновая ML-задача завершилась с ошибкой.');
+            response = result.response;
+            payload = result.payload;
             currentJobState = payload;
             updateAsyncStateForJob(payload);
 
@@ -994,7 +972,7 @@
                 return;
             }
 
-            jobPollTimer = setTimeout(function () {
+            jobPollTimer.set(function () {
                 pollMlJob(jobId);
             }, 1200);
         } catch (error) {
@@ -1030,15 +1008,16 @@
         }
 
         try {
-            response = await fetch('/api/ml-model-jobs', {
+            var result = await fetchJson('/api/ml-model-jobs', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(requestPayload.body)
-            });
-            payload = await response.json();
+            }, 'Не удалось запустить ML-задачу.');
+            response = result.response;
+            payload = result.payload;
             currentJobState = payload;
             updateAsyncStateForJob(payload);
             window.history.replaceState({}, '', requestPayload.query ? (window.location.pathname + '?' + requestPayload.query) : window.location.pathname);

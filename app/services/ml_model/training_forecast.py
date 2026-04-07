@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import math
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -31,6 +32,16 @@ from .training_models import (
 )
 
 
+@dataclass
+class _RecursiveForecastSeed:
+    temperature_usable: bool
+    monthly_temp: Dict[int, float]
+    overall_temp: float
+    history_counts: List[float]
+    history_records: List[Dict[str, Any]]
+    last_date: date
+
+
 def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = True) -> List[Dict[str, Any]]:
     return [
         {
@@ -40,6 +51,23 @@ def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = 
         }
         for row in frame[['date', 'count', 'avg_temperature']].itertuples(index=False)
     ]
+
+
+def _build_recursive_forecast_seed(
+    frame: pd.DataFrame,
+    temperature_stats: Optional[Dict[str, Any]] = None,
+) -> _RecursiveForecastSeed:
+    temperature_usable = bool((temperature_stats or {}).get('usable', True))
+    monthly_temp = frame.groupby(frame['date'].dt.month)['temp_value'].mean().to_dict() if temperature_usable else {}
+    overall_temp = float(frame['temp_value'].mean()) if temperature_usable and not frame.empty else 0.0
+    return _RecursiveForecastSeed(
+        temperature_usable=temperature_usable,
+        monthly_temp={int(month): float(value) for month, value in monthly_temp.items()},
+        overall_temp=overall_temp,
+        history_counts=list(frame['count'].astype(float)),
+        history_records=_history_records_from_frame(frame, temperature_usable=temperature_usable),
+        last_date=frame['date'].dt.date.iloc[-1],
+    )
 
 
 def _predict_heuristic_future_step(
@@ -128,13 +156,15 @@ def _simulate_recursive_forecast_path(
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
     temperature_stats: Optional[Dict[str, Any]] = None,
     baseline_event_probability: Optional[Callable[[pd.DataFrame, pd.Timestamp], Optional[float]]] = None,
+    simulation_seed: Optional[_RecursiveForecastSeed] = None,
 ) -> List[Dict[str, Any]]:
-    temperature_usable = bool((temperature_stats or {}).get('usable', True))
-    monthly_temp = frame.groupby(frame['date'].dt.month)['temp_value'].mean().to_dict() if temperature_usable else {}
-    overall_temp = float(frame['temp_value'].mean()) if temperature_usable and not frame.empty else 0.0
-    history_counts = list(frame['count'].astype(float))
-    history_records = _history_records_from_frame(frame, temperature_usable=temperature_usable)
-    last_date = frame['date'].dt.date.iloc[-1]
+    seed = simulation_seed or _build_recursive_forecast_seed(frame, temperature_stats)
+    temperature_usable = seed.temperature_usable
+    monthly_temp = dict(seed.monthly_temp)
+    overall_temp = seed.overall_temp
+    history_counts = list(seed.history_counts)
+    history_records = [dict(record) for record in seed.history_records]
+    last_date = seed.last_date
 
     forecast_path: List[Dict[str, Any]] = []
     for step in range(1, forecast_days + 1):
@@ -328,7 +358,7 @@ def _build_future_forecast_rows(
                 'upper_bound_display': _format_number(upper_bound),
                 'range_label': f'{interval_label} interval',
                 'range_display': f"{interval_label}: {_format_number(lower_bound)} - {_format_number(upper_bound)} пожара",
-                'temperature_display': f"{_format_number(temp_value)} В°C",
+                'temperature_display': f"{_format_number(temp_value)} °C",
                 'risk_index': round(risk_index, 1),
                 'risk_index_display': f"{int(round(risk_index))} / 100",
                 'risk_level_label': risk_level_label,

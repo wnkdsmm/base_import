@@ -1,16 +1,8 @@
 (function () {
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
+    var shared = window.FireUi;
+    var byId = shared.byId;
+    var escapeHtml = shared.escapeHtml;
+    var fetchJson = shared.fetchJson;
 
     function setStatus(message, tone) {
         var node = byId('tableActionStatus');
@@ -195,7 +187,7 @@
         setButtonBusy(button, true, 'Удаление...');
 
         try {
-            var response = await fetch('/api/tables/delete', {
+            var result = await fetchJson('/api/tables/delete', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -204,10 +196,10 @@
                 body: JSON.stringify({
                     table_names: selectedNames
                 })
-            });
+            }, 'Не удалось удалить таблицы.');
 
-            var payload = await response.json();
-            if (!response.ok || !payload || payload.ok !== true) {
+            var payload = result.payload;
+            if (!payload || payload.ok !== true) {
                 throw new Error(payload && payload.message ? payload.message : 'Не удалось удалить таблицы.');
             }
 

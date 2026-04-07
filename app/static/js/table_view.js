@@ -1,46 +1,41 @@
 (function () {
-    const root = document.getElementById('page-content');
+    const shared = window.FireUi;
+    const byId = shared.byId;
+    const escapeHtml = shared.escapeHtml;
+    const fetchJson = shared.fetchJson;
+    const root = byId('page-content');
     const tableName = root?.dataset.tableName;
     if (!root || !tableName) {
         return;
     }
 
-    const form = document.getElementById('tablePaginationForm');
-    const pageInput = document.getElementById('tablePageInput');
-    const pageSizeSelect = document.getElementById('tablePageSize');
-    const prevLink = document.getElementById('tablePrevLink');
-    const nextLink = document.getElementById('tableNextLink');
-    const pageCount = document.getElementById('tablePageCount');
-    const pageStatus = document.getElementById('tablePageStatus');
-    const pageSizeValue = document.getElementById('tablePageSizeValue');
-    const tableHead = document.getElementById('tableDataHead');
-    const tableBody = document.getElementById('tableDataBody');
-    const tableElement = document.getElementById('tableDataTable');
-    const sidebarTotalRows = document.getElementById('sidebarTotalRows');
-    const sidebarPageNumber = document.getElementById('sidebarPageNumber');
-    const sidebarShownRows = document.getElementById('sidebarShownRows');
-    const heroTotalRows = document.getElementById('tableHeroTotalRows');
-    const heroRange = document.getElementById('tableHeroRange');
-    const heroPage = document.getElementById('tableHeroPage');
-    const summaryLead = document.getElementById('tableSummaryLead');
-    const summaryScopeNote = document.getElementById('tableSummaryScopeNote');
-    const summaryCards = document.getElementById('tableSummaryCards');
-    const criteriaLead = document.getElementById('tableCriteriaLead');
-    const criteriaGroups = document.getElementById('tableCriteriaGroups');
-    const inlineError = document.getElementById('tableInlineError');
-    const inlineErrorMessage = document.getElementById('tableInlineErrorMessage');
-    const inlineRetryButton = document.getElementById('tableInlineRetryButton');
+    const form = byId('tablePaginationForm');
+    const pageInput = byId('tablePageInput');
+    const pageSizeSelect = byId('tablePageSize');
+    const prevLink = byId('tablePrevLink');
+    const nextLink = byId('tableNextLink');
+    const pageCount = byId('tablePageCount');
+    const pageStatus = byId('tablePageStatus');
+    const pageSizeValue = byId('tablePageSizeValue');
+    const tableHead = byId('tableDataHead');
+    const tableBody = byId('tableDataBody');
+    const tableElement = byId('tableDataTable');
+    const sidebarTotalRows = byId('sidebarTotalRows');
+    const sidebarPageNumber = byId('sidebarPageNumber');
+    const sidebarShownRows = byId('sidebarShownRows');
+    const heroTotalRows = byId('tableHeroTotalRows');
+    const heroRange = byId('tableHeroRange');
+    const heroPage = byId('tableHeroPage');
+    const summaryLead = byId('tableSummaryLead');
+    const summaryScopeNote = byId('tableSummaryScopeNote');
+    const summaryCards = byId('tableSummaryCards');
+    const criteriaLead = byId('tableCriteriaLead');
+    const criteriaGroups = byId('tableCriteriaGroups');
+    const inlineError = byId('tableInlineError');
+    const inlineErrorMessage = byId('tableInlineErrorMessage');
+    const inlineRetryButton = byId('tableInlineRetryButton');
 
     let isLoading = false;
-
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
 
     function formatInteger(value) {
         const numericValue = Number(value ?? 0);
@@ -241,14 +236,14 @@
         hideInlineError();
 
         try {
-            const response = await fetch(buildApiUrl(targetPage, targetPageSize), {
+            const result = await fetchJson(buildApiUrl(targetPage, targetPageSize), {
                 headers: {
                     'Accept': 'application/json',
                 },
-            });
-            const payload = await response.json();
+            }, 'Не удалось загрузить страницу таблицы.');
+            const payload = result.payload;
 
-            if (!response.ok || !payload?.ok) {
+            if (!payload?.ok) {
                 throw new Error(payload?.message || 'Не удалось загрузить страницу таблицы.');
             }
 

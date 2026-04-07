@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Sequence
 import pandas as pd
 
 from app.services.forecast_risk.utils import (
-    _clamp,
     _clean_text,
     _format_integer,
     _format_number,
@@ -20,6 +19,13 @@ from .constants import (
     TOP_POINT_CARD_COUNT,
 )
 from .point_data import _build_point_entity_frames
+from .numeric import (
+    _finite_numeric_max,
+    _finite_numeric_series,
+    _normalize_nullable_float,
+    _normalize_share_series,
+    _share,
+)
 
 DISTANCE_CODE = "DISTANCE_TO_STATION"
 RESPONSE_CODE = "RESPONSE_TIME"
@@ -48,34 +54,37 @@ MEDIUM_THRESHOLD = 30.0
 WATCH_RISK_THRESHOLD = MEDIUM_THRESHOLD
 
 
-def _share(numerator: float, denominator: float) -> float:
-    if denominator <= 0:
-        return 0.0
-    return numerator / denominator
-
-
 def _format_coordinate(value: float | None) -> str:
     if value is None:
         return ""
     return f"{value:.4f}".replace(".", ",")
 
 
-def _normalize_nullable_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        numeric = float(value)
-    except Exception:
-        return None
-    if pd.isna(numeric):
-        return None
-    return numeric
-
-
 def _normalize_selected_access_features(selected_features: Sequence[str] | None) -> List[str]:
     allowed = set(DEFAULT_ACCESS_POINT_FEATURES)
     normalized = [str(item).strip() for item in (selected_features or []) if str(item).strip() in allowed]
     return normalized or list(DEFAULT_ACCESS_POINT_FEATURES)
+
+
+def _zero_score_series(index: pd.Index) -> pd.Series:
+    return pd.Series(0.0, index=index, dtype=float)
+
+
+def _weighted_score_series(
+    index: pd.Index,
+    active_reason_codes: set[str],
+    components: Sequence[tuple[float, str, pd.Series]],
+) -> pd.Series:
+    weight_sum = 0.0
+    factor_sum = _zero_score_series(index)
+    for component_weight, code, factor_value in components:
+        if code not in active_reason_codes:
+            continue
+        weight_sum += float(component_weight)
+        factor_sum = factor_sum.add(factor_value.astype(float) * float(component_weight), fill_value=0.0)
+    if weight_sum <= 0.0:
+        return _zero_score_series(index)
+    return (factor_sum / weight_sum).clip(lower=0.0, upper=1.0) * 100.0
 
 
 def _status_for_score(score: float) -> tuple[str, str]:
@@ -272,85 +281,162 @@ def _build_access_point_rows_from_entity_frame(
         for column in extra_columns:
             working_frame[column] = aligned_features[column]
 
-    max_incidents = max(1.0, float(pd.to_numeric(working_frame["incident_count"], errors="coerce").max() or 1.0))
-    max_incidents_per_year = max(1.0, float(pd.to_numeric(working_frame["incidents_per_year"], errors="coerce").max() or 1.0))
-    distance_scale = max(12.0, float(pd.to_numeric(working_frame["average_distance_km"], errors="coerce").max(skipna=True) or 0.0))
+    max_incidents = max(1.0, _finite_numeric_max(working_frame["incident_count"], 1.0))
+    max_incidents_per_year = max(1.0, _finite_numeric_max(working_frame["incidents_per_year"], 1.0))
+    distance_scale = max(12.0, _finite_numeric_max(working_frame["average_distance_km"], 0.0))
     response_scale = max(
         LONG_RESPONSE_THRESHOLD_MINUTES,
-        float(pd.to_numeric(working_frame["average_response_minutes"], errors="coerce").max(skipna=True) or 0.0),
+        _finite_numeric_max(working_frame["average_response_minutes"], 0.0),
     )
 
+    frame_index = working_frame.index
+    incident_count_series = _finite_numeric_series(working_frame["incident_count"], default=0.0).clip(lower=0.0).astype(int)
+    years_observed_series = _finite_numeric_series(working_frame["years_observed"], default=1.0).clip(lower=1.0).astype(int)
+    incidents_per_year_fallback = incident_count_series.astype(float) / years_observed_series.astype(float)
+    incidents_per_year_source = _finite_numeric_series(working_frame["incidents_per_year"])
+    incidents_per_year_series = incidents_per_year_source.where(
+        incidents_per_year_source.notna(),
+        incidents_per_year_fallback,
+    )
+    average_distance_series = _finite_numeric_series(working_frame["average_distance_km"])
+    average_response_series = _finite_numeric_series(working_frame["average_response_minutes"])
+    long_arrival_share_series = _normalize_share_series(working_frame["long_arrival_share"])
+    no_water_share_series = _normalize_share_series(working_frame["no_water_share"])
+    water_coverage_share_series = _normalize_share_series(working_frame["water_coverage_share"])
+    water_unknown_source_series = _finite_numeric_series(working_frame["water_unknown_share"])
+    water_unknown_share_series = water_unknown_source_series.where(
+        water_unknown_source_series.notna(),
+        (1.0 - water_coverage_share_series).clip(lower=0.0),
+    ).fillna(0.0).clip(lower=0.0, upper=1.0)
+    severe_share_series = _normalize_share_series(working_frame["severe_share"])
+    victim_source_series = _finite_numeric_series(working_frame["victim_share"])
+    incident_denominator_series = incident_count_series.clip(lower=1).astype(float)
+    victim_share_series = victim_source_series.where(
+        victim_source_series.notna(),
+        _finite_numeric_series(working_frame["victims_count"], default=0.0) / incident_denominator_series,
+    ).fillna(0.0).clip(lower=0.0, upper=1.0)
+    major_damage_source_series = _finite_numeric_series(working_frame["major_damage_share"])
+    major_damage_share_series = major_damage_source_series.where(
+        major_damage_source_series.notna(),
+        _finite_numeric_series(working_frame["major_damage_count"], default=0.0) / incident_denominator_series,
+    ).fillna(0.0).clip(lower=0.0, upper=1.0)
+    night_share_series = _normalize_share_series(working_frame["night_share"])
+    heating_share_series = _normalize_share_series(working_frame["heating_share"])
+    rural_share_series = _normalize_share_series(working_frame["rural_share"])
+    response_coverage_share_series = _normalize_share_series(working_frame["response_coverage_share"])
+    distance_coverage_share_series = _normalize_share_series(working_frame["distance_coverage_share"])
+    arrival_missing_share_series = (1.0 - response_coverage_share_series).clip(lower=0.0)
+    distance_missing_share_series = (1.0 - distance_coverage_share_series).clip(lower=0.0)
+    completeness_share_series = (
+        1.0
+        - ((arrival_missing_share_series + distance_missing_share_series + water_unknown_share_series) / 3.0)
+    ).clip(lower=0.0)
+
+    distance_norm_series = (average_distance_series / distance_scale).clip(lower=0.0, upper=1.0).fillna(0.0)
+    response_norm_series = (average_response_series / response_scale).clip(lower=0.0, upper=1.0).fillna(0.0)
+    frequency_norm_series = (incidents_per_year_series / max_incidents_per_year).clip(lower=0.0, upper=1.0)
+    incidents_norm_series = (incident_count_series.astype(float) / max_incidents).clip(lower=0.0, upper=1.0)
+    support_weight_series = _normalize_share_series(working_frame["support_weight"], default=1.0)
+    severity_factor_series = (
+        (0.58 * severe_share_series)
+        + (0.24 * victim_share_series)
+        + (0.18 * major_damage_share_series)
+    ).clip(lower=0.0, upper=1.0)
+    recurrence_factor_series = (
+        (0.70 * frequency_norm_series)
+        + (0.30 * incidents_norm_series)
+    ).clip(lower=0.0, upper=1.0)
+    uncertainty_factor_series = (
+        (0.35 * arrival_missing_share_series)
+        + (0.30 * water_unknown_share_series)
+        + (0.20 * distance_missing_share_series)
+        + (0.15 * (1.0 - support_weight_series))
+    ).clip(lower=0.0, upper=1.0)
+    access_score_series = _weighted_score_series(
+        frame_index,
+        active_reason_codes,
+        (
+            (0.42, DISTANCE_CODE, distance_norm_series),
+            (0.34, RESPONSE_CODE, response_norm_series),
+            (0.24, LONG_ARRIVAL_CODE, long_arrival_share_series),
+        ),
+    )
+    water_score_series = no_water_share_series * (100.0 if WATER_CODE in active_reason_codes else 0.0)
+    severity_score_series = severity_factor_series * (100.0 if SEVERITY_CODE in active_reason_codes else 0.0)
+    recurrence_score_series = _weighted_score_series(
+        frame_index,
+        active_reason_codes,
+        (
+            (0.72, RECURRENCE_CODE, recurrence_factor_series),
+            (0.18, NIGHT_CODE, night_share_series),
+            (0.10, HEATING_CODE, heating_share_series),
+        ),
+    )
+    data_gap_score_series = uncertainty_factor_series * 100.0
+
+    precomputed = {
+        "incident_count": incident_count_series.tolist(),
+        "years_observed": years_observed_series.tolist(),
+        "incidents_per_year": incidents_per_year_series.tolist(),
+        "average_distance": average_distance_series.tolist(),
+        "average_response": average_response_series.tolist(),
+        "long_arrival_share": long_arrival_share_series.tolist(),
+        "no_water_share": no_water_share_series.tolist(),
+        "water_coverage_share": water_coverage_share_series.tolist(),
+        "water_unknown_share": water_unknown_share_series.tolist(),
+        "severe_share": severe_share_series.tolist(),
+        "night_share": night_share_series.tolist(),
+        "heating_share": heating_share_series.tolist(),
+        "rural_share": rural_share_series.tolist(),
+        "response_coverage_share": response_coverage_share_series.tolist(),
+        "distance_coverage_share": distance_coverage_share_series.tolist(),
+        "arrival_missing_share": arrival_missing_share_series.tolist(),
+        "distance_missing_share": distance_missing_share_series.tolist(),
+        "completeness_share": completeness_share_series.tolist(),
+        "distance_norm": distance_norm_series.tolist(),
+        "response_norm": response_norm_series.tolist(),
+        "support_weight": support_weight_series.tolist(),
+        "severity_factor": severity_factor_series.tolist(),
+        "recurrence_factor": recurrence_factor_series.tolist(),
+        "uncertainty_factor": uncertainty_factor_series.tolist(),
+        "access_score": access_score_series.tolist(),
+        "water_score": water_score_series.tolist(),
+        "severity_score": severity_score_series.tolist(),
+        "recurrence_score": recurrence_score_series.tolist(),
+        "data_gap_score": data_gap_score_series.tolist(),
+    }
+
     normalized_rows: List[Dict[str, Any]] = []
-    for record in working_frame.to_dict("records"):
-        incident_count = int(record.get("incident_count") or 0)
-        years_observed = max(1, int(record.get("years_observed") or 1))
-        incidents_per_year = float(record.get("incidents_per_year") or (incident_count / float(years_observed)))
-        average_distance = _normalize_nullable_float(record.get("average_distance_km"))
-        average_response = _normalize_nullable_float(record.get("average_response_minutes"))
-        long_arrival_share = float(record.get("long_arrival_share") or 0.0)
-        no_water_share = float(record.get("no_water_share") or 0.0)
-        water_unknown_share = float(
-            record.get("water_unknown_share") or max(0.0, 1.0 - float(record.get("water_coverage_share") or 0.0))
-        )
-        severe_share = float(record.get("severe_share") or 0.0)
-        victim_share = float(record.get("victim_share") or _share(float(record.get("victims_count") or 0.0), max(1, incident_count)))
-        major_damage_share = float(
-            record.get("major_damage_share") or _share(float(record.get("major_damage_count") or 0.0), max(1, incident_count))
-        )
-        night_share = float(record.get("night_share") or 0.0)
-        heating_share = float(record.get("heating_share") or 0.0)
-        rural_share = float(record.get("rural_share") or 0.0)
-        response_coverage_share = float(record.get("response_coverage_share") or 0.0)
-        distance_coverage_share = float(record.get("distance_coverage_share") or 0.0)
-
-        arrival_missing_share = max(0.0, 1.0 - response_coverage_share)
-        distance_missing_share = max(0.0, 1.0 - distance_coverage_share)
-        completeness_share = max(0.0, 1.0 - mean([arrival_missing_share, distance_missing_share, water_unknown_share]))
-
-        distance_norm = 0.0 if average_distance is None else _clamp(float(average_distance) / distance_scale, 0.0, 1.0)
-        response_norm = 0.0 if average_response is None else _clamp(float(average_response) / response_scale, 0.0, 1.0)
-        frequency_norm = _clamp(incidents_per_year / max_incidents_per_year, 0.0, 1.0)
-        incidents_norm = _clamp(incident_count / max_incidents, 0.0, 1.0)
-
-        support_weight = float(record.get("support_weight") or 1.0)
-        severity_factor = _clamp((0.58 * severe_share) + (0.24 * victim_share) + (0.18 * major_damage_share), 0.0, 1.0)
-        recurrence_factor = _clamp((0.70 * frequency_norm) + (0.30 * incidents_norm), 0.0, 1.0)
-        uncertainty_factor = _clamp(
-            (0.35 * arrival_missing_share)
-            + (0.30 * water_unknown_share)
-            + (0.20 * distance_missing_share)
-            + (0.15 * (1.0 - support_weight)),
-            0.0,
-            1.0,
-        )
-
-        access_weight_sum = 0.0
-        access_factor_sum = 0.0
-        for component_weight, code, factor_value in (
-            (0.42, DISTANCE_CODE, distance_norm),
-            (0.34, RESPONSE_CODE, response_norm),
-            (0.24, LONG_ARRIVAL_CODE, long_arrival_share),
-        ):
-            if code in active_reason_codes:
-                access_weight_sum += component_weight
-                access_factor_sum += component_weight * factor_value
-        access_score = 100.0 * _clamp((access_factor_sum / access_weight_sum) if access_weight_sum else 0.0, 0.0, 1.0)
-
-        water_score = 100.0 * (_clamp(no_water_share, 0.0, 1.0) if WATER_CODE in active_reason_codes else 0.0)
-        severity_score = 100.0 * (severity_factor if SEVERITY_CODE in active_reason_codes else 0.0)
-
-        recurrence_weight_sum = 0.0
-        recurrence_factor_sum = 0.0
-        for component_weight, code, factor_value in (
-            (0.72, RECURRENCE_CODE, recurrence_factor),
-            (0.18, NIGHT_CODE, night_share),
-            (0.10, HEATING_CODE, heating_share),
-        ):
-            if code in active_reason_codes:
-                recurrence_weight_sum += component_weight
-                recurrence_factor_sum += component_weight * factor_value
-        recurrence_score = 100.0 * _clamp((recurrence_factor_sum / recurrence_weight_sum) if recurrence_weight_sum else 0.0, 0.0, 1.0)
-        data_gap_score = 100.0 * uncertainty_factor
+    for row_index, record in enumerate(working_frame.to_dict("records")):
+        incident_count = int(precomputed["incident_count"][row_index])
+        years_observed = int(precomputed["years_observed"][row_index])
+        incidents_per_year = float(precomputed["incidents_per_year"][row_index])
+        average_distance = _normalize_nullable_float(precomputed["average_distance"][row_index])
+        average_response = _normalize_nullable_float(precomputed["average_response"][row_index])
+        long_arrival_share = float(precomputed["long_arrival_share"][row_index])
+        no_water_share = float(precomputed["no_water_share"][row_index])
+        water_coverage_share = float(precomputed["water_coverage_share"][row_index])
+        water_unknown_share = float(precomputed["water_unknown_share"][row_index])
+        severe_share = float(precomputed["severe_share"][row_index])
+        night_share = float(precomputed["night_share"][row_index])
+        heating_share = float(precomputed["heating_share"][row_index])
+        rural_share = float(precomputed["rural_share"][row_index])
+        response_coverage_share = float(precomputed["response_coverage_share"][row_index])
+        distance_coverage_share = float(precomputed["distance_coverage_share"][row_index])
+        arrival_missing_share = float(precomputed["arrival_missing_share"][row_index])
+        distance_missing_share = float(precomputed["distance_missing_share"][row_index])
+        completeness_share = float(precomputed["completeness_share"][row_index])
+        distance_norm = float(precomputed["distance_norm"][row_index])
+        response_norm = float(precomputed["response_norm"][row_index])
+        support_weight = float(precomputed["support_weight"][row_index])
+        severity_factor = float(precomputed["severity_factor"][row_index])
+        recurrence_factor = float(precomputed["recurrence_factor"][row_index])
+        uncertainty_factor = float(precomputed["uncertainty_factor"][row_index])
+        access_score = float(precomputed["access_score"][row_index])
+        water_score = float(precomputed["water_score"][row_index])
+        severity_score = float(precomputed["severity_score"][row_index])
+        recurrence_score = float(precomputed["recurrence_score"][row_index])
+        data_gap_score = float(precomputed["data_gap_score"][row_index])
 
         score_decomposition: List[Dict[str, Any]] = []
         for code, factor_score, factor_value, value_display in (
@@ -418,8 +504,8 @@ def _build_access_point_rows_from_entity_frame(
             "no_water_share_display": _format_percent(no_water_share * 100.0),
             "water_unknown_share": round(water_unknown_share, 4),
             "water_unknown_share_display": _format_percent(water_unknown_share * 100.0),
-            "water_coverage_share": round(float(record.get("water_coverage_share") or 0.0), 4),
-            "water_coverage_display": _format_percent(float(record.get("water_coverage_share") or 0.0) * 100.0),
+            "water_coverage_share": round(water_coverage_share, 4),
+            "water_coverage_display": _format_percent(water_coverage_share * 100.0),
             "severe_share": round(severe_share, 4),
             "severe_share_display": _format_percent(severe_share * 100.0),
             "night_share": round(night_share, 4),
