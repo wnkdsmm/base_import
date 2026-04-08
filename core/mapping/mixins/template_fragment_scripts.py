@@ -5,6 +5,13 @@ from typing import Any, Callable, Dict, List
 from .template_fragment_filters import build_filter_script_lines
 
 
+_POINT_ANALYTICS_LAYER_SPECS = (
+    ("hotspots", 10),
+    ("clusters", 12),
+    ("priorities", 11),
+)
+
+
 def _map_constructor_script_lines(idx: int, center_lon: Any, center_lat: Any, initial_zoom: Any) -> List[str]:
     return [
         '<script>',
@@ -170,6 +177,13 @@ def _point_analytics_layer_script_lines(layer_id: str, base_radius: int) -> List
     ]
 
 
+def _point_analytics_layers_script_lines(layer_specs: tuple[tuple[str, int], ...]) -> List[str]:
+    lines: List[str] = []
+    for layer_id, base_radius in layer_specs:
+        lines.extend(_point_analytics_layer_script_lines(layer_id, base_radius))
+    return lines
+
+
 def _risk_zone_layer_script_lines() -> List[str]:
     return [
         '    if ((analyticsLayersPayload.risk_zones?.features || []).length) {',
@@ -189,15 +203,18 @@ def _risk_zone_layer_script_lines() -> List[str]:
         '',
     ]
 
-def build_map_layer_script_lines() -> List[str]:
+
+def _analytics_layer_script_lines() -> List[str]:
     return (
-        _incident_category_layer_script_lines()
-        + _heatmap_layer_script_lines()
-        + _point_analytics_layer_script_lines("hotspots", 10)
-        + _point_analytics_layer_script_lines("clusters", 12)
+        _heatmap_layer_script_lines()
+        + _point_analytics_layers_script_lines(_POINT_ANALYTICS_LAYER_SPECS[:2])
         + _risk_zone_layer_script_lines()
-        + _point_analytics_layer_script_lines("priorities", 11)
+        + _point_analytics_layers_script_lines(_POINT_ANALYTICS_LAYER_SPECS[2:])
     )
+
+
+def build_map_layer_script_lines() -> List[str]:
+    return _incident_category_layer_script_lines() + _analytics_layer_script_lines()
 
 
 def _popup_overlay_script_lines() -> List[str]:

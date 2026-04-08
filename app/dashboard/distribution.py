@@ -100,6 +100,32 @@ def _collect_damage_counts(selected_tables: List[Dict[str, Any]], selected_year:
     return _collect_positive_column_counts(selected_tables, selected_year, damage_columns)
 
 
+def _resolve_damage_chart_items(
+    items: Optional[Sequence[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    return items if isinstance(items, list) else list(items or [])
+
+
+def _resolve_damage_category_items(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    items: Optional[Sequence[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    if items is not None:
+        return _resolve_damage_chart_items(items)
+    return _build_damage_category_items(selected_tables, selected_year)
+
+
+def _resolve_damage_theme_items(
+    selected_tables: List[Dict[str, Any]],
+    selected_year: Optional[int],
+    items: Optional[Sequence[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    if items is not None:
+        return _resolve_damage_chart_items(items)
+    return _build_damage_theme_items(selected_tables, selected_year)
+
+
 def _build_distribution_chart(
     selected_tables: List[Dict[str, Any]],
     selected_year: Optional[int],
@@ -302,15 +328,16 @@ def _build_damage_overview_chart(
     *,
     items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    items = list(items) if items is not None else _build_damage_category_items(selected_tables, selected_year)
+    items = _resolve_damage_category_items(selected_tables, selected_year, items)
+    top_items = items[:12]
     title = "Ущерб: что страдает чаще всего"
     empty_message = "Нет данных по категориям ущерба."
     description = "Категории потерь по объектам и ресурсам: здания, квартиры, площадь пожара, техника, урожай и другие показатели."
     return _finalize_chart(
         title,
-        items[:12],
+        top_items,
         empty_message,
-        plotly=_build_damage_overview_plotly(title, items[:12], empty_message),
+        plotly=_build_damage_overview_plotly(title, top_items, empty_message),
         description=description,
     )
 
@@ -321,7 +348,7 @@ def _build_damage_pairs_chart(
     *,
     items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    items = list(items) if items is not None else _build_damage_category_items(selected_tables, selected_year)
+    items = _resolve_damage_category_items(selected_tables, selected_year, items)
     items = [item for item in items if "destroyed" in item or "damaged" in item]
     title = "Ущерб: уничтожено и повреждено"
     empty_message = "Нет данных по парам показателей ущерба."
@@ -341,7 +368,7 @@ def _build_damage_standalone_chart(
     *,
     items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    items = list(items) if items is not None else _build_damage_theme_items(selected_tables, selected_year)
+    items = _resolve_damage_theme_items(selected_tables, selected_year, items)
     title = "Ущерб: направления потерь"
     empty_message = "Нет данных по укрупненным направлениям ущерба."
     description = "Крупные блоки потерь: недвижимость, площадь пожара, техника, сельхозресурсы, животные и прямой ущерб."
@@ -360,7 +387,7 @@ def _build_damage_share_chart(
     *,
     items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    items = list(items) if items is not None else _build_damage_theme_items(selected_tables, selected_year)
+    items = _resolve_damage_theme_items(selected_tables, selected_year, items)
     pie_items = [
         {
             "label": item["label"],
@@ -369,14 +396,15 @@ def _build_damage_share_chart(
         }
         for item in items
     ]
+    top_pie_items = pie_items[:10]
     title = "Ущерб: структура потерь"
     empty_message = "Нет данных для структурного графика по ущербу."
     description = "Доля основных направлений потерь в текущем фильтре: что доминирует в ущербе чаще всего."
     return _finalize_chart(
         title,
-        pie_items[:10],
+        top_pie_items,
         empty_message,
-        plotly=_build_damage_share_plotly(title, pie_items[:10], empty_message),
+        plotly=_build_damage_share_plotly(title, top_pie_items, empty_message),
         description=description,
     )
 

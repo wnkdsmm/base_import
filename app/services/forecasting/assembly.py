@@ -273,20 +273,13 @@ def _build_base_forecasting_payload_response(
     }
 
 
-def build_forecasting_base_payload(
+def _load_base_forecasting_inputs(
     *,
-    table_options: Sequence[Dict[str, Any]],
-    selected_table: str,
     source_tables: Sequence[str],
-    source_table_notes: Sequence[str],
+    selected_history_window: str,
     district: str,
     cause: str,
     object_category: str,
-    temperature: str,
-    temperature_value: float | None,
-    days_ahead: int,
-    selected_history_window: str,
-    include_decision_support: bool,
     deps: ForecastingDeps,
 ) -> Dict[str, Any]:
     metadata_items, preload_notes = deps["collect_forecasting_metadata"](source_tables)
@@ -323,6 +316,26 @@ def build_forecasting_base_payload(
         metadata_items,
         temperature_quality=temperature_quality,
     )
+    return {
+        "metadata_items": metadata_items,
+        "preload_notes": preload_notes,
+        "feature_cards": feature_cards,
+        "option_catalog": option_catalog,
+        "selected_district": selected_district,
+        "selected_cause": selected_cause,
+        "selected_object_category": selected_object_category,
+        "daily_history": daily_history,
+        "filtered_records_count": filtered_records_count,
+    }
+
+
+def _build_base_forecasting_artifacts(
+    *,
+    daily_history: Sequence[Dict[str, Any]],
+    days_ahead: int,
+    temperature_value: float | None,
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
     scenario_backtest = deps["run_scenario_backtesting"](daily_history)
     quality_assessment = deps["build_scenario_quality_assessment"](scenario_backtest)
     forecast_rows = deps["build_forecast_rows"](daily_history, days_ahead, temperature_value)
@@ -333,28 +346,39 @@ def build_forecasting_base_payload(
         weekday_profile=weekday_profile,
         deps=deps,
     )
-    (
-        risk_prediction,
-        geo_prediction,
-        decision_support_pending,
-        decision_support_ready,
-        decision_support_error,
-        decision_support_status_message,
-    ) = _build_decision_support_block(
-        table_options=table_options,
-        selected_table=selected_table,
-        source_tables=source_tables,
-        selected_district=selected_district,
-        selected_cause=selected_cause,
-        selected_object_category=selected_object_category,
-        selected_history_window=selected_history_window,
-        days_ahead=days_ahead,
-        temperature=temperature,
-        feature_cards=feature_cards,
-        include_decision_support=include_decision_support,
-        deps=deps,
-    )
-    charts["geo"] = deps["build_geo_chart"](geo_prediction)
+    return {
+        "quality_assessment": quality_assessment,
+        "forecast_rows": forecast_rows,
+        "weekday_profile": weekday_profile,
+        "charts": charts,
+    }
+
+
+def _build_base_forecasting_presentation(
+    *,
+    source_table_notes: Sequence[str],
+    preload_notes: Sequence[str],
+    metadata_items: Sequence[Dict[str, Any]],
+    filtered_records_count: int,
+    daily_history: Sequence[Dict[str, Any]],
+    forecast_rows: Sequence[Dict[str, Any]],
+    weekday_profile: Sequence[Dict[str, Any]],
+    risk_prediction: Dict[str, Any],
+    feature_cards: Sequence[Dict[str, Any]],
+    selected_table: str,
+    selected_district: str,
+    selected_cause: str,
+    selected_object_category: str,
+    temperature_value: float | None,
+    selected_history_window: str,
+    decision_support_ready: bool,
+    decision_support_status_message: str,
+    table_options: Sequence[Dict[str, Any]],
+    temperature: str,
+    days_ahead: int,
+    option_catalog: Dict[str, Any],
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
     notes = _build_base_forecasting_notes(
         source_table_notes=source_table_notes,
         preload_notes=preload_notes,
@@ -399,23 +423,115 @@ def build_forecasting_base_payload(
         option_catalog=option_catalog,
         deps=deps,
     )
+    return {
+        "generated_at": generated_at,
+        "notes": notes,
+        "features": features,
+        "insights": insights,
+        "summary": summary,
+        "executive_brief": executive_brief,
+        "filters": filters,
+    }
+
+
+def build_forecasting_base_payload(
+    *,
+    table_options: Sequence[Dict[str, Any]],
+    selected_table: str,
+    source_tables: Sequence[str],
+    source_table_notes: Sequence[str],
+    district: str,
+    cause: str,
+    object_category: str,
+    temperature: str,
+    temperature_value: float | None,
+    days_ahead: int,
+    selected_history_window: str,
+    include_decision_support: bool,
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
+    inputs = _load_base_forecasting_inputs(
+        source_tables=source_tables,
+        selected_history_window=selected_history_window,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        deps=deps,
+    )
+    daily_history = inputs["daily_history"]
+    selected_district = inputs["selected_district"]
+    selected_cause = inputs["selected_cause"]
+    selected_object_category = inputs["selected_object_category"]
+    artifacts = _build_base_forecasting_artifacts(
+        daily_history=daily_history,
+        days_ahead=days_ahead,
+        temperature_value=temperature_value,
+        deps=deps,
+    )
+    charts = artifacts["charts"]
+    (
+        risk_prediction,
+        geo_prediction,
+        decision_support_pending,
+        decision_support_ready,
+        decision_support_error,
+        decision_support_status_message,
+    ) = _build_decision_support_block(
+        table_options=table_options,
+        selected_table=selected_table,
+        source_tables=source_tables,
+        selected_district=selected_district,
+        selected_cause=selected_cause,
+        selected_object_category=selected_object_category,
+        selected_history_window=selected_history_window,
+        days_ahead=days_ahead,
+        temperature=temperature,
+        feature_cards=inputs["feature_cards"],
+        include_decision_support=include_decision_support,
+        deps=deps,
+    )
+    charts["geo"] = deps["build_geo_chart"](geo_prediction)
+    presentation = _build_base_forecasting_presentation(
+        source_table_notes=source_table_notes,
+        preload_notes=inputs["preload_notes"],
+        metadata_items=inputs["metadata_items"],
+        filtered_records_count=inputs["filtered_records_count"],
+        daily_history=daily_history,
+        forecast_rows=artifacts["forecast_rows"],
+        weekday_profile=artifacts["weekday_profile"],
+        risk_prediction=risk_prediction,
+        feature_cards=inputs["feature_cards"],
+        selected_table=selected_table,
+        selected_district=selected_district,
+        selected_cause=selected_cause,
+        selected_object_category=selected_object_category,
+        temperature_value=temperature_value,
+        selected_history_window=selected_history_window,
+        decision_support_ready=decision_support_ready,
+        decision_support_status_message=decision_support_status_message,
+        table_options=table_options,
+        temperature=temperature,
+        days_ahead=days_ahead,
+        option_catalog=inputs["option_catalog"],
+        deps=deps,
+    )
     return _build_base_forecasting_payload_response(
-        generated_at=generated_at,
-        filtered_records_count=filtered_records_count,
+        generated_at=presentation["generated_at"],
+        filtered_records_count=inputs["filtered_records_count"],
         decision_support_pending=decision_support_pending,
         decision_support_ready=decision_support_ready,
         decision_support_error=decision_support_error,
         decision_support_status_message=decision_support_status_message,
-        summary=summary,
-        quality_assessment=quality_assessment,
-        features=features,
+        summary=presentation["summary"],
+        quality_assessment=artifacts["quality_assessment"],
+        features=presentation["features"],
         risk_prediction=risk_prediction,
-        executive_brief=executive_brief,
-        insights=insights,
+        executive_brief=presentation["executive_brief"],
+        insights=presentation["insights"],
         charts=charts,
-        forecast_rows=forecast_rows,
-        notes=notes,
-        filters=filters,
+        forecast_rows=artifacts["forecast_rows"],
+        notes=presentation["notes"],
+        filters=presentation["filters"],
         deps=deps,
     )
 

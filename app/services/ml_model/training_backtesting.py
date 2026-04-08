@@ -189,6 +189,18 @@ def _optional_float_array(values: Sequence[Any]) -> np.ndarray:
     )
 
 
+def _empty_float_array() -> np.ndarray:
+    return np.asarray([], dtype=float)
+
+
+def _empty_int_array() -> np.ndarray:
+    return np.asarray([], dtype=int)
+
+
+def _nan_float_array(length: int) -> np.ndarray:
+    return np.full(length, np.nan, dtype=float)
+
+
 def _selected_event_probabilities(
     rows: List[BacktestWindowRow],
     selected_count_model_key: str,
@@ -196,6 +208,18 @@ def _selected_event_probabilities(
     return _optional_float_array(
         [row.predicted_event_probabilities.get(selected_count_model_key) for row in rows]
     )
+
+
+def _selected_count_arrays(
+    rows: List[BacktestWindowRow],
+    selected_count_model_key: str,
+) -> Tuple[np.ndarray, np.ndarray]:
+    predictions: List[float] = []
+    event_probabilities: List[Optional[float]] = []
+    for row in rows:
+        predictions.append(float(_selected_count_prediction(row, selected_count_model_key)))
+        event_probabilities.append(row.predicted_event_probabilities.get(selected_count_model_key))
+    return np.asarray(predictions, dtype=float), _optional_float_array(event_probabilities)
 
 
 def _optional_probability_from_array(value: Any) -> Optional[float]:
@@ -255,6 +279,14 @@ class _EventMetricInputs:
 
 
 @dataclass
+class _EventMetricMaskContext:
+    common_rows: int
+    evaluation_mask: np.ndarray
+    rows_used: int
+    logistic_available: bool
+
+
+@dataclass
 class _EventMetricSelection:
     selected_model_key: str
     selected_model_label: str
@@ -262,6 +294,24 @@ class _EventMetricSelection:
     selected_roc_auc: Optional[float]
     selected_log_loss: Optional[float]
     comparison_rows: List[EventComparisonRow]
+
+
+@dataclass
+class _EventProbabilityScores:
+    heuristic_metrics: Dict[str, Any]
+    baseline_roc_auc: Optional[float]
+    heuristic_roc_auc: Optional[float]
+    baseline_log_loss: Optional[float]
+    heuristic_log_loss: Optional[float]
+
+
+@dataclass
+class _EventMetricContext:
+    event_rate: Optional[float]
+    evaluation_has_both_classes: bool
+    event_probability_informative: bool
+    event_probability_note: Optional[str]
+    event_probability_reason_code: Optional[str]
 
 
 @dataclass
@@ -274,25 +324,24 @@ class _BacktestEvaluationArtifacts:
     prediction_interval_calibration: Dict[str, Any]
     validation_summary: HorizonSummary
     prediction_interval_coverage: Optional[float]
-    validation_evaluation_data: _HorizonEvaluationData
     backtest_rows: List[BacktestEvaluationRow]
     event_metrics: EventMetrics
     window_rows: List[BacktestWindowRow]
 
 
-def _build_count_model_prediction_context(
-    rows_for_horizon: List[BacktestWindowRow],
-) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, _CandidateCoverage]]:
-    window_count = len(rows_for_horizon)
-    prediction_buffers: Dict[str, List[float]] = {model_key: [] for model_key in COUNT_MODEL_KEYS}
-    event_probability_buffers: Dict[str, List[Optional[float]]] = {model_key: [] for model_key in COUNT_MODEL_KEYS}
-    for row in rows_for_horizon:
-        for model_key in COUNT_MODEL_KEYS:
-            prediction = row.predictions.get(model_key)
-            if prediction is not None:
-                prediction_buffers[model_key].append(float(prediction))
-            event_probability_buffers[model_key].append(row.predicted_event_probabilities.get(model_key))
+@dataclass
+class _BacktestOriginSelection:
+    available_backtest_points: int
+    selected_origin_dates: List[Any]
+    total_windows: int
 
+
+def _build_count_model_prediction_context_from_buffers(
+    *,
+    prediction_buffers: Dict[str, List[float]],
+    event_probability_buffers: Dict[str, List[Optional[float]]],
+    window_count: int,
+) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, _CandidateCoverage]]:
     coverage_by_model: Dict[str, _CandidateCoverage] = {}
     prediction_arrays: Dict[str, np.ndarray] = {}
     for model_key, predictions in prediction_buffers.items():
@@ -312,7 +361,11 @@ def _build_count_model_prediction_context(
     return prediction_arrays, event_probability_arrays, coverage_by_model
 
 
-def _build_horizon_base_arrays(rows_for_horizon: List[BacktestWindowRow]) -> _HorizonBaseArrays:
+def _build_horizon_array_context(
+    rows_for_horizon: List[BacktestWindowRow],
+    *,
+    include_count_model_predictions: bool,
+) -> Tuple[_HorizonBaseArrays, Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, _CandidateCoverage]]:
     actuals: List[float] = []
     baseline_predictions: List[float] = []
     heuristic_predictions: List[float] = []
@@ -320,6 +373,11 @@ def _build_horizon_base_arrays(rows_for_horizon: List[BacktestWindowRow]) -> _Ho
     baseline_event_probabilities: List[float] = []
     heuristic_event_probabilities: List[float] = []
     dates: List[str] = []
+    prediction_buffers: Dict[str, List[float]] = {}
+    event_probability_buffers: Dict[str, List[Optional[float]]] = {}
+    if include_count_model_predictions:
+        prediction_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
+        event_probability_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
     for row in rows_for_horizon:
         actuals.append(float(row.actual_count))
         baseline_predictions.append(float(row.baseline_count))
@@ -332,7 +390,14 @@ def _build_horizon_base_arrays(rows_for_horizon: List[BacktestWindowRow]) -> _Ho
             np.nan if row.heuristic_event_probability is None else float(row.heuristic_event_probability)
         )
         dates.append(row.date)
-    return _HorizonBaseArrays(
+        if include_count_model_predictions:
+            for model_key in COUNT_MODEL_KEYS:
+                prediction = row.predictions.get(model_key)
+                if prediction is not None:
+                    prediction_buffers[model_key].append(float(prediction))
+                event_probability_buffers[model_key].append(row.predicted_event_probabilities.get(model_key))
+
+    base_arrays = _HorizonBaseArrays(
         actuals=np.asarray(actuals, dtype=float),
         baseline_predictions=np.asarray(baseline_predictions, dtype=float),
         heuristic_predictions=np.asarray(heuristic_predictions, dtype=float),
@@ -341,55 +406,67 @@ def _build_horizon_base_arrays(rows_for_horizon: List[BacktestWindowRow]) -> _Ho
         heuristic_event_probabilities=np.asarray(heuristic_event_probabilities, dtype=float),
         dates=dates,
     )
+    if not include_count_model_predictions:
+        return base_arrays, {}, {}, {}
+    count_model_predictions, count_model_event_probabilities, coverage_by_model = _build_count_model_prediction_context_from_buffers(
+        prediction_buffers=prediction_buffers,
+        event_probability_buffers=event_probability_buffers,
+        window_count=len(rows_for_horizon),
+    )
+    return base_arrays, count_model_predictions, count_model_event_probabilities, coverage_by_model
 
 
-def _selected_predictions_from_evaluation_data(
+def _selected_count_arrays_from_evaluation_data(
     evaluation_data: _HorizonEvaluationData,
     selected_count_model_key: Optional[str],
-) -> np.ndarray:
+) -> Tuple[np.ndarray, np.ndarray]:
     if selected_count_model_key == 'seasonal_baseline':
-        return evaluation_data.baseline_predictions
+        return evaluation_data.baseline_predictions, _nan_float_array(len(evaluation_data.rows))
     if selected_count_model_key == 'heuristic_forecast':
-        return evaluation_data.heuristic_predictions
+        return evaluation_data.heuristic_predictions, _nan_float_array(len(evaluation_data.rows))
     if selected_count_model_key in evaluation_data.count_model_predictions:
-        return evaluation_data.count_model_predictions[selected_count_model_key]
-    if selected_count_model_key:
-        return _selected_count_predictions(evaluation_data.rows, selected_count_model_key)
-    return np.asarray([], dtype=float)
-
-
-def _selected_event_probabilities_from_evaluation_data(
-    evaluation_data: _HorizonEvaluationData,
-    selected_count_model_key: Optional[str],
-) -> np.ndarray:
+        selected_event_probabilities = evaluation_data.count_model_event_probabilities.get(selected_count_model_key)
+        if selected_event_probabilities is None:
+            selected_event_probabilities = (
+                _selected_event_probabilities(evaluation_data.rows, selected_count_model_key)
+                if selected_count_model_key in COUNT_MODEL_KEYS
+                else _nan_float_array(len(evaluation_data.rows))
+            )
+        return evaluation_data.count_model_predictions[selected_count_model_key], selected_event_probabilities
     if selected_count_model_key in evaluation_data.count_model_event_probabilities:
-        return evaluation_data.count_model_event_probabilities[selected_count_model_key]
+        return (
+            _selected_count_predictions(evaluation_data.rows, selected_count_model_key),
+            evaluation_data.count_model_event_probabilities[selected_count_model_key],
+        )
     if selected_count_model_key in COUNT_MODEL_KEYS:
-        return _selected_event_probabilities(evaluation_data.rows, selected_count_model_key)
-    return np.full(len(evaluation_data.rows), np.nan, dtype=float)
+        return _selected_count_arrays(evaluation_data.rows, selected_count_model_key)
+    if selected_count_model_key:
+        return (
+            _selected_count_predictions(evaluation_data.rows, selected_count_model_key),
+            _nan_float_array(len(evaluation_data.rows)),
+        )
+    return _empty_float_array(), _nan_float_array(len(evaluation_data.rows))
 
 
 def _with_selected_count_model(
     evaluation_data: _HorizonEvaluationData,
     selected_count_model_key: str,
 ) -> _HorizonEvaluationData:
+    selected_predictions, selected_event_probabilities = _selected_count_arrays_from_evaluation_data(
+        evaluation_data,
+        selected_count_model_key,
+    )
     return _HorizonEvaluationData(
         rows=evaluation_data.rows,
         actuals=evaluation_data.actuals,
         baseline_predictions=evaluation_data.baseline_predictions,
         heuristic_predictions=evaluation_data.heuristic_predictions,
-        selected_predictions=_selected_predictions_from_evaluation_data(
-            evaluation_data,
-            selected_count_model_key,
-        ),
+        selected_predictions=selected_predictions,
         count_model_predictions=evaluation_data.count_model_predictions,
         actual_events=evaluation_data.actual_events,
         baseline_event_probabilities=evaluation_data.baseline_event_probabilities,
         heuristic_event_probabilities=evaluation_data.heuristic_event_probabilities,
-        selected_event_probabilities=_selected_event_probabilities_from_evaluation_data(
-            evaluation_data,
-            selected_count_model_key,
-        ),
+        selected_event_probabilities=selected_event_probabilities,
         count_model_event_probabilities=evaluation_data.count_model_event_probabilities,
         coverage_by_model=evaluation_data.coverage_by_model,
         dates=evaluation_data.dates,
@@ -402,26 +479,27 @@ def _build_horizon_evaluation_data(
     *,
     include_count_model_predictions: bool = False,
 ) -> _HorizonEvaluationData:
-    count_model_predictions: Dict[str, np.ndarray] = {}
-    coverage_by_model: Dict[str, _CandidateCoverage] = {}
-    count_model_event_probabilities: Dict[str, np.ndarray] = {}
-    if include_count_model_predictions:
-        count_model_predictions, count_model_event_probabilities, coverage_by_model = _build_count_model_prediction_context(
-            rows_for_horizon
-        )
-    base_arrays = _build_horizon_base_arrays(rows_for_horizon)
+    (
+        base_arrays,
+        count_model_predictions,
+        count_model_event_probabilities,
+        coverage_by_model,
+    ) = _build_horizon_array_context(
+        rows_for_horizon,
+        include_count_model_predictions=include_count_model_predictions,
+    )
 
     evaluation_data = _HorizonEvaluationData(
         rows=rows_for_horizon,
         actuals=base_arrays.actuals,
         baseline_predictions=base_arrays.baseline_predictions,
         heuristic_predictions=base_arrays.heuristic_predictions,
-        selected_predictions=np.asarray([], dtype=float),
+        selected_predictions=_empty_float_array(),
         count_model_predictions=count_model_predictions,
         actual_events=base_arrays.actual_events,
         baseline_event_probabilities=base_arrays.baseline_event_probabilities,
         heuristic_event_probabilities=base_arrays.heuristic_event_probabilities,
-        selected_event_probabilities=np.asarray([], dtype=float),
+        selected_event_probabilities=_empty_float_array(),
         count_model_event_probabilities=count_model_event_probabilities,
         coverage_by_model=coverage_by_model,
         dates=base_arrays.dates,
@@ -893,19 +971,21 @@ def _evaluate_backtest_horizon_metadata(
     )
 
 
-def _build_backtest_evaluation_rows(
+def _build_backtest_payload_rows(
     *,
     evaluation_data: _HorizonEvaluationData,
     prediction_interval_calibration: Dict[str, Any],
     validation_horizon_days: int,
-) -> List[BacktestEvaluationRow]:
+) -> Tuple[List[BacktestEvaluationRow], List[BacktestWindowRow]]:
     backtest_rows: List[BacktestEvaluationRow] = []
+    window_rows: List[BacktestWindowRow] = []
     for row, predicted_value, event_probability in zip(
         evaluation_data.rows,
         evaluation_data.selected_predictions,
         evaluation_data.selected_event_probabilities,
     ):
         predicted_count = float(predicted_value)
+        predicted_event_probability = _optional_probability_from_array(event_probability)
         lower_bound, upper_bound = _count_interval(predicted_count, prediction_interval_calibration)
         backtest_rows.append(
             BacktestEvaluationRow(
@@ -919,19 +999,13 @@ def _build_backtest_evaluation_rows(
                 baseline_count=row.baseline_count,
                 heuristic_count=row.heuristic_count,
                 actual_event=row.actual_event,
-                predicted_event_probability=_optional_probability_from_array(event_probability),
+                predicted_event_probability=predicted_event_probability,
                 baseline_event_probability=row.baseline_event_probability,
                 heuristic_event_probability=row.heuristic_event_probability,
             )
         )
-    return backtest_rows
-
-
-def _build_backtest_window_rows(evaluation_data: _HorizonEvaluationData) -> List[BacktestWindowRow]:
-    return [
-        row.clone(predicted_event_probability=_optional_probability_from_array(event_probability))
-        for row, event_probability in zip(evaluation_data.rows, evaluation_data.selected_event_probabilities)
-    ]
+        window_rows.append(row.clone(predicted_event_probability=predicted_event_probability))
+    return backtest_rows, window_rows
 
 
 def _select_backtest_count_model(
@@ -1069,7 +1143,7 @@ def _build_backtest_evaluation_artifacts(
     prediction_interval_calibration = interval_calibration_by_horizon[validation_horizon_days]
     validation_summary = horizon_summaries[str(validation_horizon_days)]
     validation_evaluation_data = horizon_evaluation_data[validation_horizon_days]
-    backtest_rows = _build_backtest_evaluation_rows(
+    backtest_rows, window_rows = _build_backtest_payload_rows(
         evaluation_data=validation_evaluation_data,
         prediction_interval_calibration=prediction_interval_calibration,
         validation_horizon_days=validation_horizon_days,
@@ -1083,10 +1157,79 @@ def _build_backtest_evaluation_artifacts(
         prediction_interval_calibration=prediction_interval_calibration,
         validation_summary=validation_summary,
         prediction_interval_coverage=validation_summary.prediction_interval_coverage,
-        validation_evaluation_data=validation_evaluation_data,
         backtest_rows=backtest_rows,
         event_metrics=_compute_event_metrics(validation_evaluation_data),
-        window_rows=_build_backtest_window_rows(validation_evaluation_data),
+        window_rows=window_rows,
+    )
+
+
+def _build_backtest_success_result(
+    *,
+    artifacts: _BacktestEvaluationArtifacts,
+    valid_rows: List[BacktestWindowRow],
+    min_train_rows: int,
+    validation_horizon_days: int,
+    max_horizon_days: int,
+    horizon_days: List[int],
+) -> BacktestSuccess:
+    overview = _build_backtest_overview(
+        backtest_rows=artifacts.backtest_rows,
+        valid_rows=valid_rows,
+        min_train_rows=min_train_rows,
+        validation_horizon_days=validation_horizon_days,
+        max_horizon_days=max_horizon_days,
+        horizon_days=horizon_days,
+        selection=artifacts.selection,
+        event_metrics=artifacts.event_metrics,
+        prediction_interval_calibration=artifacts.prediction_interval_calibration,
+        prediction_interval_coverage=artifacts.prediction_interval_coverage,
+        validation_summary=artifacts.validation_summary,
+        horizon_summaries=artifacts.horizon_summaries,
+    )
+    return BacktestSuccess(
+        message='',
+        rows=artifacts.backtest_rows,
+        window_rows=artifacts.window_rows,
+        baseline_metrics=artifacts.selection.baseline_metrics,
+        heuristic_metrics=artifacts.selection.heuristic_metrics,
+        count_metrics=artifacts.selection.count_metrics,
+        count_comparison_rows=_build_count_comparison_rows(
+            baseline_metrics=artifacts.selection.baseline_metrics,
+            heuristic_metrics=artifacts.selection.heuristic_metrics,
+            count_metrics=artifacts.selection.count_metrics,
+            selected_count_model_key=artifacts.selected_count_model_key,
+        ),
+        selected_count_model_key=artifacts.selected_count_model_key,
+        selected_count_model_reason=artifacts.selection.selection_details['long'],
+        selected_count_model_reason_short=artifacts.selection.selection_details['short'],
+        selected_metrics=artifacts.selection.selected_metrics,
+        prediction_interval_calibration=artifacts.prediction_interval_calibration,
+        prediction_interval_calibration_by_horizon=PredictionIntervalCalibrationByHorizon(
+            by_horizon=artifacts.interval_calibration_by_horizon
+        ),
+        event_metrics=artifacts.event_metrics,
+        horizon_summaries=artifacts.horizon_summaries,
+        backtest_overview=overview,
+    )
+
+
+def _select_backtest_origins(
+    *,
+    dataset: pd.DataFrame,
+    history_frame: pd.DataFrame,
+    min_train_rows: int,
+    max_horizon_days: int,
+) -> _BacktestOriginSelection:
+    latest_origin_date = pd.Timestamp(history_frame['date'].iloc[-(max_horizon_days + 1)])
+    eligible_origin_dates = dataset.loc[dataset['date'] <= latest_origin_date, 'date'].iloc[min_train_rows - 1 :].reset_index(drop=True)
+    available_backtest_points = len(eligible_origin_dates)
+    selected_origin_dates = eligible_origin_dates.iloc[
+        -min(MAX_BACKTEST_POINTS, available_backtest_points) :
+    ].tolist()
+    return _BacktestOriginSelection(
+        available_backtest_points=available_backtest_points,
+        selected_origin_dates=selected_origin_dates,
+        total_windows=len(selected_origin_dates),
     )
 
 
@@ -1113,28 +1256,31 @@ def _run_backtest(
             'lead because the history is too short after lagged features are built.'
         )
 
-    latest_origin_date = pd.Timestamp(history_frame['date'].iloc[-(max_horizon_days + 1)])
-    eligible_origin_dates = dataset.loc[dataset['date'] <= latest_origin_date, 'date'].iloc[min_train_rows - 1 :].reset_index(drop=True)
-    available_backtest_points = len(eligible_origin_dates)
+    origin_selection = _select_backtest_origins(
+        dataset=dataset,
+        history_frame=history_frame,
+        min_train_rows=min_train_rows,
+        max_horizon_days=max_horizon_days,
+    )
 
     if perf is not None:
         perf.update(
             history_rows=len(history_frame),
             dataset_rows=len(dataset),
             min_train_rows=min_train_rows,
-            available_backtest_points=available_backtest_points,
+            available_backtest_points=origin_selection.available_backtest_points,
             validation_horizon_days=validation_horizon_days,
             max_horizon_days=max_horizon_days,
         )
 
-    if available_backtest_points <= 0:
+    if origin_selection.available_backtest_points <= 0:
         return _not_ready_backtest(
             f'Lead-time-aware rolling-origin backtesting for the {_lead_time_label(validation_horizon_days)} lead '
             'has no comparable origins after lagged features are built.'
         )
 
-    selected_origin_dates = eligible_origin_dates.iloc[-min(MAX_BACKTEST_POINTS, available_backtest_points) :].tolist()
-    total_windows = len(selected_origin_dates)
+    selected_origin_dates = origin_selection.selected_origin_dates
+    total_windows = origin_selection.total_windows
     if perf is not None:
         perf.update(total_windows=total_windows)
     _emit_progress(
@@ -1190,45 +1336,13 @@ def _run_backtest(
             payload_rows=len(artifacts.backtest_rows),
         )
 
-    overview = _build_backtest_overview(
-        backtest_rows=artifacts.backtest_rows,
+    return _build_backtest_success_result(
+        artifacts=artifacts,
         valid_rows=valid_rows,
         min_train_rows=min_train_rows,
         validation_horizon_days=validation_horizon_days,
         max_horizon_days=max_horizon_days,
         horizon_days=horizon_days,
-        selection=artifacts.selection,
-        event_metrics=artifacts.event_metrics,
-        prediction_interval_calibration=artifacts.prediction_interval_calibration,
-        prediction_interval_coverage=artifacts.prediction_interval_coverage,
-        validation_summary=artifacts.validation_summary,
-        horizon_summaries=artifacts.horizon_summaries,
-    )
-
-    return BacktestSuccess(
-        message='',
-        rows=artifacts.backtest_rows,
-        window_rows=artifacts.window_rows,
-        baseline_metrics=artifacts.selection.baseline_metrics,
-        heuristic_metrics=artifacts.selection.heuristic_metrics,
-        count_metrics=artifacts.selection.count_metrics,
-        count_comparison_rows=_build_count_comparison_rows(
-            baseline_metrics=artifacts.selection.baseline_metrics,
-            heuristic_metrics=artifacts.selection.heuristic_metrics,
-            count_metrics=artifacts.selection.count_metrics,
-            selected_count_model_key=artifacts.selected_count_model_key,
-        ),
-        selected_count_model_key=artifacts.selected_count_model_key,
-        selected_count_model_reason=artifacts.selection.selection_details['long'],
-        selected_count_model_reason_short=artifacts.selection.selection_details['short'],
-        selected_metrics=artifacts.selection.selected_metrics,
-        prediction_interval_calibration=artifacts.prediction_interval_calibration,
-        prediction_interval_calibration_by_horizon=PredictionIntervalCalibrationByHorizon(
-            by_horizon=artifacts.interval_calibration_by_horizon
-        ),
-        event_metrics=artifacts.event_metrics,
-        horizon_summaries=artifacts.horizon_summaries,
-        backtest_overview=overview,
     )
 
 
@@ -1259,7 +1373,7 @@ def _event_rate(actuals: np.ndarray) -> Optional[float]:
 
 
 def _has_both_event_classes(actuals: np.ndarray) -> bool:
-    return np.unique(np.asarray(actuals, dtype=int)).size > 1
+    return np.unique(actuals.astype(int, copy=False)).size > 1
 
 
 def _event_rate_is_saturated(event_rate: Optional[float]) -> bool:
@@ -1372,6 +1486,67 @@ def _normalize_event_comparison_rows(
     return normalized_rows
 
 
+def _event_metric_mask_context(
+    *,
+    baseline_probabilities: np.ndarray,
+    heuristic_probabilities: np.ndarray,
+    classifier_probabilities: np.ndarray,
+) -> _EventMetricMaskContext:
+    common_mask = np.isfinite(baseline_probabilities) & np.isfinite(heuristic_probabilities)
+    common_rows = int(np.sum(common_mask))
+    if common_rows < MIN_BACKTEST_POINTS:
+        return _EventMetricMaskContext(
+            common_rows=common_rows,
+            evaluation_mask=common_mask,
+            rows_used=common_rows,
+            logistic_available=False,
+        )
+
+    classifier_mask = common_mask & np.isfinite(classifier_probabilities)
+    logistic_available = int(np.sum(classifier_mask)) >= MIN_BACKTEST_POINTS
+    evaluation_mask = classifier_mask if logistic_available else common_mask
+    return _EventMetricMaskContext(
+        common_rows=common_rows,
+        evaluation_mask=evaluation_mask,
+        rows_used=int(np.sum(evaluation_mask)),
+        logistic_available=logistic_available,
+    )
+
+
+def _empty_event_metric_inputs(common_rows: int) -> _EventMetricInputs:
+    return _EventMetricInputs(
+        common_rows=common_rows,
+        rows_used=common_rows,
+        actuals=_empty_int_array(),
+        baseline_probabilities=_empty_float_array(),
+        heuristic_probabilities=_empty_float_array(),
+        classifier_probabilities=_empty_float_array(),
+        logistic_available=False,
+    )
+
+
+def _masked_event_metric_inputs(
+    *,
+    actual_events: np.ndarray,
+    baseline_probabilities: np.ndarray,
+    heuristic_probabilities: np.ndarray,
+    classifier_probabilities: np.ndarray,
+    mask_context: _EventMetricMaskContext,
+) -> _EventMetricInputs:
+    evaluation_mask = mask_context.evaluation_mask
+    return _EventMetricInputs(
+        common_rows=mask_context.common_rows,
+        rows_used=mask_context.rows_used,
+        actuals=actual_events[evaluation_mask].astype(int, copy=False),
+        baseline_probabilities=baseline_probabilities[evaluation_mask],
+        heuristic_probabilities=heuristic_probabilities[evaluation_mask],
+        classifier_probabilities=(
+            classifier_probabilities[evaluation_mask] if mask_context.logistic_available else _empty_float_array()
+        ),
+        logistic_available=mask_context.logistic_available,
+    )
+
+
 def _build_event_metric_inputs_from_arrays(
     *,
     actual_events: np.ndarray,
@@ -1379,32 +1554,19 @@ def _build_event_metric_inputs_from_arrays(
     heuristic_probabilities: np.ndarray,
     classifier_probabilities: np.ndarray,
 ) -> _EventMetricInputs:
-    common_mask = np.isfinite(baseline_probabilities) & np.isfinite(heuristic_probabilities)
-    common_rows = int(np.sum(common_mask))
-    if common_rows < MIN_BACKTEST_POINTS:
-        return _EventMetricInputs(
-            common_rows=common_rows,
-            rows_used=common_rows,
-            actuals=np.asarray([], dtype=int),
-            baseline_probabilities=np.asarray([], dtype=float),
-            heuristic_probabilities=np.asarray([], dtype=float),
-            classifier_probabilities=np.asarray([], dtype=float),
-            logistic_available=False,
-        )
-
-    classifier_mask = common_mask & np.isfinite(classifier_probabilities)
-    logistic_available = int(np.sum(classifier_mask)) >= MIN_BACKTEST_POINTS
-    evaluation_mask = classifier_mask if logistic_available else common_mask
-    return _EventMetricInputs(
-        common_rows=common_rows,
-        rows_used=int(np.sum(evaluation_mask)),
-        actuals=np.asarray(actual_events[evaluation_mask], dtype=int),
-        baseline_probabilities=baseline_probabilities[evaluation_mask],
-        heuristic_probabilities=heuristic_probabilities[evaluation_mask],
-        classifier_probabilities=(
-            classifier_probabilities[evaluation_mask] if logistic_available else np.asarray([], dtype=float)
-        ),
-        logistic_available=logistic_available,
+    mask_context = _event_metric_mask_context(
+        baseline_probabilities=baseline_probabilities,
+        heuristic_probabilities=heuristic_probabilities,
+        classifier_probabilities=classifier_probabilities,
+    )
+    if mask_context.common_rows < MIN_BACKTEST_POINTS:
+        return _empty_event_metric_inputs(mask_context.common_rows)
+    return _masked_event_metric_inputs(
+        actual_events=actual_events,
+        baseline_probabilities=baseline_probabilities,
+        heuristic_probabilities=heuristic_probabilities,
+        classifier_probabilities=classifier_probabilities,
+        mask_context=mask_context,
     )
 
 
@@ -1420,11 +1582,20 @@ def _event_metric_inputs_from_horizon(evaluation_data: _HorizonEvaluationData) -
 def _event_metric_inputs_from_rows(
     rows: List[Dict[str, Any] | BacktestEvaluationRow],
 ) -> _EventMetricInputs:
+    actual_events: List[int] = []
+    baseline_probabilities: List[Optional[float]] = []
+    heuristic_probabilities: List[Optional[float]] = []
+    classifier_probabilities: List[Optional[float]] = []
+    for row in rows:
+        actual_events.append(int(row.get('actual_event', 0)))
+        baseline_probabilities.append(row.get('baseline_event_probability'))
+        heuristic_probabilities.append(row.get('heuristic_event_probability'))
+        classifier_probabilities.append(row.get('predicted_event_probability'))
     return _build_event_metric_inputs_from_arrays(
-        actual_events=np.asarray([int(row['actual_event']) for row in rows], dtype=int),
-        baseline_probabilities=_optional_float_array([row['baseline_event_probability'] for row in rows]),
-        heuristic_probabilities=_optional_float_array([row['heuristic_event_probability'] for row in rows]),
-        classifier_probabilities=_optional_float_array([row['predicted_event_probability'] for row in rows]),
+        actual_events=np.asarray(actual_events, dtype=int),
+        baseline_probabilities=_optional_float_array(baseline_probabilities),
+        heuristic_probabilities=_optional_float_array(heuristic_probabilities),
+        classifier_probabilities=_optional_float_array(classifier_probabilities),
     )
 
 
@@ -1434,6 +1605,25 @@ def _event_metric_inputs(
     if isinstance(rows, _HorizonEvaluationData):
         return _event_metric_inputs_from_horizon(rows)
     return _event_metric_inputs_from_rows(rows)
+
+
+def _score_event_probability_candidates(
+    event_inputs: _EventMetricInputs,
+) -> _EventProbabilityScores:
+    actuals = event_inputs.actuals
+    heuristic_metrics = compute_classification_metrics(
+        actuals,
+        event_inputs.heuristic_probabilities,
+        event_inputs.baseline_probabilities,
+        threshold=CLASSIFICATION_THRESHOLD,
+    )
+    return _EventProbabilityScores(
+        heuristic_metrics=heuristic_metrics,
+        baseline_roc_auc=_safe_roc_auc(actuals, event_inputs.baseline_probabilities),
+        heuristic_roc_auc=_safe_roc_auc(actuals, event_inputs.heuristic_probabilities),
+        baseline_log_loss=_safe_log_loss(actuals, event_inputs.baseline_probabilities),
+        heuristic_log_loss=_safe_log_loss(actuals, event_inputs.heuristic_probabilities),
+    )
 
 
 def _initial_event_metric_selection(
@@ -1479,7 +1669,6 @@ def _with_classifier_event_selection(
     selection: _EventMetricSelection,
     *,
     event_inputs: _EventMetricInputs,
-    actuals: np.ndarray,
     event_probability_informative: bool,
     heuristic_metrics: Dict[str, Any],
     heuristic_log_loss: Optional[float],
@@ -1488,6 +1677,7 @@ def _with_classifier_event_selection(
     if not event_inputs.logistic_available:
         return selection
 
+    actuals = event_inputs.actuals
     classifier_metrics = compute_classification_metrics(
         actuals,
         event_inputs.classifier_probabilities,
@@ -1545,6 +1735,61 @@ def _with_classifier_event_selection(
     )
 
 
+def _event_metric_context(event_inputs: _EventMetricInputs) -> _EventMetricContext:
+    event_rate = _event_rate(event_inputs.actuals)
+    event_probability_informative = not _event_rate_is_saturated(event_rate)
+    event_probability_reason_code = (
+        EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE if not event_probability_informative else None
+    )
+    return _EventMetricContext(
+        event_rate=event_rate,
+        evaluation_has_both_classes=_has_both_event_classes(event_inputs.actuals),
+        event_probability_informative=event_probability_informative,
+        event_probability_note=_event_probability_note(
+            event_probability_reason_code,
+            rows_used=event_inputs.rows_used,
+            event_rate=event_rate,
+        ),
+        event_probability_reason_code=event_probability_reason_code,
+    )
+
+
+def _build_event_metrics_result(
+    *,
+    event_inputs: _EventMetricInputs,
+    context: _EventMetricContext,
+    probability_scores: _EventProbabilityScores,
+    selection: _EventMetricSelection,
+) -> EventMetrics:
+    heuristic_metrics = probability_scores.heuristic_metrics
+    return EventMetrics(
+        available=True,
+        logistic_available=event_inputs.logistic_available,
+        selected_model_key=selection.selected_model_key,
+        selected_model_label=_normalized_event_model_label(selection.selected_model_key, selection.selected_model_label),
+        brier_score=_optional_float(selection.selected_metrics.get('brier_score')),
+        baseline_brier_score=_optional_float(heuristic_metrics.get('baseline_brier_score')),
+        heuristic_brier_score=_optional_float(heuristic_metrics.get('brier_score')),
+        roc_auc=selection.selected_roc_auc,
+        baseline_roc_auc=probability_scores.baseline_roc_auc,
+        heuristic_roc_auc=probability_scores.heuristic_roc_auc,
+        f1=_optional_float(selection.selected_metrics.get('f1')),
+        baseline_f1=_optional_float(heuristic_metrics.get('baseline_f1')),
+        heuristic_f1=_optional_float(heuristic_metrics.get('f1')),
+        log_loss=selection.selected_log_loss,
+        baseline_log_loss=probability_scores.baseline_log_loss,
+        heuristic_log_loss=probability_scores.heuristic_log_loss,
+        comparison_rows=_normalize_event_comparison_rows(selection.comparison_rows),
+        rows_used=event_inputs.rows_used,
+        selection_rule=EVENT_SELECTION_RULE,
+        event_rate=context.event_rate,
+        evaluation_has_both_classes=context.evaluation_has_both_classes,
+        event_probability_informative=context.event_probability_informative,
+        event_probability_note=context.event_probability_note,
+        event_probability_reason_code=context.event_probability_reason_code,
+    )
+
+
 def _compute_event_metrics(
     rows: List[Dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> EventMetrics:
@@ -1557,79 +1802,37 @@ def _compute_event_metrics(
             reason_code=EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS,
         )
 
-    actuals = event_inputs.actuals
-    event_rate = _event_rate(actuals)
-    evaluation_has_both_classes = _has_both_event_classes(actuals)
-    if not evaluation_has_both_classes:
+    context = _event_metric_context(event_inputs)
+    if not context.evaluation_has_both_classes:
         return _empty_event_metrics(
             rows_used=event_inputs.rows_used,
-            event_rate=event_rate,
+            event_rate=context.event_rate,
             evaluation_has_both_classes=False,
             reason_code=EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION,
         )
 
-    event_probability_informative = not _event_rate_is_saturated(event_rate)
-    event_probability_reason_code = (
-        EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE if not event_probability_informative else None
-    )
-    event_probability_note = _event_probability_note(
-        event_probability_reason_code,
-        rows_used=event_inputs.rows_used,
-        event_rate=event_rate,
-    )
-
-    heuristic_metrics = compute_classification_metrics(
-        actuals,
-        event_inputs.heuristic_probabilities,
-        event_inputs.baseline_probabilities,
-        threshold=CLASSIFICATION_THRESHOLD,
-    )
-    baseline_roc_auc = _safe_roc_auc(actuals, event_inputs.baseline_probabilities)
-    heuristic_roc_auc = _safe_roc_auc(actuals, event_inputs.heuristic_probabilities)
-    baseline_log_loss = _safe_log_loss(actuals, event_inputs.baseline_probabilities)
-    heuristic_log_loss = _safe_log_loss(actuals, event_inputs.heuristic_probabilities)
+    probability_scores = _score_event_probability_candidates(event_inputs)
     selection = _initial_event_metric_selection(
-        heuristic_metrics=heuristic_metrics,
-        baseline_roc_auc=baseline_roc_auc,
-        heuristic_roc_auc=heuristic_roc_auc,
-        baseline_log_loss=baseline_log_loss,
-        heuristic_log_loss=heuristic_log_loss,
+        heuristic_metrics=probability_scores.heuristic_metrics,
+        baseline_roc_auc=probability_scores.baseline_roc_auc,
+        heuristic_roc_auc=probability_scores.heuristic_roc_auc,
+        baseline_log_loss=probability_scores.baseline_log_loss,
+        heuristic_log_loss=probability_scores.heuristic_log_loss,
     )
     selection = _with_classifier_event_selection(
         selection,
         event_inputs=event_inputs,
-        actuals=actuals,
-        event_probability_informative=event_probability_informative,
-        heuristic_metrics=heuristic_metrics,
-        heuristic_log_loss=heuristic_log_loss,
-        heuristic_roc_auc=heuristic_roc_auc,
+        event_probability_informative=context.event_probability_informative,
+        heuristic_metrics=probability_scores.heuristic_metrics,
+        heuristic_log_loss=probability_scores.heuristic_log_loss,
+        heuristic_roc_auc=probability_scores.heuristic_roc_auc,
     )
 
-    return EventMetrics(
-        available=True,
-        logistic_available=event_inputs.logistic_available,
-        selected_model_key=selection.selected_model_key,
-        selected_model_label=_normalized_event_model_label(selection.selected_model_key, selection.selected_model_label),
-        brier_score=_optional_float(selection.selected_metrics.get('brier_score')),
-        baseline_brier_score=_optional_float(heuristic_metrics.get('baseline_brier_score')),
-        heuristic_brier_score=_optional_float(heuristic_metrics.get('brier_score')),
-        roc_auc=selection.selected_roc_auc,
-        baseline_roc_auc=baseline_roc_auc,
-        heuristic_roc_auc=heuristic_roc_auc,
-        f1=_optional_float(selection.selected_metrics.get('f1')),
-        baseline_f1=_optional_float(heuristic_metrics.get('baseline_f1')),
-        heuristic_f1=_optional_float(heuristic_metrics.get('f1')),
-        log_loss=selection.selected_log_loss,
-        baseline_log_loss=baseline_log_loss,
-        heuristic_log_loss=heuristic_log_loss,
-        comparison_rows=_normalize_event_comparison_rows(selection.comparison_rows),
-        rows_used=event_inputs.rows_used,
-        selection_rule=EVENT_SELECTION_RULE,
-        event_rate=event_rate,
-        evaluation_has_both_classes=evaluation_has_both_classes,
-        event_probability_informative=event_probability_informative,
-        event_probability_note=event_probability_note,
-        event_probability_reason_code=event_probability_reason_code,
+    return _build_event_metrics_result(
+        event_inputs=event_inputs,
+        context=context,
+        probability_scores=probability_scores,
+        selection=selection,
     )
 
 
@@ -1656,5 +1859,5 @@ def _safe_roc_auc(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[fl
 def _safe_log_loss(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[float]:
     if actuals.size == 0:
         return None
-    clipped = np.clip(np.asarray(probabilities, dtype=float), 0.001, 0.999)
+    clipped = np.clip(probabilities.astype(float, copy=False), 0.001, 0.999)
     return float(log_loss(actuals, clipped, labels=[0, 1]))

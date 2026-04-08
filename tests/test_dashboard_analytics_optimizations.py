@@ -850,6 +850,12 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
                     side_effect=AssertionError("damage counts should come from grouped bundle"),
                 )
             )
+            stack.enter_context(
+                patch(
+                    "app.dashboard.distribution._collect_damage_counts",
+                    side_effect=AssertionError("damage chart helpers should reuse provided items"),
+                )
+            )
             stack.enter_context(patch("app.dashboard.service._build_cause_chart", return_value=empty_chart))
             stack.enter_context(patch("app.dashboard.service._build_trend", return_value={}))
             stack.enter_context(patch("app.dashboard.service._build_rankings", return_value={}))
@@ -907,6 +913,12 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
                 patch(
                     "app.dashboard.service._collect_damage_counts",
                     side_effect=AssertionError("damage counts should come from grouped bundle"),
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "app.dashboard.distribution._collect_damage_counts",
+                    side_effect=AssertionError("damage chart helpers should reuse provided items"),
                 )
             )
             stack.enter_context(patch("app.dashboard.service._build_management_snapshot", return_value={}))

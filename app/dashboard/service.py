@@ -216,6 +216,25 @@ def _build_dashboard_summary_series(
     }
 
 
+def _build_damage_dashboard_item_bundle(
+    selected_tables: list[dict[str, Any]],
+    selected_year: Optional[int],
+    damage_counts: Dict[str, int],
+) -> Dict[str, list[Dict[str, Any]]]:
+    return {
+        "category_items": _build_damage_category_items(
+            selected_tables,
+            selected_year,
+            counts=damage_counts,
+        ),
+        "theme_items": _build_damage_theme_items(
+            selected_tables,
+            selected_year,
+            counts=damage_counts,
+        ),
+    }
+
+
 def _build_damage_dashboard_charts(
     selected_tables: list[dict[str, Any]],
     selected_year: Optional[int],
@@ -223,16 +242,9 @@ def _build_damage_dashboard_charts(
     damage_counts: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     damage_counts = damage_counts if damage_counts is not None else _collect_damage_counts(selected_tables, selected_year)
-    damage_category_items = _build_damage_category_items(
-        selected_tables,
-        selected_year,
-        counts=damage_counts,
-    )
-    damage_theme_items = _build_damage_theme_items(
-        selected_tables,
-        selected_year,
-        counts=damage_counts,
-    )
+    damage_item_bundle = _build_damage_dashboard_item_bundle(selected_tables, selected_year, damage_counts)
+    damage_category_items = damage_item_bundle["category_items"]
+    damage_theme_items = damage_item_bundle["theme_items"]
     return {
         "distribution": _build_damage_overview_chart(
             selected_tables,

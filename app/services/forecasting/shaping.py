@@ -236,6 +236,81 @@ def _forecast_temperature_effect(
     return temperature_for_day, temperature_effect
 
 
+def _build_forecast_probability_context(
+    *,
+    weekday_event_rate: Dict[int, float],
+    month_event_rate: Dict[int, float],
+    weekday_positive_average: Dict[int, float],
+    month_positive_average: Dict[int, float],
+    recent_event_rate: float,
+    recent_positive_average: float,
+) -> Dict[str, object]:
+    return {
+        "weekday_event_rate": weekday_event_rate,
+        "month_event_rate": month_event_rate,
+        "weekday_positive_average": weekday_positive_average,
+        "month_positive_average": month_positive_average,
+        "recent_event_rate": recent_event_rate,
+        "recent_positive_average": recent_positive_average,
+    }
+
+
+def _forecast_probability_bundle(
+    target_date: date,
+    *,
+    estimate: float,
+    lower_bound: float,
+    upper_bound: float,
+    usual_for_day: float,
+    probability_context: Dict[str, object],
+) -> Dict[str, float]:
+    return {
+        "fire": _forecast_event_probability(target_date, estimate, **probability_context),
+        "lower": _forecast_event_probability(target_date, lower_bound, **probability_context),
+        "upper": _forecast_event_probability(target_date, upper_bound, **probability_context),
+        "usual": _forecast_event_probability(target_date, usual_for_day, **probability_context),
+    }
+
+
+def _build_forecast_row_payload(
+    *,
+    target_date: date,
+    estimate: float,
+    rounded_estimate: float,
+    lower_bound: float,
+    upper_bound: float,
+    usual_for_day: float,
+    temperature_for_day: Optional[float],
+    scenario_label: str,
+    scenario_tone: str,
+    probabilities: Dict[str, float],
+) -> Dict[str, object]:
+    return {
+        "date": target_date.isoformat(),
+        "date_display": target_date.strftime("%d.%m.%Y"),
+        "weekday_label": WEEKDAY_LABELS[target_date.weekday()],
+        "forecast_value": rounded_estimate,
+        "forecast_value_display": _format_number(rounded_estimate),
+        "forecast_value_human_display": f"около {_format_number(rounded_estimate)}",
+        "fire_probability": round(probabilities["fire"], 4),
+        "fire_probability_display": _format_probability(probabilities["fire"]),
+        "fire_probability_range_display": f"{_format_probability(probabilities['lower'])} - {_format_probability(probabilities['upper'])}",
+        "usual_fire_probability": round(probabilities["usual"], 4),
+        "usual_fire_probability_display": _format_probability(probabilities["usual"]),
+        "usual_value": round(usual_for_day, 2),
+        "usual_value_display": _format_number(usual_for_day),
+        "lower_bound": round(lower_bound, 2),
+        "lower_bound_display": _format_number(lower_bound),
+        "upper_bound": round(upper_bound, 2),
+        "upper_bound_display": _format_number(upper_bound),
+        "range_display": _format_count_range(lower_bound, upper_bound),
+        "temperature_display": f"{_format_number(temperature_for_day)} °C" if temperature_for_day is not None else "Сезонная средняя",
+        "scenario_label": scenario_label,
+        "scenario_tone": scenario_tone,
+        "scenario_hint": _relative_delta_text(estimate, usual_for_day, reference_label="к обычному уровню для такого дня"),
+    }
+
+
 def _build_forecast_rows(
     daily_history: List[Dict[str, object]],
     forecast_days: int,
@@ -282,14 +357,14 @@ def _build_forecast_rows(
 
     forecast_rows: List[Dict[str, object]] = []
     last_observed_date = history_dates[-1]
-    probability_kwargs = {
-        "weekday_event_rate": weekday_event_rate,
-        "month_event_rate": month_event_rate,
-        "weekday_positive_average": weekday_positive_average,
-        "month_positive_average": month_positive_average,
-        "recent_event_rate": recent_event_rate,
-        "recent_positive_average": recent_positive_average,
-    }
+    probability_context = _build_forecast_probability_context(
+        weekday_event_rate=weekday_event_rate,
+        month_event_rate=month_event_rate,
+        weekday_positive_average=weekday_positive_average,
+        month_positive_average=month_positive_average,
+        recent_event_rate=recent_event_rate,
+        recent_positive_average=recent_positive_average,
+    )
 
     for step in range(1, forecast_days + 1):
         target_date = last_observed_date + timedelta(days=step)
@@ -312,36 +387,28 @@ def _build_forecast_rows(
         upper_bound = min(robust_ceiling + spread, estimate + spread)
         rounded_estimate = round(estimate, 2)
         scenario_label, scenario_tone = _forecast_level_label(estimate, recent_average if recent_average > 0 else overall_average)
-        fire_probability = _forecast_event_probability(target_date, estimate, **probability_kwargs)
-        lower_probability = _forecast_event_probability(target_date, lower_bound, **probability_kwargs)
-        upper_probability = _forecast_event_probability(target_date, upper_bound, **probability_kwargs)
-        usual_probability = _forecast_event_probability(target_date, usual_for_day, **probability_kwargs)
+        probabilities = _forecast_probability_bundle(
+            target_date,
+            estimate=estimate,
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+            usual_for_day=usual_for_day,
+            probability_context=probability_context,
+        )
 
         forecast_rows.append(
-            {
-                "date": target_date.isoformat(),
-                "date_display": target_date.strftime("%d.%m.%Y"),
-                "weekday_label": WEEKDAY_LABELS[target_date.weekday()],
-                "forecast_value": rounded_estimate,
-                "forecast_value_display": _format_number(rounded_estimate),
-                "forecast_value_human_display": f"около {_format_number(rounded_estimate)}",
-                "fire_probability": round(fire_probability, 4),
-                "fire_probability_display": _format_probability(fire_probability),
-                "fire_probability_range_display": f"{_format_probability(lower_probability)} - {_format_probability(upper_probability)}",
-                "usual_fire_probability": round(usual_probability, 4),
-                "usual_fire_probability_display": _format_probability(usual_probability),
-                "usual_value": round(usual_for_day, 2),
-                "usual_value_display": _format_number(usual_for_day),
-                "lower_bound": round(lower_bound, 2),
-                "lower_bound_display": _format_number(lower_bound),
-                "upper_bound": round(upper_bound, 2),
-                "upper_bound_display": _format_number(upper_bound),
-                "range_display": _format_count_range(lower_bound, upper_bound),
-                "temperature_display": f"{_format_number(temperature_for_day)} °C" if temperature_for_day is not None else "Сезонная средняя",
-                "scenario_label": scenario_label,
-                "scenario_tone": scenario_tone,
-                "scenario_hint": _relative_delta_text(estimate, usual_for_day, reference_label="к обычному уровню для такого дня"),
-            }
+            _build_forecast_row_payload(
+                target_date=target_date,
+                estimate=estimate,
+                rounded_estimate=rounded_estimate,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                usual_for_day=usual_for_day,
+                temperature_for_day=temperature_for_day,
+                scenario_label=scenario_label,
+                scenario_tone=scenario_tone,
+                probabilities=probabilities,
+            )
         )
 
     return forecast_rows

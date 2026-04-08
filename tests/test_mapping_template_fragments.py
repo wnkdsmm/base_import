@@ -4,6 +4,7 @@ import unittest
 
 from core.mapping.config import MarkerStyle
 from core.mapping.mixins.templates import MapCreatorTemplateMixin
+from core.mapping.mixins.template_fragment_scripts import build_popup_script_lines
 from core.mapping.mixins.utilities import MapCreatorUtilityMixin
 
 
@@ -167,6 +168,10 @@ class MappingTemplateFragmentsTest(unittest.TestCase):
         self.assertIn('analyticsLayers.clusters', html)
         self.assertIn('analyticsLayers.risk_zones', html)
         self.assertIn('analyticsLayers.priorities', html)
+        for layer_id in ("heatmap", "hotspots", "clusters", "risk_zones", "priorities"):
+            self.assertIn(f"visible: !!analyticsLayerDefaults.{layer_id}", html)
+        self.assertLess(html.index("analyticsLayers.hotspots ="), html.index("analyticsLayers.risk_zones ="))
+        self.assertLess(html.index("analyticsLayers.risk_zones ="), html.index("analyticsLayers.priorities ="))
         self.assertIn('updateCategoryLayers', html)
         self.assertIn('updateAnalyticsLayers', html)
         self.assertIn('map.addControl(new ol.control.FullScreen());', html)
@@ -187,6 +192,18 @@ class MappingTemplateFragmentsTest(unittest.TestCase):
         self.assertEqual(len(features["clusters"]["features"]), 1)
         self.assertEqual(len(features["risk_zones"]["features"]), 1)
         self.assertEqual(len(features["priorities"]["features"]), 1)
+        self.assertEqual(
+            features["clusters"]["features"][0]["properties"]["popup_rows"][0],
+            {"label": "DBSCAN", "value": "Cluster 1"},
+        )
+        self.assertEqual(
+            features["risk_zones"]["features"][0]["properties"]["popup_rows"][0],
+            {"title": "Priority"},
+        )
+        self.assertEqual(
+            features["priorities"]["features"][0]["properties"]["popup_rows"][0],
+            {"title": "P1"},
+        )
 
         layer_defaults = _extract_js_constant(html, "analyticsLayerDefaults")
         self.assertEqual(
@@ -204,6 +221,14 @@ class MappingTemplateFragmentsTest(unittest.TestCase):
         heatmap_config = _extract_js_constant(html, "heatmapConfig")
         self.assertEqual(heatmap_config, {"enabled": True, "radius": 18, "blur": 22})
         self.assertNotIn("points", heatmap_config)
+
+    def test_popup_script_builder_keeps_popup_rows_contract(self):
+        script = "\n".join(build_popup_script_lines())
+
+        self.assertIn('const rows = feature.get("popup_rows");', script)
+        self.assertIn('Object.prototype.hasOwnProperty.call(row, "title")', script)
+        self.assertIn('replaceChildren(popupElement)', script)
+        self.assertIn('overlay.setPosition(undefined);', script)
 
 
 if __name__ == "__main__":

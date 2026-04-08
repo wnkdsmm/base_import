@@ -5,6 +5,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
+from app.services import clustering as clustering_package
 from app.services.clustering.analysis import (
     _build_clustering_mode_context,
     _build_default_feature_selection_analysis,
@@ -19,6 +20,7 @@ from app.services.clustering.analysis import (
     _select_recommended_method_row,
 )
 from app.services.clustering.charts import _diagnostic_annotations
+from app.services.clustering import quality as clustering_quality
 from app.services.clustering.core import (
     _build_clustering_quality_assessment,
     _build_cluster_count_guidance,
@@ -910,6 +912,119 @@ _BaseQualityAssessmentTests = QualityAssessmentTests
 
 
 class QualityAssessmentTests(_BaseQualityAssessmentTests):
+    def test_quality_module_exports_private_helpers_without_core_cycle(self) -> None:
+        expected_exports = {
+            name
+            for name in clustering_quality.__dict__
+            if name.startswith("_")
+            and callable(getattr(clustering_quality, name))
+            and getattr(getattr(clustering_quality, name), "__module__", "") == clustering_quality.__name__
+            and not name.startswith("__")
+        }
+
+        self.assertEqual(set(clustering_quality.__all__), expected_exports)
+        self.assertEqual(list(clustering_quality.__all__), sorted(clustering_quality.__all__))
+        self.assertTrue(all(name.startswith("_") for name in clustering_quality.__all__))
+        self.assertTrue(all(hasattr(clustering_quality, name) for name in clustering_quality.__all__))
+        self.assertIn("quality", clustering_package.__all__)
+        self.assertLess(clustering_package.__all__.index("quality"), clustering_package.__all__.index("core"))
+        self.assertIs(_build_clustering_quality_assessment, clustering_quality._build_clustering_quality_assessment)
+        self.assertIs(_build_cluster_count_guidance, clustering_quality._build_cluster_count_guidance)
+        self.assertNotIn("core", clustering_quality.__dict__)
+        imported_clustering_modules = {
+            getattr(value, "__module__", "")
+            for value in clustering_quality.__dict__.values()
+            if str(getattr(value, "__module__", "")).startswith("app.services.clustering.")
+        }
+        self.assertNotIn("app.services.clustering.core", imported_clustering_modules)
+
+    def test_cluster_count_recommendation_context_preserves_adjustment_warning(self) -> None:
+        context = clustering_quality._build_cluster_count_guidance_context(
+            requested_cluster_count=9,
+            current_cluster_count=4,
+            diagnostics={"best_quality_k": 2, "best_silhouette_k": 3},
+            adjusted_requested_cluster_count=4,
+            cluster_count_is_explicit=True,
+        )
+
+        messages = clustering_quality._build_cluster_count_recommendation_context(
+            context,
+            cluster_count_is_explicit=True,
+        )
+        adjusted = clustering_quality._apply_cluster_count_adjustment_warning(context, messages)
+        methodology_meta = clustering_quality._build_cluster_count_methodology_meta(
+            context,
+            cluster_count_is_explicit=True,
+        )
+
+        self.assertTrue(context["request_adjusted"])
+        self.assertTrue(context["recommendation_gap"])
+        self.assertEqual(context["recommended_k"], 2)
+        self.assertIn("k=9", adjusted["current_note"])
+        self.assertIn("k=4", adjusted["current_note"])
+        self.assertIn("k=2", adjusted["quality_note"])
+        self.assertEqual(adjusted["notes_message"], adjusted["quality_note"])
+        self.assertIn("k=9", methodology_meta)
+        self.assertIn("k=2", methodology_meta)
+
+    def test_quality_note_context_preserves_warning_and_recommendation_notes(self) -> None:
+        selected_method = {
+            "method_key": "kmeans_incident_log",
+            "algorithm_key": "kmeans",
+            "method_label": "KMeans weighted",
+            "is_selected": True,
+            "is_recommended": False,
+        }
+        recommended_method = {
+            "method_key": "kmeans_uniform",
+            "algorithm_key": "kmeans",
+            "method_label": "KMeans uniform",
+            "is_selected": False,
+            "is_recommended": True,
+        }
+        working_configuration = {**selected_method, "cluster_count": 4}
+        recommended_configuration = {**recommended_method, "cluster_count": 5}
+
+        context = clustering_quality._build_quality_note_context(
+            clustering={
+                "silhouette": 0.31,
+                "davies_bouldin": 1.12,
+                "cluster_balance_ratio": 0.08,
+                "stability_ari": 0.42,
+                "initialization_ari": 0.74,
+                "smallest_cluster_size": 1,
+                "largest_cluster_size": 24,
+                "microcluster_threshold": 3,
+                "has_microclusters": True,
+            },
+            selected_method=selected_method,
+            working_configuration=working_configuration,
+            effective_recommended_configuration=recommended_configuration,
+            recommended_method=recommended_configuration,
+            cluster_count=4,
+            recommended_k=5,
+            method_comparison=[selected_method, recommended_method],
+            feature_selection_report={
+                "volume_role_label": "Profile mode",
+                "weighting_label": "Uniform weights",
+                "ablation_rows": [
+                    {"direction": "add", "delta_score": -0.19, "feature": "noisy_share"},
+                ],
+            },
+            resample_share_label="70%",
+            cluster_count_is_explicit=True,
+        )
+
+        self.assertIn("segmentation_summary", context)
+        self.assertTrue(context["comparison_scope_note"])
+        self.assertTrue(context["cluster_shape_note"])
+        self.assertIn("noisy_share", context["ablation_note"])
+        self.assertIn("KMeans uniform", context["method_note"])
+        self.assertIn("random_state", context["stability_note"])
+        self.assertEqual(context["label_context"]["mode_label"], "Profile mode")
+        self.assertEqual(context["label_context"]["weighting_label"], "Uniform weights")
+        self.assertEqual(context["segmentation_summary"]["label"], "\u0421\u043b\u0430\u0431\u0430\u044f")
+
     def test_cluster_count_guidance_warns_when_recommended_k_differs_from_current(self) -> None:
         guidance = _build_cluster_count_guidance(
             requested_cluster_count=4,

@@ -417,20 +417,21 @@ def _build_dashboard_grouped_counts_query(
     include_impact_timeline: bool = True,
     positive_count_columns: Sequence[str] = (),
 ) -> tuple[Optional[str], bool]:
+    positive_columns = tuple(positive_count_columns)
     context = _resolve_grouped_count_query_context(
         table,
         selected_year,
         selected_group_column,
         include_area_buckets=include_area_buckets,
         include_impact_timeline=include_impact_timeline,
-        include_positive_columns=bool(positive_count_columns),
+        include_positive_columns=bool(positive_columns),
     )
     if context is None:
         return None, False
 
     dimension_sql = _build_grouped_count_dimension_sql(
         context["dimensions"],
-        include_positive_columns=bool(positive_count_columns),
+        include_positive_columns=bool(positive_columns),
     )
 
     month_label_expression, date_value_expression = _build_grouped_count_time_expressions(
@@ -443,12 +444,12 @@ def _build_dashboard_grouped_counts_query(
         context,
         month_label_expression=month_label_expression,
         date_value_expression=date_value_expression,
-        positive_count_columns=positive_count_columns,
+        positive_count_columns=positive_columns,
     )
 
     result_selects = _build_grouped_count_result_selects(
         context["has_timeline"],
-        positive_count_columns=positive_count_columns,
+        positive_count_columns=positive_columns,
         positive_group_condition=dimension_sql["positive_group_condition"],
     )
     metric_selects = result_selects["metric_selects"] + result_selects["positive_metric_selects"]
@@ -489,9 +490,10 @@ def _collect_dashboard_grouped_counts(
     month_counts: Dict[int, int] = defaultdict(int)
     area_bucket_counts: Dict[str, int] = defaultdict(int)
     distribution_counts: Dict[str, int] = defaultdict(int)
+    positive_columns = tuple(positive_count_columns or ())
     positive_column_counts: Dict[str, int] = {
         column_name: 0
-        for column_name in (positive_count_columns or [])
+        for column_name in positive_columns
     }
     impact_timeline_rows: List[Dict[str, Any]] = []
     subqueries: List[str] = []
@@ -505,7 +507,7 @@ def _collect_dashboard_grouped_counts(
             len(subqueries),
             include_area_buckets=include_area_buckets,
             include_impact_timeline=include_impact_timeline,
-            positive_count_columns=positive_count_columns or (),
+            positive_count_columns=positive_columns,
         )
         if query is not None:
             subqueries.append(query)
@@ -538,7 +540,7 @@ def _collect_dashboard_grouped_counts(
         elif metric_kind == "area_bucket":
             area_bucket_counts[str(label or "Не указано")] += fire_count
         elif metric_kind == "positive_column_bundle":
-            for index, column_name in enumerate(positive_count_columns or ()):
+            for index, column_name in enumerate(positive_columns):
                 positive_column_counts[column_name] += int(row[f"positive_metric_{index}"] or 0)
         elif metric_kind == "impact_timeline":
             impact_timeline_rows.append(dict(row))
