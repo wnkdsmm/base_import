@@ -9,7 +9,7 @@ from app.services.forecast_risk.utils import _clean_text, _is_rural_label, _norm
 
 from .constants import GENERIC_OBJECT_TOKENS, MIN_ACCESS_POINT_SUPPORT, POINT_FEATURE_COLUMNS
 from .data import _collect_access_point_inputs
-from .numeric import _finite_numeric_frame, _normalize_coordinate, _safe_mean, _share
+from .numeric import _finite_numeric_columns, _normalize_coordinate, _safe_mean, _share
 
 
 def _normalize_identity_token(value: Any) -> str:
@@ -253,6 +253,67 @@ def _build_point_priors(buckets: Dict[str, Dict[str, Any]], total_incidents: int
     }
 
 
+def _build_smoothed_bucket_shares(
+    bucket: Dict[str, Any],
+    *,
+    incident_count: int,
+    response_count: int,
+    known_water_count: int,
+    priors: Dict[str, float],
+    resolved_support: int,
+) -> Dict[str, float]:
+    return {
+        "long_arrival": _smooth_share(
+            int(bucket["long_arrival_count"]),
+            response_count,
+            priors["long_arrival"],
+            resolved_support,
+        ),
+        "no_water": _smooth_share(
+            int(bucket["water_no_count"]),
+            known_water_count,
+            priors["no_water"],
+            resolved_support,
+        ),
+        "severe": _smooth_share(
+            int(bucket["severe_count"]),
+            incident_count,
+            priors["severe"],
+            resolved_support,
+        ),
+        "victims": _smooth_share(
+            int(bucket["victims_count"]),
+            incident_count,
+            priors["victims"],
+            resolved_support,
+        ),
+        "major_damage": _smooth_share(
+            int(bucket["major_damage_count"]),
+            incident_count,
+            priors["major_damage"],
+            resolved_support,
+        ),
+        "night": _smooth_share(
+            int(bucket["night_count"]),
+            incident_count,
+            priors["night"],
+            resolved_support,
+        ),
+        "heating": _smooth_share(
+            int(bucket["heating_count"]),
+            incident_count,
+            priors["heating"],
+            resolved_support,
+        ),
+        "rural": _smooth_share(
+            int(bucket["rural_count"]),
+            incident_count,
+            priors["rural"],
+            resolved_support,
+        ),
+    }
+
+
 def _build_point_entity_frames(
     records: Sequence[Dict[str, Any]],
     *,
@@ -277,7 +338,7 @@ def _build_point_entity_frames(
         total_incidents += 1
         _update_point_bucket_from_record(bucket, record)
 
-    priors = _build_point_priors(buckets, total_incidents)
+    priors = {key: float(value) for key, value in _build_point_priors(buckets, total_incidents).items()}
 
     rows: List[Dict[str, Any]] = []
     for bucket in buckets.values():
@@ -294,54 +355,22 @@ def _build_point_entity_frames(
         distance_coverage_share = _share(distance_count, incident_count)
         water_unknown_share = max(0.0, 1.0 - water_coverage_share)
 
-        long_arrival_share = _smooth_share(
-            int(bucket["long_arrival_count"]),
-            response_count,
-            float(priors["long_arrival"]),
-            resolved_support,
+        smoothed_shares = _build_smoothed_bucket_shares(
+            bucket,
+            incident_count=incident_count,
+            response_count=response_count,
+            known_water_count=known_water_count,
+            priors=priors,
+            resolved_support=resolved_support,
         )
-        no_water_share = _smooth_share(
-            int(bucket["water_no_count"]),
-            known_water_count,
-            float(priors["no_water"]),
-            resolved_support,
-        )
-        severe_share = _smooth_share(
-            int(bucket["severe_count"]),
-            incident_count,
-            float(priors["severe"]),
-            resolved_support,
-        )
-        victim_share = _smooth_share(
-            int(bucket["victims_count"]),
-            incident_count,
-            float(priors["victims"]),
-            resolved_support,
-        )
-        major_damage_share = _smooth_share(
-            int(bucket["major_damage_count"]),
-            incident_count,
-            float(priors["major_damage"]),
-            resolved_support,
-        )
-        night_share = _smooth_share(
-            int(bucket["night_count"]),
-            incident_count,
-            float(priors["night"]),
-            resolved_support,
-        )
-        heating_share = _smooth_share(
-            int(bucket["heating_count"]),
-            incident_count,
-            float(priors["heating"]),
-            resolved_support,
-        )
-        rural_share = _smooth_share(
-            int(bucket["rural_count"]),
-            incident_count,
-            float(priors["rural"]),
-            resolved_support,
-        )
+        long_arrival_share = smoothed_shares["long_arrival"]
+        no_water_share = smoothed_shares["no_water"]
+        severe_share = smoothed_shares["severe"]
+        victim_share = smoothed_shares["victims"]
+        major_damage_share = smoothed_shares["major_damage"]
+        night_share = smoothed_shares["night"]
+        heating_share = smoothed_shares["heating"]
+        rural_share = smoothed_shares["rural"]
 
         district_label = bucket["districts"].most_common(1)[0][0] if bucket["districts"] else ""
         territory_label = bucket["territories"].most_common(1)[0][0] if bucket["territories"] else ""
@@ -415,12 +444,10 @@ def _build_point_entity_frames(
         ascending=[False, False, True],
     ).reset_index(drop=True)
 
-    feature_frame = entity_frame.loc[:, [column for column in POINT_FEATURE_COLUMNS if column in entity_frame.columns]].copy()
-    if "low_support" in feature_frame.columns:
-        feature_frame["low_support"] = feature_frame["low_support"].astype(float)
-    if "rural_flag" in feature_frame.columns:
-        feature_frame["rural_flag"] = feature_frame["rural_flag"].astype(float)
-    feature_frame = _finite_numeric_frame(feature_frame)
+    feature_frame = _finite_numeric_columns(
+        entity_frame,
+        [column for column in POINT_FEATURE_COLUMNS if column in entity_frame.columns],
+    )
     return entity_frame, feature_frame
 
 

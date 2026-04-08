@@ -104,6 +104,50 @@ class CountModelSelectionTests(unittest.TestCase):
         self.assertAlmostEqual(selected_metrics['mae'], 0.94)
         self.assertEqual(context['raw_best_key'], 'seasonal_baseline')
 
+    def test_backtest_selection_reuses_validation_horizon_arrays(self) -> None:
+        actual_counts = [float(index) for index in range(1, 10)]
+        rows = [
+            BacktestWindowRow(
+                origin_date=f'2024-01-{index:02d}',
+                date=f'2024-02-{index:02d}',
+                horizon_days=1,
+                actual_count=actual_count,
+                baseline_count=actual_count + 10.0,
+                heuristic_count=actual_count + 9.0,
+                actual_event=1 if index % 2 else 0,
+                baseline_event_probability=0.5,
+                heuristic_event_probability=0.5,
+                predictions={
+                    'poisson': actual_count,
+                    'negative_binomial': actual_count + 4.0,
+                },
+                predicted_event_probabilities={
+                    'poisson': 0.5,
+                    'negative_binomial': 0.5,
+                },
+            )
+            for index, actual_count in enumerate(actual_counts, start=1)
+        ]
+        dataset = pd.DataFrame({'count': actual_counts})
+
+        selection = ml_training_backtesting._select_backtest_count_model(rows, dataset)
+
+        self.assertEqual(selection.selected_count_model_key, 'poisson')
+        np.testing.assert_allclose(selection.validation_evaluation_data.selected_predictions, actual_counts)
+        with patch.object(
+            ml_training_backtesting,
+            '_selected_count_predictions',
+            side_effect=AssertionError('validation horizon selected predictions should be reused'),
+        ):
+            evaluation_data_by_horizon = ml_training_backtesting._build_horizon_evaluation_data_by_horizon(
+                {1: rows},
+                [1],
+                selection.selected_count_model_key,
+                precomputed={1: selection.validation_evaluation_data},
+            )
+
+        self.assertIs(evaluation_data_by_horizon[1], selection.validation_evaluation_data)
+
     def test_prefers_heuristic_over_nearly_equal_ml_for_explainability(self) -> None:
         baseline_metrics = {
             'mae': 1.22,

@@ -49,6 +49,474 @@ def _history_date_bounds(records: Sequence[Dict[str, Any]]) -> tuple[Any, Any]:
     return history_start, history_end
 
 
+def _territory_label(record: Dict[str, Any]) -> str:
+    return record["territory_label"] or record["district"] or "Территория не указана"
+
+
+def _horizon_context(
+    records: Sequence[Dict[str, Any]],
+    planning_horizon_days: int,
+) -> Dict[str, Any]:
+    history_start, history_end = _history_date_bounds(records)
+    history_days = max(1, (history_end - history_start).days + 1)
+    horizon_days = max(1, int(planning_horizon_days or 14))
+    future_dates = [history_end + timedelta(days=offset) for offset in range(1, horizon_days + 1)]
+    recent_window_days = max(1, min(history_days, 90))
+    return {
+        "history_end": history_end,
+        "history_days": history_days,
+        "horizon_days": horizon_days,
+        "future_months": Counter(item.month for item in future_dates),
+        "future_weekdays": Counter(item.weekday() for item in future_dates),
+        "future_heating_share": sum(1 for item in future_dates if _is_heating_season(item)) / horizon_days,
+        "recent_window_days": recent_window_days,
+        "recent_window_start": history_end - timedelta(days=recent_window_days - 1),
+    }
+
+
+def _empty_territory_bucket(label: str) -> Dict[str, Any]:
+    return {
+        "label": label,
+        "incidents": 0,
+        "weighted_history": 0.0,
+        "seasonal_month_sum": 0.0,
+        "seasonal_weekday_sum": 0.0,
+        "last_fire": None,
+        "response_sum": 0.0,
+        "response_count": 0,
+        "long_arrivals": 0,
+        "distance_sum": 0.0,
+        "distance_count": 0,
+        "water_known": 0,
+        "water_available": 0,
+        "severe": 0,
+        "victims": 0,
+        "major_damage": 0,
+        "night_incidents": 0,
+        "heating_incidents": 0,
+        "risk_score_sum": 0.0,
+        "risk_score_count": 0,
+        "causes": Counter(),
+        "object_categories": Counter(),
+        "settlement_types": Counter(),
+    }
+
+
+def _history_weight_for_record(record_date: Any, horizon: Dict[str, Any]) -> tuple[float, float, float]:
+    horizon_days = horizon["horizon_days"]
+    age_days = max(0, (horizon["history_end"] - record_date).days)
+    month_alignment = horizon["future_months"].get(record_date.month, 0) / horizon_days
+    weekday_alignment = horizon["future_weekdays"].get(record_date.weekday(), 0) / horizon_days
+    recency_weight = max(0.25, 1.0 - age_days / max(210.0, float(horizon["history_days"])))
+    history_weight = recency_weight * (1.0 + 0.40 * month_alignment) * (1.0 + 0.18 * weekday_alignment)
+    return month_alignment, weekday_alignment, history_weight
+
+
+def _update_territory_bucket(
+    bucket: Dict[str, Any],
+    record: Dict[str, Any],
+    *,
+    month_alignment: float,
+    weekday_alignment: float,
+    history_weight: float,
+) -> None:
+    record_date = record["date"]
+    bucket["incidents"] += 1
+    bucket["weighted_history"] += history_weight
+    bucket["seasonal_month_sum"] += month_alignment
+    bucket["seasonal_weekday_sum"] += weekday_alignment
+    bucket["last_fire"] = record_date if bucket["last_fire"] is None else max(bucket["last_fire"], record_date)
+    if record["response_minutes"] is not None:
+        bucket["response_sum"] += float(record["response_minutes"])
+        bucket["response_count"] += 1
+        if record["long_arrival"]:
+            bucket["long_arrivals"] += 1
+    if record["fire_station_distance"] is not None:
+        bucket["distance_sum"] += float(record["fire_station_distance"])
+        bucket["distance_count"] += 1
+    if record["has_water_supply"] is not None:
+        bucket["water_known"] += 1
+        if record["has_water_supply"]:
+            bucket["water_available"] += 1
+    if record["severe_consequence"]:
+        bucket["severe"] += 1
+    if record["victims_present"]:
+        bucket["victims"] += 1
+    if record["major_damage"]:
+        bucket["major_damage"] += 1
+    if record["night_incident"]:
+        bucket["night_incidents"] += 1
+    if record["heating_season"]:
+        bucket["heating_incidents"] += 1
+    bucket["risk_score_sum"] += float(record["risk_category_score"])
+    bucket["risk_score_count"] += 1
+    if record["cause"]:
+        bucket["causes"][record["cause"]] += 1
+    if record["object_category"]:
+        bucket["object_categories"][record["object_category"]] += 1
+    if record["settlement_type"]:
+        bucket["settlement_types"][record["settlement_type"]] += 1
+
+
+def _collect_territory_buckets(
+    records: Sequence[Dict[str, Any]],
+    horizon: Dict[str, Any],
+) -> tuple[Dict[str, Dict[str, Any]], int]:
+    recent_incidents = 0
+    territories: Dict[str, Dict[str, Any]] = {}
+    for record in records:
+        record_date = record["date"]
+        if record_date >= horizon["recent_window_start"]:
+            recent_incidents += 1
+        label = _territory_label(record)
+        bucket = territories.get(label)
+        if bucket is None:
+            bucket = _empty_territory_bucket(label)
+            territories[label] = bucket
+        month_alignment, weekday_alignment, history_weight = _history_weight_for_record(record_date, horizon)
+        _update_territory_bucket(
+            bucket,
+            record,
+            month_alignment=month_alignment,
+            weekday_alignment=weekday_alignment,
+            history_weight=history_weight,
+        )
+    return territories, recent_incidents
+
+
+def _normalization_fields(
+    territories: Dict[str, Dict[str, Any]],
+    recent_incidents: int,
+    recent_window_days: int,
+) -> Dict[str, float]:
+    return {
+        "base_fire_signal": _clamp(1.0 - math.exp(-(recent_incidents / recent_window_days)), 0.08, 0.72),
+        "max_incidents": max(bucket["incidents"] for bucket in territories.values()),
+        "max_weighted": max(bucket["weighted_history"] for bucket in territories.values()),
+    }
+
+
+def _territory_identity_fields(bucket: Dict[str, Any]) -> Dict[str, Any]:
+    dominant_object_category = _counter_top_label(bucket["object_categories"], "Не указано")
+    dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано")
+    is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
+    settlement_context_label = "Сельская территория" if is_rural else "Территория без выраженного сельского профиля"
+    return {
+        "dominant_object_category": dominant_object_category,
+        "dominant_settlement_type": dominant_settlement_type,
+        "is_rural": is_rural,
+        "settlement_context_label": settlement_context_label,
+    }
+
+
+def _normalized_risk_fields(
+    bucket: Dict[str, Any],
+    horizon: Dict[str, Any],
+    normalization: Dict[str, float],
+) -> Dict[str, float]:
+    incidents = bucket["incidents"]
+    history_pressure = incidents / max(1, normalization["max_incidents"])
+    recency_pressure = bucket["weighted_history"] / max(1.0, normalization["max_weighted"])
+    seasonal_alignment = _clamp(
+        0.62 * (bucket["seasonal_month_sum"] / incidents) + 0.38 * (bucket["seasonal_weekday_sum"] / incidents),
+        0.0,
+        1.0,
+    )
+    base_fire_signal = normalization["base_fire_signal"]
+    expected_value = (bucket["weighted_history"] / horizon["history_days"]) * horizon["horizon_days"] * (0.72 + base_fire_signal)
+    fire_probability = _clamp(
+        max(
+            1.0 - math.exp(-max(0.0, expected_value)),
+            base_fire_signal * min(0.94, 0.22 + history_pressure * 0.52),
+        ),
+        0.02,
+        0.995,
+    )
+
+    severe_rate = bucket["severe"] / incidents
+    victims_rate = bucket["victims"] / incidents
+    damage_rate = bucket["major_damage"] / incidents
+    heating_share = bucket["heating_incidents"] / incidents
+    heating_pressure = _clamp(heating_share * horizon["future_heating_share"], 0.0, 1.0)
+    night_share = bucket["night_incidents"] / incidents
+    risk_factor = bucket["risk_score_sum"] / bucket["risk_score_count"] if bucket["risk_score_count"] else 0.26
+    casualty_pressure = _clamp(victims_rate * 1.8, 0.0, 1.0)
+    damage_pressure = _clamp(0.70 * damage_rate + 0.30 * severe_rate, 0.0, 1.0)
+    severe_probability = _clamp(
+        0.46 * severe_rate + 0.26 * casualty_pressure + 0.18 * damage_pressure + 0.10 * risk_factor,
+        0.02,
+        0.98,
+    )
+
+    return {
+        "incidents": incidents,
+        "history_pressure": history_pressure,
+        "recency_pressure": recency_pressure,
+        "seasonal_alignment": seasonal_alignment,
+        "fire_probability": fire_probability,
+        "severe_rate": severe_rate,
+        "victims_rate": victims_rate,
+        "damage_rate": damage_rate,
+        "heating_share": heating_share,
+        "heating_pressure": heating_pressure,
+        "night_share": night_share,
+        "risk_factor": risk_factor,
+        "casualty_pressure": casualty_pressure,
+        "damage_pressure": damage_pressure,
+        "severe_probability": severe_probability,
+    }
+
+
+def _logistics_fields(
+    bucket: Dict[str, Any],
+    defaults: Dict[str, Any],
+    *,
+    is_rural: bool,
+    night_share: float,
+) -> Dict[str, Any]:
+    avg_response = bucket["response_sum"] / bucket["response_count"] if bucket["response_count"] else None
+    avg_distance = bucket["distance_sum"] / bucket["distance_count"] if bucket["distance_count"] else None
+    distance_score = _clamp(
+        ((avg_distance or float(defaults.get("distance_km_baseline", 12.0))) - 6.0) / 24.0,
+        0.0,
+        1.0,
+    )
+    long_arrival_rate = (
+        bucket["long_arrivals"] / bucket["response_count"] if bucket["response_count"] else _clamp(distance_score * 0.55, 0.05, 0.75)
+    )
+    response_pressure = (
+        _clamp((avg_response - 12.0) / 18.0, 0.0, 1.0)
+        if avg_response is not None
+        else _clamp(max(float(defaults.get("response_pressure_unknown", 0.42)), distance_score * 0.72), 0.0, 1.0)
+    )
+    logistics_profile = build_explainable_logistics_profile(
+        avg_distance_km=avg_distance,
+        avg_response_minutes=avg_response,
+        long_arrival_rate=long_arrival_rate,
+        is_rural=is_rural,
+        response_observations=bucket["response_count"],
+        distance_observations=bucket["distance_count"],
+        night_share=night_share,
+    )
+    arrival_probability = _clamp(
+        0.24 * long_arrival_rate
+        + 0.18 * response_pressure
+        + 0.22 * float(logistics_profile["travel_time_pressure"])
+        + 0.22 * float(logistics_profile["service_coverage_gap"])
+        + 0.14 * float(logistics_profile["service_zone_pressure"]),
+        0.03,
+        0.98,
+    )
+    return {
+        "avg_response": avg_response,
+        "avg_distance": avg_distance,
+        "distance_score": distance_score,
+        "long_arrival_rate": long_arrival_rate,
+        "response_pressure": response_pressure,
+        "logistics_profile": logistics_profile,
+        "arrival_probability": arrival_probability,
+    }
+
+
+def _water_fields(
+    bucket: Dict[str, Any],
+    defaults: Dict[str, Any],
+    *,
+    distance_score: float,
+    response_pressure: float,
+) -> Dict[str, float]:
+    water_gap_rate = (
+        1.0 - (bucket["water_available"] / bucket["water_known"])
+        if bucket["water_known"]
+        else float(defaults.get("water_gap_unknown", 0.38))
+    )
+    tanker_dependency = _clamp(0.58 * distance_score + 0.42 * response_pressure, 0.0, 1.0)
+    water_deficit_probability = _clamp(0.76 * water_gap_rate + 0.24 * tanker_dependency, 0.02, 0.99)
+    return {
+        "water_gap_rate": water_gap_rate,
+        "tanker_dependency": tanker_dependency,
+        "water_deficit_probability": water_deficit_probability,
+    }
+
+
+def _score_inputs(
+    bucket: Dict[str, Any],
+    identity: Dict[str, Any],
+    risk_fields: Dict[str, float],
+    logistics: Dict[str, Any],
+    water: Dict[str, float],
+) -> tuple[Dict[str, float], Dict[str, Any]]:
+    logistics_profile = logistics["logistics_profile"]
+    signal_values = {
+        "predicted_repeat_rate": risk_fields["fire_probability"],
+        "history_pressure": risk_fields["history_pressure"],
+        "recency_pressure": risk_fields["recency_pressure"],
+        "seasonal_alignment": risk_fields["seasonal_alignment"],
+        "heating_pressure": risk_fields["heating_pressure"],
+        "severe_rate": risk_fields["severe_rate"],
+        "casualty_pressure": risk_fields["casualty_pressure"],
+        "damage_pressure": risk_fields["damage_pressure"],
+        "risk_category_factor": risk_fields["risk_factor"],
+        "long_arrival_rate": logistics["long_arrival_rate"],
+        "avg_response_pressure": logistics["response_pressure"],
+        "distance_pressure": logistics["distance_score"],
+        "travel_time_pressure": float(logistics_profile["travel_time_pressure"]),
+        "service_coverage_gap": float(logistics_profile["service_coverage_gap"]),
+        "service_zone_pressure": float(logistics_profile["service_zone_pressure"]),
+        "night_pressure": risk_fields["night_share"],
+        "water_gap_rate": water["water_gap_rate"],
+        "tanker_dependency": water["tanker_dependency"],
+        "rural_context": 1.0 if identity["is_rural"] else 0.0,
+    }
+
+    context = {
+        "incidents": risk_fields["incidents"],
+        "history_pressure": risk_fields["history_pressure"],
+        "recency_pressure": risk_fields["recency_pressure"],
+        "seasonal_alignment": risk_fields["seasonal_alignment"],
+        "fire_probability": risk_fields["fire_probability"],
+        "severe_rate": risk_fields["severe_rate"],
+        "victims_rate": risk_fields["victims_rate"],
+        "damage_rate": risk_fields["damage_rate"],
+        "risk_factor": risk_fields["risk_factor"],
+        "avg_response": logistics["avg_response"],
+        "avg_distance": logistics["avg_distance"],
+        "long_arrival_rate": logistics["long_arrival_rate"],
+        "travel_time_minutes": logistics_profile["travel_time_minutes"],
+        "travel_time_source": logistics_profile["travel_time_source"],
+        "service_coverage_ratio": logistics_profile["service_coverage_ratio"],
+        "service_coverage_display": logistics_profile["service_coverage_display"],
+        "service_zone_label": logistics_profile["service_zone_label"],
+        "service_zone_reason": logistics_profile["service_zone_reason"],
+        "logistics_priority_score": logistics_profile["logistics_priority_score"],
+        "logistics_priority_label": logistics_profile["logistics_priority_label"],
+        "night_share": risk_fields["night_share"],
+        "water_gap_rate": water["water_gap_rate"],
+        "water_known": bucket["water_known"],
+        "water_available": bucket["water_available"],
+        "tanker_dependency": water["tanker_dependency"],
+        "is_rural": identity["is_rural"],
+        "settlement_context_label": identity["settlement_context_label"],
+        "heating_share": risk_fields["heating_share"],
+    }
+    return signal_values, context
+
+
+def _component_score_bundle(
+    component_weights: Sequence[Dict[str, Any]],
+    profile_components: Dict[str, Any],
+    signal_values: Dict[str, float],
+    thresholds: Dict[str, Any],
+    context: Dict[str, Any],
+) -> tuple[List[Dict[str, Any]], Dict[str, Dict[str, float]], float]:
+    component_scores = [
+        _score_component(
+            component_weight=component_weight,
+            component_spec=profile_components.get(component_weight["key"], {}),
+            signal_values=signal_values,
+            thresholds=thresholds,
+            context=context,
+        )
+        for component_weight in component_weights
+    ]
+    component_scores.sort(key=lambda item: item["contribution"], reverse=True)
+    component_score_map = {
+        item["key"]: {
+            "score": item["score"],
+            "contribution": item["contribution"],
+            "weight": item["weight"],
+        }
+        for item in component_scores
+    }
+    risk_score = _clamp(sum(item["contribution"] for item in component_scores), 1.0, 99.0)
+    return component_scores, component_score_map, risk_score
+
+
+def _territory_row_payload(
+    bucket: Dict[str, Any],
+    profile: Dict[str, Any],
+    thresholds: Dict[str, Any],
+    identity: Dict[str, Any],
+    risk_fields: Dict[str, float],
+    logistics: Dict[str, Any],
+    water: Dict[str, float],
+    context: Dict[str, Any],
+    component_scores: List[Dict[str, Any]],
+    component_score_map: Dict[str, Dict[str, float]],
+    risk_score: float,
+) -> Dict[str, Any]:
+    logistics_profile = logistics["logistics_profile"]
+    risk_class_label, risk_tone = _risk_class(risk_score, thresholds)
+    priority_label, priority_tone = _priority_label(risk_score, component_score_map, identity["is_rural"], thresholds)
+    drivers = _build_risk_drivers(component_scores)
+    drivers_display = ", ".join(drivers)
+    action_label, action_hint, recommendations = _recommended_action(
+        risk_score=risk_score,
+        component_scores=component_scores,
+        context=context,
+    )
+    formula_display = _build_formula_display(component_scores, risk_score)
+    avg_response = logistics["avg_response"]
+    avg_distance = logistics["avg_distance"]
+    return {
+        "label": bucket["label"],
+        "risk_score": round(risk_score, 1),
+        "risk_display": f"{_format_number(risk_score)} / 100",
+        "risk_formula_display": formula_display,
+        "risk_class_label": risk_class_label,
+        "risk_tone": risk_tone,
+        "priority_label": priority_label,
+        "priority_tone": priority_tone,
+        "weight_mode": profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
+        "weight_mode_label": profile.get("mode_label") or "Экспертные веса",
+        "component_scores": component_scores,
+        "component_score_map": component_score_map,
+        "fire_probability": risk_fields["fire_probability"],
+        "severe_probability": risk_fields["severe_probability"],
+        "arrival_probability": logistics["arrival_probability"],
+        "water_deficit_probability": water["water_deficit_probability"],
+        "fire_probability_display": _format_probability(risk_fields["fire_probability"]),
+        "severe_probability_display": _format_probability(risk_fields["severe_probability"]),
+        "arrival_probability_display": _format_probability(logistics["arrival_probability"]),
+        "water_deficit_display": _format_probability(water["water_deficit_probability"]),
+        "history_count": risk_fields["incidents"],
+        "history_count_display": _format_integer(risk_fields["incidents"]),
+        "last_fire_display": bucket["last_fire"].strftime("%d.%m.%Y") if bucket["last_fire"] else "-",
+        "avg_response_minutes": round(avg_response, 1) if avg_response is not None else None,
+        "response_time_display": f"{_format_number(avg_response)} мин" if avg_response is not None else "Нет данных",
+        "avg_distance_km": round(avg_distance, 1) if avg_distance is not None else None,
+        "distance_display": f"{_format_number(avg_distance)} км" if avg_distance is not None else "Нет данных",
+        "travel_time_minutes": logistics_profile["travel_time_minutes"],
+        "travel_time_display": logistics_profile["travel_time_display"],
+        "travel_time_source": logistics_profile["travel_time_source"],
+        "fire_station_coverage_display": logistics_profile["service_coverage_display"],
+        "fire_station_coverage_label": logistics_profile["fire_station_coverage_label"],
+        "service_zone_label": logistics_profile["service_zone_label"],
+        "service_zone_tone": logistics_profile["service_zone_tone"],
+        "service_zone_reason": logistics_profile["service_zone_reason"],
+        "logistics_priority_score": logistics_profile["logistics_priority_score"],
+        "logistics_priority_display": logistics_profile["logistics_priority_display"],
+        "logistics_priority_label": logistics_profile["logistics_priority_label"],
+        "water_availability_share": round(bucket["water_available"] / bucket["water_known"], 4) if bucket["water_known"] else None,
+        "water_supply_display": _water_supply_display(bucket["water_available"], bucket["water_known"]),
+        "dominant_object_category": identity["dominant_object_category"],
+        "dominant_settlement_type": identity["dominant_settlement_type"],
+        "settlement_context_label": identity["settlement_context_label"],
+        "is_rural": identity["is_rural"],
+        "drivers_display": drivers_display,
+        "action_label": action_label,
+        "action_hint": action_hint,
+        "recommendations": recommendations,
+        "explanation": (
+            f"Итоговый риск { _format_number(risk_score) } / 100. "
+            f"Формула: {formula_display}. "
+            f"Ключевые причины: {drivers_display}."
+        ),
+        "bar_width": f"{max(10, min(100, round(risk_score)))}%",
+        "history_pressure": round(risk_fields["history_pressure"], 3),
+    }
+
+
 def _build_territory_rows(
     records: Sequence[Dict[str, Any]],
     planning_horizon_days: int,
@@ -64,337 +532,58 @@ def _build_territory_rows(
     profile_components = profile.get("components") or {}
     component_weights_cache: Dict[bool, List[Dict[str, Any]]] = {}
 
-    history_start, history_end = _history_date_bounds(records)
-    history_days = max(1, (history_end - history_start).days + 1)
-    horizon_days = max(1, int(planning_horizon_days or 14))
-    future_dates = [history_end + timedelta(days=offset) for offset in range(1, horizon_days + 1)]
-    future_months = Counter(item.month for item in future_dates)
-    future_weekdays = Counter(item.weekday() for item in future_dates)
-    future_heating_share = sum(1 for item in future_dates if _is_heating_season(item)) / horizon_days
-
-    recent_window_days = max(1, min(history_days, 90))
-    recent_window_start = history_end - timedelta(days=recent_window_days - 1)
-    recent_incidents = 0
-
-    territories: Dict[str, Dict[str, Any]] = {}
-    for record in records:
-        record_date = record["date"]
-        if record_date >= recent_window_start:
-            recent_incidents += 1
-        label = record["territory_label"] or record["district"] or "Территория не указана"
-        bucket = territories.setdefault(
-            label,
-            {
-                "label": label,
-                "incidents": 0,
-                "weighted_history": 0.0,
-                "seasonal_month_sum": 0.0,
-                "seasonal_weekday_sum": 0.0,
-                "last_fire": None,
-                "response_sum": 0.0,
-                "response_count": 0,
-                "long_arrivals": 0,
-                "distance_sum": 0.0,
-                "distance_count": 0,
-                "water_known": 0,
-                "water_available": 0,
-                "severe": 0,
-                "victims": 0,
-                "major_damage": 0,
-                "night_incidents": 0,
-                "heating_incidents": 0,
-                "risk_score_sum": 0.0,
-                "risk_score_count": 0,
-                "causes": Counter(),
-                "object_categories": Counter(),
-                "settlement_types": Counter(),
-            },
-        )
-        age_days = max(0, (history_end - record_date).days)
-        month_alignment = future_months.get(record_date.month, 0) / horizon_days
-        weekday_alignment = future_weekdays.get(record_date.weekday(), 0) / horizon_days
-        recency_weight = max(0.25, 1.0 - age_days / max(210.0, float(history_days)))
-        history_weight = recency_weight * (1.0 + 0.40 * month_alignment) * (1.0 + 0.18 * weekday_alignment)
-
-        bucket["incidents"] += 1
-        bucket["weighted_history"] += history_weight
-        bucket["seasonal_month_sum"] += month_alignment
-        bucket["seasonal_weekday_sum"] += weekday_alignment
-        bucket["last_fire"] = record_date if bucket["last_fire"] is None else max(bucket["last_fire"], record_date)
-        if record["response_minutes"] is not None:
-            bucket["response_sum"] += float(record["response_minutes"])
-            bucket["response_count"] += 1
-            if record["long_arrival"]:
-                bucket["long_arrivals"] += 1
-        if record["fire_station_distance"] is not None:
-            bucket["distance_sum"] += float(record["fire_station_distance"])
-            bucket["distance_count"] += 1
-        if record["has_water_supply"] is not None:
-            bucket["water_known"] += 1
-            if record["has_water_supply"]:
-                bucket["water_available"] += 1
-        if record["severe_consequence"]:
-            bucket["severe"] += 1
-        if record["victims_present"]:
-            bucket["victims"] += 1
-        if record["major_damage"]:
-            bucket["major_damage"] += 1
-        if record["night_incident"]:
-            bucket["night_incidents"] += 1
-        if record["heating_season"]:
-            bucket["heating_incidents"] += 1
-        bucket["risk_score_sum"] += float(record["risk_category_score"])
-        bucket["risk_score_count"] += 1
-        if record["cause"]:
-            bucket["causes"][record["cause"]] += 1
-        if record["object_category"]:
-            bucket["object_categories"][record["object_category"]] += 1
-        if record["settlement_type"]:
-            bucket["settlement_types"][record["settlement_type"]] += 1
-
-    base_fire_signal = _clamp(1.0 - math.exp(-(recent_incidents / recent_window_days)), 0.08, 0.72)
-    max_incidents = max(bucket["incidents"] for bucket in territories.values())
-    max_weighted = max(bucket["weighted_history"] for bucket in territories.values())
+    horizon = _horizon_context(records, planning_horizon_days)
+    territories, recent_incidents = _collect_territory_buckets(records, horizon)
+    normalization = _normalization_fields(territories, recent_incidents, horizon["recent_window_days"])
 
     territory_rows: List[Dict[str, Any]] = []
     for bucket in territories.values():
-        incidents = bucket["incidents"]
-        dominant_object_category = _counter_top_label(bucket["object_categories"], "Не указано")
-        dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано")
-        is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
-        settlement_context_label = "Сельская территория" if is_rural else "Территория без выраженного сельского профиля"
+        identity = _territory_identity_fields(bucket)
         component_weights = _component_weights_for_rural(
             profile,
             component_weights_cache,
-            is_rural=is_rural,
+            is_rural=identity["is_rural"],
         )
-
-        history_pressure = incidents / max(1, max_incidents)
-        recency_pressure = bucket["weighted_history"] / max(1.0, max_weighted)
-        seasonal_alignment = _clamp(
-            0.62 * (bucket["seasonal_month_sum"] / incidents) + 0.38 * (bucket["seasonal_weekday_sum"] / incidents),
-            0.0,
-            1.0,
+        risk_fields = _normalized_risk_fields(bucket, horizon, normalization)
+        logistics = _logistics_fields(
+            bucket,
+            defaults,
+            is_rural=identity["is_rural"],
+            night_share=risk_fields["night_share"],
         )
-        expected_value = (bucket["weighted_history"] / history_days) * horizon_days * (0.72 + base_fire_signal)
-        fire_probability = _clamp(
-            max(
-                1.0 - math.exp(-max(0.0, expected_value)),
-                base_fire_signal * min(0.94, 0.22 + history_pressure * 0.52),
-            ),
-            0.02,
-            0.995,
+        water = _water_fields(
+            bucket,
+            defaults,
+            distance_score=logistics["distance_score"],
+            response_pressure=logistics["response_pressure"],
         )
-
-        severe_rate = bucket["severe"] / incidents
-        victims_rate = bucket["victims"] / incidents
-        damage_rate = bucket["major_damage"] / incidents
-        heating_share = bucket["heating_incidents"] / incidents
-        heating_pressure = _clamp(heating_share * future_heating_share, 0.0, 1.0)
-        night_share = bucket["night_incidents"] / incidents
-        risk_factor = bucket["risk_score_sum"] / bucket["risk_score_count"] if bucket["risk_score_count"] else 0.26
-
-        casualty_pressure = _clamp(victims_rate * 1.8, 0.0, 1.0)
-        damage_pressure = _clamp(0.70 * damage_rate + 0.30 * severe_rate, 0.0, 1.0)
-        severe_probability = _clamp(
-            0.46 * severe_rate + 0.26 * casualty_pressure + 0.18 * damage_pressure + 0.10 * risk_factor,
-            0.02,
-            0.98,
+        signal_values, context = _score_inputs(bucket, identity, risk_fields, logistics, water)
+        component_scores, component_score_map, risk_score = _component_score_bundle(
+            component_weights,
+            profile_components,
+            signal_values,
+            thresholds,
+            context,
         )
-
-        avg_response = bucket["response_sum"] / bucket["response_count"] if bucket["response_count"] else None
-        avg_distance = bucket["distance_sum"] / bucket["distance_count"] if bucket["distance_count"] else None
-        distance_score = _clamp(
-            ((avg_distance or float(defaults.get("distance_km_baseline", 12.0))) - 6.0) / 24.0,
-            0.0,
-            1.0,
-        )
-        long_arrival_rate = (
-            bucket["long_arrivals"] / bucket["response_count"] if bucket["response_count"] else _clamp(distance_score * 0.55, 0.05, 0.75)
-        )
-        response_pressure = (
-            _clamp((avg_response - 12.0) / 18.0, 0.0, 1.0)
-            if avg_response is not None
-            else _clamp(max(float(defaults.get("response_pressure_unknown", 0.42)), distance_score * 0.72), 0.0, 1.0)
-        )
-        logistics_profile = build_explainable_logistics_profile(
-            avg_distance_km=avg_distance,
-            avg_response_minutes=avg_response,
-            long_arrival_rate=long_arrival_rate,
-            is_rural=is_rural,
-            response_observations=bucket["response_count"],
-            distance_observations=bucket["distance_count"],
-            night_share=night_share,
-        )
-        arrival_probability = _clamp(
-            0.24 * long_arrival_rate
-            + 0.18 * response_pressure
-            + 0.22 * float(logistics_profile["travel_time_pressure"])
-            + 0.22 * float(logistics_profile["service_coverage_gap"])
-            + 0.14 * float(logistics_profile["service_zone_pressure"]),
-            0.03,
-            0.98,
-        )
-
-        water_gap_rate = (
-            1.0 - (bucket["water_available"] / bucket["water_known"])
-            if bucket["water_known"]
-            else float(defaults.get("water_gap_unknown", 0.38))
-        )
-        tanker_dependency = _clamp(0.58 * distance_score + 0.42 * response_pressure, 0.0, 1.0)
-        water_deficit_probability = _clamp(0.76 * water_gap_rate + 0.24 * tanker_dependency, 0.02, 0.99)
-        rural_context = 1.0 if is_rural else 0.0
-
-        signal_values = {
-            "predicted_repeat_rate": fire_probability,
-            "history_pressure": history_pressure,
-            "recency_pressure": recency_pressure,
-            "seasonal_alignment": seasonal_alignment,
-            "heating_pressure": heating_pressure,
-            "severe_rate": severe_rate,
-            "casualty_pressure": casualty_pressure,
-            "damage_pressure": damage_pressure,
-            "risk_category_factor": risk_factor,
-            "long_arrival_rate": long_arrival_rate,
-            "avg_response_pressure": response_pressure,
-            "distance_pressure": distance_score,
-            "travel_time_pressure": float(logistics_profile["travel_time_pressure"]),
-            "service_coverage_gap": float(logistics_profile["service_coverage_gap"]),
-            "service_zone_pressure": float(logistics_profile["service_zone_pressure"]),
-            "night_pressure": night_share,
-            "water_gap_rate": water_gap_rate,
-            "tanker_dependency": tanker_dependency,
-            "rural_context": rural_context,
-        }
-
-        context = {
-            "incidents": incidents,
-            "history_pressure": history_pressure,
-            "recency_pressure": recency_pressure,
-            "seasonal_alignment": seasonal_alignment,
-            "fire_probability": fire_probability,
-            "severe_rate": severe_rate,
-            "victims_rate": victims_rate,
-            "damage_rate": damage_rate,
-            "risk_factor": risk_factor,
-            "avg_response": avg_response,
-            "avg_distance": avg_distance,
-            "long_arrival_rate": long_arrival_rate,
-            "travel_time_minutes": logistics_profile["travel_time_minutes"],
-            "travel_time_source": logistics_profile["travel_time_source"],
-            "service_coverage_ratio": logistics_profile["service_coverage_ratio"],
-            "service_coverage_display": logistics_profile["service_coverage_display"],
-            "service_zone_label": logistics_profile["service_zone_label"],
-            "service_zone_reason": logistics_profile["service_zone_reason"],
-            "logistics_priority_score": logistics_profile["logistics_priority_score"],
-            "logistics_priority_label": logistics_profile["logistics_priority_label"],
-            "night_share": night_share,
-            "water_gap_rate": water_gap_rate,
-            "water_known": bucket["water_known"],
-            "water_available": bucket["water_available"],
-            "tanker_dependency": tanker_dependency,
-            "is_rural": is_rural,
-            "settlement_context_label": settlement_context_label,
-            "heating_share": heating_share,
-        }
-
-        component_scores: List[Dict[str, Any]] = []
-        for component_weight in component_weights:
-            component_scores.append(
-                _score_component(
-                    component_weight=component_weight,
-                    component_spec=profile_components.get(component_weight["key"], {}),
-                    signal_values=signal_values,
-                    thresholds=thresholds,
-                    context=context,
-                )
-            )
-
-        component_scores.sort(key=lambda item: item["contribution"], reverse=True)
-        component_score_map = {
-            item["key"]: {
-                "score": item["score"],
-                "contribution": item["contribution"],
-                "weight": item["weight"],
-            }
-            for item in component_scores
-        }
-        risk_score = _clamp(sum(item["contribution"] for item in component_scores), 1.0, 99.0)
-        risk_class_label, risk_tone = _risk_class(risk_score, thresholds)
-        priority_label, priority_tone = _priority_label(risk_score, component_score_map, is_rural, thresholds)
-        drivers = _build_risk_drivers(component_scores)
-        drivers_display = ", ".join(drivers)
-        action_label, action_hint, recommendations = _recommended_action(
-            risk_score=risk_score,
-            component_scores=component_scores,
-            context=context,
-        )
-        formula_display = _build_formula_display(component_scores, risk_score)
-
         territory_rows.append(
-            {
-                "label": bucket["label"],
-                "risk_score": round(risk_score, 1),
-                "risk_display": f"{_format_number(risk_score)} / 100",
-                "risk_formula_display": formula_display,
-                "risk_class_label": risk_class_label,
-                "risk_tone": risk_tone,
-                "priority_label": priority_label,
-                "priority_tone": priority_tone,
-                "weight_mode": profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
-                "weight_mode_label": profile.get("mode_label") or "Экспертные веса",
-                "component_scores": component_scores,
-                "component_score_map": component_score_map,
-                "fire_probability": fire_probability,
-                "severe_probability": severe_probability,
-                "arrival_probability": arrival_probability,
-                "water_deficit_probability": water_deficit_probability,
-                "fire_probability_display": _format_probability(fire_probability),
-                "severe_probability_display": _format_probability(severe_probability),
-                "arrival_probability_display": _format_probability(arrival_probability),
-                "water_deficit_display": _format_probability(water_deficit_probability),
-                "history_count": incidents,
-                "history_count_display": _format_integer(incidents),
-                "last_fire_display": bucket["last_fire"].strftime("%d.%m.%Y") if bucket["last_fire"] else "-",
-                "avg_response_minutes": round(avg_response, 1) if avg_response is not None else None,
-                "response_time_display": f"{_format_number(avg_response)} мин" if avg_response is not None else "Нет данных",
-                "avg_distance_km": round(avg_distance, 1) if avg_distance is not None else None,
-                "distance_display": f"{_format_number(avg_distance)} км" if avg_distance is not None else "Нет данных",
-                "travel_time_minutes": logistics_profile["travel_time_minutes"],
-                "travel_time_display": logistics_profile["travel_time_display"],
-                "travel_time_source": logistics_profile["travel_time_source"],
-                "fire_station_coverage_display": logistics_profile["service_coverage_display"],
-                "fire_station_coverage_label": logistics_profile["fire_station_coverage_label"],
-                "service_zone_label": logistics_profile["service_zone_label"],
-                "service_zone_tone": logistics_profile["service_zone_tone"],
-                "service_zone_reason": logistics_profile["service_zone_reason"],
-                "logistics_priority_score": logistics_profile["logistics_priority_score"],
-                "logistics_priority_display": logistics_profile["logistics_priority_display"],
-                "logistics_priority_label": logistics_profile["logistics_priority_label"],
-                "water_availability_share": round(bucket["water_available"] / bucket["water_known"], 4) if bucket["water_known"] else None,
-                "water_supply_display": _water_supply_display(bucket["water_available"], bucket["water_known"]),
-                "dominant_object_category": dominant_object_category,
-                "dominant_settlement_type": dominant_settlement_type,
-                "settlement_context_label": settlement_context_label,
-                "is_rural": is_rural,
-                "drivers_display": drivers_display,
-                "action_label": action_label,
-                "action_hint": action_hint,
-                "recommendations": recommendations,
-                "explanation": (
-                    f"Итоговый риск { _format_number(risk_score) } / 100. "
-                    f"Формула: {formula_display}. "
-                    f"Ключевые причины: {drivers_display}."
-                ),
-                "bar_width": f"{max(10, min(100, round(risk_score)))}%",
-                "history_pressure": round(history_pressure, 3),
-            }
+            _territory_row_payload(
+                bucket,
+                profile,
+                thresholds,
+                identity,
+                risk_fields,
+                logistics,
+                water,
+                context,
+                component_scores,
+                component_score_map,
+                risk_score,
+            )
         )
 
     territory_rows.sort(key=lambda item: (item["risk_score"], item["history_pressure"]), reverse=True)
     _attach_ranking_context(territory_rows)
     return territory_rows
-
 
 def _score_component(
     component_weight: Dict[str, Any],

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -69,8 +69,17 @@ def _finite_numeric_series(values: Any, default: float | None = None) -> pd.Seri
 def _finite_numeric_frame(frame: pd.DataFrame) -> pd.DataFrame:
     numeric_frame = pd.DataFrame(index=frame.index)
     for column in frame.columns:
-        numeric_frame[column] = pd.to_numeric(frame[column], errors="coerce")
+        numeric_values = pd.to_numeric(frame[column], errors="coerce")
+        numeric_values = numeric_values.astype(float)
+        numeric_frame[column] = numeric_values.where(pd.notna(numeric_values) & np.isfinite(numeric_values))
     return numeric_frame
+
+
+def _finite_numeric_columns(frame: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
+    source = pd.DataFrame(index=frame.index)
+    for column in columns:
+        source[column] = frame[column] if column in frame.columns else np.nan
+    return _finite_numeric_frame(source)
 
 
 def _normalize_share_series(values: Any, default: float = 0.0) -> pd.Series:
@@ -79,4 +88,9 @@ def _normalize_share_series(values: Any, default: float = 0.0) -> pd.Series:
 
 def _finite_numeric_max(values: Any, default: float = 0.0) -> float:
     finite_values = _finite_numeric_series(values).dropna()
+    return float(finite_values.max()) if not finite_values.empty else float(default)
+
+
+def _finite_series_max(values: pd.Series, default: float = 0.0) -> float:
+    finite_values = values.dropna()
     return float(finite_values.max()) if not finite_values.empty else float(default)

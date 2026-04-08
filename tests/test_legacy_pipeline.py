@@ -18,8 +18,9 @@ class _RecordingStep(PipelineStep):
 
 
 class LegacyDesktopPipelineTests(unittest.TestCase):
-    def test_legacy_runtime_steps_use_logging_instead_of_print(self):
+    def test_legacy_runtime_code_uses_logging_instead_of_print(self):
         step_files = [
+            "config/db.py",
             "core/processing/steps/create_clean_table.py",
             "core/processing/steps/create_fire_map.py",
             "core/processing/steps/fires_feature_profiling.py",

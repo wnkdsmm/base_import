@@ -315,6 +315,84 @@ class ForecastingSqlSourceSelectionTests(ForecastingSqlSupport):
             ],
         )
 
+    def test_multi_table_union_mixes_materialized_view_and_base_table_safely(self) -> None:
+        metadata_items = [
+            {
+                "table_name": "fires_a",
+                "resolved_columns": {
+                    "date": "fire_date",
+                    "district": "district_name",
+                    "cause": "fire_cause",
+                    "object_category": "object_category",
+                    "temperature": "temperature",
+                },
+            },
+            {
+                "table_name": "fires_b",
+                "resolved_columns": {
+                    "date": "fire_date",
+                    "district": "district_name",
+                    "cause": "fire_cause",
+                    "object_category": "object_category",
+                    "temperature": "temperature",
+                },
+            },
+        ]
+        conn = _ForecastingConnection(
+            [
+                {
+                    "fire_date": date(2024, 1, 2),
+                    "incident_count": 4,
+                    "avg_temperature": 6.0,
+                    "temperature_samples": 2,
+                }
+            ]
+        )
+
+        with (
+            patch.object(
+                forecasting_sql,
+                "_daily_aggregate_view_status_map",
+                return_value={"fires_a": True, "fires_b": False},
+            ) as view_status_mock,
+            patch.object(forecasting_sql.engine, "connect", return_value=conn),
+        ):
+            rows = forecasting_sql._load_daily_history_rows_union(
+                metadata_items,
+                district="Central",
+                cause="Electrical",
+                object_category="Residential",
+                min_year=2024,
+            )
+
+        query = conn.queries[0]
+        view_status_mock.assert_called_once_with(["fires_a", "fires_b"])
+        self.assertEqual(len(conn.queries), 1)
+        self.assertEqual(query.count("UNION ALL"), 1)
+        self.assertIn(forecasting_sql._daily_aggregate_view_name("fires_a"), query)
+        self.assertIn("fires_b", query)
+        self.assertNotIn(forecasting_sql._daily_aggregate_view_name("fires_b"), query)
+        self.assertEqual(
+            conn.params[0],
+            {
+                "district": "Central",
+                "cause": "Electrical",
+                "object_category": "Residential",
+                "min_year": 2024,
+            },
+        )
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "date": date(2024, 1, 2),
+                    "count": 4,
+                    "avg_temperature": 6.0,
+                    "temperature_samples": 2,
+                }
+            ],
+        )
+
     def test_multi_table_daily_history_uses_union_fast_path_and_count_cache(self) -> None:
         metadata_items = [
             {"table_name": "fires_a", "resolved_columns": {"date": "fire_date"}},

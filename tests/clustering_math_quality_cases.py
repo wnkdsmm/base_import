@@ -23,6 +23,7 @@ from app.services.clustering.core import (
     _build_clustering_quality_assessment,
     _build_cluster_count_guidance,
     _method_comparison_from_diagnostics,
+    _run_clustering_diagnostics_bundle,
     _run_clustering_model_bundle,
     _select_render_configuration,
 )
@@ -883,6 +884,25 @@ class RenderConfigurationTests(unittest.TestCase):
             )
 
         self.assertEqual(bundle["method_comparison"], method_comparison)
+        self.assertTrue(any(row.get("is_selected") for row in bundle["method_comparison"]))
+
+    def test_diagnostics_bundle_reuses_method_rows_without_second_comparison(self) -> None:
+        feature_frame, entity_frame = _build_synthetic_frames(seed=43, cluster_count=3, rows_per_cluster=12)
+        selected_features = [FIRE_COUNT, AVG_FIRE_AREA, AVG_RESPONSE_MINUTES, NO_WATER_SHARE]
+        subset_frame = feature_frame[selected_features].copy()
+        feature_context = _build_clustering_mode_context(selected_features, None)
+
+        with patch("app.services.clustering.core._compare_clustering_methods") as compare_mock:
+            compare_mock.side_effect = AssertionError("diagnostics method rows should be reused")
+            bundle = _run_clustering_diagnostics_bundle(
+                cluster_frame=subset_frame,
+                entity_frame=entity_frame,
+                feature_selection_report=feature_context,
+                requested_working_cluster_count=3,
+                cluster_count_is_explicit=True,
+            )
+
+        self.assertTrue(bundle["method_comparison_reused"])
         self.assertTrue(any(row.get("is_selected") for row in bundle["method_comparison"]))
 
 

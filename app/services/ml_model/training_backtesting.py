@@ -189,6 +189,8 @@ class _HorizonEvaluationData:
     baseline_predictions: np.ndarray
     heuristic_predictions: np.ndarray
     selected_predictions: np.ndarray
+    count_model_predictions: Dict[str, np.ndarray]
+    coverage_by_model: Dict[str, _CandidateCoverage]
     dates: List[str]
 
 
@@ -202,34 +204,112 @@ class _BacktestSelection:
     selected_metrics: CountMetrics
     selection_details: Dict[str, Any]
     overdispersion_ratio: float
+    validation_evaluation_data: _HorizonEvaluationData
+
+
+def _build_count_model_prediction_context(
+    rows_for_horizon: List[BacktestWindowRow],
+) -> Tuple[Dict[str, np.ndarray], Dict[str, _CandidateCoverage]]:
+    window_count = len(rows_for_horizon)
+    prediction_buffers: Dict[str, List[float]] = {model_key: [] for model_key in COUNT_MODEL_KEYS}
+    for row in rows_for_horizon:
+        for model_key in COUNT_MODEL_KEYS:
+            prediction = row.predictions.get(model_key)
+            if prediction is not None:
+                prediction_buffers[model_key].append(float(prediction))
+
+    coverage_by_model: Dict[str, _CandidateCoverage] = {}
+    prediction_arrays: Dict[str, np.ndarray] = {}
+    for model_key, predictions in prediction_buffers.items():
+        covered_window_count = len(predictions)
+        coverage_by_model[model_key] = _CandidateCoverage(
+            covered_window_count=covered_window_count,
+            window_count=window_count,
+            window_coverage=float(covered_window_count / window_count) if window_count else 0.0,
+        )
+        if covered_window_count == window_count:
+            prediction_arrays[model_key] = np.asarray(predictions, dtype=float)
+
+    return prediction_arrays, coverage_by_model
+
+
+def _selected_predictions_from_evaluation_data(
+    evaluation_data: _HorizonEvaluationData,
+    selected_count_model_key: Optional[str],
+) -> np.ndarray:
+    if selected_count_model_key == 'seasonal_baseline':
+        return evaluation_data.baseline_predictions
+    if selected_count_model_key == 'heuristic_forecast':
+        return evaluation_data.heuristic_predictions
+    if selected_count_model_key in evaluation_data.count_model_predictions:
+        return evaluation_data.count_model_predictions[selected_count_model_key]
+    if selected_count_model_key:
+        return _selected_count_predictions(evaluation_data.rows, selected_count_model_key)
+    return np.asarray([], dtype=float)
+
+
+def _with_selected_count_model(
+    evaluation_data: _HorizonEvaluationData,
+    selected_count_model_key: str,
+) -> _HorizonEvaluationData:
+    return _HorizonEvaluationData(
+        rows=evaluation_data.rows,
+        actuals=evaluation_data.actuals,
+        baseline_predictions=evaluation_data.baseline_predictions,
+        heuristic_predictions=evaluation_data.heuristic_predictions,
+        selected_predictions=_selected_predictions_from_evaluation_data(
+            evaluation_data,
+            selected_count_model_key,
+        ),
+        count_model_predictions=evaluation_data.count_model_predictions,
+        coverage_by_model=evaluation_data.coverage_by_model,
+        dates=evaluation_data.dates,
+    )
 
 
 def _build_horizon_evaluation_data(
     rows_for_horizon: List[BacktestWindowRow],
-    selected_count_model_key: str,
+    selected_count_model_key: Optional[str] = None,
+    *,
+    include_count_model_predictions: bool = False,
 ) -> _HorizonEvaluationData:
-    return _HorizonEvaluationData(
+    count_model_predictions: Dict[str, np.ndarray] = {}
+    coverage_by_model: Dict[str, _CandidateCoverage] = {}
+    if include_count_model_predictions:
+        count_model_predictions, coverage_by_model = _build_count_model_prediction_context(rows_for_horizon)
+
+    evaluation_data = _HorizonEvaluationData(
         rows=rows_for_horizon,
         actuals=np.asarray([row.actual_count for row in rows_for_horizon], dtype=float),
         baseline_predictions=np.asarray([row.baseline_count for row in rows_for_horizon], dtype=float),
         heuristic_predictions=np.asarray([row.heuristic_count for row in rows_for_horizon], dtype=float),
-        selected_predictions=_selected_count_predictions(rows_for_horizon, selected_count_model_key),
+        selected_predictions=np.asarray([], dtype=float),
+        count_model_predictions=count_model_predictions,
+        coverage_by_model=coverage_by_model,
         dates=[row.date for row in rows_for_horizon],
     )
+    if selected_count_model_key:
+        return _with_selected_count_model(evaluation_data, selected_count_model_key)
+    return evaluation_data
 
 
 def _build_horizon_evaluation_data_by_horizon(
     horizon_rows: Dict[int, List[BacktestWindowRow]],
     horizon_days: List[int],
     selected_count_model_key: str,
+    precomputed: Optional[Dict[int, _HorizonEvaluationData]] = None,
 ) -> Dict[int, _HorizonEvaluationData]:
-    return {
-        horizon_day: _build_horizon_evaluation_data(
-            horizon_rows[horizon_day],
-            selected_count_model_key,
-        )
-        for horizon_day in horizon_days
-    }
+    evaluation_data_by_horizon: Dict[int, _HorizonEvaluationData] = {}
+    precomputed = precomputed or {}
+    for horizon_day in horizon_days:
+        evaluation_data = precomputed.get(horizon_day)
+        if evaluation_data is None:
+            evaluation_data = _build_horizon_evaluation_data(
+                horizon_rows[horizon_day],
+                selected_count_model_key,
+            )
+        evaluation_data_by_horizon[horizon_day] = evaluation_data
+    return evaluation_data_by_horizon
 
 
 def _prediction_interval_evaluation_slice(calibration: Dict[str, Any], total_rows: int) -> Optional[slice]:
@@ -485,6 +565,10 @@ def _build_window_rows(
 ) -> List[BacktestWindowRow]:
     baseline_path = candidate_fits.forecast_paths['seasonal_baseline'] or []
     heuristic_path = candidate_fits.forecast_paths['heuristic_forecast'] or []
+    count_model_paths = {
+        model_key: candidate_fits.forecast_paths.get(model_key)
+        for model_key in COUNT_MODEL_KEYS
+    }
     rows: List[BacktestWindowRow] = []
     for horizon_day in horizon_days:
         step_index = horizon_day - 1
@@ -505,62 +589,46 @@ def _build_window_rows(
                 predictions={
                     model_key: (
                         None
-                        if candidate_fits.forecast_paths.get(model_key) is None
-                        else float(candidate_fits.forecast_paths[model_key][step_index]['forecast_value'])
+                        if model_path is None
+                        else float(model_path[step_index]['forecast_value'])
                     )
-                    for model_key in COUNT_MODEL_KEYS
+                    for model_key, model_path in count_model_paths.items()
                 },
                 predicted_event_probabilities={
                     model_key: (
                         None
-                        if candidate_fits.forecast_paths.get(model_key) is None
-                        else candidate_fits.forecast_paths[model_key][step_index]['event_probability']
+                        if model_path is None
+                        else model_path[step_index]['event_probability']
                     )
-                    for model_key in COUNT_MODEL_KEYS
+                    for model_key, model_path in count_model_paths.items()
                 },
             )
         )
     return rows
 
 
-def _candidate_window_coverage(rows: List[BacktestWindowRow], model_key: str) -> _CandidateCoverage:
-    window_count = len(rows)
-    covered_window_count = sum(1 for row in rows if row.predictions.get(model_key) is not None)
-    window_coverage = float(covered_window_count / window_count) if window_count else 0.0
-    return _CandidateCoverage(
-        covered_window_count=covered_window_count,
-        window_count=window_count,
-        window_coverage=window_coverage,
+def _score_candidates(evaluation_data: _HorizonEvaluationData) -> _ScoredCandidates:
+    baseline_metrics = CountMetrics.coerce(
+        compute_count_metrics(evaluation_data.actuals, evaluation_data.baseline_predictions)
     )
-
-
-def _score_candidates(rows: List[BacktestWindowRow]) -> _ScoredCandidates:
-    actuals = np.asarray([row.actual_count for row in rows], dtype=float)
-    baseline_predictions = np.asarray([row.baseline_count for row in rows], dtype=float)
-    heuristic_predictions = np.asarray([row.heuristic_count for row in rows], dtype=float)
-    baseline_metrics = CountMetrics.coerce(compute_count_metrics(actuals, baseline_predictions))
     heuristic_metrics = CountMetrics.coerce(
-        compute_count_metrics(actuals, heuristic_predictions, baseline_metrics)
+        compute_count_metrics(evaluation_data.actuals, evaluation_data.heuristic_predictions, baseline_metrics)
     )
 
     count_metrics: Dict[str, CountMetrics] = {}
-    coverage_by_model = {
-        model_key: _candidate_window_coverage(rows, model_key)
-        for model_key in COUNT_MODEL_KEYS
-    }
-    for model_key, coverage in coverage_by_model.items():
+    for model_key, coverage in evaluation_data.coverage_by_model.items():
         if coverage.covered_window_count != coverage.window_count:
             continue
-        predictions = np.asarray([float(row.predictions[model_key]) for row in rows], dtype=float)
+        predictions = evaluation_data.count_model_predictions[model_key]
         count_metrics[model_key] = CountMetrics.coerce(
-            compute_count_metrics(actuals, predictions, baseline_metrics)
+            compute_count_metrics(evaluation_data.actuals, predictions, baseline_metrics)
         )
 
     return _ScoredCandidates(
         baseline_metrics=baseline_metrics,
         heuristic_metrics=heuristic_metrics,
         count_metrics=count_metrics,
-        coverage_by_model=coverage_by_model,
+        coverage_by_model=evaluation_data.coverage_by_model,
     )
 
 
@@ -738,7 +806,11 @@ def _select_backtest_count_model(
     valid_rows: List[BacktestWindowRow],
     dataset: pd.DataFrame,
 ) -> _BacktestSelection:
-    scored_candidates = _score_candidates(valid_rows)
+    evaluation_data = _build_horizon_evaluation_data(
+        valid_rows,
+        include_count_model_predictions=True,
+    )
+    scored_candidates = _score_candidates(evaluation_data)
     selected_count_model_key, selected_metrics, selection_context = _select_working_method(scored_candidates)
     overdispersion_ratio = _estimate_overdispersion_ratio(dataset['count'].to_numpy(dtype=float))
     selection_details = _build_count_selection_details(
@@ -760,6 +832,7 @@ def _select_backtest_count_model(
         selected_metrics=selected_metrics,
         selection_details=selection_details,
         overdispersion_ratio=overdispersion_ratio,
+        validation_evaluation_data=_with_selected_count_model(evaluation_data, selected_count_model_key),
     )
 
 
@@ -921,6 +994,7 @@ def _run_backtest(
         horizon_rows,
         horizon_days,
         selected_count_model_key,
+        precomputed={validation_horizon_days: selection.validation_evaluation_data},
     )
 
     interval_calibration_by_horizon, horizon_summaries = _evaluate_backtest_horizon_metadata(

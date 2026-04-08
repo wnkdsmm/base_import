@@ -91,6 +91,11 @@ class RankingValidationTests(unittest.TestCase):
         rows = _build_territory_rows(records, planning_horizon_days=14, weight_mode='expert')
         self.assertTrue(rows)
         north_row = next(row for row in rows if row['label'] == 'Северный участок')
+        self.assertEqual(north_row['response_time_display'], '21 мин')
+        self.assertEqual(north_row['distance_display'], '11,5 км')
+        self.assertEqual(north_row['weight_mode_label'], 'Экспертные веса')
+        self.assertIn('Итоговый риск', north_row['explanation'])
+        self.assertIn('Формула:', north_row['explanation'])
 
         for key in (
             'travel_time_display',
