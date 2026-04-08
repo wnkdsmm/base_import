@@ -32,6 +32,90 @@ DECISION_SUPPORT_DESCRIPTION = (
 )
 
 
+def _feature_coverage_display(feature_cards: Sequence[Dict[str, Any]]) -> str:
+    if not feature_cards:
+        return "0 из 0"
+    available_count = sum(1 for item in feature_cards if item["status"] != "missing")
+    return f"{available_count} из {len(feature_cards)}"
+
+
+def _placeholder_decision_support_notes(preload_notes: Sequence[str]) -> list[str]:
+    return _unique_non_empty(
+        list(preload_notes[:2])
+        + ["Пока недостаточно данных по выбранному срезу для приоритизации территорий."]
+    )
+
+
+def _validation_windows_count(historical_validation: Dict[str, Any]) -> int:
+    return int((historical_validation.get("metrics_raw") or {}).get("windows_count") or 0)
+
+
+def _build_placeholder_decision_support_payload(
+    *,
+    coverage_display: str,
+    quality_passport: Dict[str, Any],
+    feature_cards: Sequence[Dict[str, Any]],
+    requested_weight_profile: Dict[str, Any],
+    notes: Sequence[str],
+    geo_summary: Dict[str, Any],
+    geo_prediction: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    top_confidence = _top_territory_confidence_payload(None, quality_passport)
+    return _build_empty_decision_support_payload(
+        title=DECISION_SUPPORT_TITLE,
+        model_description=DECISION_SUPPORT_DESCRIPTION,
+        coverage_display=coverage_display,
+        quality_passport=quality_passport,
+        top_confidence=top_confidence,
+        feature_cards=feature_cards,
+        weight_profile=requested_weight_profile,
+        historical_validation=empty_historical_validation_payload(
+            requested_weight_profile.get("mode_label") or "Адаптивные веса"
+        ),
+        notes=notes,
+        geo_summary=geo_summary,
+        geo_prediction=geo_prediction or {},
+    )
+
+
+def _build_ranked_decision_support_payload(
+    *,
+    coverage_display: str,
+    quality_passport: Dict[str, Any],
+    territories: Sequence[Dict[str, Any]],
+    feature_cards: Sequence[Dict[str, Any]],
+    weight_profile: Dict[str, Any],
+    historical_validation: Dict[str, Any],
+    notes: Sequence[str],
+    geo_summary: Dict[str, Any],
+    geo_prediction: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    top_territory = territories[0] if territories else None
+    top_confidence = _top_territory_confidence_payload(top_territory, quality_passport)
+    return _build_decision_support_payload_response(
+        title=DECISION_SUPPORT_TITLE,
+        model_description=DECISION_SUPPORT_DESCRIPTION,
+        coverage_display=coverage_display,
+        quality_passport=quality_passport,
+        summary_cards=_build_summary_cards(
+            territories,
+            weight_profile,
+            historical_validation,
+            quality_passport,
+        ),
+        top_territory_label=top_territory["label"] if top_territory else "-",
+        top_territory_explanation=_top_territory_lead(top_territory),
+        top_confidence=top_confidence,
+        territories=territories[:MAX_TERRITORIES],
+        feature_cards=feature_cards,
+        weight_profile=weight_profile,
+        historical_validation=historical_validation,
+        notes=notes,
+        geo_summary=geo_summary,
+        geo_prediction=geo_prediction or {},
+    )
+
+
 def build_decision_support_payload(
     source_tables: Sequence[str],
     selected_district: str,
@@ -76,11 +160,7 @@ def build_decision_support_payload(
             )
             feature_cards = _build_feature_cards(metadata_items)
             quality_passport = _build_quality_passport(feature_cards, metadata_items)
-            coverage_display = (
-                f"{sum(1 for item in feature_cards if item['status'] != 'missing')} из {len(feature_cards)}"
-                if feature_cards
-                else "0 из 0"
-            )
+            coverage_display = _feature_coverage_display(feature_cards)
             perf.update(
                 metadata_tables=len(metadata_items),
                 input_rows=len(filtered_records),
@@ -106,25 +186,15 @@ def build_decision_support_payload(
                         "decision_support.render",
                         "Подготавливаем placeholder-результат блока поддержки решений.",
                     )
-                notes = _unique_non_empty(
-                    list(preload_notes[:2])
-                    + ["Пока недостаточно данных по выбранному срезу для приоритизации территорий."]
-                )
-                top_confidence = _top_territory_confidence_payload(None, quality_passport)
-                payload = _build_empty_decision_support_payload(
-                    title=DECISION_SUPPORT_TITLE,
-                    model_description=DECISION_SUPPORT_DESCRIPTION,
+                notes = _placeholder_decision_support_notes(preload_notes)
+                payload = _build_placeholder_decision_support_payload(
                     coverage_display=coverage_display,
                     quality_passport=quality_passport,
-                    top_confidence=top_confidence,
                     feature_cards=feature_cards,
-                    weight_profile=requested_weight_profile,
-                    historical_validation=empty_historical_validation_payload(
-                        requested_weight_profile.get("mode_label") or "Адаптивные веса"
-                    ),
+                    requested_weight_profile=requested_weight_profile,
                     notes=notes,
                     geo_summary=geo_summary,
-                    geo_prediction=geo_prediction or {},
+                    geo_prediction=geo_prediction,
                 )
                 perf.update(payload_has_data=False, payload_notes=len(notes), territory_rows=0)
                 if progress_callback is not None:
@@ -173,11 +243,9 @@ def build_decision_support_payload(
                 )
             territories = _attach_ranking_reliability(territories, quality_passport, historical_validation)
             weight_profile = build_weight_profile_snapshot(resolved_profile)
-            top_territory = territories[0] if territories else None
-            top_confidence = _top_territory_confidence_payload(top_territory, quality_passport)
             perf.update(
                 territory_rows=len(territories),
-                validation_windows=((historical_validation.get("metrics_raw") or {}).get("windows_count") or 0),
+                validation_windows=_validation_windows_count(historical_validation),
             )
 
         with perf.span("payload_render"):
@@ -185,29 +253,18 @@ def build_decision_support_payload(
                 progress_callback(
                     "decision_support.render",
                     "Собираем рекомендации, карты и итоговый payload.",
-                )
+            )
             notes = _build_risk_notes(feature_cards, preload_notes, weight_profile, historical_validation)
-            payload = _build_decision_support_payload_response(
-                title=DECISION_SUPPORT_TITLE,
-                model_description=DECISION_SUPPORT_DESCRIPTION,
+            payload = _build_ranked_decision_support_payload(
                 coverage_display=coverage_display,
                 quality_passport=quality_passport,
-                summary_cards=_build_summary_cards(
-                    territories,
-                    weight_profile,
-                    historical_validation,
-                    quality_passport,
-                ),
-                top_territory_label=top_territory["label"] if top_territory else "-",
-                top_territory_explanation=_top_territory_lead(top_territory),
-                top_confidence=top_confidence,
-                territories=territories[:MAX_TERRITORIES],
+                territories=territories,
                 feature_cards=feature_cards,
                 weight_profile=weight_profile,
                 historical_validation=historical_validation,
                 notes=notes,
                 geo_summary=geo_summary,
-                geo_prediction=geo_prediction or {},
+                geo_prediction=geo_prediction,
             )
             perf.update(
                 payload_has_data=bool(payload["has_data"]),

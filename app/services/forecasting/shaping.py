@@ -66,14 +66,7 @@ def _build_daily_history(records: List[Dict[str, object]]) -> List[Dict[str, obj
     return history
 
 
-def _build_forecast_rows(
-    daily_history: List[Dict[str, object]],
-    forecast_days: int,
-    temperature_value: Optional[float],
-) -> List[Dict[str, object]]:
-    if not daily_history or forecast_days <= 0:
-        return []
-
+def _build_forecast_history_stats(daily_history: List[Dict[str, object]]) -> Dict[str, object]:
     history_counts = [float(item["count"]) for item in daily_history]
     history_dates = [item["date"] for item in daily_history]
     history_events = [1.0 if value > 0 else 0.0 for value in history_counts]
@@ -105,7 +98,35 @@ def _build_forecast_rows(
         0.22,
     )
     base_recent_level = 0.65 * very_recent_average + 0.35 * recent_average if recent_counts else overall_average
+    volatility = pstdev(recent_counts) if len(recent_counts) > 1 else pstdev(history_counts) if len(history_counts) > 1 else 0.0
+    recent_peak = max(recent_counts) if recent_counts else max(history_counts)
+    robust_ceiling = max(
+        recent_peak * 1.35,
+        base_recent_level * 2.4 + max(1.0, volatility),
+        overall_average + 3.5 * max(1.0, volatility),
+    )
+    return {
+        "history_dates": history_dates,
+        "history_counts": history_counts,
+        "overall_average": overall_average,
+        "recent_counts": recent_counts,
+        "recent_average": recent_average,
+        "recent_event_rate": recent_event_rate,
+        "recent_positive_average": recent_positive_average,
+        "trend_ratio": trend_ratio,
+        "base_recent_level": base_recent_level,
+        "volatility": volatility,
+        "robust_ceiling": robust_ceiling,
+    }
 
+
+def _build_weekday_forecast_factors(
+    daily_history: List[Dict[str, object]],
+    *,
+    overall_average: float,
+    recent_event_rate: float,
+    recent_positive_average: float,
+) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]:
     weekday_factor: Dict[int, float] = {}
     weekday_event_rate: Dict[int, float] = {}
     weekday_positive_average: Dict[int, float] = {}
@@ -119,7 +140,16 @@ def _build_forecast_rows(
         weekday_positive_values = [value for value in weekday_values if value > 0]
         weekday_event_rate[weekday] = mean(weekday_event_values) if weekday_event_values else recent_event_rate
         weekday_positive_average[weekday] = mean(weekday_positive_values) if weekday_positive_values else recent_positive_average
+    return weekday_factor, weekday_event_rate, weekday_positive_average
 
+
+def _build_month_forecast_factors(
+    daily_history: List[Dict[str, object]],
+    *,
+    overall_average: float,
+    recent_event_rate: float,
+    recent_positive_average: float,
+) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, float], Dict[int, float], Optional[float]]:
     month_factor: Dict[int, float] = {}
     month_event_rate: Dict[int, float] = {}
     month_positive_average: Dict[int, float] = {}
@@ -144,45 +174,122 @@ def _build_forecast_rows(
         ]
         if month_temps:
             seasonal_temperature_by_month[month] = mean(month_temps)
+    return month_factor, month_event_rate, month_positive_average, seasonal_temperature_by_month, overall_temperature_average
 
+
+def _forecast_event_probability(
+    target_date: date,
+    expected_count: float,
+    *,
+    weekday_event_rate: Dict[int, float],
+    month_event_rate: Dict[int, float],
+    weekday_positive_average: Dict[int, float],
+    month_positive_average: Dict[int, float],
+    recent_event_rate: float,
+    recent_positive_average: float,
+) -> float:
+    numeric_count = max(0.0, float(expected_count))
+    if numeric_count <= 0:
+        return 0.0
+
+    weekday_base_probability = weekday_event_rate.get(target_date.weekday(), recent_event_rate)
+    month_base_probability = month_event_rate.get(target_date.month, recent_event_rate)
+    base_probability = _clamp(
+        0.55 * weekday_base_probability + 0.20 * month_base_probability + 0.25 * recent_event_rate,
+        0.01,
+        0.98,
+    )
+
+    weekday_positive_level = weekday_positive_average.get(target_date.weekday(), recent_positive_average)
+    month_positive_level = month_positive_average.get(target_date.month, recent_positive_average)
+    positive_count_scale = max(
+        1.0,
+        0.55 * weekday_positive_level + 0.20 * month_positive_level + 0.25 * recent_positive_average,
+    )
+    count_implied_probability = _clamp(numeric_count / positive_count_scale, 0.0, 0.995)
+    return _clamp(0.65 * count_implied_probability + 0.35 * base_probability, 0.01, 0.995)
+
+
+def _forecast_temperature_effect(
+    target_date: date,
+    temperature_value: Optional[float],
+    *,
+    seasonal_temperature_by_month: Dict[int, float],
+    overall_temperature_average: Optional[float],
+    temperature_slope: Optional[float],
+    volatility: float,
+) -> Tuple[Optional[float], float]:
+    temperature_for_day = temperature_value
+    if temperature_for_day is None:
+        temperature_for_day = seasonal_temperature_by_month.get(target_date.month, overall_temperature_average)
+
+    temperature_effect = 0.0
+    if (
+        temperature_for_day is not None
+        and overall_temperature_average is not None
+        and temperature_slope is not None
+    ):
+        seasonal_temperature = seasonal_temperature_by_month.get(target_date.month, overall_temperature_average)
+        raw_temperature_effect = temperature_slope * (temperature_for_day - seasonal_temperature) * 0.35
+        temperature_cap = max(0.6, volatility)
+        temperature_effect = _clamp(raw_temperature_effect, -temperature_cap, temperature_cap)
+    return temperature_for_day, temperature_effect
+
+
+def _build_forecast_rows(
+    daily_history: List[Dict[str, object]],
+    forecast_days: int,
+    temperature_value: Optional[float],
+) -> List[Dict[str, object]]:
+    if not daily_history or forecast_days <= 0:
+        return []
+
+    stats = _build_forecast_history_stats(daily_history)
+    history_dates = stats["history_dates"]
+    history_counts = stats["history_counts"]
+    overall_average = stats["overall_average"]
+    recent_average = stats["recent_average"]
+    recent_event_rate = stats["recent_event_rate"]
+    recent_positive_average = stats["recent_positive_average"]
+    trend_ratio = stats["trend_ratio"]
+    base_recent_level = stats["base_recent_level"]
+    volatility = stats["volatility"]
+    robust_ceiling = stats["robust_ceiling"]
+    weekday_factor, weekday_event_rate, weekday_positive_average = _build_weekday_forecast_factors(
+        daily_history,
+        overall_average=overall_average,
+        recent_event_rate=recent_event_rate,
+        recent_positive_average=recent_positive_average,
+    )
+    (
+        month_factor,
+        month_event_rate,
+        month_positive_average,
+        seasonal_temperature_by_month,
+        overall_temperature_average,
+    ) = _build_month_forecast_factors(
+        daily_history,
+        overall_average=overall_average,
+        recent_event_rate=recent_event_rate,
+        recent_positive_average=recent_positive_average,
+    )
     temperature_pairs = [
         (float(item["avg_temperature"]), float(item["count"]))
         for item in daily_history
         if item["avg_temperature"] is not None
     ]
     temperature_slope = _compute_temperature_slope(temperature_pairs)
-    volatility = pstdev(recent_counts) if len(recent_counts) > 1 else pstdev(history_counts) if len(history_counts) > 1 else 0.0
-    recent_peak = max(recent_counts) if recent_counts else max(history_counts)
-    robust_ceiling = max(
-        recent_peak * 1.35,
-        base_recent_level * 2.4 + max(1.0, volatility),
-        overall_average + 3.5 * max(1.0, volatility),
-    )
-
-    def _event_probability_for(target_date: date, expected_count: float) -> float:
-        numeric_count = max(0.0, float(expected_count))
-        if numeric_count <= 0:
-            return 0.0
-
-        weekday_base_probability = weekday_event_rate.get(target_date.weekday(), recent_event_rate)
-        month_base_probability = month_event_rate.get(target_date.month, recent_event_rate)
-        base_probability = _clamp(
-            0.55 * weekday_base_probability + 0.20 * month_base_probability + 0.25 * recent_event_rate,
-            0.01,
-            0.98,
-        )
-
-        weekday_positive_level = weekday_positive_average.get(target_date.weekday(), recent_positive_average)
-        month_positive_level = month_positive_average.get(target_date.month, recent_positive_average)
-        positive_count_scale = max(
-            1.0,
-            0.55 * weekday_positive_level + 0.20 * month_positive_level + 0.25 * recent_positive_average,
-        )
-        count_implied_probability = _clamp(numeric_count / positive_count_scale, 0.0, 0.995)
-        return _clamp(0.65 * count_implied_probability + 0.35 * base_probability, 0.01, 0.995)
 
     forecast_rows: List[Dict[str, object]] = []
     last_observed_date = history_dates[-1]
+    probability_kwargs = {
+        "weekday_event_rate": weekday_event_rate,
+        "month_event_rate": month_event_rate,
+        "weekday_positive_average": weekday_positive_average,
+        "month_positive_average": month_positive_average,
+        "recent_event_rate": recent_event_rate,
+        "recent_positive_average": recent_positive_average,
+    }
 
     for step in range(1, forecast_days + 1):
         target_date = last_observed_date + timedelta(days=step)
@@ -190,20 +297,14 @@ def _build_forecast_rows(
         usual_for_day = max(0.0, base_recent_level * seasonal_factor)
         trend_effect = base_recent_level * trend_ratio * (0.75 - 0.45 * ((step - 1) / max(1, forecast_days - 1)))
 
-        temperature_for_day = temperature_value
-        if temperature_for_day is None:
-            temperature_for_day = seasonal_temperature_by_month.get(target_date.month, overall_temperature_average)
-
-        temperature_effect = 0.0
-        if (
-            temperature_for_day is not None
-            and overall_temperature_average is not None
-            and temperature_slope is not None
-        ):
-            seasonal_temperature = seasonal_temperature_by_month.get(target_date.month, overall_temperature_average)
-            raw_temperature_effect = temperature_slope * (temperature_for_day - seasonal_temperature) * 0.35
-            temperature_cap = max(0.6, volatility)
-            temperature_effect = _clamp(raw_temperature_effect, -temperature_cap, temperature_cap)
+        temperature_for_day, temperature_effect = _forecast_temperature_effect(
+            target_date,
+            temperature_value,
+            seasonal_temperature_by_month=seasonal_temperature_by_month,
+            overall_temperature_average=overall_temperature_average,
+            temperature_slope=temperature_slope,
+            volatility=volatility,
+        )
 
         estimate = _clamp(usual_for_day + trend_effect + temperature_effect, 0.0, robust_ceiling)
         spread = max(0.75, volatility * (0.95 + step * 0.03))
@@ -211,10 +312,10 @@ def _build_forecast_rows(
         upper_bound = min(robust_ceiling + spread, estimate + spread)
         rounded_estimate = round(estimate, 2)
         scenario_label, scenario_tone = _forecast_level_label(estimate, recent_average if recent_average > 0 else overall_average)
-        fire_probability = _event_probability_for(target_date, estimate)
-        lower_probability = _event_probability_for(target_date, lower_bound)
-        upper_probability = _event_probability_for(target_date, upper_bound)
-        usual_probability = _event_probability_for(target_date, usual_for_day)
+        fire_probability = _forecast_event_probability(target_date, estimate, **probability_kwargs)
+        lower_probability = _forecast_event_probability(target_date, lower_bound, **probability_kwargs)
+        upper_probability = _forecast_event_probability(target_date, upper_bound, **probability_kwargs)
+        usual_probability = _forecast_event_probability(target_date, usual_for_day, **probability_kwargs)
 
         forecast_rows.append(
             {

@@ -112,6 +112,167 @@ def build_forecasting_metadata_payload(
     return metadata_payload
 
 
+def _recent_average_from_daily_history(daily_history: Sequence[Dict[str, Any]]) -> float:
+    history_counts = [float(item["count"]) for item in daily_history]
+    recent_counts = history_counts[-28:] if len(history_counts) >= 28 else history_counts
+    return mean(recent_counts) if recent_counts else 0.0
+
+
+def _build_base_forecasting_charts(
+    *,
+    daily_history: Sequence[Dict[str, Any]],
+    forecast_rows: Sequence[Dict[str, Any]],
+    weekday_profile: Sequence[Dict[str, Any]],
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
+    recent_average = _recent_average_from_daily_history(daily_history)
+    return {
+        "daily": deps["build_forecast_chart"](daily_history, forecast_rows),
+        "breakdown": deps["build_forecast_breakdown_chart"](forecast_rows, recent_average),
+        "weekday": deps["build_weekday_chart"](weekday_profile),
+    }
+
+
+def _build_base_forecasting_notes(
+    *,
+    source_table_notes: Sequence[str],
+    preload_notes: Sequence[str],
+    metadata_items: Sequence[Dict[str, Any]],
+    filtered_records_count: int,
+    daily_history: Sequence[Dict[str, Any]],
+    temperature_value: float | None,
+    deps: ForecastingDeps,
+) -> list[str]:
+    return list(
+        dict.fromkeys(
+            list(source_table_notes)
+            + list(preload_notes)
+            + deps["build_notes"](
+                metadata=metadata_items,
+                filtered_records_count=filtered_records_count,
+                daily_history=daily_history,
+                temperature_value=temperature_value,
+            )
+        )
+    )
+
+
+def _build_base_forecasting_executive_brief(
+    *,
+    risk_prediction: Dict[str, Any],
+    decision_support_ready: bool,
+    decision_support_status_message: str,
+    summary: Dict[str, Any],
+    generated_at: str,
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
+    executive_brief = deps["build_pending_executive_brief"](
+        decision_support_status_message
+        or "Короткий вывод будет доступен после расчета блока поддержки решений."
+    )
+    if decision_support_ready:
+        executive_brief = deps["build_executive_brief_from_risk_payload"](
+            risk_prediction,
+            notes=risk_prediction.get("notes"),
+        )
+    executive_brief["export_text"] = deps["compose_executive_brief_text"](
+        executive_brief,
+        scope_label=(
+            f"Таблица: {summary['selected_table_label']} | История: {summary['history_window_label']} | "
+            f"Срез: {summary['slice_label']} | Горизонт: {summary['forecast_days_display']} дней"
+        ),
+        generated_at=generated_at,
+    )
+    return executive_brief
+
+
+def _build_base_forecasting_filters(
+    *,
+    table_options: Sequence[Dict[str, Any]],
+    selected_table: str,
+    selected_district: str,
+    selected_cause: str,
+    selected_object_category: str,
+    temperature: str,
+    temperature_value: float | None,
+    days_ahead: int,
+    selected_history_window: str,
+    option_catalog: Dict[str, Any],
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
+    return {
+        "table_name": selected_table,
+        "district": selected_district,
+        "cause": selected_cause,
+        "object_category": selected_object_category,
+        "temperature": temperature
+        if temperature_value is None
+        else deps["format_float_for_input"](temperature_value),
+        "forecast_days": str(days_ahead),
+        "history_window": selected_history_window,
+        "available_tables": list(table_options),
+        "available_districts": option_catalog["districts"],
+        "available_causes": option_catalog["causes"],
+        "available_object_categories": option_catalog["object_categories"],
+        "available_forecast_days": [
+            {"value": str(option), "label": f"{option} дней"}
+            for option in deps["forecast_day_options"]
+        ],
+        "available_history_windows": deps["history_window_options"],
+    }
+
+
+def _build_base_forecasting_payload_response(
+    *,
+    generated_at: str,
+    filtered_records_count: int,
+    decision_support_pending: bool,
+    decision_support_ready: bool,
+    decision_support_error: bool,
+    decision_support_status_message: str,
+    summary: Dict[str, Any],
+    quality_assessment: Dict[str, Any],
+    features: Sequence[Dict[str, Any]],
+    risk_prediction: Dict[str, Any],
+    executive_brief: Dict[str, Any],
+    insights: Sequence[Dict[str, Any]],
+    charts: Dict[str, Any],
+    forecast_rows: Sequence[Dict[str, Any]],
+    notes: Sequence[str],
+    filters: Dict[str, Any],
+    deps: ForecastingDeps,
+) -> Dict[str, Any]:
+    return {
+        "generated_at": generated_at,
+        "has_data": filtered_records_count > 0,
+        "bootstrap_mode": "full" if decision_support_ready else "partial",
+        "loading": False,
+        "deferred": False,
+        "metadata_pending": False,
+        "metadata_ready": True,
+        "metadata_error": False,
+        "metadata_status_message": "Фильтры и признаки готовы.",
+        "base_forecast_pending": False,
+        "base_forecast_ready": True,
+        "loading_status_message": "Базовый прогноз готов.",
+        "decision_support_pending": decision_support_pending,
+        "decision_support_ready": decision_support_ready,
+        "decision_support_error": decision_support_error,
+        "decision_support_status_message": decision_support_status_message,
+        "model_description": deps["scenario_forecast_description"],
+        "summary": summary,
+        "quality_assessment": quality_assessment,
+        "features": features,
+        "risk_prediction": risk_prediction,
+        "executive_brief": executive_brief,
+        "insights": insights,
+        "charts": charts,
+        "forecast_rows": forecast_rows,
+        "notes": notes,
+        "filters": filters,
+    }
+
+
 def build_forecasting_base_payload(
     *,
     table_options: Sequence[Dict[str, Any]],
@@ -166,14 +327,12 @@ def build_forecasting_base_payload(
     quality_assessment = deps["build_scenario_quality_assessment"](scenario_backtest)
     forecast_rows = deps["build_forecast_rows"](daily_history, days_ahead, temperature_value)
     weekday_profile = deps["build_weekday_profile"](daily_history)
-    history_counts = [float(item["count"]) for item in daily_history]
-    recent_counts = history_counts[-28:] if len(history_counts) >= 28 else history_counts
-    recent_average = mean(recent_counts) if recent_counts else 0.0
-    charts = {
-        "daily": deps["build_forecast_chart"](daily_history, forecast_rows),
-        "breakdown": deps["build_forecast_breakdown_chart"](forecast_rows, recent_average),
-        "weekday": deps["build_weekday_chart"](weekday_profile),
-    }
+    charts = _build_base_forecasting_charts(
+        daily_history=daily_history,
+        forecast_rows=forecast_rows,
+        weekday_profile=weekday_profile,
+        deps=deps,
+    )
     (
         risk_prediction,
         geo_prediction,
@@ -196,17 +355,14 @@ def build_forecasting_base_payload(
         deps=deps,
     )
     charts["geo"] = deps["build_geo_chart"](geo_prediction)
-    notes = list(
-        dict.fromkeys(
-            list(source_table_notes)
-            + list(preload_notes)
-            + deps["build_notes"](
-                metadata=metadata_items,
-                filtered_records_count=filtered_records_count,
-                daily_history=daily_history,
-                temperature_value=temperature_value,
-            )
-        )
+    notes = _build_base_forecasting_notes(
+        source_table_notes=source_table_notes,
+        preload_notes=preload_notes,
+        metadata_items=metadata_items,
+        filtered_records_count=filtered_records_count,
+        daily_history=daily_history,
+        temperature_value=temperature_value,
+        deps=deps,
     )
     features = risk_prediction["feature_cards"] or feature_cards
     insights = deps["build_insights"](daily_history, forecast_rows, weekday_profile)
@@ -222,71 +378,46 @@ def build_forecasting_base_payload(
         history_window=selected_history_window,
     )
     generated_at = deps["format_datetime"](datetime.now())
-    executive_brief = deps["build_pending_executive_brief"](
-        decision_support_status_message
-        or "Короткий вывод будет доступен после расчета блока поддержки решений."
-    )
-    if decision_support_ready:
-        executive_brief = deps["build_executive_brief_from_risk_payload"](
-            risk_prediction,
-            notes=risk_prediction.get("notes"),
-        )
-    executive_brief["export_text"] = deps["compose_executive_brief_text"](
-        executive_brief,
-        scope_label=(
-            f"Таблица: {summary['selected_table_label']} | История: {summary['history_window_label']} | "
-            f"Срез: {summary['slice_label']} | Горизонт: {summary['forecast_days_display']} дней"
-        ),
+    executive_brief = _build_base_forecasting_executive_brief(
+        risk_prediction=risk_prediction,
+        decision_support_ready=decision_support_ready,
+        decision_support_status_message=decision_support_status_message,
+        summary=summary,
         generated_at=generated_at,
+        deps=deps,
     )
-    return {
-        "generated_at": generated_at,
-        "has_data": filtered_records_count > 0,
-        "bootstrap_mode": "full" if decision_support_ready else "partial",
-        "loading": False,
-        "deferred": False,
-        "metadata_pending": False,
-        "metadata_ready": True,
-        "metadata_error": False,
-        "metadata_status_message": "Фильтры и признаки готовы.",
-        "base_forecast_pending": False,
-        "base_forecast_ready": True,
-        "loading_status_message": "Базовый прогноз готов.",
-        "decision_support_pending": decision_support_pending,
-        "decision_support_ready": decision_support_ready,
-        "decision_support_error": decision_support_error,
-        "decision_support_status_message": decision_support_status_message,
-        "model_description": deps["scenario_forecast_description"],
-        "summary": summary,
-        "quality_assessment": quality_assessment,
-        "features": features,
-        "risk_prediction": risk_prediction,
-        "executive_brief": executive_brief,
-        "insights": insights,
-        "charts": charts,
-        "forecast_rows": forecast_rows,
-        "notes": notes,
-        "filters": {
-            "table_name": selected_table,
-            "district": selected_district,
-            "cause": selected_cause,
-            "object_category": selected_object_category,
-            "temperature": temperature
-            if temperature_value is None
-            else deps["format_float_for_input"](temperature_value),
-            "forecast_days": str(days_ahead),
-            "history_window": selected_history_window,
-            "available_tables": list(table_options),
-            "available_districts": option_catalog["districts"],
-            "available_causes": option_catalog["causes"],
-            "available_object_categories": option_catalog["object_categories"],
-            "available_forecast_days": [
-                {"value": str(option), "label": f"{option} дней"}
-                for option in deps["forecast_day_options"]
-            ],
-            "available_history_windows": deps["history_window_options"],
-        },
-    }
+    filters = _build_base_forecasting_filters(
+        table_options=table_options,
+        selected_table=selected_table,
+        selected_district=selected_district,
+        selected_cause=selected_cause,
+        selected_object_category=selected_object_category,
+        temperature=temperature,
+        temperature_value=temperature_value,
+        days_ahead=days_ahead,
+        selected_history_window=selected_history_window,
+        option_catalog=option_catalog,
+        deps=deps,
+    )
+    return _build_base_forecasting_payload_response(
+        generated_at=generated_at,
+        filtered_records_count=filtered_records_count,
+        decision_support_pending=decision_support_pending,
+        decision_support_ready=decision_support_ready,
+        decision_support_error=decision_support_error,
+        decision_support_status_message=decision_support_status_message,
+        summary=summary,
+        quality_assessment=quality_assessment,
+        features=features,
+        risk_prediction=risk_prediction,
+        executive_brief=executive_brief,
+        insights=insights,
+        charts=charts,
+        forecast_rows=forecast_rows,
+        notes=notes,
+        filters=filters,
+        deps=deps,
+    )
 
 
 def complete_forecasting_decision_support_payload(

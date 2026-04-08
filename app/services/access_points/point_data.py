@@ -314,19 +314,9 @@ def _build_smoothed_bucket_shares(
     }
 
 
-def _build_point_entity_frames(
-    records: Sequence[Dict[str, Any]],
-    *,
-    minimum_support: int = MIN_ACCESS_POINT_SUPPORT,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    if not records:
-        empty = pd.DataFrame()
-        return empty, empty
-
-    resolved_support = max(2, int(minimum_support or MIN_ACCESS_POINT_SUPPORT))
+def _aggregate_point_buckets(records: Sequence[Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], int]:
     buckets: Dict[str, Dict[str, Any]] = {}
     total_incidents = 0
-
     for record in records:
         identity = _resolve_point_identity(record)
         point_id = str(identity["point_id"])
@@ -337,103 +327,153 @@ def _build_point_entity_frames(
 
         total_incidents += 1
         _update_point_bucket_from_record(bucket, record)
+    return buckets, total_incidents
 
+
+def _most_common_counter_value(counter: Counter) -> str:
+    return counter.most_common(1)[0][0] if counter else ""
+
+
+def _average_coordinate(values: Sequence[float]) -> float | None:
+    return round(sum(values) / len(values), 5) if values else None
+
+
+def _point_location_parts(
+    *,
+    bucket_label: str,
+    settlement_label: str,
+    territory_label: str,
+    district_label: str,
+) -> List[str]:
+    return _unique_non_empty(
+        [
+            settlement_label if settlement_label and settlement_label != bucket_label else "",
+            territory_label if territory_label and territory_label not in {bucket_label, settlement_label} else "",
+            district_label if district_label and district_label not in {bucket_label, territory_label, settlement_label} else "",
+        ]
+    )
+
+
+def _build_point_bucket_row(
+    bucket: Dict[str, Any],
+    *,
+    priors: Dict[str, float],
+    resolved_support: int,
+) -> Dict[str, Any]:
+    incident_count = int(bucket["incident_count"])
+    response_count = int(bucket["response_count"])
+    distance_count = int(bucket["distance_count"])
+    known_water_count = int(bucket["water_yes_count"] + bucket["water_no_count"])
+    years_observed = max(1, len(bucket["years"]))
+
+    average_response = _safe_mean(bucket["response_total"], response_count)
+    average_distance = _safe_mean(bucket["distance_total"], distance_count)
+    response_coverage_share = _share(response_count, incident_count)
+    water_coverage_share = _share(known_water_count, incident_count)
+    distance_coverage_share = _share(distance_count, incident_count)
+    water_unknown_share = max(0.0, 1.0 - water_coverage_share)
+    smoothed_shares = _build_smoothed_bucket_shares(
+        bucket,
+        incident_count=incident_count,
+        response_count=response_count,
+        known_water_count=known_water_count,
+        priors=priors,
+        resolved_support=resolved_support,
+    )
+    long_arrival_share = smoothed_shares["long_arrival"]
+    no_water_share = smoothed_shares["no_water"]
+    severe_share = smoothed_shares["severe"]
+    victim_share = smoothed_shares["victims"]
+    major_damage_share = smoothed_shares["major_damage"]
+    night_share = smoothed_shares["night"]
+    heating_share = smoothed_shares["heating"]
+    rural_share = smoothed_shares["rural"]
+
+    district_label = _most_common_counter_value(bucket["districts"])
+    territory_label = _most_common_counter_value(bucket["territories"])
+    settlement_label = _most_common_counter_value(bucket["settlements"])
+    settlement_type = _most_common_counter_value(bucket["settlement_types"])
+    object_category = _most_common_counter_value(bucket["object_categories"])
+    low_support = incident_count < resolved_support
+    support_weight = min(1.0, incident_count / float(resolved_support))
+    location_parts = _point_location_parts(
+        bucket_label=bucket["label"],
+        settlement_label=settlement_label,
+        territory_label=territory_label,
+        district_label=district_label,
+    )
+    source_tables = list(bucket["source_tables"].keys())
+    latitude = _average_coordinate(bucket["latitude_values"])
+    longitude = _average_coordinate(bucket["longitude_values"])
+
+    return {
+        "point_id": bucket["point_id"],
+        "label": bucket["label"],
+        "entity_type": bucket["entity_type"],
+        "entity_code": bucket["entity_code"],
+        "granularity_rank": bucket["granularity_rank"],
+        "district": district_label,
+        "territory_label": territory_label,
+        "settlement": settlement_label,
+        "settlement_type": settlement_type,
+        "rural_flag": bool(rural_share >= 0.5),
+        "rural_share": round(rural_share, 4),
+        "incident_count": incident_count,
+        "years_observed": years_observed,
+        "incidents_per_year": round(incident_count / float(years_observed), 4),
+        "average_response_minutes": None if average_response is None else round(average_response, 4),
+        "response_coverage_share": round(response_coverage_share, 4),
+        "long_arrival_share": round(long_arrival_share, 4),
+        "average_distance_km": None if average_distance is None else round(average_distance, 4),
+        "distance_coverage_share": round(distance_coverage_share, 4),
+        "no_water_share": round(no_water_share, 4),
+        "water_coverage_share": round(water_coverage_share, 4),
+        "water_unknown_share": round(water_unknown_share, 4),
+        "severe_share": round(severe_share, 4),
+        "victim_share": round(victim_share, 4),
+        "major_damage_share": round(major_damage_share, 4),
+        "victims_count": int(bucket["victims_count"]),
+        "major_damage_count": int(bucket["major_damage_count"]),
+        "night_share": round(night_share, 4),
+        "heating_share": round(heating_share, 4),
+        "low_support": low_support,
+        "minimum_support": resolved_support,
+        "support_weight": round(0.4 + (0.6 * support_weight), 4),
+        "response_count": response_count,
+        "known_water_count": known_water_count,
+        "distance_count": distance_count,
+        "source_tables": source_tables,
+        "source_tables_display": ", ".join(source_tables),
+        "object_category": object_category,
+        "location_hint": " | ".join(location_parts) if location_parts else "Локация определена по лучшей доступной сущности",
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+
+def _build_point_feature_frame(entity_frame: pd.DataFrame) -> pd.DataFrame:
+    return _finite_numeric_columns(
+        entity_frame,
+        [column for column in POINT_FEATURE_COLUMNS if column in entity_frame.columns],
+    )
+
+
+def _build_point_entity_frames(
+    records: Sequence[Dict[str, Any]],
+    *,
+    minimum_support: int = MIN_ACCESS_POINT_SUPPORT,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    if not records:
+        empty = pd.DataFrame()
+        return empty, empty
+
+    resolved_support = max(2, int(minimum_support or MIN_ACCESS_POINT_SUPPORT))
+    buckets, total_incidents = _aggregate_point_buckets(records)
     priors = {key: float(value) for key, value in _build_point_priors(buckets, total_incidents).items()}
-
-    rows: List[Dict[str, Any]] = []
-    for bucket in buckets.values():
-        incident_count = int(bucket["incident_count"])
-        response_count = int(bucket["response_count"])
-        distance_count = int(bucket["distance_count"])
-        known_water_count = int(bucket["water_yes_count"] + bucket["water_no_count"])
-        years_observed = max(1, len(bucket["years"]))
-
-        average_response = _safe_mean(bucket["response_total"], response_count)
-        average_distance = _safe_mean(bucket["distance_total"], distance_count)
-        response_coverage_share = _share(response_count, incident_count)
-        water_coverage_share = _share(known_water_count, incident_count)
-        distance_coverage_share = _share(distance_count, incident_count)
-        water_unknown_share = max(0.0, 1.0 - water_coverage_share)
-
-        smoothed_shares = _build_smoothed_bucket_shares(
-            bucket,
-            incident_count=incident_count,
-            response_count=response_count,
-            known_water_count=known_water_count,
-            priors=priors,
-            resolved_support=resolved_support,
-        )
-        long_arrival_share = smoothed_shares["long_arrival"]
-        no_water_share = smoothed_shares["no_water"]
-        severe_share = smoothed_shares["severe"]
-        victim_share = smoothed_shares["victims"]
-        major_damage_share = smoothed_shares["major_damage"]
-        night_share = smoothed_shares["night"]
-        heating_share = smoothed_shares["heating"]
-        rural_share = smoothed_shares["rural"]
-
-        district_label = bucket["districts"].most_common(1)[0][0] if bucket["districts"] else ""
-        territory_label = bucket["territories"].most_common(1)[0][0] if bucket["territories"] else ""
-        settlement_label = bucket["settlements"].most_common(1)[0][0] if bucket["settlements"] else ""
-        settlement_type = bucket["settlement_types"].most_common(1)[0][0] if bucket["settlement_types"] else ""
-        object_category = bucket["object_categories"].most_common(1)[0][0] if bucket["object_categories"] else ""
-        latitude = round(sum(bucket["latitude_values"]) / len(bucket["latitude_values"]), 5) if bucket["latitude_values"] else None
-        longitude = round(sum(bucket["longitude_values"]) / len(bucket["longitude_values"]), 5) if bucket["longitude_values"] else None
-        low_support = incident_count < resolved_support
-        support_weight = min(1.0, incident_count / float(resolved_support))
-
-        location_parts = _unique_non_empty(
-            [
-                settlement_label if settlement_label and settlement_label != bucket["label"] else "",
-                territory_label if territory_label and territory_label not in {bucket["label"], settlement_label} else "",
-                district_label if district_label and district_label not in {bucket["label"], territory_label, settlement_label} else "",
-            ]
-        )
-        rows.append(
-            {
-                "point_id": bucket["point_id"],
-                "label": bucket["label"],
-                "entity_type": bucket["entity_type"],
-                "entity_code": bucket["entity_code"],
-                "granularity_rank": bucket["granularity_rank"],
-                "district": district_label,
-                "territory_label": territory_label,
-                "settlement": settlement_label,
-                "settlement_type": settlement_type,
-                "rural_flag": bool(rural_share >= 0.5),
-                "rural_share": round(rural_share, 4),
-                "incident_count": incident_count,
-                "years_observed": years_observed,
-                "incidents_per_year": round(incident_count / float(years_observed), 4),
-                "average_response_minutes": None if average_response is None else round(average_response, 4),
-                "response_coverage_share": round(response_coverage_share, 4),
-                "long_arrival_share": round(long_arrival_share, 4),
-                "average_distance_km": None if average_distance is None else round(average_distance, 4),
-                "distance_coverage_share": round(distance_coverage_share, 4),
-                "no_water_share": round(no_water_share, 4),
-                "water_coverage_share": round(water_coverage_share, 4),
-                "water_unknown_share": round(water_unknown_share, 4),
-                "severe_share": round(severe_share, 4),
-                "victim_share": round(victim_share, 4),
-                "major_damage_share": round(major_damage_share, 4),
-                "victims_count": int(bucket["victims_count"]),
-                "major_damage_count": int(bucket["major_damage_count"]),
-                "night_share": round(night_share, 4),
-                "heating_share": round(heating_share, 4),
-                "low_support": low_support,
-                "minimum_support": resolved_support,
-                "support_weight": round(0.4 + (0.6 * support_weight), 4),
-                "response_count": response_count,
-                "known_water_count": known_water_count,
-                "distance_count": distance_count,
-                "source_tables": list(bucket["source_tables"].keys()),
-                "source_tables_display": ", ".join(bucket["source_tables"].keys()),
-                "object_category": object_category,
-                "location_hint": " | ".join(location_parts) if location_parts else "Локация определена по лучшей доступной сущности",
-                "latitude": latitude,
-                "longitude": longitude,
-            }
-        )
+    rows = [
+        _build_point_bucket_row(bucket, priors=priors, resolved_support=resolved_support)
+        for bucket in buckets.values()
+    ]
 
     entity_frame = pd.DataFrame(rows)
     if entity_frame.empty:
@@ -444,11 +484,7 @@ def _build_point_entity_frames(
         ascending=[False, False, True],
     ).reset_index(drop=True)
 
-    feature_frame = _finite_numeric_columns(
-        entity_frame,
-        [column for column in POINT_FEATURE_COLUMNS if column in entity_frame.columns],
-    )
-    return entity_frame, feature_frame
+    return entity_frame, _build_point_feature_frame(entity_frame)
 
 
 def _load_access_point_dataset(

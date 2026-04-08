@@ -426,7 +426,9 @@ class NatashaColumnMatcher:
         return None
 
     def match_column_metadata(self, col_name: str) -> Optional[Dict[str, Any]]:
-        column_payload = self._column_terms(col_name)
+        return self._match_column_payload_metadata(self._column_terms(col_name))
+
+    def _match_column_payload_metadata(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
         for matcher in (self._match_mandatory_feature, self._match_legacy_explicit, self._match_keyword_rule):
             match = matcher(column_payload)
             if match:
@@ -434,7 +436,10 @@ class NatashaColumnMatcher:
         return None
 
     def classify_column(self, col_name: str) -> Optional[str]:
-        match = self.match_column_metadata(col_name)
+        return self._classify_column_payload(self._column_terms(col_name))
+
+    def _classify_column_payload(self, column_payload: Dict[str, object]) -> Optional[str]:
+        match = self._match_column_payload_metadata(column_payload)
         if match:
             return str(match.get("feature_label") or "") or None
         return None
@@ -495,12 +500,49 @@ class NatashaColumnMatcher:
         return bool(category_lemmas.intersection(words))
 
     def classify_column_groups(self, column_name: str) -> List[str]:
-        column_payload = self._column_terms(column_name)
+        return self._classify_column_payload_groups(self._column_terms(column_name))
+
+    def _classify_column_payload_groups(self, column_payload: Dict[str, object]) -> List[str]:
         group_ids: List[str] = []
         for rule in COLUMN_CATEGORY_RULES:
             if self._matches_category(column_payload, rule):
                 group_ids.append(rule["id"])
         return group_ids
+
+    def _match_query_terms(self, column_payload: Dict[str, object], query_terms: List[Dict[str, Set[str]]]) -> tuple[List[str], int]:
+        matched_terms: List[str] = []
+        score = 0
+        for query_term in query_terms:
+            if self._match_term(column_payload, query_term["variants"]):
+                matched_terms.append(str(query_term["token"]))
+                score += 4
+        return matched_terms, score
+
+    def _build_column_query_match(
+        self,
+        column_name: str,
+        column_payload: Dict[str, object],
+        query_terms: List[Dict[str, Set[str]]],
+    ) -> Optional[Dict[str, object]]:
+        matched_terms, score = self._match_query_terms(column_payload, query_terms)
+        if not matched_terms:
+            return None
+
+        important_label = self._classify_column_payload(column_payload)
+        if important_label:
+            important_label_normalized = self._normalize_text(important_label)
+            if any(term["token"] in important_label_normalized for term in query_terms):
+                score += 1
+
+        group_ids = self._classify_column_payload_groups(column_payload)
+        return {
+            "name": column_name,
+            "matched_terms": matched_terms,
+            "score": score,
+            "important_label": important_label or "",
+            "group_ids": group_ids,
+            "group_labels": [rule["label"] for rule in COLUMN_CATEGORY_RULES if rule["id"] in group_ids],
+        }
 
     def get_group_catalog(self, columns: List[str]) -> List[Dict[str, object]]:
         grouped_columns: Dict[str, List[str]] = {rule["id"]: [] for rule in COLUMN_CATEGORY_RULES}
@@ -564,33 +606,11 @@ class NatashaColumnMatcher:
 
         for column_name in columns:
             column_payload = self._column_terms(column_name)
-            matched_terms: List[str] = []
-            score = 0
-
-            for query_term in query_terms:
-                if self._match_term(column_payload, query_term["variants"]):
-                    matched_terms.append(str(query_term["token"]))
-                    score += 4
-
-            if not matched_terms:
+            item = self._build_column_query_match(column_name, column_payload, query_terms)
+            if item is None:
                 continue
 
-            important_label = self.classify_column(column_name)
-            if important_label:
-                important_label_normalized = self._normalize_text(important_label)
-                if any(term["token"] in important_label_normalized for term in query_terms):
-                    score += 1
-
-            group_ids = self.classify_column_groups(column_name)
-            item = {
-                "name": column_name,
-                "matched_terms": matched_terms,
-                "score": score,
-                "important_label": important_label or "",
-                "group_ids": group_ids,
-                "group_labels": [rule["label"] for rule in COLUMN_CATEGORY_RULES if rule["id"] in group_ids],
-            }
-            if len(matched_terms) == len(query_terms):
+            if len(item["matched_terms"]) == len(query_terms):
                 item["match_mode"] = "full"
                 full_matches.append(item)
             else:

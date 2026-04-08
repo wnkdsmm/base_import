@@ -3,14 +3,86 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List
 
 
-def generate_html(
+PAGE_HEAD_LINES = [
+    '<!DOCTYPE html>',
+    '<html>',
+    '<head>',
+    '    <meta charset="utf-8">',
+    '    <meta name="viewport" content="width=device-width, initial-scale=1">',
+    '    <title>\u041a\u0430\u0440\u0442\u0430 \u043f\u043e\u0436\u0430\u0440\u043e\u0432</title>',
+    '    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">',
+    '    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">',
+    '    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>',
+    '    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>',
+    '    <style>',
+]
+
+PAGE_STYLE_LINES = [
+    '        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }',
+    '        body { display: flex; flex-direction: column; }',
+    '        .nav-tabs { flex-shrink: 0; background: white; padding-left: 10px; }',
+    '        .tab-content { flex: 1; min-height: 0; }',
+    '        .tab-pane { height: 100%; position: relative; }',
+    '        .tab-pane .map-container { height: 100%; }',
+    '        .map-container { flex: 1; min-height: 0; position: relative; }',
+    '        [id^="filter-panel-"] {',
+    '            position: absolute; top: 20px; left: 20px; z-index: 1000;',
+    '            background: white; padding: 15px; border-radius: 8px;',
+    '            box-shadow: 0 2px 10px rgba(0,0,0,0.3);',
+    '            max-width: 280px; max-height: calc(100% - 40px);',
+    '            overflow-y: auto;',
+    '        }',
+    '        .popup { background: white; border: 1px solid #ccc; padding: 10px;',
+    '                 border-radius: 4px; max-width: 320px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }',
+    '        .category-item { margin-bottom: 8px; padding: 5px; border-radius: 4px; background: #f8f9fa; }',
+    '        .category-item label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }',
+    '        .category-item input[type="checkbox"] { margin-right: 2px; }',
+    '        .category-icon { width: 24px; flex: 0 0 24px; text-align: center; }',
+    '        .category-label { flex: 1; min-width: 0; }',
+    '        .category-count { flex: 0 0 auto; }',
+    '        .layer-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #4f5b66; margin: 14px 0 8px; }',
+    '        .analytics-panel {',
+    '            position: absolute; top: 20px; right: 20px; z-index: 1000;',
+    '            width: min(360px, calc(100% - 40px)); max-height: calc(100% - 40px); overflow-y: auto;',
+    '            background: rgba(255,255,255,0.97); padding: 16px; border-radius: 10px;',
+    '            box-shadow: 0 10px 24px rgba(25, 35, 45, 0.18);',
+    '        }',
+    '        .analytics-head h5 { margin: 0 0 4px; }',
+    '        .analytics-head span { display: block; color: #5f6b76; font-size: 13px; margin-bottom: 12px; }',
+    '        .analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }',
+    '        .analytics-card { background: #f4f6f8; border-radius: 8px; padding: 10px; }',
+    '        .analytics-card small { display: block; color: #5f6b76; margin-bottom: 4px; }',
+    '        .analytics-card strong { display: block; font-size: 15px; }',
+    '        .analytics-section { margin-top: 14px; }',
+    '        .analytics-section-title { font-size: 12px; text-transform: uppercase; font-weight: 700; color: #596470; margin-bottom: 8px; }',
+    '        .analytics-item { background: #f9fafb; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; }',
+    '        .analytics-item strong, .analytics-item span, .analytics-item small { display: block; }',
+    '        .analytics-item span { font-weight: 700; color: #b33b2e; margin: 3px 0; }',
+    '        .analytics-item small { color: #5f6b76; }',
+    '        .analytics-item-empty { color: #5f6b76; font-style: italic; }',
+    '        .analytics-chip-group { display: flex; flex-wrap: wrap; gap: 6px; }',
+    '        .analytics-chip { background: #edf2f7; color: #30404d; border-radius: 999px; padding: 4px 10px; font-size: 12px; }',
+    '        .analytics-list { padding-left: 18px; margin: 0; }',
+    '        .analytics-warning { background: rgba(227, 109, 78, 0.12); color: #9f2f1e; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }',
+    '        .analytics-details { margin-top: 14px; }',
+    '        .analytics-details summary { cursor: pointer; font-weight: 700; }',
+    '        .analytics-thesis p { margin: 10px 0 0; color: #415161; line-height: 1.45; }',
+    '        @media (max-width: 960px) {',
+    '            [id^="filter-panel-"] { left: 10px; top: 10px; max-width: 230px; }',
+    '            .analytics-panel { right: 10px; top: 10px; width: min(250px, calc(100% - 20px)); }',
+    '        }',
+    '    </style>',
+    '</head>',
+    '<body>',
+]
+
+
+def _render_tabs(
     tables: List[Dict[str, Any]],
-    total_categories: Dict[str, int],
     *,
     render_tab_content: Callable[..., str],
     escape: Callable[[Any], str],
-) -> str:
-    _ = total_categories
+) -> tuple[str, str]:
     single_table = len(tables) == 1
     tabs_nav: List[str] = []
     tabs_content: List[str] = []
@@ -33,14 +105,13 @@ def generate_html(
             )
         )
 
-    body_content = ''.join(tabs_content)
-    tab_resize_script = ''
-    if not single_table:
-        body_content = (
-            '<ul class="nav nav-tabs">%s</ul>'
-            '<div class="tab-content">%s</div>'
-        ) % (''.join(tabs_nav), body_content)
-        tab_resize_script = """
+    if single_table:
+        return ''.join(tabs_content), ''
+
+    return (
+        '<ul class="nav nav-tabs">%s</ul>'
+        '<div class="tab-content">%s</div>'
+    ) % (''.join(tabs_nav), ''.join(tabs_content)), """
         document.querySelectorAll('.nav-tabs button').forEach(btn => {
             btn.addEventListener('shown.bs.tab', event => {
                 const idx = event.target.dataset.bsTarget?.replace('#tab', '');
@@ -49,85 +120,35 @@ def generate_html(
         });
 """
 
-    lines = [
-        '<!DOCTYPE html>',
-        '<html>',
-        '<head>',
-        '    <meta charset="utf-8">',
-        '    <meta name="viewport" content="width=device-width, initial-scale=1">',
-        '    <title>\u041a\u0430\u0440\u0442\u0430 \u043f\u043e\u0436\u0430\u0440\u043e\u0432</title>',
-        '    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">',
-        '    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">',
-        '    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>',
-        '    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>',
-        '    <style>',
-        '        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }',
-        '        body { display: flex; flex-direction: column; }',
-        '        .nav-tabs { flex-shrink: 0; background: white; padding-left: 10px; }',
-        '        .tab-content { flex: 1; min-height: 0; }',
-        '        .tab-pane { height: 100%; position: relative; }',
-        '        .tab-pane .map-container { height: 100%; }',
-        '        .map-container { flex: 1; min-height: 0; position: relative; }',
-        '        [id^="filter-panel-"] {',
-        '            position: absolute; top: 20px; left: 20px; z-index: 1000;',
-        '            background: white; padding: 15px; border-radius: 8px;',
-        '            box-shadow: 0 2px 10px rgba(0,0,0,0.3);',
-        '            max-width: 280px; max-height: calc(100% - 40px);',
-        '            overflow-y: auto;',
-        '        }',
-        '        .popup { background: white; border: 1px solid #ccc; padding: 10px;',
-        '                 border-radius: 4px; max-width: 320px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }',
-        '        .category-item { margin-bottom: 8px; padding: 5px; border-radius: 4px; background: #f8f9fa; }',
-        '        .category-item label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }',
-        '        .category-item input[type="checkbox"] { margin-right: 2px; }',
-        '        .category-icon { width: 24px; flex: 0 0 24px; text-align: center; }',
-        '        .category-label { flex: 1; min-width: 0; }',
-        '        .category-count { flex: 0 0 auto; }',
-        '        .layer-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #4f5b66; margin: 14px 0 8px; }',
-        '        .analytics-panel {',
-        '            position: absolute; top: 20px; right: 20px; z-index: 1000;',
-        '            width: min(360px, calc(100% - 40px)); max-height: calc(100% - 40px); overflow-y: auto;',
-        '            background: rgba(255,255,255,0.97); padding: 16px; border-radius: 10px;',
-        '            box-shadow: 0 10px 24px rgba(25, 35, 45, 0.18);',
-        '        }',
-        '        .analytics-head h5 { margin: 0 0 4px; }',
-        '        .analytics-head span { display: block; color: #5f6b76; font-size: 13px; margin-bottom: 12px; }',
-        '        .analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }',
-        '        .analytics-card { background: #f4f6f8; border-radius: 8px; padding: 10px; }',
-        '        .analytics-card small { display: block; color: #5f6b76; margin-bottom: 4px; }',
-        '        .analytics-card strong { display: block; font-size: 15px; }',
-        '        .analytics-section { margin-top: 14px; }',
-        '        .analytics-section-title { font-size: 12px; text-transform: uppercase; font-weight: 700; color: #596470; margin-bottom: 8px; }',
-        '        .analytics-item { background: #f9fafb; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; }',
-        '        .analytics-item strong, .analytics-item span, .analytics-item small { display: block; }',
-        '        .analytics-item span { font-weight: 700; color: #b33b2e; margin: 3px 0; }',
-        '        .analytics-item small { color: #5f6b76; }',
-        '        .analytics-item-empty { color: #5f6b76; font-style: italic; }',
-        '        .analytics-chip-group { display: flex; flex-wrap: wrap; gap: 6px; }',
-        '        .analytics-chip { background: #edf2f7; color: #30404d; border-radius: 999px; padding: 4px 10px; font-size: 12px; }',
-        '        .analytics-list { padding-left: 18px; margin: 0; }',
-        '        .analytics-warning { background: rgba(227, 109, 78, 0.12); color: #9f2f1e; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }',
-        '        .analytics-details { margin-top: 14px; }',
-        '        .analytics-details summary { cursor: pointer; font-weight: 700; }',
-        '        .analytics-thesis p { margin: 10px 0 0; color: #415161; line-height: 1.45; }',
-        '        @media (max-width: 960px) {',
-        '            [id^="filter-panel-"] { left: 10px; top: 10px; max-width: 230px; }',
-        '            .analytics-panel { right: 10px; top: 10px; width: min(250px, calc(100% - 20px)); }',
-        '        }',
-        '    </style>',
-        '</head>',
-        '<body>',
-        body_content,
+
+def _body_script_lines(table_count: int, tab_resize_script: str) -> List[str]:
+    return [
         '    <script>',
         '        // Resize maps after tab switches',
         tab_resize_script,
         '        window.addEventListener("resize", () => {',
-        '            for (let i = 0; i < %s; i++) window["map" + i]?.updateSize();' % len(tables),
+        '            for (let i = 0; i < %s; i++) window["map" + i]?.updateSize();' % table_count,
         '        });',
         '    </script>',
         '</body>',
         '</html>',
     ]
+
+
+def generate_html(
+    tables: List[Dict[str, Any]],
+    total_categories: Dict[str, int],
+    *,
+    render_tab_content: Callable[..., str],
+    escape: Callable[[Any], str],
+) -> str:
+    _ = total_categories
+    body_content, tab_resize_script = _render_tabs(
+        tables,
+        render_tab_content=render_tab_content,
+        escape=escape,
+    )
+    lines = PAGE_HEAD_LINES + PAGE_STYLE_LINES + [body_content] + _body_script_lines(len(tables), tab_resize_script)
     return '\n'.join(lines)
 
 def build_tab_outer_lines(

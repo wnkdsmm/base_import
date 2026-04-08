@@ -232,192 +232,208 @@ def _prepare_cluster_frame(
 
 
 
-def _aggregate_territory_frame(records: Sequence[Dict[str, Any]]) -> pd.DataFrame:
+def _new_territory_bucket(label: str) -> Dict[str, Any]:
+    return {
+        "label": label,
+        "incidents": 0,
+        "districts": Counter(),
+        "settlement_types": Counter(),
+        "area_sum": 0.0,
+        "area_count": 0,
+        "night_incidents": 0,
+        "response_sum": 0.0,
+        "response_count": 0,
+        "long_arrivals": 0,
+        "severe": 0,
+        "water_known": 0,
+        "water_available": 0,
+        "distance_sum": 0.0,
+        "distance_count": 0,
+        "heating_incidents": 0,
+    }
+
+
+def _update_territory_bucket(bucket: Dict[str, Any], record: Dict[str, Any], label: str) -> None:
+    bucket["incidents"] += 1
+    district_value = record.get("district") or label
+    bucket["districts"][district_value] += 1
+    settlement_type = record.get("settlement_type") or "Не указано"
+    bucket["settlement_types"][settlement_type] += 1
+
+    fire_area = record.get("fire_area")
+    if fire_area is not None and fire_area >= 0:
+        bucket["area_sum"] += float(fire_area)
+        bucket["area_count"] += 1
+
+    response_minutes = record.get("response_minutes")
+    if response_minutes is not None:
+        bucket["response_sum"] += float(response_minutes)
+        bucket["response_count"] += 1
+        if record.get("long_arrival"):
+            bucket["long_arrivals"] += 1
+
+    if record.get("severe_consequence"):
+        bucket["severe"] += 1
+    if record.get("night_incident"):
+        bucket["night_incidents"] += 1
+    if record.get("heating_season"):
+        bucket["heating_incidents"] += 1
+
+    if record.get("has_water_supply") is not None:
+        bucket["water_known"] += 1
+        if record.get("has_water_supply"):
+            bucket["water_available"] += 1
+
+    distance_value = record.get("fire_station_distance")
+    if distance_value is not None:
+        bucket["distance_sum"] += float(distance_value)
+        bucket["distance_count"] += 1
+
+
+def _aggregate_territory_buckets(records: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     buckets: Dict[str, Dict[str, Any]] = {}
     for record in records:
         label = record.get("territory_label") or record.get("district") or "Территория не указана"
-        bucket = buckets.setdefault(
-            label,
-            {
-                "label": label,
-                "incidents": 0,
-                "districts": Counter(),
-                "settlement_types": Counter(),
-                "area_sum": 0.0,
-                "area_count": 0,
-                "night_incidents": 0,
-                "response_sum": 0.0,
-                "response_count": 0,
-                "long_arrivals": 0,
-                "severe": 0,
-                "water_known": 0,
-                "water_available": 0,
-                "distance_sum": 0.0,
-                "distance_count": 0,
-                "heating_incidents": 0,
-            },
-        )
+        bucket = buckets.get(label)
+        if bucket is None:
+            bucket = _new_territory_bucket(label)
+            buckets[label] = bucket
+        _update_territory_bucket(bucket, record, label)
+    return buckets
 
-        bucket["incidents"] += 1
-        district_value = record.get("district") or label
-        bucket["districts"][district_value] += 1
-        settlement_type = record.get("settlement_type") or "Не указано"
-        bucket["settlement_types"][settlement_type] += 1
 
-        fire_area = record.get("fire_area")
-        if fire_area is not None and fire_area >= 0:
-            bucket["area_sum"] += float(fire_area)
-            bucket["area_count"] += 1
-
-        response_minutes = record.get("response_minutes")
-        if response_minutes is not None:
-            bucket["response_sum"] += float(response_minutes)
-            bucket["response_count"] += 1
-            if record.get("long_arrival"):
-                bucket["long_arrivals"] += 1
-
-        if record.get("severe_consequence"):
-            bucket["severe"] += 1
-        if record.get("night_incident"):
-            bucket["night_incidents"] += 1
-        if record.get("heating_season"):
-            bucket["heating_incidents"] += 1
-
-        if record.get("has_water_supply") is not None:
-            bucket["water_known"] += 1
-            if record.get("has_water_supply"):
-                bucket["water_available"] += 1
-
-        distance_value = record.get("fire_station_distance")
-        if distance_value is not None:
-            bucket["distance_sum"] += float(distance_value)
-            bucket["distance_count"] += 1
-
+def _build_territory_global_stats(buckets: Dict[str, Dict[str, Any]]) -> Dict[str, float | None]:
     total_incidents = sum(int(bucket["incidents"]) for bucket in buckets.values())
     total_area_count = sum(int(bucket["area_count"]) for bucket in buckets.values())
     total_response_count = sum(int(bucket["response_count"]) for bucket in buckets.values())
     total_water_known = sum(int(bucket["water_known"]) for bucket in buckets.values())
     total_distance_count = sum(int(bucket["distance_count"]) for bucket in buckets.values())
-    global_area_mean = (
-        float(sum(float(bucket["area_sum"]) for bucket in buckets.values()) / total_area_count) if total_area_count else None
-    )
-    global_response_mean = (
-        float(sum(float(bucket["response_sum"]) for bucket in buckets.values()) / total_response_count)
-        if total_response_count
-        else None
-    )
-    global_distance_mean = (
-        float(sum(float(bucket["distance_sum"]) for bucket in buckets.values()) / total_distance_count)
-        if total_distance_count
-        else None
-    )
-    global_night_rate = (
-        float(sum(int(bucket["night_incidents"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
-    )
-    global_severe_rate = (
-        float(sum(int(bucket["severe"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
-    )
-    global_heating_rate = (
-        float(sum(int(bucket["heating_incidents"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
-    )
-    global_response_coverage_rate = float(total_response_count / total_incidents) if total_incidents else None
-    global_water_coverage_rate = float(total_water_known / total_incidents) if total_incidents else None
-    global_long_arrival_rate = (
-        float(sum(int(bucket["long_arrivals"]) for bucket in buckets.values()) / total_response_count)
-        if total_response_count
-        else None
-    )
-    global_no_water_rate = (
-        float(
-            sum(int(bucket["water_known"]) - int(bucket["water_available"]) for bucket in buckets.values()) / total_water_known
-        )
-        if total_water_known
-        else None
-    )
+    return {
+        "area_mean": (
+            float(sum(float(bucket["area_sum"]) for bucket in buckets.values()) / total_area_count) if total_area_count else None
+        ),
+        "response_mean": (
+            float(sum(float(bucket["response_sum"]) for bucket in buckets.values()) / total_response_count)
+            if total_response_count
+            else None
+        ),
+        "distance_mean": (
+            float(sum(float(bucket["distance_sum"]) for bucket in buckets.values()) / total_distance_count)
+            if total_distance_count
+            else None
+        ),
+        "night_rate": (
+            float(sum(int(bucket["night_incidents"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
+        ),
+        "severe_rate": (
+            float(sum(int(bucket["severe"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
+        ),
+        "heating_rate": (
+            float(sum(int(bucket["heating_incidents"]) for bucket in buckets.values()) / total_incidents) if total_incidents else None
+        ),
+        "response_coverage_rate": float(total_response_count / total_incidents) if total_incidents else None,
+        "water_coverage_rate": float(total_water_known / total_incidents) if total_incidents else None,
+        "long_arrival_rate": (
+            float(sum(int(bucket["long_arrivals"]) for bucket in buckets.values()) / total_response_count)
+            if total_response_count
+            else None
+        ),
+        "no_water_rate": (
+            float(
+                sum(int(bucket["water_known"]) - int(bucket["water_available"]) for bucket in buckets.values()) / total_water_known
+            )
+            if total_water_known
+            else None
+        ),
+    }
 
-    rows: List[Dict[str, Any]] = []
-    for bucket in buckets.values():
-        incidents = max(1, int(bucket["incidents"]))
-        area_count = int(bucket["area_count"])
-        response_count = int(bucket["response_count"])
-        water_known_count = int(bucket["water_known"])
-        distance_count = int(bucket["distance_count"])
-        dominant_district = _counter_top_label(bucket["districts"], bucket["label"]) or bucket["label"]
-        dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано") or "Не указано"
-        is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
-        rows.append(
-            {
-                "Территория": bucket["label"],
-                "Район": dominant_district,
-                "Тип территории": "Сельская территория" if is_rural else "Территория без выраженного сельского профиля",
-                "Доминирующий тип населенного пункта": dominant_settlement_type,
-                "Число пожаров": incidents,
-                "Средняя площадь пожара": _shrink_mean(
-                    bucket["area_sum"],
-                    area_count,
-                    global_area_mean,
-                    MEAN_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Доля ночных пожаров": _shrink_rate(
-                    bucket["night_incidents"],
-                    incidents,
-                    global_night_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Среднее время прибытия, мин": _shrink_mean(
-                    bucket["response_sum"],
-                    response_count,
-                    global_response_mean,
-                    MEAN_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Доля тяжелых последствий": _shrink_rate(
-                    bucket["severe"],
-                    incidents,
-                    global_severe_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Доля без подтвержденного водоснабжения": _shrink_rate(
-                    bucket["water_known"] - bucket["water_available"],
-                    water_known_count,
-                    global_no_water_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Доля долгих прибытий": _shrink_rate(
-                    bucket["long_arrivals"],
-                    response_count,
-                    global_long_arrival_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Средняя удаленность до ПЧ, км": _shrink_mean(
-                    bucket["distance_sum"],
-                    distance_count,
-                    global_distance_mean,
-                    MEAN_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Доля пожаров в отопительный сезон": _shrink_rate(
-                    bucket["heating_incidents"],
-                    incidents,
-                    global_heating_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Покрытие данных по водоснабжению": _shrink_rate(
-                    water_known_count,
-                    incidents,
-                    global_water_coverage_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                "Покрытие данных по времени прибытия": _shrink_rate(
-                    response_count,
-                    incidents,
-                    global_response_coverage_rate,
-                    RATE_SMOOTHING_PRIOR_STRENGTH,
-                ),
-                AREA_SUPPORT_COLUMN: area_count,
-                RESPONSE_SUPPORT_COLUMN: response_count,
-                WATER_SUPPORT_COLUMN: water_known_count,
-                DISTANCE_SUPPORT_COLUMN: distance_count,
-            }
-        )
+
+def _territory_bucket_to_row(bucket: Dict[str, Any], global_stats: Dict[str, float | None]) -> Dict[str, Any]:
+    incidents = max(1, int(bucket["incidents"]))
+    area_count = int(bucket["area_count"])
+    response_count = int(bucket["response_count"])
+    water_known_count = int(bucket["water_known"])
+    distance_count = int(bucket["distance_count"])
+    dominant_district = _counter_top_label(bucket["districts"], bucket["label"]) or bucket["label"]
+    dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано") or "Не указано"
+    is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
+    return {
+        "Территория": bucket["label"],
+        "Район": dominant_district,
+        "Тип территории": "Сельская территория" if is_rural else "Территория без выраженного сельского профиля",
+        "Доминирующий тип населенного пункта": dominant_settlement_type,
+        "Число пожаров": incidents,
+        "Средняя площадь пожара": _shrink_mean(
+            bucket["area_sum"],
+            area_count,
+            global_stats["area_mean"],
+            MEAN_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Доля ночных пожаров": _shrink_rate(
+            bucket["night_incidents"],
+            incidents,
+            global_stats["night_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Среднее время прибытия, мин": _shrink_mean(
+            bucket["response_sum"],
+            response_count,
+            global_stats["response_mean"],
+            MEAN_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Доля тяжелых последствий": _shrink_rate(
+            bucket["severe"],
+            incidents,
+            global_stats["severe_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Доля без подтвержденного водоснабжения": _shrink_rate(
+            bucket["water_known"] - bucket["water_available"],
+            water_known_count,
+            global_stats["no_water_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Доля долгих прибытий": _shrink_rate(
+            bucket["long_arrivals"],
+            response_count,
+            global_stats["long_arrival_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Средняя удаленность до ПЧ, км": _shrink_mean(
+            bucket["distance_sum"],
+            distance_count,
+            global_stats["distance_mean"],
+            MEAN_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Доля пожаров в отопительный сезон": _shrink_rate(
+            bucket["heating_incidents"],
+            incidents,
+            global_stats["heating_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Покрытие данных по водоснабжению": _shrink_rate(
+            water_known_count,
+            incidents,
+            global_stats["water_coverage_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        "Покрытие данных по времени прибытия": _shrink_rate(
+            response_count,
+            incidents,
+            global_stats["response_coverage_rate"],
+            RATE_SMOOTHING_PRIOR_STRENGTH,
+        ),
+        AREA_SUPPORT_COLUMN: area_count,
+        RESPONSE_SUPPORT_COLUMN: response_count,
+        WATER_SUPPORT_COLUMN: water_known_count,
+        DISTANCE_SUPPORT_COLUMN: distance_count,
+    }
+
+
+def _aggregate_territory_frame(records: Sequence[Dict[str, Any]]) -> pd.DataFrame:
+    buckets = _aggregate_territory_buckets(records)
+    global_stats = _build_territory_global_stats(buckets)
+    rows = [_territory_bucket_to_row(bucket, global_stats) for bucket in buckets.values()]
 
     frame = pd.DataFrame(rows)
     if frame.empty:

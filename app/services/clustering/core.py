@@ -732,6 +732,221 @@ def _build_clustering_success_payload(
     return payload
 
 
+def _load_clustering_stage(
+    *,
+    base: Dict[str, Any],
+    selected_table: str,
+    requested_sample_limit: int,
+    selected_sampling_strategy: str,
+    normalized_feature_columns: Sequence[str] | None,
+    requested_cluster_count: int,
+    perf: Any,
+    progress_callback: Callable[[str, str], None] | None,
+) -> Dict[str, Any]:
+    try:
+        dataset = _load_clustering_dataset_for_request(
+            selected_table=selected_table,
+            requested_sample_limit=requested_sample_limit,
+            selected_sampling_strategy=selected_sampling_strategy,
+            perf=perf,
+            progress_callback=progress_callback,
+        )
+    except Exception as exc:
+        base["notes"].append(str(exc))
+        return {"error_payload": base}
+
+    feature_selection = _build_clustering_feature_context(
+        base=base,
+        dataset=dataset,
+        normalized_feature_columns=normalized_feature_columns,
+        selected_sampling_strategy=selected_sampling_strategy,
+        requested_cluster_count=requested_cluster_count,
+        perf=perf,
+        progress_callback=progress_callback,
+    )
+    candidate_features = feature_selection["candidate_features"]
+    selected_features = feature_selection["selected_features"]
+
+    if len(candidate_features) < 2:
+        base["notes"].append("В таблице не хватило агрегированных признаков с вариативностью, чтобы стабильно кластеризовать территории.")
+        _emit_clustering_progress(
+            progress_callback,
+            "clustering.completed",
+            "После агрегации оказалось недостаточно вариативных признаков для устойчивой кластеризации.",
+        )
+        return {"error_payload": base}
+
+    if len(selected_features) < 2:
+        base["notes"].append("Для кластеризации нужно выбрать минимум два агрегированных признака территории.")
+        _emit_clustering_progress(
+            progress_callback,
+            "clustering.completed",
+            "Для расчета нужно минимум два агрегированных признака, поэтому результат остался в placeholder-режиме.",
+        )
+        return {"error_payload": base}
+
+    return {
+        "dataset": dataset,
+        "feature_selection": feature_selection,
+    }
+
+
+def _build_clustering_model_stage_context(
+    *,
+    base: Dict[str, Any],
+    summary: Dict[str, Any],
+    dataset: Dict[str, Any],
+    feature_selection_report: Dict[str, Any],
+    selected_features: Sequence[str],
+    requested_cluster_count: int,
+    cluster_count_is_explicit: bool,
+    perf: Any,
+    progress_callback: Callable[[str, str], None] | None,
+) -> Dict[str, Any]:
+    model_inputs = _build_clustering_model_inputs(
+        summary=summary,
+        dataset=dataset,
+        selected_features=selected_features,
+        requested_cluster_count=requested_cluster_count,
+        perf=perf,
+        progress_callback=progress_callback,
+    )
+    cluster_frame = model_inputs["cluster_frame"]
+    entity_frame = model_inputs["entity_frame"]
+    excluded_entities = model_inputs["excluded_entities"]
+
+    if len(cluster_frame) < max(12, requested_cluster_count * MIN_ROWS_PER_CLUSTER):
+        base["notes"].append("После отбора и заполнения пропусков осталось слишком мало территорий для устойчивой кластеризации.")
+        _emit_clustering_progress(
+            progress_callback,
+            "clustering.completed",
+            "После подготовки выборки осталось слишком мало территорий для устойчивой кластеризации.",
+        )
+        return {"error_payload": base}
+
+    requested_working_cluster_count = model_inputs["requested_working_cluster_count"]
+    actual_cluster_count = model_inputs["actual_cluster_count"]
+    if requested_working_cluster_count != requested_cluster_count:
+        base["notes"].append(
+            f"Количество кластеров автоматически скорректировано до {actual_cluster_count}, чтобы в каждом типе территорий было достаточно наблюдений."
+        )
+
+    model_bundle = _run_clustering_model_stage(
+        cluster_frame=cluster_frame,
+        entity_frame=entity_frame,
+        feature_selection_report=feature_selection_report,
+        requested_working_cluster_count=requested_working_cluster_count,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+        perf=perf,
+    )
+    if perf is not None:
+        perf.update(
+            clustered_entities=len(cluster_frame),
+            excluded_entities=excluded_entities,
+            actual_cluster_count=model_bundle["actual_cluster_count"],
+            actual_method_key=model_bundle["actual_method_key"],
+            method_comparison_reused=bool(model_bundle.get("method_comparison_reused")),
+        )
+    return {
+        "model_inputs": model_inputs,
+        "model_bundle": model_bundle,
+    }
+
+
+def _build_clustering_quality_stage(
+    *,
+    base: Dict[str, Any],
+    summary: Dict[str, Any],
+    model_inputs: Dict[str, Any],
+    model_bundle: Dict[str, Any],
+    requested_cluster_count: int,
+    cluster_count_is_explicit: bool,
+) -> Dict[str, Any]:
+    actual_cluster_count = model_bundle["actual_cluster_count"]
+    diagnostics = model_bundle["diagnostics"]
+    clustering = model_bundle["clustering"]
+    requested_working_cluster_count = model_inputs["requested_working_cluster_count"]
+    cluster_count_guidance = _build_cluster_count_guidance(
+        requested_cluster_count=requested_cluster_count,
+        current_cluster_count=actual_cluster_count,
+        diagnostics=diagnostics,
+        adjusted_requested_cluster_count=requested_working_cluster_count,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+    )
+    _apply_cluster_count_guidance_to_summary(
+        base=base,
+        summary=summary,
+        cluster_count_guidance=cluster_count_guidance,
+        actual_cluster_count=actual_cluster_count,
+        requested_cluster_count=requested_cluster_count,
+        diagnostics=diagnostics,
+    )
+    summary["silhouette_display"] = _format_number(clustering["silhouette"], 3) if clustering["silhouette"] is not None else "—"
+    summary["pca_variance_display"] = _format_percent(clustering["explained_variance"])
+    summary["inertia_display"] = _format_number(clustering["inertia"], 2)
+    if cluster_count_guidance.get("notes_message"):
+        base["notes"].append(str(cluster_count_guidance["notes_message"]))
+    return cluster_count_guidance
+
+
+def _render_clustering_payload_stage(
+    *,
+    base: Dict[str, Any],
+    dataset: Dict[str, Any],
+    feature_selection: Dict[str, Any],
+    model_inputs: Dict[str, Any],
+    model_bundle: Dict[str, Any],
+    cluster_count_guidance: Dict[str, Any],
+    requested_cluster_count: int,
+    cluster_count_is_explicit: bool,
+    cache_key: Tuple[str, ...],
+    perf: Any,
+    progress_callback: Callable[[str, str], None] | None,
+) -> Dict[str, Any]:
+    _emit_clustering_progress(
+        progress_callback,
+        "clustering.render",
+        "Подготавливаем итоговые таблицы, профили кластеров и визуализации.",
+    )
+    with (perf.span("payload_render") if perf is not None else nullcontext()):
+        payload = _build_clustering_success_payload(
+            base=base,
+            summary=feature_selection["summary"],
+            dataset=dataset,
+            selected_features=feature_selection["selected_features"],
+            requested_cluster_count=requested_cluster_count,
+            requested_working_cluster_count=model_inputs["requested_working_cluster_count"],
+            cluster_count_is_explicit=cluster_count_is_explicit,
+            cluster_count_guidance=cluster_count_guidance,
+            diagnostics=model_bundle["diagnostics"],
+            runtime_feature_context=model_bundle["runtime_feature_context"],
+            clustering=model_bundle["clustering"],
+            method_comparison=model_bundle["method_comparison"],
+            actual_cluster_count=model_bundle["actual_cluster_count"],
+            profiles=model_bundle["profiles"],
+            centroid_columns=model_bundle["centroid_columns"],
+            centroid_rows=model_bundle["centroid_rows"],
+            representative_columns=model_bundle["representative_columns"],
+            representative_rows=model_bundle["representative_rows"],
+            labels=model_bundle["labels"],
+            cluster_labels=model_bundle["cluster_labels"],
+            cluster_frame=model_inputs["cluster_frame"],
+            entity_frame=model_inputs["entity_frame"],
+        )
+        if perf is not None:
+            perf.update(
+                payload_has_data=bool(payload.get("has_data")),
+                payload_notes=len(payload.get("notes") or []),
+            )
+        result = _CLUSTERING_CACHE.set(cache_key, payload)
+        _emit_clustering_progress(
+            progress_callback,
+            "clustering.completed",
+            "Кластеризация завершена, результаты и графики готовы.",
+        )
+        return result
+
+
 @profiled("clustering", engine=engine)
 def get_clustering_data(
     table_name: str = "",
@@ -796,170 +1011,61 @@ def get_clustering_data(
         )
         return _CLUSTERING_CACHE.set(cache_key, base)
 
-    try:
-        dataset = _load_clustering_dataset_for_request(
-            selected_table=selected_table,
-            requested_sample_limit=requested_sample_limit,
-            selected_sampling_strategy=selected_sampling_strategy,
-            perf=perf,
-            progress_callback=progress_callback,
-        )
-    except Exception as exc:
-        base["notes"].append(str(exc))
-        return _CLUSTERING_CACHE.set(cache_key, base)
-
-    feature_selection = _build_clustering_feature_context(
+    load_stage = _load_clustering_stage(
         base=base,
-        dataset=dataset,
-        normalized_feature_columns=normalized_feature_columns,
+        selected_table=selected_table,
+        requested_sample_limit=requested_sample_limit,
         selected_sampling_strategy=selected_sampling_strategy,
+        normalized_feature_columns=normalized_feature_columns,
         requested_cluster_count=requested_cluster_count,
         perf=perf,
         progress_callback=progress_callback,
     )
+    if load_stage.get("error_payload") is not None:
+        return _CLUSTERING_CACHE.set(cache_key, load_stage["error_payload"])
+    dataset = load_stage["dataset"]
+    feature_selection = load_stage["feature_selection"]
     summary = feature_selection["summary"]
-    candidate_features = feature_selection["candidate_features"]
     selected_features = feature_selection["selected_features"]
     feature_selection_report = feature_selection["feature_selection_report"]
 
-    if len(candidate_features) < 2:
-        base["notes"].append("В таблице не хватило агрегированных признаков с вариативностью, чтобы стабильно кластеризовать территории.")
-        _emit_clustering_progress(
-            progress_callback,
-            "clustering.completed",
-            "После агрегации оказалось недостаточно вариативных признаков для устойчивой кластеризации.",
-        )
-        return _CLUSTERING_CACHE.set(cache_key, base)
-
-    if len(selected_features) < 2:
-        base["notes"].append("Для кластеризации нужно выбрать минимум два агрегированных признака территории.")
-        _emit_clustering_progress(
-            progress_callback,
-            "clustering.completed",
-            "Для расчета нужно минимум два агрегированных признака, поэтому результат остался в placeholder-режиме.",
-        )
-        return _CLUSTERING_CACHE.set(cache_key, base)
-
-    model_inputs = _build_clustering_model_inputs(
+    model_stage = _build_clustering_model_stage_context(
+        base=base,
         summary=summary,
         dataset=dataset,
+        feature_selection_report=feature_selection_report,
         selected_features=selected_features,
         requested_cluster_count=requested_cluster_count,
+        cluster_count_is_explicit=cluster_count_is_explicit,
         perf=perf,
         progress_callback=progress_callback,
     )
-    cluster_frame = model_inputs["cluster_frame"]
-    entity_frame = model_inputs["entity_frame"]
-    excluded_entities = model_inputs["excluded_entities"]
+    if model_stage.get("error_payload") is not None:
+        return _CLUSTERING_CACHE.set(cache_key, model_stage["error_payload"])
+    model_inputs = model_stage["model_inputs"]
+    model_bundle = model_stage["model_bundle"]
 
-    if len(cluster_frame) < max(12, requested_cluster_count * MIN_ROWS_PER_CLUSTER):
-        base["notes"].append("После отбора и заполнения пропусков осталось слишком мало территорий для устойчивой кластеризации.")
-        _emit_clustering_progress(
-            progress_callback,
-            "clustering.completed",
-            "После подготовки выборки осталось слишком мало территорий для устойчивой кластеризации.",
-        )
-        return _CLUSTERING_CACHE.set(cache_key, base)
-
-    requested_working_cluster_count = model_inputs["requested_working_cluster_count"]
-    actual_cluster_count = model_inputs["actual_cluster_count"]
-    if requested_working_cluster_count != requested_cluster_count:
-        base["notes"].append(
-            f"Количество кластеров автоматически скорректировано до {actual_cluster_count}, чтобы в каждом типе территорий было достаточно наблюдений."
-        )
-
-    model_bundle = _run_clustering_model_stage(
-        cluster_frame=cluster_frame,
-        entity_frame=entity_frame,
-        feature_selection_report=feature_selection_report,
-        requested_working_cluster_count=requested_working_cluster_count,
-        cluster_count_is_explicit=cluster_count_is_explicit,
-        perf=perf,
-    )
-    diagnostics = model_bundle["diagnostics"]
-    actual_cluster_count = model_bundle["actual_cluster_count"]
-    actual_method_key = model_bundle["actual_method_key"]
-    runtime_feature_context = model_bundle["runtime_feature_context"]
-    clustering = model_bundle["clustering"]
-    method_comparison = model_bundle["method_comparison"]
-    labels = model_bundle["labels"]
-    cluster_labels = model_bundle["cluster_labels"]
-    profiles = model_bundle["profiles"]
-    centroid_columns = model_bundle["centroid_columns"]
-    centroid_rows = model_bundle["centroid_rows"]
-    representative_columns = model_bundle["representative_columns"]
-    representative_rows = model_bundle["representative_rows"]
-    if perf is not None:
-        perf.update(
-            clustered_entities=len(cluster_frame),
-            excluded_entities=excluded_entities,
-            actual_cluster_count=actual_cluster_count,
-            actual_method_key=actual_method_key,
-            method_comparison_reused=bool(model_bundle.get("method_comparison_reused")),
-        )
-    cluster_count_guidance = _build_cluster_count_guidance(
-        requested_cluster_count=requested_cluster_count,
-        current_cluster_count=actual_cluster_count,
-        diagnostics=diagnostics,
-        adjusted_requested_cluster_count=requested_working_cluster_count,
-        cluster_count_is_explicit=cluster_count_is_explicit,
-    )
-    _apply_cluster_count_guidance_to_summary(
+    cluster_count_guidance = _build_clustering_quality_stage(
         base=base,
         summary=summary,
-        cluster_count_guidance=cluster_count_guidance,
-        actual_cluster_count=actual_cluster_count,
+        model_inputs=model_inputs,
+        model_bundle=model_bundle,
         requested_cluster_count=requested_cluster_count,
-        diagnostics=diagnostics,
+        cluster_count_is_explicit=cluster_count_is_explicit,
     )
-    summary["silhouette_display"] = _format_number(clustering["silhouette"], 3) if clustering["silhouette"] is not None else "—"
-    summary["pca_variance_display"] = _format_percent(clustering["explained_variance"])
-    summary["inertia_display"] = _format_number(clustering["inertia"], 2)
-    if cluster_count_guidance.get("notes_message"):
-        base["notes"].append(str(cluster_count_guidance["notes_message"]))
-
-    _emit_clustering_progress(
-        progress_callback,
-        "clustering.render",
-        "Подготавливаем итоговые таблицы, профили кластеров и визуализации.",
+    return _render_clustering_payload_stage(
+        base=base,
+        dataset=dataset,
+        feature_selection=feature_selection,
+        model_inputs=model_inputs,
+        model_bundle=model_bundle,
+        cluster_count_guidance=cluster_count_guidance,
+        requested_cluster_count=requested_cluster_count,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+        cache_key=cache_key,
+        perf=perf,
+        progress_callback=progress_callback,
     )
-    with (perf.span("payload_render") if perf is not None else nullcontext()):
-        payload = _build_clustering_success_payload(
-            base=base,
-            summary=summary,
-            dataset=dataset,
-            selected_features=selected_features,
-            requested_cluster_count=requested_cluster_count,
-            requested_working_cluster_count=requested_working_cluster_count,
-            cluster_count_is_explicit=cluster_count_is_explicit,
-            cluster_count_guidance=cluster_count_guidance,
-            diagnostics=diagnostics,
-            runtime_feature_context=runtime_feature_context,
-            clustering=clustering,
-            method_comparison=method_comparison,
-            actual_cluster_count=actual_cluster_count,
-            profiles=profiles,
-            centroid_columns=centroid_columns,
-            centroid_rows=centroid_rows,
-            representative_columns=representative_columns,
-            representative_rows=representative_rows,
-            labels=labels,
-            cluster_labels=cluster_labels,
-            cluster_frame=cluster_frame,
-            entity_frame=entity_frame,
-        )
-        if perf is not None:
-            perf.update(
-                payload_has_data=bool(payload.get("has_data")),
-                payload_notes=len(payload.get("notes") or []),
-            )
-        result = _CLUSTERING_CACHE.set(cache_key, payload)
-        _emit_clustering_progress(
-            progress_callback,
-            "clustering.completed",
-            "Кластеризация завершена, результаты и графики готовы.",
-        )
-        return result
 
 
 def _empty_clustering_quality_assessment() -> Dict[str, Any]:
@@ -1029,6 +1135,109 @@ def _resolve_quality_configuration_context(
     }
 
 
+def _build_feature_selection_quality_label_context(
+    feature_selection_report: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    report = feature_selection_report or {}
+    return {
+        "mode_label": str(report.get("volume_role_label") or "Профиль территории"),
+        "mode_note": str(report.get("volume_note") or ""),
+        "weighting_label": str(report.get("weighting_label") or "Равный вес территорий"),
+        "weighting_note": str(report.get("weighting_note") or ""),
+        "weighting_meta": str(report.get("weighting_meta") or ""),
+        "ablation_rows": list(report.get("ablation_rows") or []),
+    }
+
+
+def _build_ablation_warning_note(ablation_rows: Sequence[Dict[str, Any]]) -> str:
+    negative_adds = [
+        row for row in ablation_rows if row.get("direction") == "add" and float(row.get("delta_score") or 0.0) < 0.0
+    ]
+    if not negative_adds:
+        return ""
+
+    worst_feature = min(negative_adds, key=lambda item: float(item.get("delta_score") or 0.0))
+    return (
+        f"В малом ablation-анализе признак '{worst_feature['feature']}' не вошёл в default feature set, "
+        "потому что его добавление ухудшало качество кластеризации."
+    )
+
+
+def _format_quality_method_selection_label(row: Dict[str, Any]) -> str:
+    if row.get("is_selected") and row.get("is_recommended"):
+        return "Рабочий и лучший на текущем k"
+    if row.get("is_selected"):
+        return "Рабочий вывод"
+    if row.get("is_recommended"):
+        return "Лучше на текущем k"
+    return "Сравнение"
+
+
+def _build_quality_method_comparison_rows(
+    method_comparison: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    return [
+        {
+            "method_label": row.get("method_label", "Метод"),
+            "selection_label": _format_quality_method_selection_label(row),
+            "silhouette_display": _format_number(row.get("silhouette"), 3),
+            "davies_display": _format_number(row.get("davies_bouldin"), 3),
+            "calinski_display": _format_number(row.get("calinski_harabasz"), 1),
+            "balance_display": _format_percent(row.get("cluster_balance_ratio") or 0.0),
+        }
+        for row in method_comparison
+    ]
+
+
+def _build_quality_dissertation_points(
+    *,
+    segmentation_note: str,
+    method_note: str,
+    cluster_count_guidance: Dict[str, Any],
+    recommended_config_label: str,
+    working_config_label: str,
+    recommended_k: int | None,
+    best_silhouette_k: Any,
+    stability_note: str,
+    low_support_display: str,
+    selected_features: Sequence[str],
+    comparison_scope_note: str,
+    cluster_shape_note: str,
+    weighting_note: str,
+    mode_note: str,
+    ablation_note: str,
+) -> List[str]:
+    dissertation_points = [
+        segmentation_note,
+        method_note,
+        str(cluster_count_guidance.get("quality_note") or ""),
+        (
+            f"Рекомендуемая конфигурация по совокупности метрик: {recommended_config_label}."
+            if recommended_config_label != working_config_label
+            else f"Рабочая конфигурация {working_config_label} уже совпадает с recommendation engine."
+        ),
+        (
+            f"Пик silhouette отдельно приходится на k={_format_integer(best_silhouette_k)}, поэтому выбор k лучше читать вместе с балансом кластеров и риском микрокластеров."
+            if recommended_k and best_silhouette_k and recommended_k != best_silhouette_k
+            else "Silhouette, баланс и размеры кластеров не дают заметного конфликта по выбору k."
+        ),
+        stability_note,
+        f"{low_support_display} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему: вместо raw 0/1 к доле добавляются около {int(RATE_SMOOTHING_PRIOR_STRENGTH)} псевдо-наблюдений из общего профиля.",
+        f"Сравнение методов выполнено на том же наборе признаков: {', '.join(selected_features)}.",
+    ]
+    if comparison_scope_note:
+        dissertation_points.append(comparison_scope_note)
+    if cluster_shape_note:
+        dissertation_points.append(cluster_shape_note)
+    if weighting_note:
+        dissertation_points.append(weighting_note)
+    if mode_note:
+        dissertation_points.append(mode_note)
+    if ablation_note:
+        dissertation_points.append(ablation_note)
+    return [item for item in dissertation_points if str(item).strip()]
+
+
 def _build_clustering_quality_assessment(
     clustering: Dict[str, Any],
     method_comparison: Sequence[Dict[str, Any]],
@@ -1086,72 +1295,31 @@ def _build_clustering_quality_assessment(
     )
     comparison_scope_note = _build_method_comparison_scope_note(method_comparison)
     cluster_shape_note = _build_cluster_shape_note(clustering)
-    mode_label = str((feature_selection_report or {}).get("volume_role_label") or "Профиль территории")
-    mode_note = str((feature_selection_report or {}).get("volume_note") or "")
-    weighting_label = str((feature_selection_report or {}).get("weighting_label") or "Равный вес территорий")
-    weighting_note = str((feature_selection_report or {}).get("weighting_note") or "")
-    weighting_meta = str((feature_selection_report or {}).get("weighting_meta") or "")
-    ablation_rows = list((feature_selection_report or {}).get("ablation_rows") or [])
-    negative_adds = [
-        row for row in ablation_rows if row.get("direction") == "add" and float(row.get("delta_score") or 0.0) < 0.0
-    ]
-    ablation_note = ""
-    if negative_adds:
-        worst_feature = min(negative_adds, key=lambda item: float(item.get("delta_score") or 0.0))
-        ablation_note = (
-            f"В малом ablation-анализе признак '{worst_feature['feature']}' не вошёл в default feature set, "
-            "потому что его добавление ухудшало качество кластеризации."
-        )
-
-    comparison_rows = [
-        {
-            "method_label": row.get("method_label", "Метод"),
-            "selection_label": (
-                "Рабочий и лучший на текущем k"
-                if row.get("is_selected") and row.get("is_recommended")
-                else "Рабочий вывод"
-                if row.get("is_selected")
-                else "Лучше на текущем k"
-                if row.get("is_recommended")
-                else "Сравнение"
-            ),
-            "silhouette_display": _format_number(row.get("silhouette"), 3),
-            "davies_display": _format_number(row.get("davies_bouldin"), 3),
-            "calinski_display": _format_number(row.get("calinski_harabasz"), 1),
-            "balance_display": _format_percent(row.get("cluster_balance_ratio") or 0.0),
-        }
-        for row in method_comparison
-    ]
-
-    dissertation_points = [
-        segmentation_summary["note"],
-        method_note,
-        str(cluster_count_guidance.get("quality_note") or ""),
-        (
-            f"Рекомендуемая конфигурация по совокупности метрик: {recommended_config_label}."
-            if recommended_config_label != working_config_label
-            else f"Рабочая конфигурация {working_config_label} уже совпадает с recommendation engine."
-        ),
-        (
-            f"Пик silhouette отдельно приходится на k={_format_integer(best_silhouette_k)}, поэтому выбор k лучше читать вместе с балансом кластеров и риском микрокластеров."
-            if recommended_k and best_silhouette_k and recommended_k != best_silhouette_k
-            else "Silhouette, баланс и размеры кластеров не дают заметного конфликта по выбору k."
-        ),
-        stability_note,
-        f"{low_support_display} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему: вместо raw 0/1 к доле добавляются около {int(RATE_SMOOTHING_PRIOR_STRENGTH)} псевдо-наблюдений из общего профиля.",
-        f"Сравнение методов выполнено на том же наборе признаков: {', '.join(selected_features)}.",
-    ]
-    if comparison_scope_note:
-        dissertation_points.append(comparison_scope_note)
-    if cluster_shape_note:
-        dissertation_points.append(cluster_shape_note)
-    if weighting_note:
-        dissertation_points.append(weighting_note)
-    if mode_note:
-        dissertation_points.append(mode_note)
-    if ablation_note:
-        dissertation_points.append(ablation_note)
-    dissertation_points = [item for item in dissertation_points if str(item).strip()]
+    label_context = _build_feature_selection_quality_label_context(feature_selection_report)
+    mode_label = label_context["mode_label"]
+    mode_note = label_context["mode_note"]
+    weighting_label = label_context["weighting_label"]
+    weighting_note = label_context["weighting_note"]
+    weighting_meta = label_context["weighting_meta"]
+    ablation_note = _build_ablation_warning_note(label_context["ablation_rows"])
+    comparison_rows = _build_quality_method_comparison_rows(method_comparison)
+    dissertation_points = _build_quality_dissertation_points(
+        segmentation_note=segmentation_summary["note"],
+        method_note=method_note,
+        cluster_count_guidance=cluster_count_guidance,
+        recommended_config_label=recommended_config_label,
+        working_config_label=working_config_label,
+        recommended_k=recommended_k,
+        best_silhouette_k=best_silhouette_k,
+        stability_note=stability_note,
+        low_support_display=low_support_display,
+        selected_features=selected_features,
+        comparison_scope_note=comparison_scope_note,
+        cluster_shape_note=cluster_shape_note,
+        weighting_note=weighting_note,
+        mode_note=mode_note,
+        ablation_note=ablation_note,
+    )
 
     return {
         "ready": True,
@@ -1193,14 +1361,14 @@ def _build_clustering_quality_assessment(
 
 
 
-def _build_cluster_count_guidance(
+def _build_cluster_count_guidance_context(
     requested_cluster_count: int,
     current_cluster_count: int,
     diagnostics: Dict[str, Any] | None = None,
     adjusted_requested_cluster_count: int | None = None,
     cluster_count_is_explicit: bool = False,
 ) -> Dict[str, Any]:
-    recommended_k = (diagnostics or {}).get("best_quality_k")
+    raw_recommended_k = (diagnostics or {}).get("best_quality_k")
     best_silhouette_k = (diagnostics or {}).get("best_silhouette_k")
     requested_cluster_count = int(requested_cluster_count)
     adjusted_requested_cluster_count = int(
@@ -1208,11 +1376,34 @@ def _build_cluster_count_guidance(
     )
     current_cluster_count = int(current_cluster_count)
     request_adjusted = requested_cluster_count != adjusted_requested_cluster_count
-    recommendation_gap = bool(recommended_k) and int(recommended_k) != current_cluster_count
+    recommendation_gap = bool(raw_recommended_k) and int(raw_recommended_k) != current_cluster_count
+    has_recommended_k = bool(raw_recommended_k)
     auto_switched_to_recommended = (
         not cluster_count_is_explicit and adjusted_requested_cluster_count != current_cluster_count
     )
+    return {
+        "recommended_k": int(raw_recommended_k) if has_recommended_k else raw_recommended_k,
+        "best_silhouette_k": best_silhouette_k,
+        "requested_cluster_count": requested_cluster_count,
+        "adjusted_requested_cluster_count": adjusted_requested_cluster_count,
+        "current_cluster_count": current_cluster_count,
+        "request_adjusted": request_adjusted,
+        "recommendation_gap": recommendation_gap,
+        "has_recommended_k": has_recommended_k,
+        "auto_switched_to_recommended": auto_switched_to_recommended,
+    }
 
+
+def _build_cluster_count_recommendation_context(
+    context: Dict[str, Any],
+    *,
+    cluster_count_is_explicit: bool,
+) -> Dict[str, str]:
+    recommended_k = context["recommended_k"]
+    current_cluster_count = context["current_cluster_count"]
+    adjusted_requested_cluster_count = context["adjusted_requested_cluster_count"]
+    recommendation_gap = context["recommendation_gap"]
+    auto_switched_to_recommended = context["auto_switched_to_recommended"]
     suggested_label = "Автовыбор k" if not cluster_count_is_explicit else "Рекомендуемый k"
     suggested_note = "Диагностика k появится, когда хватит данных для сравнения нескольких вариантов."
     current_note = f"Сейчас основной вывод показан для k={_format_integer(current_cluster_count)}."
@@ -1220,8 +1411,7 @@ def _build_cluster_count_guidance(
     notes_message = ""
     model_note = ""
 
-    if recommended_k:
-        recommended_k = int(recommended_k)
+    if context["has_recommended_k"]:
         if cluster_count_is_explicit and recommendation_gap:
             suggested_note = (
                 f"Диагностика рекомендует k={_format_integer(recommended_k)}; "
@@ -1285,17 +1475,54 @@ def _build_cluster_count_guidance(
                 )
             notes_message = quality_note
 
-    if request_adjusted:
-        adjustment_note = (
-            f"Запрошенное значение k={_format_integer(requested_cluster_count)} автоматически скорректировано до "
-            f"k={_format_integer(adjusted_requested_cluster_count)} из-за ограничений выбранной выборки."
-        )
-        current_note = adjustment_note if not current_note else f"{adjustment_note} {current_note}".strip()
-        suggested_note = f"{adjustment_note} {suggested_note}".strip()
-        quality_note = adjustment_note if not quality_note else f"{adjustment_note} {quality_note}".strip()
-        model_note = adjustment_note if not model_note else f"{adjustment_note} {model_note}".strip()
-        notes_message = quality_note
+    return {
+        "suggested_label": suggested_label,
+        "suggested_note": suggested_note,
+        "current_note": current_note,
+        "quality_note": quality_note,
+        "notes_message": notes_message,
+        "model_note": model_note,
+    }
 
+
+def _apply_cluster_count_adjustment_warning(
+    context: Dict[str, Any],
+    messages: Dict[str, str],
+) -> Dict[str, str]:
+    if not context["request_adjusted"]:
+        return messages
+
+    adjusted = dict(messages)
+    requested_cluster_count = context["requested_cluster_count"]
+    adjusted_requested_cluster_count = context["adjusted_requested_cluster_count"]
+    current_note = adjusted["current_note"]
+    suggested_note = adjusted["suggested_note"]
+    quality_note = adjusted["quality_note"]
+    model_note = adjusted["model_note"]
+    adjustment_note = (
+        f"Запрошенное значение k={_format_integer(requested_cluster_count)} автоматически скорректировано до "
+        f"k={_format_integer(adjusted_requested_cluster_count)} из-за ограничений выбранной выборки."
+    )
+    adjusted["current_note"] = adjustment_note if not current_note else f"{adjustment_note} {current_note}".strip()
+    adjusted["suggested_note"] = f"{adjustment_note} {suggested_note}".strip()
+    adjusted["quality_note"] = adjustment_note if not quality_note else f"{adjustment_note} {quality_note}".strip()
+    adjusted["model_note"] = adjustment_note if not model_note else f"{adjustment_note} {model_note}".strip()
+    adjusted["notes_message"] = adjusted["quality_note"]
+    return adjusted
+
+
+def _build_cluster_count_methodology_meta(
+    context: Dict[str, Any],
+    *,
+    cluster_count_is_explicit: bool,
+) -> str:
+    recommended_k = context["recommended_k"]
+    best_silhouette_k = context["best_silhouette_k"]
+    requested_cluster_count = context["requested_cluster_count"]
+    adjusted_requested_cluster_count = context["adjusted_requested_cluster_count"]
+    current_cluster_count = context["current_cluster_count"]
+    request_adjusted = context["request_adjusted"]
+    auto_switched_to_recommended = context["auto_switched_to_recommended"]
     meta_parts = [
         f"{'пользовательский' if cluster_count_is_explicit else 'рабочий'} k={_format_integer(current_cluster_count)}"
     ]
@@ -1311,19 +1538,48 @@ def _build_cluster_count_guidance(
         meta_parts.append(
             f"диагностика ограничена диапазоном {CLUSTER_COUNT_OPTIONS[0]}..{CLUSTER_COUNT_OPTIONS[-1]}, как в UI"
         )
+    return "; ".join(meta_parts)
 
+
+def _build_cluster_count_guidance(
+    requested_cluster_count: int,
+    current_cluster_count: int,
+    diagnostics: Dict[str, Any] | None = None,
+    adjusted_requested_cluster_count: int | None = None,
+    cluster_count_is_explicit: bool = False,
+) -> Dict[str, Any]:
+    guidance_context = _build_cluster_count_guidance_context(
+        requested_cluster_count=requested_cluster_count,
+        current_cluster_count=current_cluster_count,
+        diagnostics=diagnostics,
+        adjusted_requested_cluster_count=adjusted_requested_cluster_count,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+    )
+    recommendation_context = _build_cluster_count_recommendation_context(
+        guidance_context,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+    )
+    recommendation_context = _apply_cluster_count_adjustment_warning(guidance_context, recommendation_context)
+    recommended_k = guidance_context["recommended_k"]
+    best_silhouette_k = guidance_context["best_silhouette_k"]
+    recommendation_gap = guidance_context["recommendation_gap"]
+    request_adjusted = guidance_context["request_adjusted"]
+    methodology_meta = _build_cluster_count_methodology_meta(
+        guidance_context,
+        cluster_count_is_explicit=cluster_count_is_explicit,
+    )
     return {
         "recommended_cluster_count": recommended_k,
         "best_silhouette_k": best_silhouette_k,
         "has_recommendation_gap": recommendation_gap,
         "request_adjusted": request_adjusted,
-        "suggested_label": suggested_label,
-        "suggested_note": suggested_note,
-        "current_note": current_note,
-        "quality_note": quality_note,
-        "notes_message": notes_message,
-        "model_note": model_note,
-        "methodology_meta": "; ".join(meta_parts),
+        "suggested_label": recommendation_context["suggested_label"],
+        "suggested_note": recommendation_context["suggested_note"],
+        "current_note": recommendation_context["current_note"],
+        "quality_note": recommendation_context["quality_note"],
+        "notes_message": recommendation_context["notes_message"],
+        "model_note": recommendation_context["model_note"],
+        "methodology_meta": methodology_meta,
     }
 
 

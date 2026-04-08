@@ -24,6 +24,13 @@ def _extract_js_constant(html: str, name: str):
     return json.loads(match.group(1))
 
 
+def _extract_read_geojson_payload(html: str, name: str):
+    match = re.search(rf"const {name} = readGeoJson\((.*?)\);", html)
+    if not match:
+        raise AssertionError(f"Missing readGeoJson payload: {name}")
+    return json.loads(match.group(1))
+
+
 def _minimal_table():
     return {
         "name": "demo_table",
@@ -148,11 +155,31 @@ class MappingTemplateFragmentsTest(unittest.TestCase):
 
         self.assertIn('id="filter-panel-0"', html)
         self.assertIn('id="analytics-panel-0"', html)
+        self.assertIn('id="select-all-0"', html)
+        self.assertIn('id="deselect-all-0"', html)
         self.assertIn('data-category="deaths"', html)
-        self.assertIn('data-layer="heatmap"', html)
-        self.assertIn('data-layer="priorities"', html)
+        for layer_id in ("incidents", "heatmap", "hotspots", "clusters", "risk_zones", "priorities"):
+            self.assertIn(f'data-layer="{layer_id}"', html)
         self.assertIn('window["map0"] = map;', html)
         self.assertIn('new ol.layer.Heatmap', html)
+        self.assertIn('analyticsLayers.heatmap', html)
+        self.assertIn('analyticsLayers.hotspots', html)
+        self.assertIn('analyticsLayers.clusters', html)
+        self.assertIn('analyticsLayers.risk_zones', html)
+        self.assertIn('analyticsLayers.priorities', html)
+        self.assertIn('updateCategoryLayers', html)
+        self.assertIn('updateAnalyticsLayers', html)
+        self.assertIn('map.addControl(new ol.control.FullScreen());', html)
+        self.assertIn('map.addControl(new ol.control.ScaleLine());', html)
+
+        incident_payload = _extract_read_geojson_payload(html, "features")
+        incident_properties = incident_payload["features"][0]["properties"]
+        self.assertEqual(
+            incident_properties["popup_rows"],
+            [{"label": "Address", "value": "Demo"}],
+        )
+        self.assertIn('feature.get("popup_rows")', html)
+        self.assertIn('replaceChildren(popupElement)', html)
 
         features = _extract_js_constant(html, "analyticsLayersPayload")
         self.assertEqual(len(features["heatmap"]["features"]), 1)
@@ -160,6 +187,19 @@ class MappingTemplateFragmentsTest(unittest.TestCase):
         self.assertEqual(len(features["clusters"]["features"]), 1)
         self.assertEqual(len(features["risk_zones"]["features"]), 1)
         self.assertEqual(len(features["priorities"]["features"]), 1)
+
+        layer_defaults = _extract_js_constant(html, "analyticsLayerDefaults")
+        self.assertEqual(
+            layer_defaults,
+            {
+                "incidents": True,
+                "heatmap": True,
+                "hotspots": True,
+                "clusters": True,
+                "risk_zones": True,
+                "priorities": True,
+            },
+        )
 
         heatmap_config = _extract_js_constant(html, "heatmapConfig")
         self.assertEqual(heatmap_config, {"enabled": True, "radius": 18, "blur": 22})

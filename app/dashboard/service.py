@@ -22,6 +22,7 @@ from .distribution import (
     _build_damage_category_items,
     _build_damage_theme_items,
     _collect_damage_counts,
+    _damage_count_columns,
 )
 from .data_access import _resolve_cause_column, _resolve_table_column_name
 from .impact import (
@@ -218,8 +219,10 @@ def _build_dashboard_summary_series(
 def _build_damage_dashboard_charts(
     selected_tables: list[dict[str, Any]],
     selected_year: Optional[int],
+    *,
+    damage_counts: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
-    damage_counts = _collect_damage_counts(selected_tables, selected_year)
+    damage_counts = damage_counts if damage_counts is not None else _collect_damage_counts(selected_tables, selected_year)
     damage_category_items = _build_damage_category_items(
         selected_tables,
         selected_year,
@@ -329,17 +332,31 @@ def _build_dashboard_aggregation(
     yearly_fires_series = summary_series["yearly_fires_series"]
     table_breakdown_series = summary_series["table_breakdown_series"]
     is_damage_group = _is_damage_group_selection(selected_group_column)
-    grouped_counts_bundle = _collect_dashboard_grouped_counts(
-        selected_tables,
-        selected_year,
-        selected_group_column,
-        include_area_buckets=not is_damage_group,
-        include_impact_timeline=not is_damage_group,
-    )
+    if is_damage_group:
+        grouped_counts_bundle = _collect_dashboard_grouped_counts(
+            selected_tables,
+            selected_year,
+            selected_group_column,
+            include_area_buckets=False,
+            include_impact_timeline=False,
+            positive_count_columns=_damage_count_columns(),
+        )
+    else:
+        grouped_counts_bundle = _collect_dashboard_grouped_counts(
+            selected_tables,
+            selected_year,
+            selected_group_column,
+            include_area_buckets=True,
+            include_impact_timeline=True,
+        )
     cause_counts = grouped_counts_bundle["cause_counts"]
     cause_overview = _build_cause_chart(selected_tables, selected_year, cause_counts=cause_counts)
     dashboard_charts = (
-        _build_damage_dashboard_charts(selected_tables, selected_year)
+        _build_damage_dashboard_charts(
+            selected_tables,
+            selected_year,
+            damage_counts=grouped_counts_bundle["positive_column_counts"],
+        )
         if is_damage_group
         else _build_standard_dashboard_charts(
             selected_tables,

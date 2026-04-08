@@ -757,6 +757,31 @@ def _daily_history_cache_key(
     )
 
 
+def _daily_history_cache_keys(
+    normalized_tables: Sequence[str],
+    history_window: str,
+    district: str,
+    cause: str,
+    object_category: str,
+) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+    return (
+        _daily_history_cache_key(
+            normalized_tables,
+            history_window,
+            district,
+            cause,
+            object_category,
+        ),
+        _filtered_record_count_cache_key(
+            normalized_tables,
+            history_window,
+            district,
+            cause,
+            object_category,
+        ),
+    )
+
+
 def _record_daily_history_perf(
     perf: Any,
     *,
@@ -799,8 +824,29 @@ def _return_cached_daily_history(
     return cached_history
 
 
-def _try_merge_daily_history_union(
-    merged_rows: Dict[date, Dict[str, Any]],
+def _lookup_daily_history_cache(
+    cache_key: tuple[Any, ...],
+    count_cache_key: tuple[Any, ...],
+    perf: Any,
+) -> Optional[List[Dict[str, Any]]]:
+    cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
+    if cached_history is None:
+        return None
+    return _return_cached_daily_history(cached_history, count_cache_key, perf)
+
+
+def _load_daily_history_metadata_and_min_year(
+    normalized_tables: Sequence[str],
+    history_window: str,
+    metadata_items: Optional[Sequence[Dict[str, Any]]],
+) -> tuple[List[Dict[str, Any]], Optional[int]]:
+    from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
+
+    local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
+    return local_metadata_items, _resolve_history_window_min_year(local_metadata_items, history_window)
+
+
+def _load_daily_history_union_path(
     metadata_items: Sequence[Dict[str, Any]],
     trace: _DailyHistoryLoadTrace,
     *,
@@ -808,10 +854,10 @@ def _try_merge_daily_history_union(
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> bool:
+) -> Optional[List[Dict[str, Any]]]:
     trace.union_fast_path_attempted = len(metadata_items) > 1
     if not trace.union_fast_path_attempted:
-        return False
+        return None
 
     try:
         union_rows = _load_daily_history_rows_union(
@@ -824,15 +870,62 @@ def _try_merge_daily_history_union(
     except Exception as exc:
         trace.union_fast_path_fallback = True
         trace.union_fast_path_error_type = exc.__class__.__name__
-        return False
+        return None
 
     if union_rows is None:
-        return False
+        return None
 
     trace.used_union_fast_path = True
     trace.union_fast_path_rows = len(union_rows)
+    return union_rows
+
+
+def _try_merge_daily_history_union(
+    merged_rows: Dict[date, Dict[str, Any]],
+    metadata_items: Sequence[Dict[str, Any]],
+    trace: _DailyHistoryLoadTrace,
+    *,
+    district: str,
+    cause: str,
+    object_category: str,
+    min_year: Optional[int],
+) -> bool:
+    union_rows = _load_daily_history_union_path(
+        metadata_items,
+        trace,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        min_year=min_year,
+    )
+    if union_rows is None:
+        return False
+
     _merge_daily_history_rows(merged_rows, union_rows)
     return True
+
+
+def _load_daily_history_from_union_path(
+    metadata_items: Sequence[Dict[str, Any]],
+    trace: _DailyHistoryLoadTrace,
+    *,
+    district: str,
+    cause: str,
+    object_category: str,
+    min_year: Optional[int],
+) -> Optional[Dict[date, Dict[str, Any]]]:
+    merged_rows: Dict[date, Dict[str, Any]] = {}
+    if not _try_merge_daily_history_union(
+        merged_rows,
+        metadata_items,
+        trace,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        min_year=min_year,
+    ):
+        return None
+    return merged_rows
 
 
 def _load_table_daily_history_rows_with_record_fallback(
@@ -873,7 +966,7 @@ def _load_table_daily_history_rows_with_record_fallback(
         ]
 
 
-def _merge_daily_history_tables(
+def _merge_daily_history_per_table_fallback(
     merged_rows: Dict[date, Dict[str, Any]],
     metadata_items: Sequence[Dict[str, Any]],
     *,
@@ -896,6 +989,97 @@ def _merge_daily_history_tables(
             min_year=min_year,
         )
         _merge_daily_history_rows(merged_rows, table_rows)
+
+
+def _load_daily_history_per_table_fallback(
+    metadata_items: Sequence[Dict[str, Any]],
+    *,
+    district: str,
+    cause: str,
+    object_category: str,
+    min_year: Optional[int],
+) -> Dict[date, Dict[str, Any]]:
+    merged_rows: Dict[date, Dict[str, Any]] = {}
+    _merge_daily_history_per_table_fallback(
+        merged_rows,
+        metadata_items,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        min_year=min_year,
+    )
+    return merged_rows
+
+
+def _merge_daily_history_fast_or_fallback(
+    metadata_items: Sequence[Dict[str, Any]],
+    *,
+    district: str,
+    cause: str,
+    object_category: str,
+    min_year: Optional[int],
+) -> tuple[Dict[date, Dict[str, Any]], _DailyHistoryLoadTrace]:
+    trace = _DailyHistoryLoadTrace()
+    merged_rows = _load_daily_history_from_union_path(
+        metadata_items,
+        trace,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        min_year=min_year,
+    )
+    if merged_rows is not None:
+        return merged_rows, trace
+
+    return (
+        _load_daily_history_per_table_fallback(
+            metadata_items,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            min_year=min_year,
+        ),
+        trace,
+    )
+
+
+def _record_daily_history_result_trace(
+    count_cache_key: tuple[Any, ...],
+    history: List[Dict[str, Any]],
+    *,
+    perf: Any,
+    trace: _DailyHistoryLoadTrace,
+    table_count: int,
+) -> int:
+    total_count = _daily_history_total_count(history)
+    _FORECASTING_SQL_CACHE.set(count_cache_key, total_count)
+    _record_daily_history_perf(
+        perf,
+        cache_hit=False,
+        trace=trace,
+        table_count=table_count,
+        row_count=len(history),
+        total_count=total_count,
+    )
+    return total_count
+
+
+def _load_dense_daily_history_with_trace(
+    metadata_items: Sequence[Dict[str, Any]],
+    *,
+    district: str,
+    cause: str,
+    object_category: str,
+    min_year: Optional[int],
+) -> tuple[List[Dict[str, Any]], _DailyHistoryLoadTrace]:
+    merged_rows, trace = _merge_daily_history_fast_or_fallback(
+        metadata_items,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        min_year=min_year,
+    )
+    return _dense_daily_history_from_merged_rows(merged_rows), trace
 
 
 def _dense_daily_history_from_merged_rows(
@@ -931,15 +1115,12 @@ def _cache_daily_history_result(
     trace: _DailyHistoryLoadTrace,
     table_count: int,
 ) -> List[Dict[str, Any]]:
-    total_count = _daily_history_total_count(history)
-    _FORECASTING_SQL_CACHE.set(count_cache_key, total_count)
-    _record_daily_history_perf(
-        perf,
-        cache_hit=False,
+    _record_daily_history_result_trace(
+        count_cache_key,
+        history,
+        perf=perf,
         trace=trace,
         table_count=table_count,
-        row_count=len(history),
-        total_count=total_count,
     )
     return _FORECASTING_SQL_CACHE.set(cache_key, history)
 
@@ -952,55 +1133,36 @@ def _build_daily_history_sql(
     object_category: str = "all",
     metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
-
     perf = current_perf_trace()
     normalized_tables = _canonicalize_source_tables(source_tables)[0]
-    cache_key = _daily_history_cache_key(
+    cache_key, count_cache_key = _daily_history_cache_keys(
         normalized_tables,
         history_window,
         district,
         cause,
         object_category,
     )
-    count_cache_key = _filtered_record_count_cache_key(
-        normalized_tables,
-        history_window,
-        district,
-        cause,
-        object_category,
-    )
-    cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
+    cached_history = _lookup_daily_history_cache(cache_key, count_cache_key, perf)
     if cached_history is not None:
-        return _return_cached_daily_history(cached_history, count_cache_key, perf)
+        return cached_history
 
-    local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
-    min_year = _resolve_history_window_min_year(local_metadata_items, history_window)
-    merged_rows: Dict[date, Dict[str, Any]] = {}
-    trace = _DailyHistoryLoadTrace()
-
-    if not _try_merge_daily_history_union(
-        merged_rows,
+    local_metadata_items, min_year = _load_daily_history_metadata_and_min_year(
+        normalized_tables,
+        history_window,
+        metadata_items,
+    )
+    history, trace = _load_dense_daily_history_with_trace(
         local_metadata_items,
-        trace,
         district=district,
         cause=cause,
         object_category=object_category,
         min_year=min_year,
-    ):
-        _merge_daily_history_tables(
-            merged_rows,
-            local_metadata_items,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-        )
+    )
 
     return _cache_daily_history_result(
         cache_key,
         count_cache_key,
-        _dense_daily_history_from_merged_rows(merged_rows),
+        history,
         perf=perf,
         trace=trace,
         table_count=len(local_metadata_items),

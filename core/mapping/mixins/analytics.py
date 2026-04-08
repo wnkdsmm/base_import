@@ -352,30 +352,34 @@ class MapCreatorAnalyticsMixin:
             ],
         }
 
-    def _build_spatial_analytics(self, table_name: str, records: List[Dict[str, Any]], source_record_count: int) -> Dict[str, Any]:
-        if not records:
-            return {
-                'quality': {
-                    'mode': 'minimal',
-                    'mode_label': 'Минимальный режим',
-                    'source_record_count': source_record_count,
-                    'valid_coordinate_count': 0,
-                    'coordinate_coverage_display': f'0 из {source_record_count}',
-                    'unique_coordinate_count': 0,
-                    'duplicate_ratio_percent': 0.0,
-                    'notes': ['Нет валидных координат для пространственной аналитики.'],
-                    'fallback_message': 'Карта остаётся доступной как точечная карта; аналитические слои не построены.',
-                },
-                'heatmap': {'enabled': False, 'points': [], 'radius': 20, 'blur': 26},
-                'hotspots': [],
-                'dbscan': {'enabled': False, 'clusters': [], 'eps_km': 0.0, 'eps_display': '-', 'min_samples': 0, 'cluster_count': 0, 'noise_count': 0, 'availability_note': 'Недостаточно данных.'},
-                'risk_zones': [],
-                'priority_territories': [],
-                'logistics': {'basis_ready': False, 'summary': '', 'coverage_note': 'Логистический слой не рассчитан.'},
-                'summary': {'title': 'Пространственная аналитика пожаров', 'subtitle': 'Нет данных для аналитического слоя.', 'methods': ['Точечный слой пожаров'], 'insights': ['Координаты отсутствуют или некорректны.'], 'thesis_paragraphs': ['Координаты отсутствуют или некорректны, поэтому карта используется только как точечная карта.'], 'fallback_message': 'Координаты отсутствуют или некорректны.'},
-                'layer_defaults': {'incidents': True, 'heatmap': False, 'hotspots': False, 'clusters': False, 'risk_zones': False, 'priorities': False},
-            }
+    def _empty_spatial_analytics(self, source_record_count: int) -> Dict[str, Any]:
+        return {
+            'quality': {
+                'mode': 'minimal',
+                'mode_label': 'Минимальный режим',
+                'source_record_count': source_record_count,
+                'valid_coordinate_count': 0,
+                'coordinate_coverage_display': f'0 из {source_record_count}',
+                'unique_coordinate_count': 0,
+                'duplicate_ratio_percent': 0.0,
+                'notes': ['Нет валидных координат для пространственной аналитики.'],
+                'fallback_message': 'Карта остаётся доступной как точечная карта; аналитические слои не построены.',
+            },
+            'heatmap': {'enabled': False, 'points': [], 'radius': 20, 'blur': 26},
+            'hotspots': [],
+            'dbscan': {'enabled': False, 'clusters': [], 'eps_km': 0.0, 'eps_display': '-', 'min_samples': 0, 'cluster_count': 0, 'noise_count': 0, 'availability_note': 'Недостаточно данных.'},
+            'risk_zones': [],
+            'priority_territories': [],
+            'logistics': {'basis_ready': False, 'summary': '', 'coverage_note': 'Логистический слой не рассчитан.'},
+            'summary': {'title': 'Пространственная аналитика пожаров', 'subtitle': 'Нет данных для аналитического слоя.', 'methods': ['Точечный слой пожаров'], 'insights': ['Координаты отсутствуют или некорректны.'], 'thesis_paragraphs': ['Координаты отсутствуют или некорректны, поэтому карта используется только как точечная карта.'], 'fallback_message': 'Координаты отсутствуют или некорректны.'},
+            'layer_defaults': {'incidents': True, 'heatmap': False, 'hotspots': False, 'clusters': False, 'risk_zones': False, 'priorities': False},
+        }
 
+    def _build_spatial_quality_context(
+        self,
+        records: List[Dict[str, Any]],
+        source_record_count: int,
+    ) -> Dict[str, Any]:
         unique_coordinates = len({(item['latitude'], item['longitude']) for item in records})
         duplicate_ratio = (1.0 - unique_coordinates / max(len(records), 1)) * 100.0
         mode = 'full' if len(records) >= 18 and unique_coordinates >= 10 else 'limited' if len(records) >= 6 else 'minimal'
@@ -388,7 +392,20 @@ class MapCreatorAnalyticsMixin:
         dated_records = [item for item in records if item.get('date') is not None]
         if len(dated_records) < len(records):
             notes.append(f'Для hotspot-анализа даты доступны у {len(dated_records)} из {len(records)} пожаров.')
+        return {
+            'unique_coordinates': unique_coordinates,
+            'duplicate_ratio': duplicate_ratio,
+            'mode': mode,
+            'mode_label': mode_label,
+            'notes': notes,
+            'dated_records': dated_records,
+        }
 
+    def _build_hotspots_from_dated_records(
+        self,
+        dated_records: List[Dict[str, Any]],
+        notes: List[str],
+    ) -> List[Dict[str, Any]]:
         geo_prediction: Dict[str, Any] = {'hotspots': []}
         if len(dated_records) >= 3:
             geo_prediction = _build_geo_prediction(dated_records, planning_horizon_days=30)
@@ -413,8 +430,13 @@ class MapCreatorAnalyticsMixin:
                 'risk_tone': risk_tone,
                 'explanation': item.get('explanation') or 'Локальная концентрация пожаров выше среднего.',
             })
+        return hotspots
 
-        dbscan = self._build_dbscan_clusters(records)
+    def _build_spatial_risk_zones(
+        self,
+        dbscan: Dict[str, Any],
+        hotspots: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
         risk_zone_candidates: List[Dict[str, Any]] = []
         for cluster in dbscan.get('clusters', []):
             risk_zone_candidates.append({
@@ -435,17 +457,24 @@ class MapCreatorAnalyticsMixin:
                 'priority_label': f'Приоритет {rank}',
                 'polygon': self._build_circle_polygon(item['longitude'], item['latitude'], item['radius_km']),
             })
+        return risk_zones
 
-        priority_territories = self._build_priority_territories(records, risk_zones)
-        if not risk_zones and priority_territories:
-            risk_zones = self._build_fallback_risk_zones(records, priority_territories)
-            if risk_zones:
-                notes.append('Основные зоны риска построены по центроидам приоритетных территорий, потому что hotspot/DBSCAN дали слабый сигнал.')
-                priority_territories = self._build_priority_territories(records, risk_zones)
-        logistics = self._build_logistics_summary(records, priority_territories, risk_zones)
+    def _build_heatmap_points(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         max_weight = max(item['weight'] for item in records) or 1.0
-        heatmap_points = [{'latitude': item['latitude'], 'longitude': item['longitude'], 'weight': round(max(0.08, min(1.0, item['weight'] / max_weight)), 4)} for item in records]
+        return [
+            {'latitude': item['latitude'], 'longitude': item['longitude'], 'weight': round(max(0.08, min(1.0, item['weight'] / max_weight)), 4)}
+            for item in records
+        ]
 
+    def _build_spatial_methods(
+        self,
+        records: List[Dict[str, Any]],
+        hotspots: List[Dict[str, Any]],
+        dbscan: Dict[str, Any],
+        risk_zones: List[Dict[str, Any]],
+        priority_territories: List[Dict[str, Any]],
+        logistics: Dict[str, Any],
+    ) -> List[str]:
         methods = ['Точечный слой пожаров']
         if len(records) >= 3:
             methods.append('KDE / heatmap плотности')
@@ -459,7 +488,16 @@ class MapCreatorAnalyticsMixin:
             methods.append('Приоритетные территории')
         if logistics.get('basis_ready'):
             methods.append('Explainable travel-time, покрытие ПЧ и сервисные зоны')
+        return methods
 
+    def _build_spatial_insights(
+        self,
+        hotspots: List[Dict[str, Any]],
+        priority_territories: List[Dict[str, Any]],
+        logistics: Dict[str, Any],
+        dbscan: Dict[str, Any],
+        notes: List[str],
+    ) -> List[str]:
         insights = []
         if hotspots:
             insights.append(f"Главный hotspot: {hotspots[0]['label']} ({hotspots[0]['risk_score_display']}).")
@@ -472,28 +510,97 @@ class MapCreatorAnalyticsMixin:
         if dbscan.get('availability_note'):
             insights.append(dbscan['availability_note'])
         insights.extend(notes[:2])
-        enhanced_methods = methods[1:] if len(methods) > 1 else ['ранжирования территорий и резервного пространственного режима']
+        return insights
 
-        thesis_paragraphs = [
+    def _build_spatial_thesis_paragraphs(
+        self,
+        table_name: str,
+        records: List[Dict[str, Any]],
+        source_record_count: int,
+        methods: List[str],
+        risk_zones: List[Dict[str, Any]],
+        priority_territories: List[Dict[str, Any]],
+        logistics: Dict[str, Any],
+    ) -> List[str]:
+        enhanced_methods = methods[1:] if len(methods) > 1 else ['ранжирования территорий и резервного пространственного режима']
+        return [
             f"Для таблицы {table_name} пространственный анализ выполнен по {len(records)} пожарам с координатами из {source_record_count} исходных записей. Базовая точечная карта сохранена, но усилена методами {', '.join(enhanced_methods)}.",
             f"На карте выделено {len(risk_zones)} зон повышенного риска и {len(priority_territories)} приоритетных территорий, что переводит карту из режима визуализации в режим поддержки принятия решений для сельских территорий.",
             logistics['summary'] if logistics.get('summary') else logistics.get('coverage_note') or 'Логистический слой пока носит разведочный характер.',
         ]
 
+    def _build_spatial_quality_payload(
+        self,
+        records: List[Dict[str, Any]],
+        source_record_count: int,
+        quality_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
         return {
-            'quality': {
-                'mode': mode,
-                'mode_label': mode_label,
-                'source_record_count': source_record_count,
-                'valid_coordinate_count': len(records),
-                'coordinate_coverage_display': f"{len(records)} из {source_record_count} ({len(records) / max(source_record_count, 1) * 100.0:.1f}%)",
-                'dated_record_count': len(dated_records),
-                'date_coverage_display': f"{len(dated_records)} из {len(records)}",
-                'unique_coordinate_count': unique_coordinates,
-                'duplicate_ratio_percent': round(duplicate_ratio, 1),
-                'notes': notes,
-                'fallback_message': '' if mode == 'full' else 'Аналитика работает в облегчённом режиме из-за малого числа уникальных координат.',
-            },
+            'mode': quality_context['mode'],
+            'mode_label': quality_context['mode_label'],
+            'source_record_count': source_record_count,
+            'valid_coordinate_count': len(records),
+            'coordinate_coverage_display': f"{len(records)} из {source_record_count} ({len(records) / max(source_record_count, 1) * 100.0:.1f}%)",
+            'dated_record_count': len(quality_context['dated_records']),
+            'date_coverage_display': f"{len(quality_context['dated_records'])} из {len(records)}",
+            'unique_coordinate_count': quality_context['unique_coordinates'],
+            'duplicate_ratio_percent': round(quality_context['duplicate_ratio'], 1),
+            'notes': quality_context['notes'],
+            'fallback_message': '' if quality_context['mode'] == 'full' else 'Аналитика работает в облегчённом режиме из-за малого числа уникальных координат.',
+        }
+
+    def _build_spatial_summary_payload(
+        self,
+        mode: str,
+        methods: List[str],
+        insights: List[str],
+        thesis_paragraphs: List[str],
+    ) -> Dict[str, Any]:
+        return {
+            'title': 'Пространственная аналитика пожаров',
+            'subtitle': 'Карта дополнена слоями плотности, hotspot/DBSCAN, приоритетами территорий и explainable logistics-метриками доезда.',
+            'methods': methods,
+            'insights': insights[:5],
+            'thesis_paragraphs': thesis_paragraphs,
+            'fallback_message': '' if mode == 'full' else 'Используется резервный режим с упором на тепловую карту плотности и приоритетные территории.',
+        }
+
+    def _build_spatial_analytics(self, table_name: str, records: List[Dict[str, Any]], source_record_count: int) -> Dict[str, Any]:
+        if not records:
+            return self._empty_spatial_analytics(source_record_count)
+
+        quality_context = self._build_spatial_quality_context(records, source_record_count)
+        notes = quality_context['notes']
+        dated_records = quality_context['dated_records']
+
+        hotspots = self._build_hotspots_from_dated_records(dated_records, notes)
+        dbscan = self._build_dbscan_clusters(records)
+        risk_zones = self._build_spatial_risk_zones(dbscan, hotspots)
+
+        priority_territories = self._build_priority_territories(records, risk_zones)
+        if not risk_zones and priority_territories:
+            risk_zones = self._build_fallback_risk_zones(records, priority_territories)
+            if risk_zones:
+                notes.append('Основные зоны риска построены по центроидам приоритетных территорий, потому что hotspot/DBSCAN дали слабый сигнал.')
+                priority_territories = self._build_priority_territories(records, risk_zones)
+
+        logistics = self._build_logistics_summary(records, priority_territories, risk_zones)
+        heatmap_points = self._build_heatmap_points(records)
+        methods = self._build_spatial_methods(records, hotspots, dbscan, risk_zones, priority_territories, logistics)
+        insights = self._build_spatial_insights(hotspots, priority_territories, logistics, dbscan, notes)
+        thesis_paragraphs = self._build_spatial_thesis_paragraphs(
+            table_name,
+            records,
+            source_record_count,
+            methods,
+            risk_zones,
+            priority_territories,
+            logistics,
+        )
+        mode = quality_context['mode']
+
+        return {
+            'quality': self._build_spatial_quality_payload(records, source_record_count, quality_context),
             'heatmap': {'enabled': len(records) >= 3, 'points': heatmap_points, 'radius': 20, 'blur': 26},
             'hotspots': hotspots,
             'dbscan': {
@@ -509,15 +616,15 @@ class MapCreatorAnalyticsMixin:
             'risk_zones': risk_zones,
             'priority_territories': priority_territories,
             'logistics': logistics,
-            'summary': {
-                'title': 'Пространственная аналитика пожаров',
-                'subtitle': 'Карта дополнена слоями плотности, hotspot/DBSCAN, приоритетами территорий и explainable logistics-метриками доезда.',
-                'methods': methods,
-                'insights': insights[:5],
-                'thesis_paragraphs': thesis_paragraphs,
-                'fallback_message': '' if mode == 'full' else 'Используется резервный режим с упором на тепловую карту плотности и приоритетные территории.',
+            'summary': self._build_spatial_summary_payload(mode, methods, insights, thesis_paragraphs),
+            'layer_defaults': {
+                'incidents': True,
+                'heatmap': len(records) >= 3 and mode != 'minimal',
+                'hotspots': bool(hotspots),
+                'clusters': bool(dbscan.get('clusters')),
+                'risk_zones': bool(risk_zones),
+                'priorities': bool(priority_territories),
             },
-            'layer_defaults': {'incidents': True, 'heatmap': len(records) >= 3 and mode != 'minimal', 'hotspots': bool(hotspots), 'clusters': bool(dbscan.get('clusters')), 'risk_zones': bool(risk_zones), 'priorities': bool(priority_territories)},
         }
     # =====================================================
     # PREPARE TABLE

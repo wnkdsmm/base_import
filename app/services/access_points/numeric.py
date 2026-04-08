@@ -82,6 +82,14 @@ def _finite_numeric_columns(frame: pd.DataFrame, columns: Sequence[str]) -> pd.D
     return _finite_numeric_frame(source)
 
 
+def _clip_share_series(values: pd.Series, default: float = 0.0) -> pd.Series:
+    return values.fillna(float(default)).clip(lower=0.0, upper=1.0)
+
+
+def _nullable_series_values(values: pd.Series) -> np.ndarray:
+    return values.astype(object).where(values.notna(), None).to_numpy(copy=False)
+
+
 def _normalize_share_series(values: Any, default: float = 0.0) -> pd.Series:
     return _finite_numeric_series(values, default=default).clip(lower=0.0, upper=1.0)
 

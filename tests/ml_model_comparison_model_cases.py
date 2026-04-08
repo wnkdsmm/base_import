@@ -148,6 +148,69 @@ class CountModelSelectionTests(unittest.TestCase):
 
         self.assertIs(evaluation_data_by_horizon[1], selection.validation_evaluation_data)
 
+    def test_backtest_artifacts_reuse_selected_predictions_for_rows_and_intervals(self) -> None:
+        actual_counts = [float(index) for index in range(1, 10)]
+        rows = [
+            BacktestWindowRow(
+                origin_date=f'2024-01-{index:02d}',
+                date=f'2024-02-{index:02d}',
+                horizon_days=1,
+                actual_count=actual_count,
+                baseline_count=actual_count + 10.0,
+                heuristic_count=actual_count + 9.0,
+                actual_event=1 if index % 2 else 0,
+                baseline_event_probability=0.5,
+                heuristic_event_probability=0.5,
+                predictions={
+                    'poisson': actual_count,
+                    'negative_binomial': actual_count + 4.0,
+                },
+                predicted_event_probabilities={
+                    'poisson': 0.5,
+                    'negative_binomial': 0.5,
+                },
+            )
+            for index, actual_count in enumerate(actual_counts, start=1)
+        ]
+        horizon_rows = {
+            1: rows,
+            2: [
+                row.clone(
+                    date=f'2024-03-{index:02d}',
+                    horizon_days=2,
+                    actual_count=float(index + 1),
+                    baseline_count=float(index + 11),
+                    heuristic_count=float(index + 10),
+                    predictions={
+                        'poisson': float(index + 1),
+                        'negative_binomial': float(index + 5),
+                    },
+                )
+                for index, row in enumerate(rows, start=1)
+            ],
+        }
+        dataset = pd.DataFrame({'count': actual_counts})
+
+        with patch.object(
+            ml_training_backtesting,
+            '_selected_count_predictions',
+            side_effect=AssertionError('selected predictions should be carried in horizon evaluation data'),
+        ):
+            artifacts = ml_training_backtesting._build_backtest_evaluation_artifacts(
+                horizon_rows=horizon_rows,
+                horizon_days=[1, 2],
+                valid_rows=rows,
+                dataset=dataset,
+                validation_horizon_days=1,
+            )
+
+        self.assertEqual(artifacts.selected_count_model_key, 'poisson')
+        np.testing.assert_allclose(
+            [row.predicted_count for row in artifacts.backtest_rows],
+            actual_counts,
+        )
+        self.assertEqual(artifacts.event_metrics.rows_used, len(rows))
+
     def test_prefers_heuristic_over_nearly_equal_ml_for_explainability(self) -> None:
         baseline_metrics = {
             'mae': 1.22,

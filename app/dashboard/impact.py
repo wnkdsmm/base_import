@@ -24,6 +24,7 @@ from .data_access import (
     _build_year_filter_clause,
     _metric_expression,
     _month_expression,
+    _numeric_expression_for_column,
     _resolve_cause_column,
     _resolve_district_column,
     _resolve_table_column_name,
@@ -211,6 +212,7 @@ def _resolve_grouped_count_query_context(
     *,
     include_area_buckets: bool,
     include_impact_timeline: bool,
+    include_positive_columns: bool = False,
 ) -> Optional[Dict[str, Any]]:
     where_clause = _build_year_filter_clause(table, selected_year)
     if where_clause is None:
@@ -238,7 +240,7 @@ def _resolve_grouped_count_query_context(
         dimensions.append(("area_bucket", "area_bucket_label"))
     if has_timeline:
         dimensions.append(("impact_timeline", "date_value"))
-    if not dimensions:
+    if not dimensions and not include_positive_columns:
         return None
 
     return {
@@ -253,26 +255,53 @@ def _resolve_grouped_count_query_context(
     }
 
 
-def _build_grouped_count_dimension_sql(dimensions: Sequence[tuple[str, str]]) -> Dict[str, str]:
+def _build_grouped_count_dimension_sql(
+    dimensions: Sequence[tuple[str, str]],
+    *,
+    include_positive_columns: bool = False,
+) -> Dict[str, str]:
+    if not dimensions:
+        return {
+            "metric_kind_case": "'positive_column_bundle'",
+            "label_case": "CAST(NULL AS TEXT)",
+            "grouping_sets": "()",
+            "having_clause": "TRUE",
+            "positive_group_condition": "TRUE",
+        }
+
     metric_kind_case = "CASE\n" + "\n".join(
         f"                    WHEN GROUPING({column_name}) = 0 THEN '{metric_kind}'"
         for metric_kind, column_name in dimensions
-    ) + "\n                END"
+    )
+    if include_positive_columns:
+        metric_kind_case += "\n                    ELSE 'positive_column_bundle'"
+    metric_kind_case += "\n                END"
     label_case = "CASE\n" + "\n".join(
         f"                    WHEN GROUPING({column_name}) = 0 THEN {column_name}"
         for metric_kind, column_name in dimensions
         if metric_kind != "impact_timeline"
     ) + "\n                    ELSE CAST(NULL AS TEXT)\n                END"
-    grouping_sets = ", ".join(f"({column_name})" for _, column_name in dimensions)
-    having_clause = " OR ".join(
-        f"(GROUPING({column_name}) = 0 AND {column_name} IS NOT NULL)"
+    grouping_set_items = [f"({column_name})" for _, column_name in dimensions]
+    if include_positive_columns:
+        grouping_set_items.append("()")
+    grouping_sets = ", ".join(grouping_set_items)
+    positive_group_condition = " AND ".join(
+        f"GROUPING({column_name}) = 1"
         for _, column_name in dimensions
     )
+    having_parts = [
+        f"(GROUPING({column_name}) = 0 AND {column_name} IS NOT NULL)"
+        for _, column_name in dimensions
+    ]
+    if include_positive_columns and positive_group_condition:
+        having_parts.append(f"({positive_group_condition})")
+    having_clause = " OR ".join(having_parts)
     return {
         "metric_kind_case": metric_kind_case,
         "label_case": label_case,
         "grouping_sets": grouping_sets,
         "having_clause": having_clause,
+        "positive_group_condition": positive_group_condition or "FALSE",
     }
 
 
@@ -317,6 +346,7 @@ def _build_grouped_count_source_selects(
     *,
     month_label_expression: str,
     date_value_expression: str,
+    positive_count_columns: Sequence[str] = (),
 ) -> List[str]:
     source_selects: List[str] = []
     if context["cause_column"]:
@@ -335,15 +365,31 @@ def _build_grouped_count_source_selects(
             f"{_metric_expression(table, metric_key)} AS {metric_key}"
             for metric_key in _IMPACT_TIMELINE_METRIC_KEYS
         )
+    for index, column_name in enumerate(positive_count_columns):
+        alias = f"positive_metric_{index}"
+        if column_name in table["column_set"]:
+            numeric_expression = _numeric_expression_for_column(column_name)
+            source_selects.append(f"CASE WHEN COALESCE({numeric_expression}, 0) > 0 THEN 1 ELSE 0 END AS {alias}")
+        else:
+            source_selects.append(f"0 AS {alias}")
     return source_selects
 
 
-def _build_grouped_count_result_selects(has_timeline: bool) -> Dict[str, Any]:
+def _build_grouped_count_result_selects(
+    has_timeline: bool,
+    *,
+    positive_count_columns: Sequence[str] = (),
+    positive_group_condition: str = "FALSE",
+) -> Dict[str, Any]:
     if not has_timeline:
         return {
             "fire_count_select": "COUNT(*) AS fire_count",
             "date_value_select": "CAST(NULL AS DATE) AS date_value",
             "metric_selects": [f"0.0 AS {metric_key}" for metric_key in _IMPACT_TIMELINE_METRIC_KEYS],
+            "positive_metric_selects": [
+                f"CASE WHEN {positive_group_condition} THEN COALESCE(SUM(positive_metric_{index}), 0) ELSE 0 END AS positive_metric_{index}"
+                for index, _ in enumerate(positive_count_columns)
+            ],
         }
 
     timeline_group = "GROUPING(date_value) = 0"
@@ -353,6 +399,10 @@ def _build_grouped_count_result_selects(has_timeline: bool) -> Dict[str, Any]:
         "metric_selects": [
             f"CASE WHEN {timeline_group} THEN COALESCE(SUM({metric_key}), 0) ELSE 0.0 END AS {metric_key}"
             for metric_key in _IMPACT_TIMELINE_METRIC_KEYS
+        ],
+        "positive_metric_selects": [
+            f"CASE WHEN {positive_group_condition} THEN COALESCE(SUM(positive_metric_{index}), 0) ELSE 0 END AS positive_metric_{index}"
+            for index, _ in enumerate(positive_count_columns)
         ],
     }
 
@@ -365,6 +415,7 @@ def _build_dashboard_grouped_counts_query(
     *,
     include_area_buckets: bool = True,
     include_impact_timeline: bool = True,
+    positive_count_columns: Sequence[str] = (),
 ) -> tuple[Optional[str], bool]:
     context = _resolve_grouped_count_query_context(
         table,
@@ -372,11 +423,15 @@ def _build_dashboard_grouped_counts_query(
         selected_group_column,
         include_area_buckets=include_area_buckets,
         include_impact_timeline=include_impact_timeline,
+        include_positive_columns=bool(positive_count_columns),
     )
     if context is None:
         return None, False
 
-    dimension_sql = _build_grouped_count_dimension_sql(context["dimensions"])
+    dimension_sql = _build_grouped_count_dimension_sql(
+        context["dimensions"],
+        include_positive_columns=bool(positive_count_columns),
+    )
 
     month_label_expression, date_value_expression = _build_grouped_count_time_expressions(
         table,
@@ -388,9 +443,15 @@ def _build_dashboard_grouped_counts_query(
         context,
         month_label_expression=month_label_expression,
         date_value_expression=date_value_expression,
+        positive_count_columns=positive_count_columns,
     )
 
-    result_selects = _build_grouped_count_result_selects(context["has_timeline"])
+    result_selects = _build_grouped_count_result_selects(
+        context["has_timeline"],
+        positive_count_columns=positive_count_columns,
+        positive_group_condition=dimension_sql["positive_group_condition"],
+    )
+    metric_selects = result_selects["metric_selects"] + result_selects["positive_metric_selects"]
 
     query = f"""
         SELECT * FROM (
@@ -399,7 +460,7 @@ def _build_dashboard_grouped_counts_query(
                 {dimension_sql['label_case']} AS label,
                 {result_selects['fire_count_select']},
                 {result_selects['date_value_select']},
-                {', '.join(result_selects['metric_selects'])}
+                {', '.join(metric_selects)}
             FROM (
                 SELECT
                     {', '.join(source_selects)}
@@ -421,12 +482,17 @@ def _collect_dashboard_grouped_counts(
     *,
     include_area_buckets: bool = True,
     include_impact_timeline: bool = True,
+    positive_count_columns: Optional[Sequence[str]] = None,
 ) -> Dict[str, Any]:
     cause_counts: Dict[str, int] = defaultdict(int)
     district_counts: Dict[str, int] = defaultdict(int)
     month_counts: Dict[int, int] = defaultdict(int)
     area_bucket_counts: Dict[str, int] = defaultdict(int)
     distribution_counts: Dict[str, int] = defaultdict(int)
+    positive_column_counts: Dict[str, int] = {
+        column_name: 0
+        for column_name in (positive_count_columns or [])
+    }
     impact_timeline_rows: List[Dict[str, Any]] = []
     subqueries: List[str] = []
     uses_selected_year_param = False
@@ -439,11 +505,11 @@ def _collect_dashboard_grouped_counts(
             len(subqueries),
             include_area_buckets=include_area_buckets,
             include_impact_timeline=include_impact_timeline,
+            positive_count_columns=positive_count_columns or (),
         )
-        if query is None:
-            continue
-        subqueries.append(query)
-        uses_selected_year_param = uses_selected_year_param or query_uses_selected_year_param
+        if query is not None:
+            subqueries.append(query)
+            uses_selected_year_param = uses_selected_year_param or query_uses_selected_year_param
 
     if subqueries:
         params = {"selected_year": selected_year} if uses_selected_year_param else {}
@@ -471,6 +537,9 @@ def _collect_dashboard_grouped_counts(
                 month_counts[month_value] += fire_count
         elif metric_kind == "area_bucket":
             area_bucket_counts[str(label or "Не указано")] += fire_count
+        elif metric_kind == "positive_column_bundle":
+            for index, column_name in enumerate(positive_count_columns or ()):
+                positive_column_counts[column_name] += int(row[f"positive_metric_{index}"] or 0)
         elif metric_kind == "impact_timeline":
             impact_timeline_rows.append(dict(row))
 
@@ -480,6 +549,7 @@ def _collect_dashboard_grouped_counts(
         "distribution_counts": dict(cause_counts) if selected_group_column in CAUSE_COLUMNS else dict(distribution_counts),
         "month_counts": dict(month_counts),
         "area_bucket_counts": dict(area_bucket_counts),
+        "positive_column_counts": dict(positive_column_counts),
         "impact_timeline_rows": impact_timeline_rows,
     }
 

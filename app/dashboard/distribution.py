@@ -86,13 +86,17 @@ _DAMAGE_THEME_COLUMNS = {
 }
 
 
-def _collect_damage_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
-    damage_columns = list(
+def _damage_count_columns() -> List[str]:
+    return list(
         dict.fromkeys(
             list(DISTRIBUTION_GROUPS[2][1])
             + [column_name for columns in _DAMAGE_THEME_COLUMNS.values() for column_name in columns]
         )
     )
+
+
+def _collect_damage_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
+    damage_columns = _damage_count_columns()
     return _collect_positive_column_counts(selected_tables, selected_year, damage_columns)
 
 
@@ -457,4 +461,5 @@ __all__ = [
     "_build_rankings",
     "_build_table_breakdown_chart",
     "_collect_positive_column_counts",
+    "_damage_count_columns",
 ]

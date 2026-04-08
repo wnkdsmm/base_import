@@ -5,17 +5,7 @@ from typing import Any, Callable, Dict, List
 from .template_fragment_filters import build_filter_script_lines
 
 
-def build_map_setup_script_lines(
-    idx: int,
-    center_lon: Any,
-    center_lat: Any,
-    initial_zoom: Any,
-    styles_json: str,
-    analytics_layers_json: str,
-    analytics_defaults_json: str,
-    heatmap_json: str,
-    geojson_json: str,
-) -> List[str]:
+def _map_constructor_script_lines(idx: int, center_lon: Any, center_lat: Any, initial_zoom: Any) -> List[str]:
     return [
         '<script>',
         '(function() {',
@@ -28,11 +18,26 @@ def build_map_setup_script_lines(
         '        })',
         '    });',
         '',
+    ]
+
+
+def _payload_constant_script_lines(
+    styles_json: str,
+    analytics_layers_json: str,
+    analytics_defaults_json: str,
+    heatmap_json: str,
+) -> List[str]:
+    return [
         '    const styles = %s;' % styles_json,
         '    const analyticsLayersPayload = %s;' % analytics_layers_json,
         '    const analyticsLayerDefaults = %s;' % analytics_defaults_json,
         '    const heatmapConfig = %s;' % heatmap_json,
         '',
+    ]
+
+
+def _style_helper_script_lines() -> List[str]:
+    return [
         '    function tonePalette(tone) {',
         '        const palette = {',
         '            critical: { fill: "rgba(179, 59, 46, 0.18)", stroke: "#b33b2e", point: "rgba(179, 59, 46, 0.86)" },',
@@ -78,6 +83,11 @@ def build_map_setup_script_lines(
         '        });',
         '    }',
         '',
+    ]
+
+
+def _feature_setup_script_lines(geojson_json: str, center_lon: Any, center_lat: Any, initial_zoom: Any) -> List[str]:
+    return [
         '    const features = readGeoJson(%s);' % geojson_json,
         '    const restoreMapView = () => {',
         '        const targetCenter = ol.proj.fromLonLat([%s, %s]);' % (center_lon, center_lat),
@@ -88,7 +98,27 @@ def build_map_setup_script_lines(
         '',
     ]
 
-def build_map_layer_script_lines() -> List[str]:
+
+def build_map_setup_script_lines(
+    idx: int,
+    center_lon: Any,
+    center_lat: Any,
+    initial_zoom: Any,
+    styles_json: str,
+    analytics_layers_json: str,
+    analytics_defaults_json: str,
+    heatmap_json: str,
+    geojson_json: str,
+) -> List[str]:
+    return (
+        _map_constructor_script_lines(idx, center_lon, center_lat, initial_zoom)
+        + _payload_constant_script_lines(styles_json, analytics_layers_json, analytics_defaults_json, heatmap_json)
+        + _style_helper_script_lines()
+        + _feature_setup_script_lines(geojson_json, center_lon, center_lat, initial_zoom)
+    )
+
+
+def _incident_category_layer_script_lines() -> List[str]:
     return [
         '    const categoryLayers = {};',
         '    ["deaths", "injured", "children", "evacuated", "other"].forEach(cat => {',
@@ -104,6 +134,11 @@ def build_map_layer_script_lines() -> List[str]:
         '        }',
         '    });',
         '',
+    ]
+
+
+def _heatmap_layer_script_lines() -> List[str]:
+    return [
         '    const analyticsLayers = {};',
         '    if ((analyticsLayersPayload.heatmap?.features || []).length) {',
         '        const heatmapFeatures = readGeoJson(analyticsLayersPayload.heatmap);',
@@ -118,24 +153,25 @@ def build_map_layer_script_lines() -> List[str]:
         '        map.addLayer(analyticsLayers.heatmap);',
         '    }',
         '',
-        '    if ((analyticsLayersPayload.hotspots?.features || []).length) {',
-        '        analyticsLayers.hotspots = new ol.layer.Vector({',
-        '            source: new ol.source.Vector({features: readGeoJson(analyticsLayersPayload.hotspots)}),',
-        '            visible: !!analyticsLayerDefaults.hotspots,',
-        '            style: feature => buildPointStyle(feature, 10)',
+    ]
+
+
+def _point_analytics_layer_script_lines(layer_id: str, base_radius: int) -> List[str]:
+    return [
+        '    if ((analyticsLayersPayload.%s?.features || []).length) {' % layer_id,
+        '        analyticsLayers.%s = new ol.layer.Vector({' % layer_id,
+        '            source: new ol.source.Vector({features: readGeoJson(analyticsLayersPayload.%s)}),' % layer_id,
+        '            visible: !!analyticsLayerDefaults.%s,' % layer_id,
+        '            style: feature => buildPointStyle(feature, %s)' % base_radius,
         '        });',
-        '        map.addLayer(analyticsLayers.hotspots);',
+        '        map.addLayer(analyticsLayers.%s);' % layer_id,
         '    }',
         '',
-        '    if ((analyticsLayersPayload.clusters?.features || []).length) {',
-        '        analyticsLayers.clusters = new ol.layer.Vector({',
-        '            source: new ol.source.Vector({features: readGeoJson(analyticsLayersPayload.clusters)}),',
-        '            visible: !!analyticsLayerDefaults.clusters,',
-        '            style: feature => buildPointStyle(feature, 12)',
-        '        });',
-        '        map.addLayer(analyticsLayers.clusters);',
-        '    }',
-        '',
+    ]
+
+
+def _risk_zone_layer_script_lines() -> List[str]:
+    return [
         '    if ((analyticsLayersPayload.risk_zones?.features || []).length) {',
         '        analyticsLayers.risk_zones = new ol.layer.Vector({',
         '            source: new ol.source.Vector({features: readGeoJson(analyticsLayersPayload.risk_zones)}),',
@@ -151,18 +187,20 @@ def build_map_layer_script_lines() -> List[str]:
         '        map.addLayer(analyticsLayers.risk_zones);',
         '    }',
         '',
-        '    if ((analyticsLayersPayload.priorities?.features || []).length) {',
-        '        analyticsLayers.priorities = new ol.layer.Vector({',
-        '            source: new ol.source.Vector({features: readGeoJson(analyticsLayersPayload.priorities)}),',
-        '            visible: !!analyticsLayerDefaults.priorities,',
-        '            style: feature => buildPointStyle(feature, 11)',
-        '        });',
-        '        map.addLayer(analyticsLayers.priorities);',
-        '    }',
-        '',
     ]
 
-def build_popup_script_lines() -> List[str]:
+def build_map_layer_script_lines() -> List[str]:
+    return (
+        _incident_category_layer_script_lines()
+        + _heatmap_layer_script_lines()
+        + _point_analytics_layer_script_lines("hotspots", 10)
+        + _point_analytics_layer_script_lines("clusters", 12)
+        + _risk_zone_layer_script_lines()
+        + _point_analytics_layer_script_lines("priorities", 11)
+    )
+
+
+def _popup_overlay_script_lines() -> List[str]:
     return [
         '    const overlay = new ol.Overlay({',
         '        element: document.createElement("div"),',
@@ -171,6 +209,11 @@ def build_popup_script_lines() -> List[str]:
         '    });',
         '    map.addOverlay(overlay);',
         '',
+    ]
+
+
+def _popup_builder_script_lines() -> List[str]:
+    return [
         '    function buildPopupElement(feature) {',
         '        const rows = feature.get("popup_rows");',
         '        if (!Array.isArray(rows) || !rows.length) {',
@@ -201,6 +244,11 @@ def build_popup_script_lines() -> List[str]:
         '        return wrapper;',
         '    }',
         '',
+    ]
+
+
+def _popup_click_handler_script_lines() -> List[str]:
+    return [
         '    map.on("click", event => {',
         '        const feature = map.forEachFeatureAtPixel(event.pixel, item => item);',
         '        const popupElement = feature ? buildPopupElement(feature) : null;',
@@ -218,6 +266,9 @@ def build_popup_script_lines() -> List[str]:
         '    });',
         '',
     ]
+
+def build_popup_script_lines() -> List[str]:
+    return _popup_overlay_script_lines() + _popup_builder_script_lines() + _popup_click_handler_script_lines()
 
 def build_tab_script_lines(
     idx: int,
