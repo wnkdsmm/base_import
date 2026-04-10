@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, File, Form, Request, UploadFile
 
-from app.log_manager import clear_logs as clear_job_logs
-from app.log_manager import get_logs
 from app.services.pipeline_service import import_uploaded_data, run_profiling_for_table, save_uploaded_file
 from app.state import job_store
 
@@ -36,7 +34,7 @@ def logs(request: Request, job_id: str | None = None):
     payload = {
         "job_id": resolved_job_id,
         "status": status,
-        "logs": get_logs(session_id=session_id, job_id=resolved_job_id) if resolved_job_id else [],
+        "logs": job_store.get_logs(session_id=session_id, job_id=resolved_job_id) if resolved_job_id else [],
     }
     return utf8_json(payload, session_id=session_id)
 
@@ -48,7 +46,7 @@ def clear_logs_endpoint(request: Request, job_id: str | None = None):
     if resolved_job is None:
         return utf8_json({"status": "missing", "job_id": job_id or ""}, session_id=session_id)
 
-    clear_job_logs(session_id=session_id, job_id=resolved_job.job_id)
+    job_store.clear_logs(session_id=session_id, job_id=resolved_job.job_id)
     pruned = job_store.prune_job_if_idle(session_id=session_id, job_id=resolved_job.job_id)
     return utf8_json({"status": "cleared", "job_id": resolved_job.job_id, "pruned": pruned}, session_id=session_id)
 

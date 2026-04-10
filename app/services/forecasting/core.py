@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict
 
 from app.perf import current_perf_trace, profiled
 from app.plotly_bundle import get_plotly_bundle
-from app.runtime_cache import CopyingTtlCache
+from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
     compose_executive_brief_text,
@@ -50,6 +50,7 @@ from .data import (
     _temperature_quality_from_daily_history,
     clear_forecasting_sql_cache,
 )
+from .inputs import clear_forecasting_input_cache
 from .payloads import _empty_forecasting_data
 from .presentation import (
     _build_feature_cards,
@@ -75,12 +76,160 @@ from .utils import (
     _resolve_option_value,
 )
 
-_FORECASTING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
+_FORECASTING_CACHE = CopyingTtlCache(
+    ttl_seconds=120.0,
+    storer=freeze_mutable_payload,
+    loader=clone_mutable_payload,
+)
 
 
 def clear_forecasting_cache() -> None:
     _FORECASTING_CACHE.clear()
+    clear_forecasting_input_cache()
     clear_forecasting_sql_cache()
+
+
+def _build_forecasting_context(
+    initial_data: Dict[str, Any],
+    *,
+    plotly_js: str,
+) -> Dict[str, Any]:
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "initial_data": initial_data,
+        "plotly_js": plotly_js,
+        "has_data": bool(initial_data["filters"]["available_tables"]),
+    }
+
+
+def _build_forecasting_page_fallback_initial_data(
+    request_state: Dict[str, Any],
+    *,
+    temperature: str,
+    exc: Exception,
+) -> Dict[str, Any]:
+    return _empty_forecasting_data(
+        request_state["table_options"],
+        request_state["selected_table"],
+        request_state["days_ahead"],
+        temperature,
+        request_state["history_window"],
+    )
+
+
+def _resolve_cached_forecasting_shell_payload(
+    request_state: Dict[str, Any],
+    *,
+    district: str,
+    cause: str,
+    object_category: str,
+    temperature: str,
+) -> Dict[str, Any] | None:
+    source_tables = request_state["source_tables"]
+    if not source_tables:
+        return None
+    selected_table = request_state["selected_table"]
+    days_ahead = request_state["days_ahead"]
+    selected_history_window = request_state["history_window"]
+    full_cache_key = _build_forecasting_cache_key(
+        selected_table,
+        source_tables,
+        district,
+        cause,
+        object_category,
+        temperature,
+        days_ahead,
+        selected_history_window,
+        True,
+    )
+    cached_payload = _FORECASTING_CACHE.get(full_cache_key)
+    if cached_payload is not None:
+        return cached_payload
+    core_cache_key = _build_forecasting_cache_key(
+        selected_table,
+        source_tables,
+        district,
+        cause,
+        object_category,
+        temperature,
+        days_ahead,
+        selected_history_window,
+        False,
+    )
+    return _FORECASTING_CACHE.get(core_cache_key)
+
+
+def _build_forecasting_shell_fallback_initial_data(
+    *,
+    table_options: list[Dict[str, Any]],
+    selected_table: str,
+    days_ahead: int,
+    temperature: str,
+    selected_history_window: str,
+    source_tables: list[str],
+    exc: Exception,
+) -> Dict[str, Any]:
+    initial_data = _empty_forecasting_data(
+        table_options,
+        selected_table,
+        days_ahead,
+        temperature,
+        selected_history_window,
+    )
+    if source_tables:
+        initial_data["bootstrap_mode"] = "deferred"
+        initial_data["loading"] = True
+        initial_data["deferred"] = True
+        initial_data["metadata_pending"] = True
+        initial_data["metadata_ready"] = False
+        initial_data["metadata_error"] = False
+        initial_data["metadata_status_message"] = _build_metadata_loading_message()
+        initial_data["base_forecast_pending"] = True
+        initial_data["base_forecast_ready"] = False
+        initial_data["loading_status_message"] = _build_base_forecast_loading_message()
+        initial_data["notes"].append(initial_data["metadata_status_message"])
+        initial_data["notes"].append(initial_data["loading_status_message"])
+    initial_data["notes"].append(
+        "Р§Р°СЃС‚СЊ Р±С‹СЃС‚СЂРѕРіРѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ РєРѕРЅС‚РµРєСЃС‚Р° РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРЅР°, РїРѕСЌС‚РѕРјСѓ СЃС‚СЂР°РЅРёС†Р° РѕС‚РєСЂС‹С‚Р° СЃ Р±РµР·РѕРїР°СЃРЅС‹РјРё placeholder-РґР°РЅРЅС‹РјРё."
+    )
+    initial_data["notes"].append(f"РўРµС…РЅРёС‡РµСЃРєР°СЏ РїСЂРёС‡РёРЅР°: {exc}")
+    initial_data["model_description"] = SCENARIO_FORECAST_DESCRIPTION
+    return initial_data
+
+
+def _finalize_metadata_without_sources(metadata_payload: Dict[str, Any]) -> Dict[str, Any]:
+    metadata_payload["metadata_pending"] = False
+    metadata_payload["metadata_ready"] = False
+    metadata_payload["metadata_error"] = False
+    metadata_payload["metadata_status_message"] = ""
+    metadata_payload["loading"] = False
+    metadata_payload["deferred"] = False
+    metadata_payload["base_forecast_pending"] = False
+    metadata_payload["loading_status_message"] = ""
+    return metadata_payload
+
+
+def _build_no_source_forecasting_payload(
+    base_data: Dict[str, Any],
+    *,
+    include_decision_support: bool,
+) -> Dict[str, Any]:
+    base_data["notes"].append("РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С‚Р°Р±Р»РёС† РґР»СЏ РїСЂРѕРіРЅРѕР·РёСЂРѕРІР°РЅРёСЏ.")
+    base_data["bootstrap_mode"] = "full"
+    base_data["loading"] = False
+    base_data["deferred"] = False
+    base_data["metadata_pending"] = False
+    base_data["metadata_ready"] = False
+    base_data["metadata_error"] = False
+    base_data["metadata_status_message"] = ""
+    base_data["base_forecast_pending"] = False
+    base_data["base_forecast_ready"] = True
+    base_data["loading_status_message"] = ""
+    base_data["decision_support_pending"] = False
+    base_data["decision_support_ready"] = include_decision_support
+    base_data["decision_support_error"] = False
+    base_data["decision_support_status_message"] = ""
+    return base_data
 
 
 def _normalize_forecasting_cache_value(value: str) -> str:
@@ -202,12 +351,10 @@ def get_forecasting_page_context(
             forecast_days=forecast_days,
             history_window=history_window,
         )
-        initial_data = _empty_forecasting_data(
-            request_state["table_options"],
-            request_state["selected_table"],
-            request_state["days_ahead"],
-            temperature,
-            request_state["history_window"],
+        initial_data = _build_forecasting_page_fallback_initial_data(
+            request_state,
+            temperature=temperature,
+            exc=exc,
         )
         initial_data["notes"].append(
             "Страница прогнозирования открыта в безопасном режиме: часть расчета временно отключена из-за внутренней ошибки."
@@ -217,12 +364,7 @@ def get_forecasting_page_context(
             "Сценарный прогноз временно открыт без части расчетов, чтобы экран оставался доступен. Его задача по-прежнему та же: "
             "показать ближайшие дни риска и не подменять ML-прогноз ожидаемого числа пожаров."
         )
-    return {
-        "generated_at": _format_datetime(datetime.now()),
-        "initial_data": initial_data,
-        "plotly_js": get_plotly_bundle(),
-        "has_data": bool(initial_data["filters"]["available_tables"]),
-    }
+    return _build_forecasting_context(initial_data, plotly_js=get_plotly_bundle())
 
 
 @profiled("forecasting.shell", engine=engine)
@@ -265,47 +407,23 @@ def get_forecasting_shell_context(
             available_tables=len(table_options),
         )
 
-    if source_tables:
-        full_cache_key = _build_forecasting_cache_key(
-            selected_table,
-            source_tables,
-            district,
-            cause,
-            object_category,
-            temperature,
-            days_ahead,
-            selected_history_window,
-            True,
-        )
-        cached_payload = _FORECASTING_CACHE.get(full_cache_key)
-        if cached_payload is None:
-            core_cache_key = _build_forecasting_cache_key(
-                selected_table,
-                source_tables,
-                district,
-                cause,
-                object_category,
-                temperature,
-                days_ahead,
-                selected_history_window,
-                False,
+    cached_payload = _resolve_cached_forecasting_shell_payload(
+        request_state,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+    )
+    if cached_payload is not None:
+        if perf is not None:
+            perf.update(
+                cache_hit=True,
+                payload_has_data=bool(cached_payload.get("has_data")),
+                payload_notes=len(cached_payload.get("notes") or []),
+                metadata_pending=bool(cached_payload.get("metadata_pending")),
+                base_forecast_pending=bool(cached_payload.get("base_forecast_pending")),
             )
-            cached_payload = _FORECASTING_CACHE.get(core_cache_key)
-        if cached_payload is not None:
-            if perf is not None:
-                perf.update(
-                    cache_hit=True,
-                    payload_has_data=bool(cached_payload.get("has_data")),
-                    payload_notes=len(cached_payload.get("notes") or []),
-                    metadata_pending=bool(cached_payload.get("metadata_pending")),
-                    base_forecast_pending=bool(cached_payload.get("base_forecast_pending")),
-                )
-            return {
-                "generated_at": _format_datetime(datetime.now()),
-                "initial_data": cached_payload,
-                "plotly_js": "",
-                "has_data": bool(cached_payload["filters"]["available_tables"]),
-            }
+        return _build_forecasting_context(cached_payload, plotly_js="")
 
     if perf is not None:
         perf.update(cache_hit=False)
@@ -357,12 +475,7 @@ def get_forecasting_shell_context(
             )
 
     with perf.span("payload_render") if perf is not None else nullcontext():
-        context = {
-            "generated_at": _format_datetime(datetime.now()),
-            "initial_data": initial_data,
-            "plotly_js": "",
-            "has_data": bool(initial_data["filters"]["available_tables"]),
-        }
+        context = _build_forecasting_context(initial_data, plotly_js="")
         if perf is not None:
             perf.update(
                 payload_has_data=bool(context["has_data"]),
@@ -412,14 +525,7 @@ def get_forecasting_metadata(
             )
 
     if not source_tables:
-        metadata_payload["metadata_pending"] = False
-        metadata_payload["metadata_ready"] = False
-        metadata_payload["metadata_error"] = False
-        metadata_payload["metadata_status_message"] = ""
-        metadata_payload["loading"] = False
-        metadata_payload["deferred"] = False
-        metadata_payload["base_forecast_pending"] = False
-        metadata_payload["loading_status_message"] = ""
+        metadata_payload = _finalize_metadata_without_sources(metadata_payload)
         if perf is not None:
             perf.update(
                 payload_has_data=False,
@@ -529,7 +635,8 @@ def get_forecasting_data(
                 payload_has_data=False,
                 payload_notes=len(base_data.get("notes") or []),
             )
-        return _FORECASTING_CACHE.set(cache_key, base_data)
+        _FORECASTING_CACHE.set(cache_key, base_data)
+        return base_data
 
     payload = _build_forecasting_base_payload_impl(
         table_options=table_options,
@@ -556,7 +663,8 @@ def get_forecasting_data(
             input_rows=(payload.get("summary") or {}).get("fires_count_display"),
             forecast_rows=len(payload.get("forecast_rows") or []),
         )
-    return _FORECASTING_CACHE.set(cache_key, payload)
+    _FORECASTING_CACHE.set(cache_key, payload)
+    return payload
 
 
 def get_forecasting_decision_support_data(
@@ -609,13 +717,13 @@ def get_forecasting_decision_support_data(
         progress_callback=progress_callback,
         deps=_forecasting_assembly_dependencies(),
     )
-    result = _FORECASTING_CACHE.set(request_state["cache_key"], payload)
+    _FORECASTING_CACHE.set(request_state["cache_key"], payload)
     _emit_forecasting_progress(
         progress_callback,
         "forecasting_decision_support.completed",
         "Блок поддержки решений готов и подставлен в итоговый прогноз.",
     )
-    return result
+    return payload
 
 
 def _forecasting_assembly_dependencies() -> Dict[str, Callable[..., Any] | Any]:

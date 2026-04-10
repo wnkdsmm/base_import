@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
-from app.services.forecasting.geo import _build_geo_prediction
+from app.services.forecast_risk.geo import _build_geo_prediction
 
 
 def build_hotspot_payloads(

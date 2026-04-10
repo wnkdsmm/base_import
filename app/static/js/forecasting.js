@@ -56,58 +56,6 @@
         }).join('');
     }
 
-    function renderScenarioQualityCards(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">' + escapeHtml(emptyMessage) + '</div>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
-            return '<article class="stat-card">' +
-                '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>' +
-                '<strong class="stat-value">' + escapeHtml(item.value || '-') + '</strong>' +
-                '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>' +
-            '</article>';
-        }).join('');
-    }
-
-    function renderScenarioQuality(quality) {
-        var safeQuality = quality || {};
-        var tableContainer = byId('scenarioQualityTableShell');
-        var rows = Array.isArray(safeQuality.comparison_rows) ? safeQuality.comparison_rows : [];
-
-        setText('scenarioQualityTitle', 'Насколько прогноз по дням попадает в историю');
-        setText('scenarioQualitySubtitle', safeQuality.subtitle || 'Что показывает блок: насколько календарь сценария совпадал с прошлой историей. Это проверка именно прогноза по дням.');
-        renderScenarioQualityCards('scenarioQualityMetrics', safeQuality.metric_cards || [], 'После расчёта здесь появятся метрики качества сценарного прогноза.');
-        renderScenarioQualityCards('scenarioQualityMethodology', safeQuality.methodology_items || [], 'Параметры валидации появятся после проверки на истории.');
-
-        if (tableContainer) {
-            if (!rows.length) {
-                tableContainer.innerHTML = '<div class="mini-empty">Сравнение сценарного прогноза и базовой модели появится после проверки на истории.</div>';
-            } else {
-                tableContainer.innerHTML = '<table class="forecast-table">' +
-                    '<thead><tr><th>Метод</th><th>Роль</th><th>MAE</th><th>RMSE</th><th>SMAPE</th><th>MAE к базовой модели</th><th>Статус</th></tr></thead>' +
-                    '<tbody>' + rows.map(function (row) {
-                        return '<tr>' +
-                            '<td data-label="Метод">' + escapeHtml(row.method_label || '-') + '</td>' +
-                            '<td data-label="Роль">' + escapeHtml(row.role_label || '-') + '</td>' +
-                            '<td data-label="MAE">' + escapeHtml(row.mae_display || '-') + '</td>' +
-                            '<td data-label="RMSE">' + escapeHtml(row.rmse_display || '-') + '</td>' +
-                            '<td data-label="SMAPE">' + escapeHtml(row.smape_display || '-') + '</td>' +
-                            '<td data-label="MAE к базовой модели">' + escapeHtml(row.mae_delta_display || '—') + '</td>' +
-                            '<td data-label="Статус">' + escapeHtml(row.selection_label || '-') + '</td>' +
-                        '</tr>';
-                    }).join('') + '</tbody></table>';
-            }
-        }
-
-        renderNotes('scenarioQualityDissertation', safeQuality.dissertation_points || [], 'После расчета здесь появятся короткие выводы о точности прогноза.');
-    }
     function renderForecastTable(rows) {
         var container = byId('forecastTableShell');
         if (!container) {
@@ -279,6 +227,34 @@
             return;
         }
         asyncNode.classList.toggle('is-hidden', !visible);
+    }
+
+    function setForecastStageVisibility(stageName, visible) {
+        Array.prototype.forEach.call(
+            document.querySelectorAll('[data-forecast-stage~="' + stageName + '"]'),
+            function (node) {
+                node.hidden = !visible;
+            }
+        );
+    }
+
+    function syncForecastStageVisibility(data) {
+        var safeData = data || {};
+        setForecastStageVisibility(
+            'metadata',
+            Boolean(safeData.metadata_ready || (!safeData.metadata_pending && !safeData.deferred))
+        );
+        setForecastStageVisibility(
+            'base',
+            Boolean(safeData.base_forecast_ready || (!safeData.base_forecast_pending && !safeData.loading && !safeData.deferred))
+        );
+        setForecastStageVisibility(
+            'decision',
+            Boolean(
+                safeData.decision_support_ready ||
+                (!safeData.decision_support_pending && !safeData.deferred && !safeData.base_forecast_pending && !safeData.loading)
+            )
+        );
     }
 
     function hideForecastError() {
@@ -837,7 +813,6 @@
             summaryNode.textContent = buildSummaryLine(summary, data);
         }
 
-        renderScenarioQuality(data.quality_assessment || {});
         renderInsights(data.insights || []);
         renderCommandCards(executiveBrief);
         renderCommandNotes(executiveBrief);
@@ -850,6 +825,7 @@
         renderFeatureCards(risk.feature_cards || data.features || []);
         renderChart(charts.daily, 'forecastDailyChart', 'forecastDailyChartFallback');
         renderChart(charts.weekday, 'forecastWeekdayChart', 'forecastWeekdayChartFallback');
+        syncForecastStageVisibility(data);
         syncSidebarBadge(data);
         hideForecastError();
         updateForecastBriefExport({
@@ -1012,7 +988,10 @@
 
         syncBriefLink();
         if (initialData) {
-            applyForecastData(initialData);
+            syncForecastStageVisibility(initialData);
+            if (initialData.bootstrap_mode !== 'deferred') {
+                applyForecastData(initialData);
+            }
         }
         if (!initialData || initialData.bootstrap_mode === 'deferred') {
             fetchForecastData();

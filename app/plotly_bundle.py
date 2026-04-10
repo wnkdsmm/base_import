@@ -59,3 +59,44 @@ def serialize_plotly_figure(figure: Any) -> Dict[str, Any]:
         payload["layout"].pop("template", None)
     payload["config"] = dict(DEFAULT_PLOTLY_CONFIG)
     return payload
+
+
+def build_empty_plotly_figure_payload(
+    empty_message: str = "",
+    *,
+    height: int = 320,
+    annotation_color: str = "#7b6a5a",
+    paper_bgcolor: str = "rgba(255,255,255,0)",
+    plot_bgcolor: str = "rgba(255,255,255,0)",
+    margin: Dict[str, int] | None = None,
+    use_plotly: bool = True,
+) -> Dict[str, Any]:
+    if not use_plotly:
+        return empty_plotly_payload()
+    if not PLOTLY_AVAILABLE or go is None:
+        return empty_plotly_payload(empty_message)
+
+    figure = go.Figure()
+    figure.update_layout(
+        height=height,
+        paper_bgcolor=paper_bgcolor,
+        plot_bgcolor=plot_bgcolor,
+        margin=margin or {"l": 20, "r": 20, "t": 20, "b": 20},
+        xaxis={"visible": False},
+        yaxis={"visible": False},
+        annotations=[
+            {
+                "text": empty_message,
+                "x": 0.5,
+                "y": 0.5,
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {"size": 16, "color": annotation_color},
+            }
+        ],
+    )
+    payload = serialize_plotly_figure(figure)
+    if empty_message:
+        payload["empty_message"] = empty_message
+    return payload

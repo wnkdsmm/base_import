@@ -1,4 +1,6 @@
-<section class="stats-grid forecast-stats">
+{% set base_stage_visible = data.base_forecast_ready or (not data.base_forecast_pending and not data.loading and not data.deferred) %}
+<section id="forecastQualityOverview" data-forecast-stage="base"{% if not base_stage_visible %} hidden{% endif %}>
+    <section class="stats-grid forecast-stats">
         <article class="stat-card stat-card-accent">
             <span class="stat-label">Пожаров в истории</span>
             <strong class="stat-value" id="forecastFiresCount">{{ summary.fires_count_display }}</strong>
@@ -20,86 +22,4 @@
             <span class="stat-foot">Дата: <span id="forecastPeakRiskDay">{{ summary.peak_forecast_day_display }}</span></span>
         </article>
     </section>
-
-        <details id="scenarioQualityPanel" class="panel ml-quality-panel quality-disclosure">
-            <summary class="panel-head quality-disclosure-summary">
-                <div>
-                    <h2 id="scenarioQualityTitle">Насколько прогноз по дням попадает в историю</h2>
-                    <span id="scenarioQualitySubtitle" class="panel-meta">{{ quality.subtitle or 'Что показывает блок: насколько календарь сценария совпадал с прошлой историей. Это проверка именно прогноза по дням.' }}</span>
-                </div>
-                <span class="quality-disclosure-toggle">Показать проверку на истории</span>
-            </summary>
-        <div id="scenarioQualityMetrics" class="stats-grid">
-            {% if quality.metric_cards %}
-                {% for item in quality.metric_cards %}
-                <article class="stat-card">
-                    <span class="stat-label">{{ item.label }}</span>
-                    <strong class="stat-value">{{ item.value }}</strong>
-                    <span class="stat-foot">{{ item.meta }}</span>
-                </article>
-                {% endfor %}
-            {% else %}
-            <div class="mini-empty">После расчёта здесь появятся метрики качества сценарного прогноза.</div>
-            {% endif %}
-        </div>
-        <div id="scenarioQualityMethodology" class="stats-grid">
-            {% if quality.methodology_items %}
-                {% for item in quality.methodology_items %}
-                <article class="stat-card">
-                    <span class="stat-label">{{ item.label }}</span>
-                    <strong class="stat-value">{{ item.value }}</strong>
-                    <span class="stat-foot">{{ item.meta }}</span>
-                </article>
-                {% endfor %}
-            {% else %}
-            <div class="mini-empty">Параметры валидации появятся после проверки на истории.</div>
-            {% endif %}
-        </div>
-        <div id="scenarioQualityTableShell" class="forecast-table-shell">
-            {% if quality.comparison_rows %}
-            <table class="forecast-table">
-                <thead>
-                    <tr>
-                        <th>Метод</th>
-                        <th>Роль</th>
-                        <th>MAE</th>
-                        <th>RMSE</th>
-                        <th>SMAPE</th>
-                        <th>MAE к базовой модели</th>
-                        <th>Статус</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in quality.comparison_rows %}
-                    <tr>
-                        <td data-label="Метод">{{ row.method_label }}</td>
-                        <td data-label="Роль">{{ row.role_label }}</td>
-                        <td data-label="MAE">{{ row.mae_display }}</td>
-                        <td data-label="RMSE">{{ row.rmse_display }}</td>
-                        <td data-label="SMAPE">{{ row.smape_display }}</td>
-                        <td data-label="MAE к базовой модели">{{ row.mae_delta_display | default('—') }}</td>
-                        <td data-label="Статус">{{ row.selection_label }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="mini-empty">Сравнение сценарного прогноза и базовой модели появится после проверки на истории.</div>
-            {% endif %}
-        </div>
-        <article class="panel ranking-panel">
-            <div class="panel-head">
-                <h2>Короткие выводы о точности</h2>
-                <span class="panel-meta">Что показывает блок: короткие выводы по календарю ближайших дней без чтения всех метрик.</span>
-            </div>
-            <ul id="scenarioQualityDissertation" class="notice-list forecast-note-list">
-                {% if quality.dissertation_points %}
-                    {% for note in quality.dissertation_points %}
-                    <li>{{ note }}</li>
-                    {% endfor %}
-                {% else %}
-                <li>После расчета здесь появятся формулировки для раздела “оценка качества”.</li>
-                {% endif %}
-            </ul>
-        </article>
-    </details>
+</section>

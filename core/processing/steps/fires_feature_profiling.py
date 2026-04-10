@@ -58,16 +58,20 @@ class FiresFeatureProfilingStep(PipelineStep):
             ),
         ]
 
-    def _build_drop_reasons(
-        self,
-        row: pd.Series,
-        reason_definitions: list[tuple[str, str, str]],
-    ) -> list[str]:
-        reasons: list[str] = []
-        for reason_id, label, _description in reason_definitions:
-            if bool(row.get(reason_id)):
-                reasons.append(label)
-        return reasons
+    def _resolve_source_df(self, data: pd.DataFrame | None, table_name: str) -> pd.DataFrame:
+        if isinstance(data, pd.DataFrame):
+            return data
+
+        cached_df = getattr(self.settings, "_pipeline_source_df", None)
+        if isinstance(cached_df, pd.DataFrame):
+            return cached_df
+
+        logger.info("Читаем таблицу из базы данных...")
+        try:
+            return pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        except Exception:
+            logger.exception("Не удалось прочитать таблицу: %s", table_name)
+            raise
 
     def run(self, data=None):
         if hasattr(self.settings, "selected_table") and self.settings.selected_table:
@@ -92,18 +96,12 @@ class FiresFeatureProfilingStep(PipelineStep):
             thresholds["dominant_value_threshold"] * 100,
             thresholds["low_variance_threshold"],
         )
-        logger.info("Читаем таблицу из базы данных...")
 
-        try:
-            df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
-        except Exception:
-            logger.exception("Не удалось прочитать таблицу: %s", table_name)
-            raise
-
+        df = self._resolve_source_df(data if isinstance(data, pd.DataFrame) else None, table_name)
         logger.info("Загружено строк: %s, колонок: %s", df.shape[0], df.shape[1])
 
         n_rows = len(df)
-        string_cols = df.select_dtypes(include="object").columns.tolist()
+        string_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
         df_norm = pd.DataFrame(index=df.index)
         if string_cols:
             df_norm = df[string_cols].copy()
@@ -156,10 +154,15 @@ class FiresFeatureProfilingStep(PipelineStep):
             | profile_df["low_variance"]
             | profile_df["almost_constant"]
         )
-        profile_df["drop_reasons"] = profile_df.apply(
-            lambda row: self._build_drop_reasons(row, reason_definitions),
-            axis=1,
-        )
+        reason_ids = [reason_id for reason_id, _label, _description in reason_definitions]
+        profile_df["drop_reasons"] = [
+            [
+                label
+                for reason_id, label, _description in reason_definitions
+                if bool(getattr(row, reason_id))
+            ]
+            for row in profile_df[reason_ids].itertuples(index=False, name="ProfilingFlags")
+        ]
         profile_df["profiling_candidate_to_drop"] = profile_df["candidate_to_drop"]
         profile_df["mandatory_feature_detected"] = False
         profile_df["protected_feature_id"] = ""
@@ -192,16 +195,16 @@ class FiresFeatureProfilingStep(PipelineStep):
         ]
 
         candidate_details = []
-        for _, row in candidates_df.iterrows():
+        for row in candidates_df.itertuples(index=False):
             candidate_details.append(
                 {
-                    "column": row["column"],
-                    "dtype": row["dtype"],
-                    "null_ratio": float(row["null_ratio"]),
-                    "dominant_ratio": float(row["dominant_ratio"]),
-                    "unique_count": int(row["unique_count"]),
-                    "variance": float(row["variance"]),
-                    "reasons": row["drop_reasons"],
+                    "column": row.column,
+                    "dtype": row.dtype,
+                    "null_ratio": float(row.null_ratio),
+                    "dominant_ratio": float(row.dominant_ratio),
+                    "unique_count": int(row.unique_count),
+                    "variance": float(row.variance),
+                    "reasons": row.drop_reasons,
                 }
             )
 
@@ -212,7 +215,11 @@ class FiresFeatureProfilingStep(PipelineStep):
         logger.info("Помечено на исключение: %s", len(candidates))
         logger.info("Останется в очищенной таблице: %s", len(kept_columns))
 
+        self.settings._pipeline_source_df = df
+        self.settings._pipeline_profile_df = profile_df_sorted
+
         return {
+            "source_df": df,
             "profile_df": profile_df_sorted,
             "candidates": candidates,
             "table_name": table_name,

@@ -4,7 +4,12 @@ import re
 import textwrap
 from typing import Any, Dict, List, Optional
 
-from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go, serialize_plotly_figure
+from app.plotly_bundle import (
+    PLOTLY_AVAILABLE,
+    build_empty_plotly_figure_payload,
+    go,
+    serialize_plotly_figure,
+)
 from app.statistics_constants import PLOTLY_PALETTE
 
 def _finalize_chart(
@@ -26,12 +31,28 @@ def _finalize_chart(
         "description": description,
         "items": normalized_items,
         "empty_message": empty_message,
-        "plotly": plotly or _build_empty_plotly_chart(title, empty_message),
+        "plotly": plotly or build_empty_plotly_figure_payload(
+            empty_message,
+            annotation_color="#7b6a5a",
+        ),
     }
+
+
+def _build_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
+    return _finalize_chart(
+        title,
+        [],
+        empty_message,
+        plotly=build_empty_plotly_figure_payload(
+            empty_message,
+            annotation_color="#7b6a5a",
+        ),
+    )
+
 
 def _build_yearly_plotly(title: str, items: List[Dict[str, Any]], metric: str, empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     x_values = [item["label"] for item in items]
     y_values = [item["value"] for item in items]
@@ -72,7 +93,7 @@ def _build_yearly_plotly(title: str, items: List[Dict[str, Any]], metric: str, e
         )
         figure.update_layout(**_plotly_layout("Площадь, га", showlegend=False))
 
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _wrap_plotly_label(value: Any, max_width: int = 34, max_lines: int = 3) -> str:
@@ -90,7 +111,7 @@ def _wrap_plotly_label(value: Any, max_width: int = 34, max_lines: int = 3) -> s
 
 def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     ordered_items = list(reversed(items))
     figure = go.Figure(
@@ -118,12 +139,12 @@ def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: 
     layout["yaxis"]["automargin"] = True
     layout["yaxis"]["tickfont"] = {"size": 11}
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_distribution_pie_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     figure = go.Figure(
         data=[
@@ -149,12 +170,12 @@ def _build_distribution_pie_plotly(title: str, items: List[Dict[str, Any]], empt
     )
     figure.update_layout(**_plotly_layout("", showlegend=False))
     figure.update_layout(margin=dict(l=24, r=24, t=12, b=12))
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_distribution_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     ordered_items = list(reversed(items))
     figure = go.Figure(
@@ -179,12 +200,12 @@ def _build_distribution_plotly(title: str, items: List[Dict[str, Any]], empty_me
     layout["margin"] = {"l": 220, "r": 36, "t": 20, "b": 40}
     layout["yaxis"]["automargin"] = True
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_combined_impact_timeline_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     x_values = [item["date_value"] for item in items]
     date_labels = [item["label"] for item in items]
@@ -251,11 +272,11 @@ def _build_combined_impact_timeline_plotly(title: str, items: List[Dict[str, Any
     layout["legend"] = {"orientation": "h", "y": 1.14, "x": 0}
     layout["xaxis"]["type"] = "date"
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 def _build_damage_overview_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     ordered_items = list(reversed(items))
     figure = go.Figure(
@@ -280,12 +301,12 @@ def _build_damage_overview_plotly(title: str, items: List[Dict[str, Any]], empty
     layout["margin"] = {"l": 230, "r": 36, "t": 20, "b": 40}
     layout["yaxis"]["automargin"] = True
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_damage_pairs_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     figure = go.Figure()
     figure.add_trace(
@@ -313,12 +334,12 @@ def _build_damage_pairs_plotly(title: str, items: List[Dict[str, Any]], empty_me
     layout["legend"] = {"orientation": "h", "y": 1.12, "x": 0}
     layout["xaxis"]["automargin"] = True
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_damage_standalone_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     figure = go.Figure(
         data=[
@@ -339,11 +360,11 @@ def _build_damage_standalone_plotly(title: str, items: List[Dict[str, Any]], emp
     layout = _plotly_layout("Количество пожаров", showlegend=False)
     layout["xaxis"]["automargin"] = True
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 def _build_damage_share_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     figure = go.Figure(
         data=[
@@ -373,11 +394,11 @@ def _build_damage_share_plotly(title: str, items: List[Dict[str, Any]], empty_me
     )
     figure.update_layout(**_plotly_layout("", showlegend=False))
     figure.update_layout(margin=dict(l=24, r=24, t=12, b=12))
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 def _build_table_breakdown_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     ordered_items = list(reversed(items))
     figure = go.Figure(
@@ -397,12 +418,12 @@ def _build_table_breakdown_plotly(title: str, items: List[Dict[str, Any]], empty
         ]
     )
     figure.update_layout(**_plotly_layout("Количество пожаров", showlegend=False))
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_monthly_profile_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     figure = go.Figure(
         data=[
@@ -433,12 +454,12 @@ def _build_monthly_profile_plotly(title: str, items: List[Dict[str, Any]], empty
         ]
     )
     figure.update_layout(**_plotly_layout("Количество пожаров", showlegend=False))
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_area_bucket_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     figure = go.Figure(
         data=[
@@ -464,7 +485,7 @@ def _build_area_bucket_plotly(title: str, items: List[Dict[str, Any]], empty_mes
     )
     figure.update_layout(**_plotly_layout("", showlegend=False))
     figure.update_layout(margin=dict(l=20, r=20, t=10, b=10))
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 
@@ -476,7 +497,7 @@ def _build_sql_widget_bar_plotly(
     value_label: str,
 ) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     ordered_items = list(reversed(items))
     color_value = PLOTLY_PALETTE.get(color_key, PLOTLY_PALETTE["fire"])
@@ -503,12 +524,12 @@ def _build_sql_widget_bar_plotly(
     layout["margin"] = {"l": 220, "r": 30, "t": 16, "b": 32}
     layout["yaxis"]["automargin"] = True
     figure.update_layout(**layout)
-    return _figure_to_dict(figure)
+    return serialize_plotly_figure(figure)
 
 
 def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return _build_empty_plotly_chart(title, empty_message)
+        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
 
     colors = [
         PLOTLY_PALETTE["sky"],
@@ -529,33 +550,7 @@ def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], emp
         ]
     )
     figure.update_layout(**_plotly_layout("Пожаров", showlegend=False))
-    return _figure_to_dict(figure)
-
-
-def _build_empty_plotly_chart(title: str, message: str) -> Dict[str, Any]:
-    if not PLOTLY_AVAILABLE:
-        return empty_plotly_payload(message)
-
-    figure = go.Figure()
-    layout = _plotly_layout("", showlegend=False)
-    layout["annotations"] = [
-        dict(
-            text=message,
-            x=0.5,
-            y=0.5,
-            xref="paper",
-            yref="paper",
-            showarrow=False,
-            font=dict(size=16, color="#7b6a5a"),
-        )
-    ]
-    layout["xaxis"] = {"visible": False}
-    layout["yaxis"] = {"visible": False}
-    layout["margin"] = {"l": 20, "r": 20, "t": 20, "b": 20}
-    figure.update_layout(**layout)
-    payload = _figure_to_dict(figure)
-    payload["empty_message"] = message
-    return payload
+    return serialize_plotly_figure(figure)
 
 
 def _plotly_layout(yaxis_title: str, showlegend: bool) -> Dict[str, Any]:
@@ -582,10 +577,6 @@ def _plotly_layout(yaxis_title: str, showlegend: bool) -> Dict[str, Any]:
         "hoverlabel": {"bgcolor": "#fffaf5", "font": {"color": PLOTLY_PALETTE["ink"]}},
     }
 
-
-def _figure_to_dict(figure: Any) -> Dict[str, Any]:
-    return serialize_plotly_figure(figure)
-
 __all__ = [
     "_finalize_chart",
     "_build_yearly_plotly",
@@ -603,7 +594,5 @@ __all__ = [
     "_build_area_bucket_plotly",
     "_build_sql_widget_bar_plotly",
     "_build_sql_widget_season_plotly",
-    "_build_empty_plotly_chart",
     "_plotly_layout",
-    "_figure_to_dict",
 ]

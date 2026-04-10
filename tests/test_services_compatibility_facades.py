@@ -41,6 +41,10 @@ class ServicesCompatibilityFacadeTests(unittest.TestCase):
     def test_legacy_lazy_export_module_is_removed(self) -> None:
         self.assertIsNone(importlib.util.find_spec("app.compat"))
 
+    def test_unused_forecasting_geo_shim_is_removed(self) -> None:
+        self.assertIsNone(importlib.util.find_spec("app.services.forecasting.geo"))
+        self.assertIsNotNone(importlib.util.find_spec("app.services.forecast_risk.geo"))
+
     def test_canonical_service_modules_remain_importable(self) -> None:
         fire_map_service = importlib.import_module("app.services.fire_map_service")
         pipeline_service = importlib.import_module("app.services.pipeline_service")

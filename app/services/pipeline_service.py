@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict
 import pandas as pd
 from fastapi import UploadFile
 
-from app.log_manager import add_log
 from app.state import UPLOAD_FOLDER, job_store
 from config.constants import (
     DOMINANT_VALUE_THRESHOLD,
@@ -25,6 +24,11 @@ from core.processing.steps.create_clean_table import CreateCleanTableStep
 from core.processing.steps.fires_feature_profiling import FiresFeatureProfilingStep
 from core.processing.steps.import_data import ImportDataStep
 from core.processing.steps.keep_important_columns import KeepImportantColumnsStep
+
+
+def add_log(session_id: str, job_id: str, message: str) -> None:
+    """Compatibility shim for tests and legacy module-level patching."""
+    job_store.add_log(session_id, job_id, message)
 
 
 class _LiveLogStream(io.TextIOBase):
@@ -114,10 +118,20 @@ def _load_profile_summary(
     table_name: str,
     thresholds: dict[str, float],
     base_reason_summary: list[dict[str, Any]],
+    profile_df: pd.DataFrame | None = None,
+    report_csv: str | None = None,
+    report_xlsx: str | None = None,
 ) -> Dict[str, Any]:
-    report_csv, report_xlsx = _profile_report_paths(output_folder, table_name)
-    profile_df = pd.read_csv(report_csv)
-    profile_df = profile_df.copy()
+    resolved_report_csv, resolved_report_xlsx = _profile_report_paths(output_folder, table_name)
+    if report_csv:
+        resolved_report_csv = report_csv
+    if report_xlsx:
+        resolved_report_xlsx = report_xlsx
+
+    if profile_df is None:
+        profile_df = pd.read_csv(resolved_report_csv)
+    else:
+        profile_df = profile_df.copy()
 
     reason_ids = [str(item.get("id") or "") for item in base_reason_summary if item.get("id")]
     bool_columns = ["candidate_to_drop", "profiling_candidate_to_drop", "mandatory_feature_detected", "protected_from_drop", *reason_ids]
@@ -192,8 +206,8 @@ def _load_profile_summary(
         "reason_summary": reason_summary,
         "candidate_details": candidate_details,
         "protected_details": protected_details,
-        "report_csv": report_csv,
-        "report_xlsx": report_xlsx,
+        "report_csv": resolved_report_csv,
+        "report_xlsx": resolved_report_xlsx,
         "thresholds": thresholds,
     }
 
@@ -338,20 +352,31 @@ def run_profiling_for_table(
         )
 
         with redirect_stdout(log_stream):
-            profiling_result = FiresFeatureProfilingStep(settings).run(settings)
-            keep_result = KeepImportantColumnsStep().run(settings)
+            profiling_result = FiresFeatureProfilingStep(settings).run()
+            source_df = profiling_result.get("source_df")
+            keep_result = KeepImportantColumnsStep().run(
+                settings,
+                profile_df=profiling_result.get("profile_df"),
+            )
             profiling_result = _load_profile_summary(
                 output_folder=settings.output_folder,
                 table_name=table_name,
                 thresholds=profiling_result["thresholds"],
                 base_reason_summary=profiling_result["reason_summary"],
+                profile_df=keep_result.get("profile_df"),
+                report_csv=keep_result.get("updated_csv"),
+                report_xlsx=keep_result.get("updated_xlsx"),
             )
             add_log(
                 session_id,
                 resolved_job_id,
                 "Шаг 2 из 2. Создаём очищенную таблицу без колонок-кандидатов на исключение.",
             )
-            clean_result = CreateCleanTableStep().run(settings)
+            clean_result = CreateCleanTableStep().run(
+                settings,
+                profile_df=keep_result.get("profile_df"),
+                source_df=source_df,
+            )
 
         add_log(
             session_id,

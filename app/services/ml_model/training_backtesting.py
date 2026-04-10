@@ -332,6 +332,17 @@ class _BacktestOriginSelection:
     total_windows: int
 
 
+@dataclass
+class _BacktestRunContext:
+    history_frame: pd.DataFrame
+    dataset: pd.DataFrame
+    history_dates: np.ndarray
+    validation_horizon_days: int
+    max_horizon_days: int
+    horizon_days: List[int]
+    min_train_rows: int
+
+
 def _selected_count_arrays_from_evaluation_data(
     evaluation_data: _HorizonEvaluationData,
     selected_count_model_key: Optional[str],
@@ -1183,56 +1194,65 @@ def _select_backtest_origins(
     )
 
 
-def _run_backtest(
+def _prepare_backtest_run_context(
     history_frame: pd.DataFrame,
     dataset: pd.DataFrame,
-    progress_callback: MlProgressCallback = None,
-    validation_horizon_days: int = 1,
-    max_horizon_days: Optional[int] = None,
-    history_frame_is_prepared: bool = False,
-) -> BacktestRunResult:
-    perf = current_perf_trace()
-    history_frame = history_frame if history_frame_is_prepared else _prepare_reference_frame(history_frame)
-    dataset = dataset.sort_values('date').reset_index(drop=True)
-    history_dates = history_frame['date'].to_numpy(dtype='datetime64[ns]')
-    validation_horizon_days = max(1, int(validation_horizon_days or 1))
-    max_horizon_days = max(validation_horizon_days, int(max_horizon_days or validation_horizon_days))
-    horizon_days = _lead_time_validation_horizons(max_horizon_days)
-
-    min_train_rows = min(max(ROLLING_MIN_TRAIN_ROWS, MIN_FEATURE_ROWS), len(dataset) - MIN_BACKTEST_POINTS)
-    if len(history_frame) <= max_horizon_days or min_train_rows <= 0:
-        return _not_ready_backtest(
-            f'Lead-time-aware rolling-origin backtesting is unavailable for the {_lead_time_label(validation_horizon_days)} '
-            'lead because the history is too short after lagged features are built.'
-        )
-
-    origin_selection = _select_backtest_origins(
-        dataset=dataset,
-        history_frame=history_frame,
-        min_train_rows=min_train_rows,
-        max_horizon_days=max_horizon_days,
+    *,
+    validation_horizon_days: int,
+    max_horizon_days: Optional[int],
+    history_frame_is_prepared: bool,
+) -> _BacktestRunContext:
+    prepared_history_frame = (
+        history_frame if history_frame_is_prepared else _prepare_reference_frame(history_frame)
+    )
+    prepared_dataset = dataset.sort_values('date').reset_index(drop=True)
+    normalized_validation_horizon = max(1, int(validation_horizon_days or 1))
+    normalized_max_horizon = max(
+        normalized_validation_horizon,
+        int(max_horizon_days or normalized_validation_horizon),
+    )
+    return _BacktestRunContext(
+        history_frame=prepared_history_frame,
+        dataset=prepared_dataset,
+        history_dates=prepared_history_frame['date'].to_numpy(dtype='datetime64[ns]'),
+        validation_horizon_days=normalized_validation_horizon,
+        max_horizon_days=normalized_max_horizon,
+        horizon_days=_lead_time_validation_horizons(normalized_max_horizon),
+        min_train_rows=min(
+            max(ROLLING_MIN_TRAIN_ROWS, MIN_FEATURE_ROWS),
+            len(prepared_dataset) - MIN_BACKTEST_POINTS,
+        ),
     )
 
-    if perf is not None:
-        perf.update(
-            history_rows=len(history_frame),
-            dataset_rows=len(dataset),
-            min_train_rows=min_train_rows,
-            available_backtest_points=origin_selection.available_backtest_points,
-            validation_horizon_days=validation_horizon_days,
-            max_horizon_days=max_horizon_days,
-        )
 
-    if origin_selection.available_backtest_points <= 0:
-        return _not_ready_backtest(
-            f'Lead-time-aware rolling-origin backtesting for the {_lead_time_label(validation_horizon_days)} lead '
-            'has no comparable origins after lagged features are built.'
-        )
+def _validate_backtest_run_context(context: _BacktestRunContext) -> Optional[BacktestRunResult]:
+    if len(context.history_frame) > context.max_horizon_days and context.min_train_rows > 0:
+        return None
+    return _not_ready_backtest(
+        f'Lead-time-aware rolling-origin backtesting is unavailable for the {_lead_time_label(context.validation_horizon_days)} '
+        'lead because the history is too short after lagged features are built.'
+    )
 
-    selected_origin_dates = origin_selection.selected_origin_dates
-    total_windows = origin_selection.total_windows
-    if perf is not None:
-        perf.update(total_windows=total_windows)
+
+def _record_backtest_context_perf(perf: Any, context: _BacktestRunContext, origin_selection: _BacktestOriginSelection) -> None:
+    if perf is None:
+        return
+    perf.update(
+        history_rows=len(context.history_frame),
+        dataset_rows=len(context.dataset),
+        min_train_rows=context.min_train_rows,
+        available_backtest_points=origin_selection.available_backtest_points,
+        validation_horizon_days=context.validation_horizon_days,
+        max_horizon_days=context.max_horizon_days,
+    )
+
+
+def _emit_backtest_start_progress(
+    progress_callback: MlProgressCallback,
+    *,
+    total_windows: int,
+    max_horizon_days: int,
+) -> None:
     _emit_progress(
         progress_callback,
         'ml_backtest.running',
@@ -1242,39 +1262,84 @@ def _run_backtest(
         ),
     )
 
+
+def _run_backtest(
+    history_frame: pd.DataFrame,
+    dataset: pd.DataFrame,
+    progress_callback: MlProgressCallback = None,
+    validation_horizon_days: int = 1,
+    max_horizon_days: Optional[int] = None,
+    history_frame_is_prepared: bool = False,
+) -> BacktestRunResult:
+    perf = current_perf_trace()
+    context = _prepare_backtest_run_context(
+        history_frame,
+        dataset,
+        validation_horizon_days=validation_horizon_days,
+        max_horizon_days=max_horizon_days,
+        history_frame_is_prepared=history_frame_is_prepared,
+    )
+    invalid_context = _validate_backtest_run_context(context)
+    if invalid_context is not None:
+        return invalid_context
+
+    origin_selection = _select_backtest_origins(
+        dataset=context.dataset,
+        history_frame=context.history_frame,
+        min_train_rows=context.min_train_rows,
+        max_horizon_days=context.max_horizon_days,
+    )
+    _record_backtest_context_perf(perf, context, origin_selection)
+
+    if origin_selection.available_backtest_points <= 0:
+        return _not_ready_backtest(
+            f'Lead-time-aware rolling-origin backtesting for the {_lead_time_label(context.validation_horizon_days)} lead '
+            'has no comparable origins after lagged features are built.'
+        )
+
+    selected_origin_dates = origin_selection.selected_origin_dates
+    total_windows = origin_selection.total_windows
+    if perf is not None:
+        perf.update(total_windows=total_windows)
+    _emit_backtest_start_progress(
+        progress_callback,
+        total_windows=total_windows,
+        max_horizon_days=context.max_horizon_days,
+    )
+
     horizon_rows, comparable_windows = _collect_backtest_horizon_rows(
-        history_frame=history_frame,
-        history_dates=history_dates,
+        history_frame=context.history_frame,
+        history_dates=context.history_dates,
         selected_origin_dates=selected_origin_dates,
         total_windows=total_windows,
-        max_horizon_days=max_horizon_days,
-        min_train_rows=min_train_rows,
-        horizon_days=horizon_days,
+        max_horizon_days=context.max_horizon_days,
+        min_train_rows=context.min_train_rows,
+        horizon_days=context.horizon_days,
         progress_callback=progress_callback,
     )
 
-    valid_rows = horizon_rows.get(validation_horizon_days, [])
+    valid_rows = horizon_rows.get(context.validation_horizon_days, [])
     if perf is not None:
         perf.update(valid_windows=len(valid_rows), comparable_windows=comparable_windows)
     if not valid_rows:
         return _not_ready_backtest(
             f'Lead-time-aware validation collected no comparable origins for the '
-            f'{_lead_time_label(validation_horizon_days)} lead.'
+            f'{_lead_time_label(context.validation_horizon_days)} lead.'
         )
 
     artifacts = _build_backtest_evaluation_artifacts(
         horizon_rows=horizon_rows,
-        horizon_days=horizon_days,
+        horizon_days=context.horizon_days,
         valid_rows=valid_rows,
-        dataset=dataset,
-        validation_horizon_days=validation_horizon_days,
+        dataset=context.dataset,
+        validation_horizon_days=context.validation_horizon_days,
     )
     _emit_progress(
         progress_callback,
         'ml_backtest.completed',
         (
             f'Backtesting completed: {len(artifacts.backtest_rows)} comparable origins, '
-            f'lead-time-aware summary on the {_lead_time_label(validation_horizon_days)} lead.'
+            f'lead-time-aware summary on the {_lead_time_label(context.validation_horizon_days)} lead.'
         ),
     )
 
@@ -1289,13 +1354,11 @@ def _run_backtest(
     return _build_backtest_success_result(
         artifacts=artifacts,
         valid_rows=valid_rows,
-        min_train_rows=min_train_rows,
-        validation_horizon_days=validation_horizon_days,
-        max_horizon_days=max_horizon_days,
-        horizon_days=horizon_days,
+        min_train_rows=context.min_train_rows,
+        validation_horizon_days=context.validation_horizon_days,
+        max_horizon_days=context.max_horizon_days,
+        horizon_days=context.horizon_days,
     )
-
-
 def _estimate_overdispersion_ratio(counts: np.ndarray) -> float:
     values = (
         counts.astype(float, copy=False)
@@ -1815,3 +1878,4 @@ def _safe_log_loss(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[f
         return None
     clipped = np.clip(probabilities.astype(float, copy=False), 0.001, 0.999)
     return float(log_loss(actuals, clipped, labels=[0, 1]))
+

@@ -701,6 +701,123 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertEqual(sql_widgets_mock.call_args.kwargs["month_counts"], {1: 2, 7: 3})
         self.assertEqual(sql_widgets_mock.call_args.kwargs["district_counts"], {"district_a": 4})
 
+    def test_service_reuses_canonical_cache_entry_for_invalid_request_filters(self) -> None:
+        metadata = {
+            "tables": [{"name": "fires", "column_set": {GENERAL_CAUSE_COLUMN}, "years": [2024], "table_year": None}],
+            "table_signature": ("fires",),
+            "table_options": [{"value": "all", "label": "all"}, {"value": "fires", "label": "fires"}],
+            "default_group_column": GENERAL_CAUSE_COLUMN,
+            "errors": [],
+        }
+        filter_state = {
+            "selected_tables": metadata["tables"],
+            "available_years": [{"value": "2024", "label": "2024"}],
+            "selected_year": None,
+            "available_group_columns": [{"value": GENERAL_CAUSE_COLUMN, "label": GENERAL_CAUSE_COLUMN}],
+            "selected_group_column": GENERAL_CAUSE_COLUMN,
+            "selected_table_name": "all",
+        }
+        cached_payload = {"has_data": True, "notes": ["cached canonical payload"]}
+
+        with ExitStack() as stack:
+            stack.enter_context(patch("app.dashboard.service._collect_dashboard_metadata_cached", return_value=metadata))
+            stack.enter_context(patch("app.dashboard.service._resolve_dashboard_filters", return_value=filter_state))
+            cache_get_mock = stack.enter_context(
+                patch("app.dashboard.service._get_dashboard_cache", side_effect=[None, cached_payload])
+            )
+            set_cache_mock = stack.enter_context(patch("app.dashboard.service._set_dashboard_cache"))
+            stack.enter_context(
+                patch(
+                    "app.dashboard.service._build_dashboard_aggregation",
+                    side_effect=AssertionError("canonical cache hit should avoid aggregation"),
+                )
+            )
+
+            payload = service.get_dashboard_data(
+                table_name="missing_table",
+                year="9999",
+                group_column="missing_group",
+                allow_fallback=False,
+            )
+
+        self.assertEqual(payload, cached_payload)
+        self.assertEqual(
+            cache_get_mock.call_args_list,
+            [
+                unittest.mock.call(
+                    service._build_dashboard_cache_key(
+                        metadata,
+                        "missing_table",
+                        "9999",
+                        "missing_group",
+                    )
+                ),
+                unittest.mock.call(
+                    service._build_resolved_dashboard_cache_key(
+                        metadata,
+                        "all",
+                        None,
+                        GENERAL_CAUSE_COLUMN,
+                    )
+                ),
+            ],
+        )
+        set_cache_mock.assert_not_called()
+
+    def test_service_stores_dashboard_payload_under_resolved_cache_key(self) -> None:
+        metadata = {
+            "tables": [{"name": "fires", "column_set": {GENERAL_CAUSE_COLUMN}, "years": [2024], "table_year": None}],
+            "table_signature": ("fires",),
+            "table_options": [{"value": "all", "label": "all"}, {"value": "fires", "label": "fires"}],
+            "default_group_column": GENERAL_CAUSE_COLUMN,
+            "errors": [],
+        }
+        filter_state = {
+            "selected_tables": metadata["tables"],
+            "available_years": [{"value": "2024", "label": "2024"}],
+            "selected_year": None,
+            "available_group_columns": [{"value": GENERAL_CAUSE_COLUMN, "label": GENERAL_CAUSE_COLUMN}],
+            "selected_group_column": GENERAL_CAUSE_COLUMN,
+            "selected_table_name": "all",
+        }
+        aggregation = {"summary": {"fires_count": 0}}
+        payload = {"has_data": True, "notes": []}
+
+        with ExitStack() as stack:
+            stack.enter_context(patch("app.dashboard.service._collect_dashboard_metadata_cached", return_value=metadata))
+            stack.enter_context(patch("app.dashboard.service._resolve_dashboard_filters", return_value=filter_state))
+            cache_get_mock = stack.enter_context(
+                patch("app.dashboard.service._get_dashboard_cache", side_effect=[None, None])
+            )
+            build_aggregation_mock = stack.enter_context(
+                patch("app.dashboard.service._build_dashboard_aggregation", return_value=aggregation)
+            )
+            build_payload_mock = stack.enter_context(
+                patch("app.dashboard.service._build_dashboard_payload", return_value=payload)
+            )
+            set_cache_mock = stack.enter_context(patch("app.dashboard.service._set_dashboard_cache"))
+
+            result = service.get_dashboard_data(
+                table_name="missing_table",
+                year="9999",
+                group_column="missing_group",
+                allow_fallback=False,
+            )
+
+        self.assertEqual(result, payload)
+        self.assertEqual(len(cache_get_mock.call_args_list), 2)
+        build_aggregation_mock.assert_called_once()
+        build_payload_mock.assert_called_once()
+        set_cache_mock.assert_called_once_with(
+            service._build_resolved_dashboard_cache_key(
+                metadata,
+                "all",
+                None,
+                GENERAL_CAUSE_COLUMN,
+            ),
+            payload,
+        )
+
     def test_service_reuses_grouped_counts_bundle_for_non_cause_distribution(self) -> None:
         metadata = {
             "tables": [

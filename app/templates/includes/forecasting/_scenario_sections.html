@@ -1,4 +1,5 @@
-<section id="forecastScenarioSection" class="forecast-layout">
+{% set base_stage_visible = data.base_forecast_ready or (not data.base_forecast_pending and not data.loading and not data.deferred) %}
+<section id="forecastScenarioSection" class="forecast-layout" data-forecast-stage="base"{% if not base_stage_visible %} hidden{% endif %}>
         <div class="forecast-primary">
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">

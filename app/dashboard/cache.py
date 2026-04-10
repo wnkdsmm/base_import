@@ -3,14 +3,22 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from app.db_metadata import get_table_signature_cached, invalidate_db_metadata_cache
-from app.runtime_cache import CopyingTtlCache
+from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
 from app.statistics_constants import DASHBOARD_CACHE_TTL_SECONDS, METADATA_CACHE_TTL_SECONDS
 
 from .metadata import _collect_dashboard_metadata
 from .utils import _select_tables
 
-_DASHBOARD_METADATA_CACHE = CopyingTtlCache[Tuple[str, ...], Dict[str, Any]](ttl_seconds=METADATA_CACHE_TTL_SECONDS)
-_DASHBOARD_CACHE = CopyingTtlCache[Tuple[Any, ...], Dict[str, Any]](ttl_seconds=DASHBOARD_CACHE_TTL_SECONDS)
+_DASHBOARD_METADATA_CACHE = CopyingTtlCache[Tuple[str, ...], Dict[str, Any]](
+    ttl_seconds=METADATA_CACHE_TTL_SECONDS,
+    storer=freeze_mutable_payload,
+    loader=clone_mutable_payload,
+)
+_DASHBOARD_CACHE = CopyingTtlCache[Tuple[Any, ...], Dict[str, Any]](
+    ttl_seconds=DASHBOARD_CACHE_TTL_SECONDS,
+    storer=freeze_mutable_payload,
+    loader=clone_mutable_payload,
+)
 
 
 def _current_dashboard_table_names() -> Tuple[str, ...]:
@@ -20,6 +28,9 @@ def _current_dashboard_table_names() -> Tuple[str, ...]:
 def _metadata_table_names(metadata: Optional[Dict[str, Any]]) -> Tuple[str, ...]:
     if not metadata:
         return ()
+    cached_signature = metadata.get("table_signature")
+    if cached_signature:
+        return tuple(str(table_name) for table_name in cached_signature)
     return tuple(sorted(table["name"] for table in metadata.get("tables", [])))
 
 
@@ -38,7 +49,8 @@ def _collect_dashboard_metadata_cached() -> Dict[str, Any]:
     metadata = _collect_dashboard_metadata(current_table_names)
     _DASHBOARD_METADATA_CACHE.clear()
     _DASHBOARD_CACHE.clear()
-    return _DASHBOARD_METADATA_CACHE.set(current_table_names, metadata)
+    _DASHBOARD_METADATA_CACHE.set(current_table_names, metadata)
+    return metadata
 
 
 def _get_dashboard_cache(cache_key: Tuple[Any, ...]) -> Optional[Dict[str, Any]]:

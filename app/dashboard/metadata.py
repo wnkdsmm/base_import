@@ -69,6 +69,7 @@ def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> 
 
     return {
         "tables": tables,
+        "table_signature": tuple(sorted(table["name"] for table in tables)),
         "table_options": table_options,
         "default_group_column": default_group_column,
         "errors": errors,

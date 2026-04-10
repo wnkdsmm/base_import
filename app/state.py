@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -8,6 +7,7 @@ from threading import RLock
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
+from app.runtime_cache import clone_mutable_payload, freeze_mutable_payload
 from config.paths import UPLOADS_DIR
 
 
@@ -20,6 +20,14 @@ FINAL_JOB_STATUSES = {"completed", "failed"}
 
 def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _freeze_job_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: freeze_mutable_payload(value) for key, value in meta.items()}
+
+
+def _clone_job_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: clone_mutable_payload(value) for key, value in meta.items()}
 
 
 @dataclass
@@ -184,14 +192,14 @@ class JobStore:
     def set_job_result(self, session_id: str, job_id: str, result: Any) -> None:
         with self._lock:
             job = self._require_job(session_id, job_id)
-            job.result = deepcopy(result)
+            job.result = freeze_mutable_payload(result)
             job.error_message = ""
             self._touch_job(session_id, job)
 
     def get_job_result(self, session_id: str, job_id: str) -> Any:
         with self._lock:
             job = self._require_job(session_id, job_id)
-            return deepcopy(job.result)
+            return clone_mutable_payload(job.result)
 
     def set_job_error(self, session_id: str, job_id: str, error_message: str) -> None:
         with self._lock:
@@ -202,7 +210,7 @@ class JobStore:
     def update_job_meta(self, session_id: str, job_id: str, **meta: Any) -> None:
         with self._lock:
             job = self._require_job(session_id, job_id)
-            job.meta.update(deepcopy(meta))
+            job.meta.update(_freeze_job_meta(meta))
             self._touch_job(session_id, job)
 
     def get_job_snapshot(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[dict]:
@@ -215,9 +223,9 @@ class JobStore:
                 "kind": job.kind,
                 "status": job.status,
                 "logs": list(job.logs),
-                "result": deepcopy(job.result),
+                "result": clone_mutable_payload(job.result),
                 "error_message": job.error_message,
-                "meta": deepcopy(job.meta),
+                "meta": _clone_job_meta(job.meta),
                 "created_at": job.created_at.isoformat(),
                 "updated_at": job.updated_at.isoformat(),
             }

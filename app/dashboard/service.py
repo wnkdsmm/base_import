@@ -9,7 +9,12 @@ from app.services.executive_brief import compose_executive_brief_text
 from app.statistics_constants import CAUSE_COLUMNS
 from config.db import engine
 
-from .cache import _collect_dashboard_metadata_cached, _get_dashboard_cache, _set_dashboard_cache
+from .cache import (
+    _collect_dashboard_metadata_cached,
+    _get_dashboard_cache,
+    _metadata_table_names,
+    _set_dashboard_cache,
+)
 from .charts import _finalize_chart
 from .distribution import (
     _build_damage_overview_chart,
@@ -71,10 +76,146 @@ def _build_dashboard_cache_key(
     normalized_group_column: str,
 ) -> tuple[Any, ...]:
     return (
-        tuple(sorted(table["name"] for table in metadata["tables"])),
+        _metadata_table_names(metadata),
         table_name,
         year,
         normalized_group_column,
+    )
+
+
+def _build_resolved_dashboard_cache_key(
+    metadata: Dict[str, Any],
+    selected_table_name: str,
+    selected_year: Optional[int],
+    selected_group_column: str,
+) -> tuple[Any, ...]:
+    return _build_dashboard_cache_key(
+        metadata,
+        selected_table_name,
+        str(selected_year) if selected_year is not None else "all",
+        selected_group_column,
+    )
+
+
+def _build_dashboard_context_payload(
+    *,
+    metadata: Dict[str, Any],
+    initial_data: Dict[str, Any],
+    available_years: list[Dict[str, Any]],
+    available_group_columns: list[Dict[str, Any]],
+    errors: list[str],
+    plotly_js: str,
+    has_data: bool | None = None,
+) -> Dict[str, Any]:
+    return {
+        "generated_at": _format_datetime(datetime.now()),
+        "filters": {
+            "tables": metadata["table_options"],
+            "years": available_years,
+            "group_columns": available_group_columns,
+        },
+        "initial_data": initial_data,
+        "errors": errors,
+        "has_data": bool(metadata["tables"]) if has_data is None else has_data,
+        "plotly_js": plotly_js,
+    }
+
+
+def _resolve_shell_group_columns(
+    metadata: Dict[str, Any],
+    filter_state: Dict[str, Any],
+) -> tuple[list[Dict[str, Any]], str]:
+    resolved_group_columns = filter_state["available_group_columns"]
+    available_group_columns = resolved_group_columns or _collect_group_column_options(metadata["tables"])
+    selected_group_column = filter_state["selected_group_column"]
+    if not resolved_group_columns and available_group_columns:
+        has_selected_group = any(item["value"] == selected_group_column for item in available_group_columns)
+        if not has_selected_group:
+            selected_group_column = available_group_columns[0]["value"]
+    return available_group_columns, selected_group_column
+
+
+def _build_dashboard_shell_initial_data(
+    metadata: Dict[str, Any],
+    filter_state: Dict[str, Any],
+) -> tuple[Dict[str, Any], list[Dict[str, Any]]]:
+    available_group_columns, selected_group_column = _resolve_shell_group_columns(metadata, filter_state)
+    initial_data = _empty_dashboard_data()
+    initial_data["bootstrap_mode"] = "deferred"
+    initial_data["filters"]["table_name"] = filter_state["selected_table_name"]
+    initial_data["filters"]["year"] = str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "all"
+    initial_data["filters"]["group_column"] = selected_group_column
+    initial_data["filters"]["available_tables"] = metadata["table_options"]
+    initial_data["filters"]["available_years"] = filter_state["available_years"]
+    initial_data["filters"]["available_group_columns"] = available_group_columns
+    initial_data["scope"]["table_label"] = _find_option_label(
+        metadata["table_options"],
+        filter_state["selected_table_name"],
+        "Все таблицы",
+    )
+    initial_data["scope"]["year_label"] = (
+        str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "Все годы"
+    )
+    initial_data["scope"]["group_label"] = _find_option_label(
+        available_group_columns,
+        selected_group_column,
+        "Нет данных",
+    )
+    return initial_data, available_group_columns
+
+
+def _resolve_requested_dashboard_cache(
+    metadata: Dict[str, Any],
+    table_name: str,
+    year: str,
+    group_column: str,
+) -> tuple[str, tuple[Any, ...], Optional[Dict[str, Any]]]:
+    normalized_group_column = group_column or metadata["default_group_column"]
+    cache_key = _build_dashboard_cache_key(metadata, table_name, year, normalized_group_column)
+    return normalized_group_column, cache_key, _get_dashboard_cache(cache_key)
+
+
+def _build_dashboard_request_state(
+    metadata: Dict[str, Any],
+    *,
+    table_name: str,
+    year: str,
+    normalized_group_column: str,
+) -> Dict[str, Any]:
+    filter_state = _resolve_dashboard_filters(
+        metadata=metadata,
+        table_name=table_name,
+        year=year,
+        group_column=normalized_group_column,
+    )
+    return {
+        **filter_state,
+        "resolved_cache_key": _build_resolved_dashboard_cache_key(
+            metadata,
+            filter_state["selected_table_name"],
+            filter_state["selected_year"],
+            filter_state["selected_group_column"],
+        ),
+    }
+
+
+def _update_dashboard_filter_metrics(
+    perf: Any,
+    *,
+    metadata: Dict[str, Any],
+    request_state: Dict[str, Any],
+    cached_payload: Optional[Dict[str, Any]],
+    cache_hit: bool,
+) -> None:
+    perf.update(
+        cache_hit=cache_hit,
+        cache_key_canonicalized=request_state["resolved_cache_key"] != request_state["cache_key"],
+        selected_tables=len(request_state["selected_tables"]),
+        available_tables=len(metadata["table_options"]),
+        available_years=len(request_state["available_years"]),
+        available_group_columns=len(request_state["available_group_columns"]),
+        payload_has_data=bool((cached_payload or {}).get("has_data")),
+        payload_notes=len((cached_payload or {}).get("notes") or []),
     )
 
 
@@ -88,23 +229,16 @@ def build_dashboard_context(
         table_name=table_name,
         year=year,
         group_column=group_column or metadata["default_group_column"],
-
         metadata=metadata,
     )
-
-    return {
-        "generated_at": _format_datetime(datetime.now()),
-        "filters": {
-            "tables": metadata["table_options"],
-            "years": initial_data["filters"]["available_years"],
-            "group_columns": initial_data["filters"]["available_group_columns"],
-
-        },
-        "initial_data": initial_data,
-        "errors": list(dict.fromkeys(metadata["errors"] + initial_data.get("notes", []))),
-        "has_data": bool(metadata["tables"]),
-        "plotly_js": get_plotly_bundle(),
-    }
+    return _build_dashboard_context_payload(
+        metadata=metadata,
+        initial_data=initial_data,
+        available_years=initial_data["filters"]["available_years"],
+        available_group_columns=initial_data["filters"]["available_group_columns"],
+        errors=list(dict.fromkeys(metadata["errors"] + initial_data.get("notes", []))),
+        plotly_js=get_plotly_bundle(),
+    )
 
 
 def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -> Dict[str, Any]:
@@ -148,46 +282,15 @@ def get_dashboard_shell_context(
             year=year,
             group_column=group_column or metadata["default_group_column"],
         )
-        resolved_group_columns = filter_state["available_group_columns"]
-        available_group_columns = resolved_group_columns or _collect_group_column_options(metadata["tables"])
-        selected_group_column = filter_state["selected_group_column"]
-        if not resolved_group_columns and available_group_columns:
-            has_selected_group = any(item["value"] == selected_group_column for item in available_group_columns)
-            if not has_selected_group:
-                selected_group_column = available_group_columns[0]["value"]
-
-        initial_data = _empty_dashboard_data()
-        initial_data["bootstrap_mode"] = "deferred"
-        initial_data["filters"]["table_name"] = filter_state["selected_table_name"]
-        initial_data["filters"]["year"] = str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "all"
-        initial_data["filters"]["group_column"] = selected_group_column
-        initial_data["filters"]["available_tables"] = metadata["table_options"]
-        initial_data["filters"]["available_years"] = filter_state["available_years"]
-        initial_data["filters"]["available_group_columns"] = available_group_columns
-        initial_data["scope"]["table_label"] = _find_option_label(
-            metadata["table_options"],
-            filter_state["selected_table_name"],
-            "Все таблицы",
+        initial_data, available_group_columns = _build_dashboard_shell_initial_data(metadata, filter_state)
+        return _build_dashboard_context_payload(
+            metadata=metadata,
+            initial_data=initial_data,
+            available_years=filter_state["available_years"],
+            available_group_columns=available_group_columns,
+            errors=list(dict.fromkeys(metadata["errors"])),
+            plotly_js="",
         )
-        initial_data["scope"]["year_label"] = str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "Все годы"
-        initial_data["scope"]["group_label"] = _find_option_label(
-            available_group_columns,
-            selected_group_column,
-            "Нет данных",
-        )
-
-        return {
-            "generated_at": _format_datetime(datetime.now()),
-            "filters": {
-                "tables": metadata["table_options"],
-                "years": filter_state["available_years"],
-                "group_columns": available_group_columns,
-            },
-            "initial_data": initial_data,
-            "errors": list(dict.fromkeys(metadata["errors"])),
-            "has_data": bool(metadata["tables"]),
-            "plotly_js": "",
-        }
     except Exception as exc:
         return _build_dashboard_error_context(str(exc), plotly_js="")
 
@@ -499,10 +602,12 @@ def get_dashboard_data(
         try:
             with perf.span("filter_prep"):
                 metadata = metadata or _collect_dashboard_metadata_cached()
-                normalized_group_column = group_column or metadata["default_group_column"]
-
-                cache_key = _build_dashboard_cache_key(metadata, table_name, year, normalized_group_column)
-                cached = _get_dashboard_cache(cache_key)
+                normalized_group_column, cache_key, cached = _resolve_requested_dashboard_cache(
+                    metadata,
+                    table_name,
+                    year,
+                    group_column,
+                )
                 if cached is not None:
                     perf.update(
                         cache_hit=True,
@@ -512,35 +617,42 @@ def get_dashboard_data(
                     )
                     return cached
 
-                filter_state = _resolve_dashboard_filters(
-                    metadata=metadata,
+                request_state = _build_dashboard_request_state(
+                    metadata,
                     table_name=table_name,
                     year=year,
-                    group_column=normalized_group_column,
+                    normalized_group_column=normalized_group_column,
                 )
-                selected_tables = filter_state["selected_tables"]
-                available_years = filter_state["available_years"]
-                selected_year = filter_state["selected_year"]
-                available_group_columns = filter_state["available_group_columns"]
-                selected_group_column = filter_state["selected_group_column"]
-                selected_table_name = filter_state["selected_table_name"]
-                perf.update(
+                request_state["cache_key"] = cache_key
+                resolved_cache_key = request_state["resolved_cache_key"]
+                if resolved_cache_key != cache_key:
+                    cached = _get_dashboard_cache(resolved_cache_key)
+                    if cached is not None:
+                        _update_dashboard_filter_metrics(
+                            perf,
+                            metadata=metadata,
+                            request_state=request_state,
+                            cached_payload=cached,
+                            cache_hit=True,
+                        )
+                        return cached
+                _update_dashboard_filter_metrics(
+                    perf,
+                    metadata=metadata,
+                    request_state=request_state,
+                    cached_payload=None,
                     cache_hit=False,
-                    selected_tables=len(selected_tables),
-                    available_tables=len(metadata["table_options"]),
-                    available_years=len(available_years),
-                    available_group_columns=len(available_group_columns),
                 )
 
             with perf.span("aggregation"):
                 aggregation = _build_dashboard_aggregation(
                     metadata=metadata,
-                    selected_tables=selected_tables,
-                    selected_year=selected_year,
-                    selected_group_column=selected_group_column,
-                    selected_table_name=selected_table_name,
-                    available_years=available_years,
-                    available_group_columns=available_group_columns,
+                    selected_tables=request_state["selected_tables"],
+                    selected_year=request_state["selected_year"],
+                    selected_group_column=request_state["selected_group_column"],
+                    selected_table_name=request_state["selected_table_name"],
+                    available_years=request_state["available_years"],
+                    available_group_columns=request_state["available_group_columns"],
                 )
                 summary = aggregation["summary"]
                 perf.update(input_rows=summary.get("fires_count"))
@@ -549,19 +661,19 @@ def get_dashboard_data(
                 data = _build_dashboard_payload(
                     metadata=metadata,
                     aggregation=aggregation,
-                    selected_tables=selected_tables,
-                    selected_table_name=selected_table_name,
-                    selected_year=selected_year,
-                    selected_group_column=selected_group_column,
-                    available_years=available_years,
-                    available_group_columns=available_group_columns,
+                    selected_tables=request_state["selected_tables"],
+                    selected_table_name=request_state["selected_table_name"],
+                    selected_year=request_state["selected_year"],
+                    selected_group_column=request_state["selected_group_column"],
+                    available_years=request_state["available_years"],
+                    available_group_columns=request_state["available_group_columns"],
                 )
                 perf.update(
                     payload_has_data=bool(data["has_data"]),
                     payload_notes=len(data.get("notes") or []),
                 )
 
-            _set_dashboard_cache(cache_key, data)
+            _set_dashboard_cache(request_state["resolved_cache_key"], data)
             return data
         except Exception as exc:
             if not allow_fallback:

@@ -329,6 +329,18 @@ def _count_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
+def _event_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
+    return {
+        'method_label': row.get('method_label', 'Метод'),
+        'role_label': row.get('role_label', ''),
+        'selection_label': _selection_label(row.get('is_selected')),
+        'brier_display': _format_optional_number(row.get('brier_score')),
+        'roc_auc_display': _format_optional_number(row.get('roc_auc')),
+        'f1_display': _format_optional_number(row.get('f1')),
+        'log_loss_display': _format_optional_number(row.get('log_loss')),
+    }
+
+
 def _prediction_interval_quality_note(
     overview: Dict[str, Any],
     interval_coverage_display: str,
@@ -402,6 +414,22 @@ def _build_prediction_interval_card(
         'label': _prediction_interval_card_label(interval_context['level_display']),
         'value': interval_context['coverage_display'],
         'meta': interval_meta,
+    }
+
+
+def _build_event_table(
+    ml_result: Dict[str, Any],
+    event_context: Dict[str, Optional[str]],
+) -> Dict[str, Any]:
+    rows = [_event_comparison_row(row) for row in ml_result.get('event_comparison_rows', [])]
+    return {
+        'title': 'Сравнение по вероятности события пожара',
+        'rows': rows,
+        'empty_message': (
+            event_context['note']
+            or 'Сравнение seasonal baseline, heuristic probability и classifier появится после проверки на истории.'
+        ),
+        'reason_code': event_context['reason_code'],
     }
 
 
@@ -715,6 +743,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
     event_context = _event_probability_context(ml_result, overview)
     interval_context = _prediction_interval_display_context(ml_result, overview)
     count_rows = [_count_comparison_row(row) for row in ml_result.get('count_comparison_rows', [])]
+    event_table = _build_event_table(ml_result, event_context)
     interval_meta = _join_meta_parts(
         interval_context['method_label_display'],
         interval_context['quality_note'],
@@ -829,6 +858,7 @@ def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
             'rows': count_rows,
             'empty_message': 'Сравнение seasonal baseline, heuristic forecast и count-model появится после проверки на истории.',
         },
+        'event_table': event_table,
         'event_probability_reason_code': event_context['reason_code'],
         'dissertation_points': _dissertation_points(ml_result, interval_meta, event_context),
     }

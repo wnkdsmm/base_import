@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-import copy
 from datetime import datetime
 from statistics import mean
 from typing import Any, Callable, Dict, Sequence
+
+from app.runtime_cache import clone_mutable_payload
+
+from .inputs import load_base_forecasting_inputs, load_forecasting_metadata_inputs
 
 ForecastingDeps = Dict[str, Callable[..., Any]]
 
@@ -16,25 +19,21 @@ def build_forecasting_metadata_payload(
     selected_history_window: str,
     deps: ForecastingDeps,
 ) -> Dict[str, Any]:
-    metadata_items, preload_notes = deps["collect_forecasting_metadata"](source_tables)
-    option_catalog = deps["build_option_catalog_sql"](
-        source_tables,
-        history_window=selected_history_window,
-        metadata_items=metadata_items,
+    metadata_inputs = load_forecasting_metadata_inputs(
+        source_tables=source_tables,
+        selected_history_window=selected_history_window,
+        district=metadata_payload["filters"]["district"],
+        cause=metadata_payload["filters"]["cause"],
+        object_category=metadata_payload["filters"]["object_category"],
+        deps=deps,
     )
-    selected_district = deps["resolve_option_value"](
-        option_catalog["districts"],
-        metadata_payload["filters"]["district"],
-    )
-    selected_cause = deps["resolve_option_value"](
-        option_catalog["causes"],
-        metadata_payload["filters"]["cause"],
-    )
-    selected_object_category = deps["resolve_option_value"](
-        option_catalog["object_categories"],
-        metadata_payload["filters"]["object_category"],
-    )
-    feature_cards = deps["build_feature_cards"](metadata_items)
+    metadata_items = metadata_inputs["metadata_items"]
+    preload_notes = metadata_inputs["preload_notes"]
+    option_catalog = metadata_inputs["option_catalog"]
+    selected_district = metadata_inputs["selected_district"]
+    selected_cause = metadata_inputs["selected_cause"]
+    selected_object_category = metadata_inputs["selected_object_category"]
+    feature_cards = metadata_inputs["feature_cards"]
     base_loading_message = "Фильтры и признаки готовы. Запускаем базовый прогноз."
     followup_message = deps["build_decision_support_followup_message"]()
 
@@ -282,51 +281,14 @@ def _load_base_forecasting_inputs(
     object_category: str,
     deps: ForecastingDeps,
 ) -> Dict[str, Any]:
-    metadata_items, preload_notes = deps["collect_forecasting_metadata"](source_tables)
-    feature_cards = deps["build_feature_cards_with_quality"](metadata_items)
-    option_catalog = deps["build_option_catalog_sql"](
-        source_tables,
-        history_window=selected_history_window,
-        metadata_items=metadata_items,
+    return load_base_forecasting_inputs(
+        source_tables=source_tables,
+        selected_history_window=selected_history_window,
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        deps=deps,
     )
-    selected_district = deps["resolve_option_value"](option_catalog["districts"], district)
-    selected_cause = deps["resolve_option_value"](option_catalog["causes"], cause)
-    selected_object_category = deps["resolve_option_value"](
-        option_catalog["object_categories"],
-        object_category,
-    )
-    daily_history = deps["build_daily_history_sql"](
-        source_tables,
-        history_window=selected_history_window,
-        district=selected_district,
-        cause=selected_cause,
-        object_category=selected_object_category,
-        metadata_items=metadata_items,
-    )
-    filtered_records_count = deps["count_forecasting_records_sql"](
-        source_tables,
-        history_window=selected_history_window,
-        district=selected_district,
-        cause=selected_cause,
-        object_category=selected_object_category,
-        metadata_items=metadata_items,
-    )
-    temperature_quality = deps["temperature_quality_from_daily_history"](daily_history)
-    feature_cards = deps["build_feature_cards_with_quality"](
-        metadata_items,
-        temperature_quality=temperature_quality,
-    )
-    return {
-        "metadata_items": metadata_items,
-        "preload_notes": preload_notes,
-        "feature_cards": feature_cards,
-        "option_catalog": option_catalog,
-        "selected_district": selected_district,
-        "selected_cause": selected_cause,
-        "selected_object_category": selected_object_category,
-        "daily_history": daily_history,
-        "filtered_records_count": filtered_records_count,
-    }
 
 
 def _build_base_forecasting_artifacts(
@@ -548,7 +510,7 @@ def complete_forecasting_decision_support_payload(
     selected_table = str(filters.get("table_name") or request_state["selected_table"] or "all")
     source_tables = deps["selected_source_tables"](available_tables, selected_table)
     if not source_tables:
-        payload = copy.deepcopy(base_payload)
+        payload = clone_mutable_payload(base_payload)
         payload["bootstrap_mode"] = "full"
         payload["decision_support_pending"] = False
         payload["decision_support_ready"] = True
@@ -575,7 +537,7 @@ def complete_forecasting_decision_support_payload(
         "forecasting_decision_support.render",
         "Обновляем короткий вывод, рекомендации и карту риска.",
     )
-    payload = copy.deepcopy(base_payload)
+    payload = clone_mutable_payload(base_payload)
     generated_at = deps["format_datetime"](datetime.now())
     charts = dict(payload.get("charts") or {})
     charts["geo"] = deps["build_geo_chart"](risk_prediction.get("geo_prediction") or {})

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List
 
-from app.services.forecasting.core import _build_feature_cards_with_quality
+from app.services.forecasting.presentation import _build_feature_cards_with_quality
 from app.services.forecasting.utils import _format_datetime, _format_float_for_input, _history_window_label
 
 from .constants import (

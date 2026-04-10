@@ -1,4 +1,6 @@
-            <article class="panel ranking-panel risk-decision-panel-wide">
+            {% set metadata_stage_visible = data.metadata_ready or (not data.metadata_pending and not data.deferred) %}
+            {% set decision_stage_visible = data.decision_support_ready or (not data.decision_support_pending and not data.deferred and not data.base_forecast_pending and not data.loading) %}
+            <article class="panel ranking-panel risk-decision-panel-wide" data-forecast-stage="decision"{% if not decision_stage_visible %} hidden{% endif %}>
                 <div class="panel-head">
                     <h2>Что важно знать о блоке поддержки решений</h2>
                     <span class="panel-meta">Что показывает блок: границы между календарем по дням, ML-количеством и территориальным приоритетом.</span>
@@ -15,7 +17,7 @@
             </article>
 
             <div class="risk-decision-grid">
-                <article class="panel">
+                <article class="panel" data-forecast-stage="decision"{% if not decision_stage_visible %} hidden{% endif %}>
                     <div class="panel-head">
                         <div>
                             <h2>Почему территория поднялась вверх в приоритете</h2>
@@ -61,7 +63,7 @@
                     </ul>
                 </article>
 
-                <article class="panel">
+                <article class="panel" data-forecast-stage="metadata"{% if not metadata_stage_visible %} hidden{% endif %}>
                     <div class="panel-head">
                         <h2>Какие данные реально учтены</h2>
                         <span class="panel-meta">Что показывает блок: какие данные вошли в расчет итогового балла территории.</span>

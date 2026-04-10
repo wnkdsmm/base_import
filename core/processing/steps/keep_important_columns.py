@@ -943,7 +943,7 @@ class KeepImportantColumnsStep(PipelineStep):
             ascending=[False, True, True],
         )
 
-    def run(self, settings):
+    def run(self, settings, profile_df: Optional[pd.DataFrame] = None):
         output_folder = settings.output_folder
         os.makedirs(output_folder, exist_ok=True)
 
@@ -961,8 +961,17 @@ class KeepImportantColumnsStep(PipelineStep):
         if not os.path.exists(profile_csv):
             raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
 
-        profile_df = pd.read_csv(profile_csv)
-        profile_df = self._ensure_report_columns(profile_df.copy())
+        resolved_profile_df = profile_df
+        if resolved_profile_df is None:
+            cached_profile_df = getattr(settings, "_pipeline_profile_df", None)
+            if isinstance(cached_profile_df, pd.DataFrame):
+                resolved_profile_df = cached_profile_df
+        if resolved_profile_df is None:
+            if not os.path.exists(profile_csv):
+                raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
+            resolved_profile_df = pd.read_csv(profile_csv)
+
+        profile_df = self._ensure_report_columns(resolved_profile_df.copy())
 
         if "candidate_to_drop" not in profile_df.columns:
             raise KeyError("В отчете отсутствует колонка 'candidate_to_drop'")
@@ -1036,11 +1045,16 @@ class KeepImportantColumnsStep(PipelineStep):
         logger.info("Отчет по защищенным признакам CSV: %s", protected_csv)
         logger.info("Отчет по защищенным признакам XLSX: %s", protected_xlsx)
 
+        settings._pipeline_profile_df = profile_df_sorted
+        settings._pipeline_protected_df = protected_df
+
         return {
             "updated_csv": updated_csv,
             "updated_xlsx": updated_xlsx,
             "protected_report_csv": protected_csv,
             "protected_report_xlsx": protected_xlsx,
+            "profile_df": profile_df_sorted,
+            "protected_df": protected_df,
             "protected_columns": protected_columns,
             "protected_count": len(protected_columns),
             "mandatory_feature_catalog": self.matcher.get_mandatory_feature_catalog(),

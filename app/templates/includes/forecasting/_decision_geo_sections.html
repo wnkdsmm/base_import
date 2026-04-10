@@ -1,6 +1,7 @@
         </div>
 
-        <article class="panel ranking-panel risk-ranking-panel risk-decision-panel-wide">
+        {% set decision_stage_visible = data.decision_support_ready or (not data.decision_support_pending and not data.deferred and not data.base_forecast_pending and not data.loading) %}
+        <article class="panel ranking-panel risk-ranking-panel risk-decision-panel-wide" data-forecast-stage="decision"{% if not decision_stage_visible %} hidden{% endif %}>
             <div class="panel-head">
                 <h2>Поддержка решений: какие территории взять в работу первыми</h2>
                 <span class="panel-meta">Что показывает блок: управленческий приоритет территорий при текущем сценарии.</span>

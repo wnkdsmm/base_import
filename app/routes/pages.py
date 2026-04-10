@@ -49,6 +49,40 @@ def _base_template_context(request: Request, **context: object) -> dict[str, obj
     }
 
 
+def _render_template_page(request: Request, template_name: str, **context: object) -> Response:
+    status_code = context.pop("status_code", None)
+    template_context = _base_template_context(request, **context)
+    if status_code is None:
+        return templates.TemplateResponse(
+            request,
+            template_name,
+            template_context,
+        )
+    return templates.TemplateResponse(
+        request,
+        template_name,
+        template_context,
+        status_code=status_code,
+    )
+
+
+def _is_deferred_mode(mode: str) -> bool:
+    return str(mode).strip().lower() == "deferred"
+
+
+def _resolve_page_mode_context(
+    *,
+    mode: str,
+    page_loader,
+    shell_loader,
+    page_kwargs: dict[str, object],
+    shell_kwargs: dict[str, object] | None = None,
+):
+    if not _is_deferred_mode(mode):
+        return page_loader(**page_kwargs)
+    return shell_loader(**(shell_kwargs or page_kwargs))
+
+
 PROFILING_DEFAULTS = {
     "null_threshold_percent": round(NULL_THRESHOLD * 100),
     "dominant_value_threshold_percent": round(DOMINANT_VALUE_THRESHOLD * 100),
@@ -115,20 +149,17 @@ def home(
     group_column: str = "",
     mode: str = "full",
 ):
-    use_full_context = str(mode).strip().lower() != "deferred"
-    dashboard = (
-        get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)
-        if use_full_context
-        else get_dashboard_shell_context(table_name=table_name, year=year, group_column=group_column)
+    dashboard = _resolve_page_mode_context(
+        mode=mode,
+        page_loader=get_dashboard_page_context,
+        shell_loader=get_dashboard_shell_context,
+        page_kwargs={"table_name": table_name, "year": year, "group_column": group_column},
     )
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "index.html",
-        _base_template_context(
-            request,
-            dashboard=dashboard,
-            dashboard_js_version=_static_version("js/dashboard.js"),
-        ),
+        dashboard=dashboard,
+        dashboard_js_version=_static_version("js/dashboard.js"),
     )
 
 
@@ -152,15 +183,12 @@ def forecasting_page(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "forecasting.html",
-        _base_template_context(
-            request,
-            forecast=forecast,
-            forecasting_css_version=_static_version("forecasting.css"),
-            forecasting_js_version=_static_version("js/forecasting.js"),
-        ),
+        forecast=forecast,
+        forecasting_css_version=_static_version("forecasting.css"),
+        forecasting_js_version=_static_version("js/forecasting.js"),
     )
 
 
@@ -176,36 +204,27 @@ def ml_model_page(
     history_window: str = "all",
     mode: str = "full",
 ):
-    use_full_context = str(mode).strip().lower() != "deferred"
-    ml_model = (
-        get_ml_model_page_context(
-            table_name=table_name,
-            cause=cause,
-            object_category=object_category,
-            temperature=temperature,
-            forecast_days=forecast_days,
-            history_window=history_window,
-        )
-        if use_full_context
-        else get_ml_model_shell_context(
-            table_name=table_name,
-            cause=cause,
-            object_category=object_category,
-            temperature=temperature,
-            forecast_days=forecast_days,
-            history_window=history_window,
-            prefer_cached=True,
-        )
+    page_kwargs = {
+        "table_name": table_name,
+        "cause": cause,
+        "object_category": object_category,
+        "temperature": temperature,
+        "forecast_days": forecast_days,
+        "history_window": history_window,
+    }
+    ml_model = _resolve_page_mode_context(
+        mode=mode,
+        page_loader=get_ml_model_page_context,
+        shell_loader=get_ml_model_shell_context,
+        page_kwargs=page_kwargs,
+        shell_kwargs={**page_kwargs, "prefer_cached": True},
     )
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "ml_model.html",
-        _base_template_context(
-            request,
-            ml_model=ml_model,
-            ml_model_css_version=_static_version("ml_model.css"),
-            ml_model_js_version=_static_version("js/ml_model.js"),
-        ),
+        ml_model=ml_model,
+        ml_model_css_version=_static_version("ml_model.css"),
+        ml_model_js_version=_static_version("js/ml_model.js"),
     )
 
 
@@ -226,15 +245,12 @@ def clustering_page(
         feature_columns=feature_columns or [],
         cluster_count_is_explicit="cluster_count" in request.query_params,
     )
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "clustering.html",
-        _base_template_context(
-            request,
-            clustering=clustering,
-            clustering_css_version=_static_version("clustering.css"),
-            clustering_js_version=_static_version("js/clustering.js"),
-        ),
+        clustering=clustering,
+        clustering_css_version=_static_version("clustering.css"),
+        clustering_js_version=_static_version("js/clustering.js"),
     )
 
 
@@ -254,15 +270,12 @@ def access_points_page(
         limit=limit,
         feature_columns=feature_columns or [],
     )
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "access_points.html",
-        _base_template_context(
-            request,
-            access_points=access_points,
-            access_points_css_version=_static_version("access_points.css"),
-            access_points_js_version=_static_version("js/access_points.js"),
-        ),
+        access_points=access_points,
+        access_points_css_version=_static_version("access_points.css"),
+        access_points_js_version=_static_version("js/access_points.js"),
     )
 
 
@@ -271,16 +284,13 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
     table_options = get_column_search_table_options()
     selected_table = resolve_selected_table(table_options, table_name)
 
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "column_search.html",
-        _base_template_context(
-            request,
-            table_options=table_options,
-            selected_table=selected_table,
-            initial_query=query,
-            column_search_js_version=_static_version("js/column_search.js"),
-        ),
+        table_options=table_options,
+        selected_table=selected_table,
+        initial_query=query,
+        column_search_js_version=_static_version("js/column_search.js"),
     )
 
 
@@ -288,13 +298,10 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
 def fire_map_page(request: Request, table_name: str = ""):
     fire_map = get_fire_map_page_context(table_name)
 
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "fire_map.html",
-        _base_template_context(
-            request,
-            fire_map=fire_map,
-        ),
+        fire_map=fire_map,
     )
 
 
@@ -304,34 +311,28 @@ def fire_map_embed(request: Request, table_name: str = ""):
     selected_table = resolve_selected_table(table_options, table_name)
 
     if not table_name or table_name != selected_table:
-        return templates.TemplateResponse(
+        return _render_template_page(
             request,
             "fire_map_error.html",
-            _base_template_context(
-                request,
-                message="Выберите существующую таблицу для построения карты.",
-            ),
+            message="Выберите существующую таблицу для построения карты.",
             status_code=400,
         )
 
     try:
         map_html = build_fire_map_html(table_name)
         if not map_html:
-            return templates.TemplateResponse(
+            return _render_template_page(
                 request,
                 "fire_map_error.html",
-                _base_template_context(
-                    request,
-                    message="Для выбранной таблицы не удалось собрать карту. Проверьте координаты, даты и наличие записей.",
-                ),
+                message="Для выбранной таблицы не удалось собрать карту. Проверьте координаты, даты и наличие записей.",
                 status_code=422,
             )
         return HTMLResponse(map_html)
     except Exception as exc:
-        return templates.TemplateResponse(
+        return _render_template_page(
             request,
             "fire_map_error.html",
-            _base_template_context(request, message=str(exc)),
+            message=str(exc),
             status_code=500,
         )
 
@@ -339,15 +340,12 @@ def fire_map_embed(request: Request, table_name: str = ""):
 @router.get("/tables", response_class=HTMLResponse)
 async def list_tables(request: Request):
     tables = get_all_tables()
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "tables.html",
-        _base_template_context(
-            request,
-            tables=tables,
-            import_js_version=_static_version("js/import.js"),
-            tables_js_version=_static_version("js/tables.js"),
-        ),
+        tables=tables,
+        import_js_version=_static_version("js/import.js"),
+        tables_js_version=_static_version("js/tables.js"),
     )
 
 
@@ -369,34 +367,28 @@ async def view_table(
     columns = table_page["columns"]
     rows = table_page["rows"]
 
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "table_view.html",
-        _base_template_context(
-            request,
-            table_name=table_name,
-            columns=columns,
-            rows=rows,
-            pagination=table_page,
-            page_size_options=TABLE_PAGE_SIZE_OPTIONS,
-            table_summary=table_bundle["table_summary"],
-            table_view_js_version=_static_version("js/table_view.js"),
-        ),
+        table_name=table_name,
+        columns=columns,
+        rows=rows,
+        pagination=table_page,
+        page_size_options=TABLE_PAGE_SIZE_OPTIONS,
+        table_summary=table_bundle["table_summary"],
+        table_view_js_version=_static_version("js/table_view.js"),
     )
 
 
 @router.get("/select_table", response_class=HTMLResponse)
 def select_table(request: Request):
     tables = get_all_tables()
-    return templates.TemplateResponse(
+    return _render_template_page(
         request,
         "select_table.html",
-        _base_template_context(
-            request,
-            tables=tables,
-            mandatory_feature_catalog=get_mandatory_feature_catalog(),
-            profiling_css_version=_static_version("profiling.css"),
-            profiling_defaults=PROFILING_DEFAULTS,
-            select_table_js_version=_static_version("js/select_table.js"),
-        ),
+        tables=tables,
+        mandatory_feature_catalog=get_mandatory_feature_catalog(),
+        profiling_css_version=_static_version("profiling.css"),
+        profiling_defaults=PROFILING_DEFAULTS,
+        select_table_js_version=_static_version("js/select_table.js"),
     )

@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 from typing import Any, Dict, Tuple
 
-from app.log_manager import add_log
 from app.services.job_support import (
     StageTrackingJobProgressReporter,
     attach_standard_job_metadata,
@@ -84,7 +83,7 @@ def start_forecasting_decision_support_job(
             )
             job_store.set_job_result(session_id, job.job_id, cached_payload)
             job_store.mark_job_status(session_id, job.job_id, "completed")
-            add_log(session_id, job.job_id, "Decision support уже был рассчитан ранее и взят из кэша.")
+            job_store.add_log(session_id, job.job_id, "Decision support уже был рассчитан ранее и взят из кэша.")
             _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY[(session_id, cache_key_token)] = job.job_id
             return build_standard_job_status_payload(session_id, job.job_id, reused=False)
 
@@ -100,7 +99,7 @@ def start_forecasting_decision_support_job(
             stage_message="Блок поддержки решений поставлен в очередь.",
         )
         job_store.mark_job_status(session_id, job.job_id, "pending")
-        add_log(session_id, job.job_id, "Блок поддержки решений поставлен в очередь и будет рассчитан в фоне.")
+        job_store.add_log(session_id, job.job_id, "Блок поддержки решений поставлен в очередь и будет рассчитан в фоне.")
         _FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY[(session_id, cache_key_token)] = job.job_id
         _FORECASTING_DECISION_SUPPORT_EXECUTOR.submit(
             _run_forecasting_decision_support_job,
@@ -126,7 +125,7 @@ def _run_forecasting_decision_support_job(
     final_status = "failed"
     try:
         job_store.mark_job_status(session_id, job_id, "running")
-        add_log(session_id, job_id, "Фоновая задача decision support запущена.")
+        job_store.add_log(session_id, job_id, "Фоновая задача decision support запущена.")
         payload = get_forecasting_decision_support_data(
             table_name=params_payload["table_name"],
             district=params_payload["district"],
@@ -146,7 +145,7 @@ def _run_forecasting_decision_support_job(
             stage_label="Построение визуализаций",
             stage_message="Блок поддержки решений завершен, рекомендации готовы.",
         )
-        add_log(session_id, job_id, "Блок поддержки решений завершен, результат сохранен в job_store.")
+        job_store.add_log(session_id, job_id, "Блок поддержки решений завершен, результат сохранен в job_store.")
         final_status = "completed"
     except Exception as exc:
         error_message = f"Ошибка блока поддержки решений: {exc}"
@@ -157,7 +156,7 @@ def _run_forecasting_decision_support_job(
             job_id,
             stage_message=error_message,
         )
-        add_log(session_id, job_id, error_message)
+        job_store.add_log(session_id, job_id, error_message)
     finally:
         if final_status != "completed":
             with _FORECASTING_DECISION_SUPPORT_LOCK:

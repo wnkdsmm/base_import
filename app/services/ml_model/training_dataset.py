@@ -49,12 +49,29 @@ def _build_design_matrix(
     feature_columns: Optional[List[str]] = None,
 ) -> pd.DataFrame:
     selected_columns = feature_columns or FEATURE_COLUMNS
+    if expected_columns is not None:
+        design = pd.DataFrame(0.0, index=frame.index, columns=expected_columns, dtype=float)
+        for column in selected_columns:
+            if column in ('weekday', 'month'):
+                values = pd.to_numeric(frame[column], errors='coerce') if column in frame.columns else pd.Series(index=frame.index, dtype=float)
+                prefix = f'{column}_'
+                for expected_column in expected_columns:
+                    if not expected_column.startswith(prefix):
+                        continue
+                    try:
+                        category_value = int(expected_column[len(prefix):])
+                    except ValueError:
+                        continue
+                    design.loc[values == category_value, expected_column] = 1.0
+                continue
+            if column in design.columns and column in frame.columns:
+                design[column] = pd.to_numeric(frame[column], errors='coerce').astype(float)
+        return design.astype(float)
+
     design = frame[selected_columns].copy()
     design['weekday'] = design['weekday'].astype(int).astype(str)
     design['month'] = design['month'].astype(int).astype(str)
     design = pd.get_dummies(design, columns=['weekday', 'month'], prefix=['weekday', 'month'], dtype=float, drop_first=True)
-    if expected_columns is not None:
-        design = design.reindex(columns=expected_columns, fill_value=0.0)
     return design.astype(float)
 
 

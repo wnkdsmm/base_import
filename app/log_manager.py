@@ -1,3 +1,5 @@
+"""Compatibility shim for legacy direct log helper imports."""
+
 from __future__ import annotations
 
 from typing import Optional

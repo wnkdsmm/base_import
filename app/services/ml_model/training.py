@@ -124,6 +124,33 @@ class _TrainingArtifacts:
     feature_importance_note: Optional[str]
 
 
+@dataclass
+class _TrainingSeedData:
+    history_tail: List[Dict[str, Any]]
+    frame: Any
+    dataset: Any
+
+
+@dataclass
+class _FinalTrainingModels:
+    final_frame: Any
+    final_dataset: Any
+    final_temperature_stats: Dict[str, Any]
+    feature_columns: List[str]
+    backtest: Any
+    selected_count_model_key: str
+    final_count_model: Optional[Dict[str, Any]]
+    final_event_model: Optional[Dict[str, Any]]
+
+
+@dataclass
+class _FeatureImportanceArtifacts:
+    rows: List[Dict[str, Any]]
+    source_key: Optional[str]
+    source_label: Optional[str]
+    note: Optional[str]
+
+
 _TRAINING_ARTIFACT_CACHE_LIMIT = 4
 _TRAINING_ARTIFACT_CACHE: OrderedDict[Tuple[int, Tuple[Tuple[Any, ...], ...]], _TrainingArtifacts] = OrderedDict()
 
@@ -227,6 +254,171 @@ def _assemble_training_artifacts_result(
     )
 
 
+def _build_training_seed(
+    daily_history: List[Dict[str, Any]],
+    *,
+    perf: Any,
+) -> _TrainingSeedData:
+    history_tail = daily_history[-MAX_HISTORY_POINTS:]
+    frame = _prepare_reference_frame(_build_history_frame(history_tail))
+    dataset = _build_backtest_seed_dataset(frame, frame_is_prepared=True)
+    if perf is not None:
+        perf.update(history_points=len(history_tail), feature_rows=len(dataset))
+    return _TrainingSeedData(history_tail=history_tail, frame=frame, dataset=dataset)
+
+
+def _ensure_min_feature_rows(dataset: Any, message: str) -> Optional[Dict[str, Any]]:
+    if len(dataset) >= MIN_FEATURE_ROWS:
+        return None
+    return _empty_ml_result(message.format(rows=len(dataset)))
+
+
+def _run_training_backtest(
+    seed: _TrainingSeedData,
+    *,
+    forecast_days: int,
+    progress_callback: MlProgressCallback,
+) -> Any:
+    _emit_progress(progress_callback, 'ml_backtest.pending', 'Готовим rolling-origin backtesting на выбранной истории.')
+    return coerce_backtest_result(
+        _run_backtest(
+            seed.frame,
+            seed.dataset,
+            progress_callback=progress_callback,
+            validation_horizon_days=forecast_days,
+            max_horizon_days=forecast_days,
+            history_frame_is_prepared=True,
+        )
+    )
+
+
+def _fit_final_training_models(
+    seed: _TrainingSeedData,
+    *,
+    backtest: Any,
+    progress_callback: MlProgressCallback,
+) -> _FinalTrainingModels | Dict[str, Any]:
+    final_frame, final_dataset, final_temperature_stats = _prepare_training_dataset(
+        seed.frame,
+        frame_is_prepared=True,
+    )
+    final_dataset_error = _ensure_min_feature_rows(
+        final_dataset,
+        'После подготовки полной обучающей выборки осталось только {rows} наблюдений: этого мало для итогового обучения ML-модели.',
+    )
+    if final_dataset_error is not None:
+        return final_dataset_error
+
+    selected_count_model_key = backtest.selected_count_model_key
+    feature_columns = _temperature_feature_columns(final_temperature_stats)
+    _emit_progress(
+        progress_callback,
+        'ml_model.running',
+        f"Обучаем итоговую count-модель {COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)} на полной истории.",
+    )
+    final_count_model = (
+        _fit_count_model(selected_count_model_key, final_dataset, feature_columns=feature_columns)
+        if selected_count_model_key in COUNT_MODEL_KEYS
+        else None
+    )
+    if selected_count_model_key in COUNT_MODEL_KEYS and final_count_model is None:
+        return _empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
+
+    selected_event_model_key = backtest.event_metrics.selected_model_key
+    classifier_validated = (
+        selected_event_model_key == 'logistic_regression'
+        and backtest.event_metrics.available
+        and backtest.event_metrics.logistic_available
+        and backtest.event_metrics.event_probability_informative
+        and _can_train_event_model(final_dataset['event'])
+    )
+    final_event_model = _fit_event_model(final_dataset, feature_columns=feature_columns) if classifier_validated else None
+    return _FinalTrainingModels(
+        final_frame=final_frame,
+        final_dataset=final_dataset,
+        final_temperature_stats=final_temperature_stats,
+        feature_columns=feature_columns,
+        backtest=backtest,
+        selected_count_model_key=selected_count_model_key,
+        final_count_model=final_count_model,
+        final_event_model=final_event_model,
+    )
+
+
+def _build_feature_importance_artifacts(
+    training_models: _FinalTrainingModels,
+) -> _FeatureImportanceArtifacts:
+    feature_importance_model_key = (
+        training_models.selected_count_model_key
+        if training_models.selected_count_model_key in COUNT_MODEL_KEYS
+        else None
+    )
+    feature_importance_model = training_models.final_count_model
+    if feature_importance_model is None:
+        feature_importance_model_key = EXPLAINABLE_COUNT_MODEL_KEY
+        feature_importance_model = _fit_count_model(
+            EXPLAINABLE_COUNT_MODEL_KEY,
+            training_models.final_dataset,
+            feature_columns=training_models.feature_columns,
+        )
+
+    feature_importance = (
+        _importance._build_feature_importance(feature_importance_model, training_models.final_dataset)
+        if feature_importance_model is not None
+        else []
+    )
+    feature_importance_source_label = (
+        COUNT_MODEL_LABELS.get(feature_importance_model_key, feature_importance_model_key)
+        if feature_importance and feature_importance_model_key
+        else None
+    )
+    feature_importance_note = None
+    if (
+        feature_importance
+        and feature_importance_model_key
+        and feature_importance_model_key != training_models.selected_count_model_key
+    ):
+        selected_label = COUNT_MODEL_LABELS.get(
+            training_models.selected_count_model_key,
+            training_models.selected_count_model_key,
+        )
+        source_label = COUNT_MODEL_LABELS.get(feature_importance_model_key, feature_importance_model_key)
+        feature_importance_note = (
+            f'Рабочий метод прогноза: {selected_label}. '
+            f'Драйверы ниже показаны по {source_label}, потому что это объяснимая ML-модель для разбора факторов.'
+        )
+    return _FeatureImportanceArtifacts(
+        rows=feature_importance,
+        source_key=feature_importance_model_key if feature_importance else None,
+        source_label=feature_importance_source_label,
+        note=feature_importance_note,
+    )
+
+
+def _store_training_artifacts(
+    cache_key: Tuple[int, Tuple[Tuple[Any, ...], ...]],
+    *,
+    training_models: _FinalTrainingModels,
+    feature_importance: _FeatureImportanceArtifacts,
+) -> _TrainingArtifacts:
+    return _training_artifact_cache_store(
+        cache_key,
+        _TrainingArtifacts(
+            final_frame=training_models.final_frame,
+            final_dataset=training_models.final_dataset,
+            final_temperature_stats=training_models.final_temperature_stats,
+            backtest=training_models.backtest,
+            final_count_model=training_models.final_count_model,
+            final_event_model=training_models.final_event_model,
+            selected_count_model_key=training_models.selected_count_model_key,
+            feature_importance=[dict(row) for row in feature_importance.rows],
+            feature_importance_source_key=feature_importance.source_key,
+            feature_importance_source_label=feature_importance.source_label,
+            feature_importance_note=feature_importance.note,
+        ),
+    )
+
+
 def _train_ml_model(
     daily_history,
     forecast_days: int,
@@ -266,143 +458,60 @@ def _train_ml_model(
     _emit_progress(progress_callback, 'ml_model.running', 'Подготавливаем признаки и обучающую выборку для ML-модели.')
     feature_prep_context = perf.span('feature_prep') if perf is not None else nullcontext()
     with feature_prep_context:
-        history_tail = daily_history[-MAX_HISTORY_POINTS:]
-        frame = _prepare_reference_frame(_build_history_frame(history_tail))
-        dataset = _build_backtest_seed_dataset(frame, frame_is_prepared=True)
-        if perf is not None:
-            perf.update(history_points=len(history_tail), feature_rows=len(dataset))
-    if len(dataset) < MIN_FEATURE_ROWS:
-        return _empty_ml_result(
-            f'После формирования лагов и скользящих признаков осталось только {len(dataset)} наблюдений: этого мало для корректного rolling-origin backtesting.'
-        )
-
-    _emit_progress(progress_callback, 'ml_backtest.pending', 'Готовим rolling-origin backtesting на выбранной истории.')
-    backtest = _run_backtest(
-        frame,
-        dataset,
-        progress_callback=progress_callback,
-        validation_horizon_days=forecast_days,
-        max_horizon_days=forecast_days,
-        history_frame_is_prepared=True,
+        seed = _build_training_seed(daily_history, perf=perf)
+    dataset_error = _ensure_min_feature_rows(
+        seed.dataset,
+        'После формирования лагов и скользящих признаков осталось только {rows} наблюдений: этого мало для корректного rolling-origin backtesting.',
     )
-    backtest = coerce_backtest_result(backtest)
+    if dataset_error is not None:
+        return dataset_error
+
+    backtest = _run_training_backtest(
+        seed,
+        forecast_days=forecast_days,
+        progress_callback=progress_callback,
+    )
     if not backtest.is_ready:
         _emit_progress(progress_callback, 'ml_backtest.failed', backtest.message)
         return _empty_ml_result(backtest.message)
 
-    final_frame, final_dataset, final_temperature_stats = _prepare_training_dataset(frame, frame_is_prepared=True)
-    if len(final_dataset) < MIN_FEATURE_ROWS:
-        return _empty_ml_result(
-            f'После подготовки полной обучающей выборки осталось только {len(final_dataset)} наблюдений: этого мало для итогового обучения ML-модели.'
-        )
-
-    selected_count_model_key = backtest.selected_count_model_key
-    feature_columns = _temperature_feature_columns(final_temperature_stats)
-    _emit_progress(
-        progress_callback,
-        'ml_model.running',
-        f"Обучаем итоговую count-модель {COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)} на полной истории.",
+    training_models = _fit_final_training_models(
+        seed,
+        backtest=backtest,
+        progress_callback=progress_callback,
     )
-    final_count_model = (
-        _fit_count_model(selected_count_model_key, final_dataset, feature_columns=feature_columns)
-        if selected_count_model_key in COUNT_MODEL_KEYS
-        else None
-    )
-    if selected_count_model_key in COUNT_MODEL_KEYS and final_count_model is None:
-        return _empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
-
-    selected_event_model_key = backtest.event_metrics.selected_model_key
-    classifier_validated = (
-        selected_event_model_key == 'logistic_regression'
-        and backtest.event_metrics.available
-        and backtest.event_metrics.logistic_available
-        and backtest.event_metrics.event_probability_informative
-        and _can_train_event_model(final_dataset['event'])
-    )
-    final_event_model = _fit_event_model(final_dataset, feature_columns=feature_columns) if classifier_validated else None
+    if isinstance(training_models, dict):
+        return training_models
 
     _emit_progress(progress_callback, 'ml_model.running', 'Строим прогноз по будущим датам и интервалы неопределённости.')
     forecast_rows = _forecast._build_future_forecast_rows(
-        frame=final_frame,
-        selected_count_model_key=selected_count_model_key,
-        count_model=final_count_model,
-        event_model=final_event_model,
+        frame=training_models.final_frame,
+        selected_count_model_key=training_models.selected_count_model_key,
+        count_model=training_models.final_count_model,
+        event_model=training_models.final_event_model,
         forecast_days=forecast_days,
         scenario_temperature=scenario_temperature,
         interval_calibration=(
-            backtest.prediction_interval_calibration_by_horizon.by_horizon
-            or backtest.prediction_interval_calibration
+            training_models.backtest.prediction_interval_calibration_by_horizon.by_horizon
+            or training_models.backtest.prediction_interval_calibration
         ),
         baseline_expected_count=_baseline_expected_count,
-        temperature_stats=final_temperature_stats,
+        temperature_stats=training_models.final_temperature_stats,
     )
 
     _emit_progress(progress_callback, 'ml_model.running', 'Оцениваем важность признаков и собираем итоговый ML-отчёт.')
     result_render_context = perf.span('result_render') if perf is not None else nullcontext()
     with result_render_context:
-        feature_importance_model_key = selected_count_model_key if selected_count_model_key in COUNT_MODEL_KEYS else None
-        feature_importance_model = final_count_model
-        if feature_importance_model is None:
-            feature_importance_model_key = EXPLAINABLE_COUNT_MODEL_KEY
-            feature_importance_model = _fit_count_model(
-                EXPLAINABLE_COUNT_MODEL_KEY,
-                final_dataset,
-                feature_columns=feature_columns,
-            )
-
-        feature_importance = (
-            _importance._build_feature_importance(feature_importance_model, final_dataset)
-            if feature_importance_model is not None
-            else []
-        )
-        feature_importance_source_label = (
-            COUNT_MODEL_LABELS.get(feature_importance_model_key, feature_importance_model_key)
-            if feature_importance and feature_importance_model_key
-            else None
-        )
-        feature_importance_note = None
-        if (
-            feature_importance
-            and feature_importance_model_key
-            and feature_importance_model_key != selected_count_model_key
-        ):
-            selected_label = COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)
-            source_label = COUNT_MODEL_LABELS.get(feature_importance_model_key, feature_importance_model_key)
-            feature_importance_note = (
-                f'Рабочий метод прогноза: {selected_label}. '
-                f'Драйверы ниже показаны по {source_label}, потому что это объяснимая ML-модель для разбора факторов.'
-            )
+        feature_importance = _build_feature_importance_artifacts(training_models)
         if perf is not None:
             perf.update(
                 forecast_rows=len(forecast_rows),
-                feature_importance_rows=len(feature_importance),
-                backtest_rows=len(backtest.rows),
+                feature_importance_rows=len(feature_importance.rows),
+                backtest_rows=len(training_models.backtest.rows),
             )
-
-        _training_artifact_cache_store(
+        artifacts = _store_training_artifacts(
             artifact_cache_key,
-            _TrainingArtifacts(
-                final_frame=final_frame,
-                final_dataset=final_dataset,
-                final_temperature_stats=final_temperature_stats,
-                backtest=backtest,
-                final_count_model=final_count_model,
-                final_event_model=final_event_model,
-                selected_count_model_key=selected_count_model_key,
-                feature_importance=[dict(row) for row in feature_importance],
-                feature_importance_source_key=feature_importance_model_key if feature_importance else None,
-                feature_importance_source_label=feature_importance_source_label,
-                feature_importance_note=feature_importance_note,
-            ),
-        )
-        return _result._assemble_training_result(
-            backtest=backtest,
-            forecast_rows=forecast_rows,
+            training_models=training_models,
             feature_importance=feature_importance,
-            feature_importance_source_key=feature_importance_model_key if feature_importance else None,
-            feature_importance_source_label=feature_importance_source_label,
-            feature_importance_note=feature_importance_note,
-            final_temperature_stats=final_temperature_stats,
-            final_event_model=final_event_model,
-            selected_count_model_key=selected_count_model_key,
         )
+        return _assemble_training_artifacts_result(artifacts, forecast_rows)

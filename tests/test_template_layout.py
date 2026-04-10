@@ -108,6 +108,13 @@ class TemplateLayoutSmokeTest(unittest.TestCase):
                         continue
                     self.assertLess(shared_position, position)
 
+    def test_forecasting_quality_panel_is_removed_from_template(self):
+        include_text = _read_template("includes/forecasting/_quality_overview.html")
+
+        self.assertNotIn("scenarioQualityPanel", include_text)
+        self.assertNotIn("scenarioQualityTitle", include_text)
+        self.assertNotIn("scenarioQualityMethodology", include_text)
+
 
 if __name__ == "__main__":
     unittest.main()
