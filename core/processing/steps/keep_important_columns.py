@@ -225,11 +225,22 @@ def _extract_word_tokens(value: str) -> List[str]:
 
 
 def _column_payload_parts(column_payload: Dict[str, object]) -> tuple[str, Set[str], Set[str]]:
-    return (
-        str(column_payload["normalized_name"]),
-        {str(word) for word in column_payload["words"]},
-        {str(lemma) for lemma in column_payload["lemmas"]},
-    )
+    normalized_name = column_payload.get("normalized_name", "")
+    if not isinstance(normalized_name, str):
+        normalized_name = str(normalized_name)
+        column_payload["normalized_name"] = normalized_name
+
+    words = column_payload.get("words", set())
+    if not isinstance(words, set):
+        words = {str(word) for word in words}
+        column_payload["words"] = words
+
+    lemmas = column_payload.get("lemmas", set())
+    if not isinstance(lemmas, set):
+        lemmas = {str(lemma) for lemma in lemmas}
+        column_payload["lemmas"] = lemmas
+
+    return normalized_name, words, lemmas
 
 
 def _prepare_synonym_payloads(
@@ -339,6 +350,86 @@ def _payload_has_excluded_token(
     return any(_payload_contains_fragment(column_payload, token) for token in exclude_tokens)
 
 
+def _build_match_metadata(
+    *,
+    scope: str,
+    feature_id: str,
+    feature_label: str,
+    rule_id: str,
+    matched_value: str,
+    reason: str,
+    mandatory: bool,
+) -> Dict[str, Any]:
+    return {
+        "scope": scope,
+        "feature_id": feature_id,
+        "feature_label": feature_label,
+        "rule_id": rule_id,
+        "matched_value": matched_value,
+        "reason": reason,
+        "mandatory": mandatory,
+    }
+
+
+def _feature_label_from_match(match: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not match:
+        return None
+    feature_label = str(match.get("feature_label") or "")
+    return feature_label or None
+
+
+def _match_mandatory_feature_payload(
+    column_payload: Dict[str, object],
+    feature: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    exclude_tokens = list(feature.get("prepared_exclude_tokens", []))
+    if exclude_tokens and _payload_has_excluded_token(column_payload, exclude_tokens):
+        return None
+
+    feature_id = str(feature["id"])
+    feature_label = str(feature["label"])
+    prepared_synonyms = list(feature.get("prepared_synonyms", []))
+    normalized_name = str(column_payload["normalized_name"])
+    for synonym in prepared_synonyms:
+        if normalized_name == synonym["normalized"]:
+            return _build_match_metadata(
+                scope="mandatory_registry",
+                feature_id=feature_id,
+                feature_label=feature_label,
+                rule_id="mandatory_registry_exact",
+                matched_value=str(synonym["raw"]),
+                reason=f"Колонка совпала с обязательным признаком '{feature['label']}' по точному имени.",
+                mandatory=True,
+            )
+
+    for synonym in prepared_synonyms:
+        tokens = list(synonym.get("tokens") or [])
+        if len(tokens) > 1 and all(_payload_contains_fragment(column_payload, token) for token in tokens):
+            return _build_match_metadata(
+                scope="mandatory_registry",
+                feature_id=feature_id,
+                feature_label=feature_label,
+                rule_id="mandatory_registry_synonym",
+                matched_value=str(synonym["raw"]),
+                reason=f"Колонка защищена обязательным реестром по синониму '{synonym['raw']}'.",
+                mandatory=True,
+            )
+
+    for token_set in feature.get("prepared_token_sets", []):
+        if _payload_matches_token_set(column_payload, token_set):
+            joined_tokens = " + ".join(token_set)
+            return _build_match_metadata(
+                scope="mandatory_registry",
+                feature_id=feature_id,
+                feature_label=feature_label,
+                rule_id="mandatory_registry_tokens",
+                matched_value=joined_tokens,
+                reason=f"Колонка защищена обязательным реестром по доменным токенам '{joined_tokens}'.",
+                mandatory=True,
+            )
+    return None
+
+
 def _group_labels_for_ids(group_ids: List[str]) -> List[str]:
     return [rule["label"] for rule in COLUMN_CATEGORY_RULES if rule["id"] in group_ids]
 
@@ -389,6 +480,21 @@ def _build_query_term_payload(
     return {"token": token, "variants": {variant for variant in variants if variant}}
 
 
+def _build_query_terms(
+    query_text: str,
+    normalize_text: Callable[[str], str],
+    extract_words: Callable[[str], List[str]],
+    build_query_term: Callable[[str], Dict[str, Set[str]]],
+) -> List[Dict[str, Set[str]]]:
+    normalized_query = normalize_text(query_text)
+    terms: List[Dict[str, Set[str]]] = []
+    for token in extract_words(normalized_query):
+        if len(token) < 2:
+            continue
+        terms.append(build_query_term(token))
+    return terms
+
+
 def _payload_matches_query_variants(column_payload: Dict[str, object], variants: Set[str]) -> bool:
     normalized_name, words, lemmas = _column_payload_parts(column_payload)
     return any(
@@ -397,6 +503,19 @@ def _payload_matches_query_variants(column_payload: Dict[str, object], variants:
         or any(word.startswith(variant) for word in words)
         for variant in variants
     )
+
+
+def _match_query_terms_in_payload(
+    column_payload: Dict[str, object],
+    query_terms: List[Dict[str, Set[str]]],
+) -> tuple[List[str], int]:
+    matched_terms: List[str] = []
+    score = 0
+    for query_term in query_terms:
+        if _payload_matches_query_variants(column_payload, query_term["variants"]):
+            matched_terms.append(str(query_term["token"]))
+            score += 4
+    return matched_terms, score
 
 
 def _payload_matches_category_rule(
@@ -419,6 +538,64 @@ def _payload_matches_category_rule(
         return True
 
     return bool(category_lemmas.intersection(words))
+
+
+def _matching_category_rule_ids(
+    column_payload: Dict[str, object],
+    category_rules: List[Dict[str, Any]],
+    category_lemmas: Dict[str, Set[str]],
+    normalize_text: Callable[[str], str],
+) -> List[str]:
+    group_ids: List[str] = []
+    for rule in category_rules:
+        if _payload_matches_category_rule(
+            column_payload,
+            rule,
+            category_lemmas.get(rule["id"], set()),
+            normalize_text,
+        ):
+            group_ids.append(rule["id"])
+    return group_ids
+
+
+def _keyword_rule_match_specs(rule: Dict[str, Any]) -> List[tuple[List[List[str]], str, str]]:
+    return [
+        (
+            list(rule.get("include_all", [])),
+            "keyword_include_all",
+            "Колонка сохранена по keyword-правилу с обязательным набором токенов '{joined_tokens}'.",
+        ),
+        (
+            list(rule.get("include_any", [])),
+            "keyword_include_any",
+            "Колонка сохранена по keyword-правилу с токеном '{joined_tokens}'.",
+        ),
+    ]
+
+
+def _match_keyword_rule_payload(
+    column_payload: Dict[str, object],
+    rule: Dict[str, Any],
+    normalize_text: Callable[[str], str],
+) -> Optional[Dict[str, Any]]:
+    exclude_tokens = _prepare_exclude_tokens(list(rule.get("exclude", [])), normalize_text)
+    if exclude_tokens and _payload_has_excluded_token(column_payload, exclude_tokens):
+        return None
+
+    for token_sets, rule_id, reason_template in _keyword_rule_match_specs(rule):
+        for token_set in token_sets:
+            if _payload_matches_token_set(column_payload, token_set):
+                joined_tokens = " + ".join(token_set)
+                return _build_match_metadata(
+                    scope="keyword_rule",
+                    feature_id=str(rule.get("id") or ""),
+                    feature_label=str(rule.get("label") or ""),
+                    rule_id=rule_id,
+                    matched_value=joined_tokens,
+                    reason=reason_template.format(joined_tokens=joined_tokens),
+                    mandatory=False,
+                )
+    return None
 
 
 def _build_column_query_result(
@@ -499,6 +676,20 @@ def _build_grouped_columns_by_category(
     return grouped_columns
 
 
+def _collect_column_matches(
+    columns: List[str],
+    column_terms: Callable[[str], Dict[str, object]],
+    match_builder: Callable[[str, Dict[str, object]], Optional[Dict[str, object]]],
+) -> List[Dict[str, object]]:
+    matches: List[Dict[str, object]] = []
+    for column_name in columns:
+        column_payload = column_terms(column_name)
+        item = match_builder(column_name, column_payload)
+        if item is not None:
+            matches.append(item)
+    return matches
+
+
 class NatashaColumnMatcher:
     """Переиспользуемый Natasha-поиск и доменный матчер по названиям колонок."""
 
@@ -530,12 +721,6 @@ class NatashaColumnMatcher:
     def _prepare_registry_feature(self, feature: Dict[str, Any]) -> Dict[str, Any]:
         return _prepare_registry_feature_payload(feature, self._normalize_text, self._extract_words)
 
-    def _match_fallback_pattern(self, normalized_name: str) -> Optional[str]:
-        for parts, label in FALLBACK_IMPORTANT_PATTERNS:
-            if all(part in normalized_name for part in parts):
-                return label
-        return None
-
     def _column_terms(self, column_name: str) -> Dict[str, object]:
         return _build_column_term_payload(
             column_name,
@@ -544,165 +729,14 @@ class NatashaColumnMatcher:
             self._lemmatize_text,
         )
 
-    def _contains_fragment(self, column_payload: Dict[str, object], fragment: str) -> bool:
-        return _payload_contains_fragment(column_payload, fragment)
-
-    def _matches_token_set(self, column_payload: Dict[str, object], token_set: List[str]) -> bool:
-        return _payload_matches_token_set(column_payload, token_set)
-
-    def _has_excluded_token(self, column_payload: Dict[str, object], exclude_tokens: List[str]) -> bool:
-        return _payload_has_excluded_token(column_payload, exclude_tokens)
-
-    def _match_feature_exact_synonym(
-        self,
-        column_payload: Dict[str, object],
-        feature: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
-        normalized_name = str(column_payload["normalized_name"])
-        for synonym in feature.get("prepared_synonyms", []):
-            if normalized_name == synonym["normalized"]:
-                return self._build_match(
-                    scope="mandatory_registry",
-                    feature_id=str(feature["id"]),
-                    feature_label=str(feature["label"]),
-                    rule_id="mandatory_registry_exact",
-                    matched_value=str(synonym["raw"]),
-                    reason=f"Колонка совпала с обязательным признаком '{feature['label']}' по точному имени.",
-                    mandatory=True,
-                )
-        return None
-
-    def _match_feature_synonym_tokens(
-        self,
-        column_payload: Dict[str, object],
-        feature: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
-        for synonym in feature.get("prepared_synonyms", []):
-            tokens = list(synonym.get("tokens") or [])
-            if len(tokens) > 1 and all(self._contains_fragment(column_payload, token) for token in tokens):
-                return self._build_match(
-                    scope="mandatory_registry",
-                    feature_id=str(feature["id"]),
-                    feature_label=str(feature["label"]),
-                    rule_id="mandatory_registry_synonym",
-                    matched_value=str(synonym["raw"]),
-                    reason=f"Колонка защищена обязательным реестром по синониму '{synonym['raw']}'.",
-                    mandatory=True,
-                )
-        return None
-
-    def _match_feature_token_sets(
-        self,
-        column_payload: Dict[str, object],
-        feature: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
-        for token_set in feature.get("prepared_token_sets", []):
-            if self._matches_token_set(column_payload, token_set):
-                joined_tokens = " + ".join(token_set)
-                return self._build_match(
-                    scope="mandatory_registry",
-                    feature_id=str(feature["id"]),
-                    feature_label=str(feature["label"]),
-                    rule_id="mandatory_registry_tokens",
-                    matched_value=joined_tokens,
-                    reason=f"Колонка защищена обязательным реестром по доменным токенам '{joined_tokens}'.",
-                    mandatory=True,
-                )
-        return None
-
-    def _build_match(
-        self,
-        *,
-        scope: str,
-        feature_id: str,
-        feature_label: str,
-        rule_id: str,
-        matched_value: str,
-        reason: str,
-        mandatory: bool,
-    ) -> Dict[str, Any]:
-        return {
-            "scope": scope,
-            "feature_id": feature_id,
-            "feature_label": feature_label,
-            "rule_id": rule_id,
-            "matched_value": matched_value,
-            "reason": reason,
-            "mandatory": mandatory,
-        }
 
     def _match_mandatory_feature(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
         for feature in self.mandatory_registry:
-            exclude_tokens = feature.get("prepared_exclude_tokens", [])
-            if exclude_tokens and self._has_excluded_token(column_payload, exclude_tokens):
-                continue
-
-            for matcher in (
-                self._match_feature_exact_synonym,
-                self._match_feature_synonym_tokens,
-                self._match_feature_token_sets,
-            ):
-                match = matcher(column_payload, feature)
-                if match:
-                    return match
-        return None
-
-    def _match_keyword_token_sets(
-        self,
-        column_payload: Dict[str, object],
-        rule: Dict[str, Any],
-        token_sets: List[List[str]],
-        rule_id: str,
-        reason_template: str,
-    ) -> Optional[Dict[str, Any]]:
-        for token_set in token_sets:
-            if self._matches_token_set(column_payload, token_set):
-                joined_tokens = " + ".join(token_set)
-                return self._build_match(
-                    scope="keyword_rule",
-                    feature_id=str(rule.get("id") or ""),
-                    feature_label=str(rule.get("label") or ""),
-                    rule_id=rule_id,
-                    matched_value=joined_tokens,
-                    reason=reason_template.format(joined_tokens=joined_tokens),
-                    mandatory=False,
-                )
-        return None
-
-    def _keyword_rule_exclude_tokens(self, rule: Dict[str, Any]) -> List[str]:
-        return _prepare_exclude_tokens(list(rule.get("exclude", [])), self._normalize_text)
-
-    def _match_single_keyword_rule(
-        self,
-        column_payload: Dict[str, object],
-        rule: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
-        exclude_tokens = self._keyword_rule_exclude_tokens(rule)
-        if exclude_tokens and self._has_excluded_token(column_payload, exclude_tokens):
-            return None
-
-        for token_sets, rule_id, reason_template in (
-            (
-                rule.get("include_all", []),
-                "keyword_include_all",
-                "Колонка сохранена по keyword-правилу с обязательным набором токенов '{joined_tokens}'.",
-            ),
-            (
-                rule.get("include_any", []),
-                "keyword_include_any",
-                "Колонка сохранена по keyword-правилу с токеном '{joined_tokens}'.",
-            ),
-        ):
-            match = self._match_keyword_token_sets(
-                column_payload,
-                rule,
-                token_sets,
-                rule_id,
-                reason_template,
-            )
+            match = _match_mandatory_feature_payload(column_payload, feature)
             if match:
                 return match
         return None
+
 
     def _match_legacy_explicit(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
         original_name = str(column_payload["original_name"]).strip()
@@ -710,7 +744,7 @@ class NatashaColumnMatcher:
         if not exact_match:
             return None
 
-        return self._build_match(
+        return _build_match_metadata(
             scope="legacy_explicit",
             feature_id="",
             feature_label=str(exact_match),
@@ -722,7 +756,7 @@ class NatashaColumnMatcher:
 
     def _match_keyword_rule(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
         for rule in KEYWORD_IMPORTANCE_RULES:
-            match = self._match_single_keyword_rule(column_payload, rule)
+            match = _match_keyword_rule_payload(column_payload, rule, self._normalize_text)
             if match:
                 return match
         return None
@@ -737,63 +771,44 @@ class NatashaColumnMatcher:
                 return match
         return None
 
+    def _important_label_from_payload(self, column_payload: Dict[str, object]) -> Optional[str]:
+        return _feature_label_from_match(self._match_column_payload_metadata(column_payload))
+
     def classify_column(self, col_name: str) -> Optional[str]:
         return self._classify_column_payload(self._column_terms(col_name))
 
     def _classify_column_payload(self, column_payload: Dict[str, object]) -> Optional[str]:
-        match = self._match_column_payload_metadata(column_payload)
-        if match:
-            return str(match.get("feature_label") or "") or None
-        return None
-
-    def _fallback_query_variants(self, token: str) -> Set[str]:
-        return _fallback_query_variants_for_token(token, FALLBACK_IMPORTANT_PATTERNS, self._normalize_text)
-
-    def _build_query_term(self, token: str) -> Dict[str, Set[str]]:
-        return _build_query_term_payload(
-            token,
-            self._lemmatize_text,
-            self._fallback_query_variants(token),
-        )
+        return self._important_label_from_payload(column_payload)
 
     def _query_terms(self, query_text: str) -> List[Dict[str, Set[str]]]:
-        normalized_query = self._normalize_text(query_text)
-        terms: List[Dict[str, Set[str]]] = []
-        for token in self._extract_words(normalized_query):
-            if len(token) < 2:
-                continue
-            terms.append(self._build_query_term(token))
-        return terms
+        def build_query_term(token: str) -> Dict[str, Set[str]]:
+            return _build_query_term_payload(
+                token,
+                self._lemmatize_text,
+                _fallback_query_variants_for_token(
+                    token,
+                    FALLBACK_IMPORTANT_PATTERNS,
+                    self._normalize_text,
+                ),
+            )
 
-    def _match_term(self, column_payload: Dict[str, object], variants: Set[str]) -> bool:
-        return _payload_matches_query_variants(column_payload, variants)
-
-    def _matches_category(self, column_payload: Dict[str, object], category_rule: Dict[str, object]) -> bool:
-        return _payload_matches_category_rule(
-            column_payload,
-            category_rule,
-            self.category_lemmas.get(category_rule["id"], set()),
+        return _build_query_terms(
+            query_text,
             self._normalize_text,
+            self._extract_words,
+            build_query_term,
         )
 
     def classify_column_groups(self, column_name: str) -> List[str]:
         return self._classify_column_payload_groups(self._column_terms(column_name))
 
     def _classify_column_payload_groups(self, column_payload: Dict[str, object]) -> List[str]:
-        group_ids: List[str] = []
-        for rule in COLUMN_CATEGORY_RULES:
-            if self._matches_category(column_payload, rule):
-                group_ids.append(rule["id"])
-        return group_ids
-
-    def _match_query_terms(self, column_payload: Dict[str, object], query_terms: List[Dict[str, Set[str]]]) -> tuple[List[str], int]:
-        matched_terms: List[str] = []
-        score = 0
-        for query_term in query_terms:
-            if self._match_term(column_payload, query_term["variants"]):
-                matched_terms.append(str(query_term["token"]))
-                score += 4
-        return matched_terms, score
+        return _matching_category_rule_ids(
+            column_payload,
+            COLUMN_CATEGORY_RULES,
+            self.category_lemmas,
+            self._normalize_text,
+        )
 
     def _build_column_query_match(
         self,
@@ -801,11 +816,11 @@ class NatashaColumnMatcher:
         column_payload: Dict[str, object],
         query_terms: List[Dict[str, Set[str]]],
     ) -> Optional[Dict[str, object]]:
-        matched_terms, score = self._match_query_terms(column_payload, query_terms)
+        matched_terms, score = _match_query_terms_in_payload(column_payload, query_terms)
         if not matched_terms:
             return None
 
-        important_label = self._classify_column_payload(column_payload)
+        important_label = self._important_label_from_payload(column_payload)
         if important_label:
             important_label_normalized = self._normalize_text(important_label)
             score += _important_label_query_bonus(important_label_normalized, query_terms)
@@ -831,7 +846,7 @@ class NatashaColumnMatcher:
         return _build_column_category_result(
             column_name=column_name,
             matched_groups=matched_groups,
-            important_label=self._classify_column_payload(column_payload) or "",
+            important_label=self._important_label_from_payload(column_payload) or "",
         )
 
     def get_group_catalog(self, columns: List[str]) -> List[Dict[str, object]]:
@@ -847,43 +862,27 @@ class NatashaColumnMatcher:
         ]
 
     def get_mandatory_feature_catalog(self) -> List[Dict[str, object]]:
-        return [
-            {
-                "id": feature["id"],
-                "label": feature["label"],
-                "description": feature["description"],
-                "synonyms": list(feature.get("synonyms", [])),
-            }
-            for feature in MANDATORY_FEATURE_REGISTRY
-        ]
+        return get_mandatory_feature_catalog()
 
     def find_columns_by_categories(self, columns: List[str], group_ids: List[str]) -> List[Dict[str, object]]:
         wanted = _wanted_group_ids(group_ids)
         if not wanted:
             return []
-
-        result: List[Dict[str, object]] = []
-        for column_name in columns:
-            column_payload = self._column_terms(column_name)
-            item = self._build_column_category_match(column_name, column_payload, wanted)
-            if item is None:
-                continue
-            result.append(item)
-        return result
+        return _collect_column_matches(
+            columns,
+            self._column_terms,
+            lambda column_name, column_payload: self._build_column_category_match(column_name, column_payload, wanted),
+        )
 
     def find_columns_by_query(self, columns: List[str], query_text: str) -> List[Dict[str, object]]:
         query_terms = self._query_terms(query_text)
         if not query_terms:
             return []
-
-        matches: List[Dict[str, object]] = []
-        for column_name in columns:
-            column_payload = self._column_terms(column_name)
-            item = self._build_column_query_match(column_name, column_payload, query_terms)
-            if item is None:
-                continue
-            matches.append(item)
-
+        matches = _collect_column_matches(
+            columns,
+            self._column_terms,
+            lambda column_name, column_payload: self._build_column_query_match(column_name, column_payload, query_terms),
+        )
         return _sort_column_query_matches(_partition_column_query_matches(matches, len(query_terms)))
 
 

@@ -1,64 +1,3 @@
-{% from 'includes/common_intro_macros.html' import clarity_note, orientation_strip, screen_guide %}
-{% set orientation_links = [
-    {
-        "id": "mlPanelLink",
-        "variant": "is-primary",
-        "is_current": false,
-        "href": "/{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}",
-        "kicker": "Панель",
-        "title": "Что происходит сейчас в выбранном срезе",
-        "body": "Общий обзор по пожарам и первый приоритет без прогноза количества по датам.",
-        "cta": "Открыть панель",
-    },
-    {
-        "id": "mlScenarioLink",
-        "variant": "is-scenario",
-        "is_current": false,
-        "href": "/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}",
-        "kicker": "Сценарный прогноз",
-        "title": "В какие даты вероятность пожара выше",
-        "body": "Вероятность пожара по дням и переход к приоритету территорий.",
-        "cta": "Открыть прогноз на дни",
-    },
-    {
-        "id": none,
-        "variant": "is-ml",
-        "is_current": true,
-        "href": "#mlForecastSection",
-        "kicker": "ML-прогноз",
-        "title": "Сколько пожаров может быть по датам",
-        "body": "Ожидаемое число пожаров и нагрузка по дням.",
-        "cta": "Вы уже в ML-прогнозе",
-    },
-    {
-        "id": "mlDecisionLink",
-        "variant": "is-decision",
-        "is_current": false,
-        "href": "/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}#forecastDetails",
-        "kicker": "Поддержка решений",
-        "title": "Какие территории ставить первыми",
-        "body": "Полное ранжирование территорий, причины приоритета и доверие к нему.",
-        "cta": "Открыть приоритет территорий",
-    },
-] %}
-{% set guide_cards = [
-    {
-        "label": "Когда открывать",
-        "title": "Когда нужна оценка нагрузки",
-        "body": "Используйте ML-прогноз, если важно оценить ожидаемое число пожаров по датам и понять возможную нагрузку на систему.",
-    },
-    {
-        "label": "Что показывает",
-        "title": "Ожидаемое число пожаров по датам",
-        "body": "Экран показывает прогноз количества, проверку качества модели и факторы, которые сильнее всего влияют на расчет.",
-    },
-    {
-        "label": "Чем отличается",
-        "title": "Экран отвечает на вопрос «сколько»",
-        "body": "Вероятность по дням смотрите в сценарном прогнозе, территориальный приоритет — в блоке поддержки решений.",
-    },
-] %}
-
 <main class="main dashboard-main ml-model-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
@@ -88,12 +27,3 @@
             </article>
         </div>
     </section>
-
-    {{ orientation_strip('Что показывает каждый экран', orientation_links) }}
-    {{ screen_guide('Как читать ML-прогноз', guide_cards) }}
-    {{ clarity_note(
-        'Как читать ML-прогноз',
-        'Как читать экран',
-        'Число, а не приоритет территорий',
-        'График и таблица ниже показывают ожидаемое количество пожаров по датам. Интервалы и метрики качества объясняют надежность расчета, но не заменяют территориальный приоритет.'
-    ) }}

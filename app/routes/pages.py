@@ -107,13 +107,6 @@ def forecasting_brief_download(
     return _download_text_response(text or "Управленческий бриф пока недоступен.", "forecasting-brief.txt")
 
 
-@router.get("/brief/fire-map.txt")
-def fire_map_brief_download(table_name: str = "") -> Response:
-    data = get_fire_map_page_context(table_name)
-    text = str((data.get("executive_brief") or {}).get("export_text") or "")
-    return _download_text_response(text or "Управленческий бриф по карте пока недоступен.", "fire-map-brief.txt")
-
-
 @router.get("/", response_class=HTMLResponse)
 def home(
     request: Request,

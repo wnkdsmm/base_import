@@ -23,7 +23,7 @@
     padding: 16px 18px;
     border-radius: 18px;
     border: 1px solid rgba(37, 99, 235, 0.16);
-    background: linear-gradient(180deg, rgba(248, 252, 255, 0.96) 0%, rgba(236, 244, 255, 0.9) 100%);
+    background: var(--surface-panel);
 }
 
 .analysis-status-card.is-pending {
@@ -33,7 +33,7 @@
 .analysis-status-card.is-ready,
 .analysis-runtime-card.is-ready {
     border-color: rgba(15, 118, 110, 0.2);
-    background: linear-gradient(180deg, rgba(237, 248, 242, 0.98) 0%, rgba(227, 244, 236, 0.94) 100%);
+    background: #edf8f2;
 }
 
 .analysis-status-head,
@@ -171,7 +171,6 @@
 .analysis-retry-button {
     width: auto;
     min-width: 140px;
-    box-shadow: none;
 }
 
 .analysis-error-card {
@@ -230,12 +229,7 @@
 
 .analysis-skeleton-card::after,
 .analysis-skeleton-line::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
-    animation: analysis-skeleton-shimmer 1.5s infinite;
+    display: none;
 }
 
 .analysis-skeleton-card {
@@ -375,23 +369,23 @@
 }
 
 .tone-fire {
-    background: linear-gradient(155deg, rgba(255, 238, 231, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #ffeee7;
 }
 
 .tone-area {
-    background: linear-gradient(155deg, rgba(237, 249, 243, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #edf9f3;
 }
 
 .tone-group {
-    background: linear-gradient(155deg, rgba(237, 246, 250, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #edf6fa;
 }
 
 .tone-table {
-    background: linear-gradient(155deg, rgba(252, 244, 232, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #fcf4e8;
 }
 
 .tone-muted {
-    background: linear-gradient(155deg, rgba(243, 243, 243, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #f3f3f3;
 }
 
 .ranking-panel {
@@ -511,7 +505,6 @@
     border-radius: 14px;
     border: 1px solid var(--control-border);
     background: var(--control-bg);
-    box-shadow: var(--control-shadow);
 }
 
 .table-page-link {
@@ -663,45 +656,45 @@
 }
 
 .tone-sky {
-    background: linear-gradient(155deg, rgba(237, 246, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #edf6ff;
 }
 
 .tone-forest {
-    background: linear-gradient(155deg, rgba(237, 249, 243, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #edf9f3;
 }
 
 .tone-sand {
-    background: linear-gradient(155deg, rgba(255, 246, 226, 0.96) 0%, rgba(255, 255, 255, 0.84) 100%);
+    background: #fff6e2;
 }
 
 .risk-badge.tone-high,
 .risk-badge.tone-fire {
-    background: linear-gradient(135deg, rgba(217, 93, 57, 0.95) 0%, rgba(159, 45, 31, 0.95) 100%);
+    background: var(--fire);
 }
 
 .risk-badge.tone-medium,
 .risk-badge.tone-sand {
-    background: linear-gradient(135deg, rgba(228, 197, 147, 0.95) 0%, rgba(180, 138, 68, 0.95) 100%);
+    background: var(--sand);
     color: #24364f;
 }
 
 .risk-badge.tone-low,
 .risk-badge.tone-sky {
-    background: linear-gradient(135deg, rgba(45, 108, 143, 0.95) 0%, rgba(24, 77, 106, 0.95) 100%);
+    background: var(--sky);
 }
 
 .risk-badge.tone-forest {
-    background: linear-gradient(135deg, rgba(47, 122, 95, 0.95) 0%, rgba(31, 93, 71, 0.95) 100%);
+    background: var(--forest);
 }
 
 .tone-high {
-    background: linear-gradient(155deg, rgba(255, 238, 231, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #ffeee7;
 }
 
 .tone-medium {
-    background: linear-gradient(155deg, rgba(255, 246, 226, 0.96) 0%, rgba(255, 255, 255, 0.84) 100%);
+    background: #fff6e2;
 }
 
 .tone-low {
-    background: linear-gradient(155deg, rgba(237, 246, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%);
+    background: #edf6ff;
 }

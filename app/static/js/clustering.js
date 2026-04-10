@@ -2,20 +2,13 @@
     var shared = window.FireUi;
     var byId = shared.byId;
     var createSingleTimer = shared.createSingleTimer;
-    var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
     var fetchJson = shared.fetchJson;
     var renderChart = shared.renderPlotlyFigure;
     var setSelectOptions = shared.setSelectOptions;
-    var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
 
-    var clusteringStepTimers = createTimerGroup();
     var clusteringJobPollTimer = createSingleTimer();
-
-    function clearClusteringStepTimers() {
-        clusteringStepTimers.clear();
-    }
 
     function setClusteringAsyncVisibility(visible) {
         var asyncNode = byId('clusteringAsyncState');
@@ -25,12 +18,13 @@
         asyncNode.classList.toggle('is-hidden', !visible);
     }
 
-    function setClusteringSkeletonVisible(visible) {
-        var skeletonNode = byId('clusteringLoadingSkeleton');
-        if (!skeletonNode) {
-            return;
-        }
-        skeletonNode.classList.toggle('is-hidden', !visible);
+    function syncClusteringAsyncContainer() {
+        var errorNode = byId('clusteringErrorState');
+        var runtimeNode = byId('clusteringJobRuntime');
+        var hasVisibleError = Boolean(errorNode) && !errorNode.classList.contains('is-hidden');
+        var hasVisibleRuntime = Boolean(runtimeNode) && !runtimeNode.classList.contains('is-hidden');
+
+        setClusteringAsyncVisibility(hasVisibleError || hasVisibleRuntime);
     }
 
     function hideClusteringError() {
@@ -40,162 +34,16 @@
         }
         errorNode.classList.add('is-hidden');
         setText('clusteringErrorMessage', '');
+        syncClusteringAsyncContainer();
     }
 
     function showClusteringError(message) {
-        var loadingNode = byId('clusteringLoadingState');
         var errorNode = byId('clusteringErrorState');
-        setClusteringAsyncVisibility(true);
-        if (loadingNode) {
-            loadingNode.classList.remove('is-hidden', 'is-pending');
-            loadingNode.classList.add('is-ready');
-        }
-        setClusteringSkeletonVisible(false);
         setText('clusteringErrorMessage', message || 'Не удалось пересчитать кластеры. Попробуйте еще раз.');
         if (errorNode) {
             errorNode.classList.remove('is-hidden');
         }
-    }
-
-    function setClusteringProgress(activeIndex, options) {
-        var settings = options || {};
-        setStepProgress({
-            activeIndex: activeIndex,
-            isError: settings.isError,
-            isFinished: settings.isFinished,
-            lead: settings.lead,
-            leadId: 'clusteringLoadingLead',
-            message: settings.message,
-            messageId: 'clusteringLoadingMessage',
-            stepSelector: '.analysis-step',
-            stepsId: 'clusteringProgressSteps'
-        });
-    }
-
-    function setClusteringLoadingState(lead, message, activeIndex, options) {
-        var loadingNode = byId('clusteringLoadingState');
-        var stageNode = byId('clusteringStageStatus');
-        var settings = options || {};
-        setClusteringAsyncVisibility(true);
-        hideClusteringError();
-        if (loadingNode) {
-            loadingNode.classList.remove('is-hidden', 'is-ready');
-            loadingNode.classList.add('is-pending');
-        }
-        if (stageNode) {
-            stageNode.textContent = settings.stageMessage || message;
-            stageNode.classList.remove('is-hidden', 'is-ready', 'is-error');
-            stageNode.classList.add('is-pending');
-        }
-        setClusteringSkeletonVisible(settings.showSkeleton !== false);
-        setClusteringProgress(activeIndex, {
-            lead: lead,
-            message: message
-        });
-    }
-
-    function setClusteringReadyState(lead, message) {
-        var loadingNode = byId('clusteringLoadingState');
-        var stageNode = byId('clusteringStageStatus');
-        setClusteringAsyncVisibility(true);
-        hideClusteringError();
-        if (loadingNode) {
-            loadingNode.classList.remove('is-hidden', 'is-pending');
-            loadingNode.classList.add('is-ready');
-        }
-        if (stageNode) {
-            stageNode.textContent = message;
-            stageNode.classList.remove('is-hidden', 'is-pending', 'is-error');
-            stageNode.classList.add('is-ready');
-        }
-        setClusteringSkeletonVisible(false);
-        setClusteringProgress(3, {
-            lead: lead,
-            message: message,
-            isFinished: true
-        });
-    }
-
-    function startClusteringProgressSequence() {
-        clearClusteringStepTimers();
-        setClusteringProgress(0, {
-            lead: 'Загружаем исходные данные',
-            message: 'Получаем территориальные записи и выбранные параметры кластеризации.'
-        });
-        clusteringStepTimers.set(function () {
-            setClusteringProgress(1, {
-                lead: 'Агрегируем территориальные признаки',
-                message: 'Собираем агрегаты по территориям и проверяем заполненность признаков.'
-            });
-        }, 320);
-        clusteringStepTimers.set(function () {
-            setClusteringProgress(2, {
-                lead: 'Считаем кластеры и диагностики',
-                message: 'Запускаем сегментацию, quality-метрики и профили кластеров.'
-            });
-        }, 980);
-        clusteringStepTimers.set(function () {
-            setClusteringProgress(3, {
-                lead: 'Подготавливаем визуализации',
-                message: 'Собираем scatter, распределения и итоговые таблицы.'
-            });
-        }, 1700);
-    }
-
-    function syncClusteringAsyncState(data) {
-        if (!data) {
-            setClusteringAsyncVisibility(false);
-            return;
-        }
-
-        if (data.bootstrap_mode === 'deferred' && !data.has_data) {
-            setClusteringLoadingState(
-                'Подготавливаем типологию территорий',
-                'Открыт лёгкий shell страницы. Догружаем расчёт кластеризации в фоне.',
-                0,
-                {
-                    showSkeleton: true,
-                    stageMessage: 'Открыт лёгкий shell страницы. Догружаем расчёт кластеризации в фоне.'
-                }
-            );
-            return;
-        }
-
-        if (data.has_data) {
-            clearClusteringStepTimers();
-            setClusteringReadyState(
-                'Кластеры обновлены',
-                'Агрегаты, кластеры и визуализации уже синхронизированы с текущими фильтрами.'
-            );
-            return;
-        }
-
-        setClusteringAsyncVisibility(false);
-    }
-
-    function renderSidebarStatus(data) {
-        var container = byId('clusteringSidebarStatus');
-        if (!container) {
-            return;
-        }
-
-        var summary = data.summary || {};
-        var isLoaded = Boolean(data && data.has_data);
-        var isDeferred = data && data.bootstrap_mode === 'deferred';
-        var badgeClass = 'status-badge';
-        if (isLoaded) {
-            badgeClass += ' status-badge-live';
-        }
-
-        var badgeLabel = isDeferred
-            ? 'Подготовка типологии'
-            : (isLoaded ? 'Типы территорий рассчитаны' : 'Нужны агрегированные признаки');
-
-        container.innerHTML = ''
-            + '<span class="' + badgeClass + '">' + escapeHtml(badgeLabel) + '</span>'
-            + '<div class="status-line"><span>Таблица</span><strong>' + escapeHtml(summary.selected_table_label || 'Нет таблицы') + '</strong></div>'
-            + '<div class="status-line"><span>Территорий</span><strong>' + escapeHtml(summary.clustered_entities_display || '0') + '</strong></div>'
-            + '<div class="status-line"><span>Силуэт</span><strong>' + escapeHtml(summary.silhouette_display || '—') + '</strong></div>';
+        syncClusteringAsyncContainer();
     }
 
     function renderHero(data) {
@@ -356,16 +204,21 @@
 
     function renderNoticeList(containerId, items, emptyMessage) {
         var container = byId(containerId);
+        var filteredItems;
         if (!container) {
             return;
         }
 
-        if (!Array.isArray(items) || !items.length) {
+        filteredItems = Array.isArray(items) ? items.filter(function (item) {
+            return String(item || '').trim().length > 0;
+        }) : [];
+
+        if (!filteredItems.length) {
             container.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
             return;
         }
 
-        container.innerHTML = items.map(function (item) {
+        container.innerHTML = filteredItems.map(function (item) {
             return '<li>' + escapeHtml(item) + '</li>';
         }).join('');
     }
@@ -440,6 +293,7 @@
 
     function renderClusteringJobRuntime(jobPayload) {
         var runtimeNode = byId('clusteringJobRuntime');
+        var errorNode = byId('clusteringErrorState');
         var statusNode = byId('clusteringJobStatusLabel');
         var metaNode = byId('clusteringJobMeta');
         var logsNode = byId('clusteringJobLogOutput');
@@ -457,6 +311,9 @@
             statusNode.textContent = '';
             metaNode.textContent = '';
             logsNode.textContent = '';
+            if (!errorNode || errorNode.classList.contains('is-hidden')) {
+                setClusteringAsyncVisibility(false);
+            }
             return;
         }
 
@@ -472,47 +329,11 @@
         }
         metaNode.textContent = metaParts.join(' | ');
         logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
+        syncClusteringAsyncContainer();
     }
 
     function updateClusteringAsyncStateForJob(jobPayload) {
-        var safeJob = jobPayload || {};
-        var meta = safeJob.meta || {};
-        var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
-        var activeIndex = Number(meta.stage_index);
-        var lead = meta.stage_label ? 'Clustering: ' + String(meta.stage_label) : 'Фоновая clustering-задача';
-        var message = String(meta.stage_message || '').trim();
-
-        if (!Number.isFinite(activeIndex)) {
-            activeIndex = 0;
-        }
-        if (!message && logs.length) {
-            message = logs[logs.length - 1];
-        }
-        if (!message) {
-            message = safeJob.status === 'pending'
-                ? 'Ожидаем запуска фонового расчета.'
-                : 'Кластеризация выполняется в фоне.';
-        }
-
-        if (safeJob.status === 'completed') {
-            clearClusteringStepTimers();
-            setClusteringReadyState(
-                'Кластеры обновлены',
-                'Агрегаты, кластеры и визуализации уже синхронизированы с текущими фильтрами.'
-            );
-            renderClusteringJobRuntime(safeJob);
-            return;
-        }
-
-        setClusteringLoadingState(lead, message, activeIndex, {
-            showSkeleton: true,
-            stageMessage: message
-        });
-        setClusteringProgress(activeIndex, {
-            lead: lead,
-            message: message
-        });
-        renderClusteringJobRuntime(safeJob);
+        renderClusteringJobRuntime(jobPayload || {});
     }
 
     async function pollClusteringJob(jobId, query) {
@@ -544,7 +365,6 @@
             }, 1200);
         } catch (error) {
             console.error(error);
-            clearClusteringStepTimers();
             showClusteringError(getClusteringErrorMessage(
                 error,
                 'Не удалось получить статус clustering-задачи. Попробуйте повторить расчёт ещё раз.'
@@ -562,7 +382,6 @@
         var quality = data.quality_assessment || {};
         var charts = data.charts || {};
 
-        renderSidebarStatus(data);
         renderHero(data);
 
         setSelectOptions('clusterTableFilter', filters.available_tables, filters.table_name, 'Нет таблиц');
@@ -591,7 +410,7 @@
         renderProfiles(data.cluster_profiles || []);
         renderNoticeList('clusterNotesList', data.notes || [], 'После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.');
         renderDataTable('clusterRepresentativesTableShell', data.representative_columns, data.representative_rows, 'После расчета здесь появятся территории, ближайшие к центрам кластеров.');
-        syncClusteringAsyncState(data);
+        syncClusteringAsyncContainer();
     }
 
     async function fetchClusteringData() {
@@ -609,17 +428,8 @@
             button.disabled = true;
         }
         stopClusteringJobPolling();
+        hideClusteringError();
         renderClusteringJobRuntime(null);
-        setClusteringLoadingState(
-            'Пересчитываем кластеры',
-            'Загружаем данные, агрегируем признаки и подготавливаем новые визуализации.',
-            0,
-            {
-                showSkeleton: true,
-                stageMessage: 'Расчёт кластеризации запущен для текущих фильтров.'
-            }
-        );
-        startClusteringProgressSequence();
 
         try {
             var result = await fetchJson('/api/clustering-jobs', {
@@ -647,12 +457,6 @@
                 'Не удалось получить данные кластеризации. Попробуйте повторить расчёт еще раз.'
             );
             console.error(error);
-            clearClusteringStepTimers();
-            setClusteringProgress(2, {
-                lead: 'Не удалось пересчитать кластеры',
-                message: clusteringErrorMessage,
-                isError: true
-            });
             showClusteringError(clusteringErrorMessage);
         } finally {
             if (button) {

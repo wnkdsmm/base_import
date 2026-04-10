@@ -23,7 +23,6 @@
                                 <th>Ожидаемое число пожаров</th>
                                 <th>Диапазон</th>
                                 <th>Индекс риска</th>
-                                <th>P(&gt;=1 пожара)</th>
                                 <th>Температура</th>
                             </tr>
                         </thead>
@@ -34,7 +33,6 @@
                                 <td data-label="Ожидаемое число пожаров">{{ row.forecast_value_display }}</td>
                                 <td data-label="Диапазон">{{ row.range_display }}</td>
                                 <td data-label="Индекс риска"><span class="ml-risk-pill ml-risk-{{ row.risk_level_tone }}">{{ row.risk_index_display }}</span></td>
-                                <td data-label="P(>=1 пожара)">{{ row.event_probability_display }}</td>
                                 <td data-label="Температура">{{ row.temperature_display }}</td>
                             </tr>
                             {% endfor %}

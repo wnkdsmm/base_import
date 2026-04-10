@@ -441,28 +441,7 @@ def _load_daily_history_rows(
     object_category: str = "all",
     min_year: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    return _load_daily_history_rows_for_storage_path(
-        table_name,
-        resolved_columns,
-        use_aggregate_view=_daily_aggregate_view_exists(table_name),
-        min_year=min_year,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-    )
-
-
-def _load_daily_history_rows_for_storage_path(
-    table_name: str,
-    resolved_columns: Dict[str, str],
-    *,
-    use_aggregate_view: bool,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> List[Dict[str, Any]]:
-    if use_aggregate_view:
+    if _daily_aggregate_view_exists(table_name):
         return _load_materialized_daily_history_rows(
             table_name,
             resolved_columns,
@@ -589,43 +568,6 @@ def _load_source_daily_history_rows(
     return _execute_daily_history_row_query(query, params)
 
 
-def _daily_history_union_part_sql(
-    table_name: str,
-    resolved_columns: Dict[str, str],
-    params: Dict[str, Any],
-    *,
-    district: str = "all",
-    cause: str = "all",
-    object_category: str = "all",
-    min_year: Optional[int] = None,
-    has_aggregate_view: Optional[bool] = None,
-) -> Optional[str]:
-    if not table_name:
-        return None
-
-    use_aggregate_view = _daily_aggregate_view_exists(table_name) if has_aggregate_view is None else has_aggregate_view
-    if use_aggregate_view:
-        return _daily_history_union_materialized_part_sql(
-            table_name,
-            resolved_columns,
-            params,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-        )
-
-    return _daily_history_union_source_part_sql(
-        table_name,
-        resolved_columns,
-        params,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    )
-
-
 def _daily_history_union_materialized_part_sql(
     table_name: str,
     resolved_columns: Dict[str, str],
@@ -717,13 +659,9 @@ def _load_daily_history_rows_union(
         object_category=object_category,
         min_year=min_year,
     )
-    return _execute_daily_history_union_query(query_parts, params)
-
-
-def _daily_history_union_view_status(metadata_items: Sequence[Dict[str, Any]]) -> Dict[str, bool]:
-    return _daily_aggregate_view_status_map(
-        [str(metadata.get("table_name") or "") for metadata in metadata_items]
-    )
+    if not query_parts:
+        return []
+    return _execute_daily_history_row_query(_build_daily_history_union_query(query_parts), params)
 
 
 def _daily_history_union_query_parts(
@@ -736,32 +674,37 @@ def _daily_history_union_query_parts(
     min_year: Optional[int],
 ) -> List[str]:
     query_parts: List[str] = []
-    view_status = _daily_history_union_view_status(metadata_items)
+    view_status = _daily_aggregate_view_status_map(
+        [str(metadata.get("table_name") or "") for metadata in metadata_items]
+    )
     for metadata in metadata_items:
         table_name = str(metadata.get("table_name") or "")
         resolved_columns = metadata.get("resolved_columns") or {}
-        query_part = _daily_history_union_part_sql(
-            table_name,
-            resolved_columns,
-            params,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-            has_aggregate_view=view_status.get(table_name, False),
-        )
+        if not table_name:
+            continue
+        if view_status.get(table_name, False):
+            query_part = _daily_history_union_materialized_part_sql(
+                table_name,
+                resolved_columns,
+                params,
+                district=district,
+                cause=cause,
+                object_category=object_category,
+                min_year=min_year,
+            )
+        else:
+            query_part = _daily_history_union_source_part_sql(
+                table_name,
+                resolved_columns,
+                params,
+                district=district,
+                cause=cause,
+                object_category=object_category,
+                min_year=min_year,
+            )
         if query_part:
             query_parts.append(query_part)
     return query_parts
-
-
-def _execute_daily_history_union_query(
-    query_parts: Sequence[str],
-    params: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    if not query_parts:
-        return []
-    return _execute_daily_history_row_query(_build_daily_history_union_query(query_parts), params)
 
 
 def _build_daily_history_union_query(query_parts: Sequence[str]) -> Any:
@@ -864,14 +807,6 @@ class _DailyHistoryLoadTrace:
     union_fast_path_rows: int = 0
 
 
-@dataclass
-class _DailyHistoryCacheContext:
-    perf: Any
-    normalized_tables: Sequence[str]
-    cache_key: tuple[Any, ...]
-    count_cache_key: tuple[Any, ...]
-
-
 def _daily_history_cache_key(
     normalized_tables: Sequence[str],
     history_window: str,
@@ -939,11 +874,14 @@ def _record_daily_history_perf(
     )
 
 
-def _return_cached_daily_history(
-    cached_history: List[Dict[str, Any]],
+def _lookup_daily_history_cache(
+    cache_key: tuple[Any, ...],
     count_cache_key: tuple[Any, ...],
     perf: Any,
-) -> List[Dict[str, Any]]:
+) -> Optional[List[Dict[str, Any]]]:
+    cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
+    if cached_history is None:
+        return None
     cached_total_count = _daily_history_total_count(cached_history)
     _FORECASTING_SQL_CACHE.set(count_cache_key, cached_total_count)
     if perf is not None:
@@ -954,27 +892,6 @@ def _return_cached_daily_history(
             forecasting_daily_history_count_cache_populated=True,
         )
     return cached_history
-
-
-def _lookup_daily_history_cache(
-    cache_key: tuple[Any, ...],
-    count_cache_key: tuple[Any, ...],
-    perf: Any,
-) -> Optional[List[Dict[str, Any]]]:
-    cached_history = _FORECASTING_SQL_CACHE.get(cache_key)
-    if cached_history is None:
-        return None
-    return _return_cached_daily_history(cached_history, count_cache_key, perf)
-
-
-def _lookup_daily_history_cache_context(
-    cache_context: _DailyHistoryCacheContext,
-) -> Optional[List[Dict[str, Any]]]:
-    return _lookup_daily_history_cache(
-        cache_context.cache_key,
-        cache_context.count_cache_key,
-        cache_context.perf,
-    )
 
 
 def _load_daily_history_metadata_and_min_year(
@@ -988,17 +905,7 @@ def _load_daily_history_metadata_and_min_year(
     return local_metadata_items, _resolve_history_window_min_year(local_metadata_items, history_window)
 
 
-def _mark_daily_history_union_fallback(trace: _DailyHistoryLoadTrace, exc: Exception) -> None:
-    trace.union_fast_path_fallback = True
-    trace.union_fast_path_error_type = exc.__class__.__name__
-
-
-def _mark_daily_history_union_success(trace: _DailyHistoryLoadTrace, union_rows: Sequence[Dict[str, Any]]) -> None:
-    trace.used_union_fast_path = True
-    trace.union_fast_path_rows = len(union_rows)
-
-
-def _load_daily_history_union_path(
+def _load_daily_history_union_fast_path(
     metadata_items: Sequence[Dict[str, Any]],
     trace: _DailyHistoryLoadTrace,
     *,
@@ -1006,7 +913,7 @@ def _load_daily_history_union_path(
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> Optional[List[Dict[str, Any]]]:
+) -> Optional[Dict[date, Dict[str, Any]]]:
     trace.union_fast_path_attempted = len(metadata_items) > 1
     if not trace.union_fast_path_attempted:
         return None
@@ -1020,61 +927,17 @@ def _load_daily_history_union_path(
             min_year=min_year,
         )
     except Exception as exc:
-        _mark_daily_history_union_fallback(trace, exc)
+        trace.union_fast_path_fallback = True
+        trace.union_fast_path_error_type = exc.__class__.__name__
         return None
 
     if union_rows is None:
         return None
 
-    _mark_daily_history_union_success(trace, union_rows)
-    return union_rows
-
-
-def _try_merge_daily_history_union(
-    merged_rows: Dict[date, Dict[str, Any]],
-    metadata_items: Sequence[Dict[str, Any]],
-    trace: _DailyHistoryLoadTrace,
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> bool:
-    union_rows = _load_daily_history_union_path(
-        metadata_items,
-        trace,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    )
-    if union_rows is None:
-        return False
-
-    _merge_daily_history_rows(merged_rows, union_rows)
-    return True
-
-
-def _load_daily_history_from_union_path(
-    metadata_items: Sequence[Dict[str, Any]],
-    trace: _DailyHistoryLoadTrace,
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> Optional[Dict[date, Dict[str, Any]]]:
+    trace.used_union_fast_path = True
+    trace.union_fast_path_rows = len(union_rows)
     merged_rows: Dict[date, Dict[str, Any]] = {}
-    if not _try_merge_daily_history_union(
-        merged_rows,
-        metadata_items,
-        trace,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    ):
-        return None
+    _merge_daily_history_rows(merged_rows, union_rows)
     return merged_rows
 
 
@@ -1090,55 +953,7 @@ def _daily_history_rows_from_record_fallback(records: Sequence[Dict[str, Any]]) 
     ]
 
 
-def _load_table_daily_history_rows_with_record_fallback(
-    table_name: str,
-    resolved_columns: Dict[str, str],
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> List[Dict[str, Any]]:
-    try:
-        return _load_table_daily_history_rows_sql_path(
-            table_name,
-            resolved_columns,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-        )
-    except Exception:
-        return _load_table_daily_history_rows_record_fallback(
-            table_name,
-            resolved_columns,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-        )
-
-
-def _load_table_daily_history_rows_sql_path(
-    table_name: str,
-    resolved_columns: Dict[str, str],
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> List[Dict[str, Any]]:
-    return _load_daily_history_rows(
-        table_name,
-        resolved_columns,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    )
-
-
-def _load_table_daily_history_rows_record_fallback(
+def _load_table_daily_history_record_fallback(
     table_name: str,
     resolved_columns: Dict[str, str],
     *,
@@ -1158,31 +973,6 @@ def _load_table_daily_history_rows_record_fallback(
     return _daily_history_rows_from_record_fallback(fallback_records)
 
 
-def _merge_daily_history_per_table_fallback(
-    merged_rows: Dict[date, Dict[str, Any]],
-    metadata_items: Sequence[Dict[str, Any]],
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> None:
-    for metadata in metadata_items:
-        table_name = str(metadata.get("table_name") or "")
-        resolved_columns = metadata.get("resolved_columns") or {}
-        if not table_name:
-            continue
-        table_rows = _load_table_daily_history_rows_with_record_fallback(
-            table_name,
-            resolved_columns,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-        )
-        _merge_daily_history_rows(merged_rows, table_rows)
-
-
 def _load_daily_history_per_table_fallback(
     metadata_items: Sequence[Dict[str, Any]],
     *,
@@ -1192,92 +982,31 @@ def _load_daily_history_per_table_fallback(
     min_year: Optional[int],
 ) -> Dict[date, Dict[str, Any]]:
     merged_rows: Dict[date, Dict[str, Any]] = {}
-    _merge_daily_history_per_table_fallback(
-        merged_rows,
-        metadata_items,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    )
+    for metadata in metadata_items:
+        table_name = str(metadata.get("table_name") or "")
+        resolved_columns = metadata.get("resolved_columns") or {}
+        if not table_name:
+            continue
+        try:
+            table_rows = _load_daily_history_rows(
+                table_name,
+                resolved_columns,
+                district=district,
+                cause=cause,
+                object_category=object_category,
+                min_year=min_year,
+            )
+        except Exception:
+            table_rows = _load_table_daily_history_record_fallback(
+                table_name,
+                resolved_columns,
+                district=district,
+                cause=cause,
+                object_category=object_category,
+                min_year=min_year,
+            )
+        _merge_daily_history_rows(merged_rows, table_rows)
     return merged_rows
-
-
-def _merge_daily_history_fast_or_fallback(
-    metadata_items: Sequence[Dict[str, Any]],
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> tuple[Dict[date, Dict[str, Any]], _DailyHistoryLoadTrace]:
-    trace = _DailyHistoryLoadTrace()
-    merged_rows = _load_daily_history_from_union_path(
-        metadata_items,
-        trace,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    )
-    if merged_rows is not None:
-        return merged_rows, trace
-
-    return (
-        _load_daily_history_per_table_fallback(
-            metadata_items,
-            district=district,
-            cause=cause,
-            object_category=object_category,
-            min_year=min_year,
-        ),
-        trace,
-    )
-
-
-def _record_daily_history_result_trace(
-    history: List[Dict[str, Any]],
-    *,
-    perf: Any,
-    trace: _DailyHistoryLoadTrace,
-    table_count: int,
-    total_count: int,
-) -> None:
-    _record_daily_history_perf(
-        perf,
-        cache_hit=False,
-        trace=trace,
-        table_count=table_count,
-        row_count=len(history),
-        total_count=total_count,
-    )
-
-
-def _cache_daily_history_total_count(
-    count_cache_key: tuple[Any, ...],
-    history: List[Dict[str, Any]],
-) -> int:
-    total_count = _daily_history_total_count(history)
-    _FORECASTING_SQL_CACHE.set(count_cache_key, total_count)
-    return total_count
-
-
-def _load_dense_daily_history_with_trace(
-    metadata_items: Sequence[Dict[str, Any]],
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    min_year: Optional[int],
-) -> tuple[List[Dict[str, Any]], _DailyHistoryLoadTrace]:
-    merged_rows, trace = _merge_daily_history_fast_or_fallback(
-        metadata_items,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        min_year=min_year,
-    )
-    return _dense_daily_history_from_merged_rows(merged_rows), trace
 
 
 def _dense_daily_history_from_merged_rows(
@@ -1313,39 +1042,17 @@ def _cache_daily_history_result(
     trace: _DailyHistoryLoadTrace,
     table_count: int,
 ) -> List[Dict[str, Any]]:
-    total_count = _cache_daily_history_total_count(count_cache_key, history)
-    _record_daily_history_result_trace(
-        history,
-        perf=perf,
+    total_count = _daily_history_total_count(history)
+    _FORECASTING_SQL_CACHE.set(count_cache_key, total_count)
+    _record_daily_history_perf(
+        perf,
+        cache_hit=False,
         trace=trace,
         table_count=table_count,
+        row_count=len(history),
         total_count=total_count,
     )
     return _FORECASTING_SQL_CACHE.set(cache_key, history)
-
-
-def _build_daily_history_cache_context(
-    source_tables: Sequence[str],
-    history_window: str,
-    district: str,
-    cause: str,
-    object_category: str,
-) -> _DailyHistoryCacheContext:
-    perf = current_perf_trace()
-    normalized_tables = _canonicalize_source_tables(source_tables)[0]
-    cache_key, count_cache_key = _daily_history_cache_keys(
-        normalized_tables,
-        history_window,
-        district,
-        cause,
-        object_category,
-    )
-    return _DailyHistoryCacheContext(
-        perf=perf,
-        normalized_tables=normalized_tables,
-        cache_key=cache_key,
-        count_cache_key=count_cache_key,
-    )
 
 
 def _load_daily_history_uncached(
@@ -1362,64 +1069,25 @@ def _load_daily_history_uncached(
         history_window,
         metadata_items,
     )
-    history, trace = _load_dense_daily_history_with_trace(
+    trace = _DailyHistoryLoadTrace()
+    merged_rows = _load_daily_history_union_fast_path(
         local_metadata_items,
+        trace,
         district=district,
         cause=cause,
         object_category=object_category,
         min_year=min_year,
     )
+    if merged_rows is None:
+        merged_rows = _load_daily_history_per_table_fallback(
+            local_metadata_items,
+            district=district,
+            cause=cause,
+            object_category=object_category,
+            min_year=min_year,
+        )
+    history = _dense_daily_history_from_merged_rows(merged_rows)
     return history, trace, len(local_metadata_items)
-
-
-def _load_and_cache_daily_history(
-    cache_context: _DailyHistoryCacheContext,
-    history_window: str,
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    metadata_items: Optional[Sequence[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
-    history, trace, table_count = _load_daily_history_uncached(
-        cache_context.normalized_tables,
-        history_window,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        metadata_items=metadata_items,
-    )
-    return _cache_daily_history_result(
-        cache_context.cache_key,
-        cache_context.count_cache_key,
-        history,
-        perf=cache_context.perf,
-        trace=trace,
-        table_count=table_count,
-    )
-
-
-def _get_or_load_daily_history(
-    cache_context: _DailyHistoryCacheContext,
-    history_window: str,
-    *,
-    district: str,
-    cause: str,
-    object_category: str,
-    metadata_items: Optional[Sequence[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
-    cached_history = _lookup_daily_history_cache_context(cache_context)
-    if cached_history is not None:
-        return cached_history
-
-    return _load_and_cache_daily_history(
-        cache_context,
-        history_window,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        metadata_items=metadata_items,
-    )
 
 
 def _build_daily_history_sql(
@@ -1430,20 +1098,34 @@ def _build_daily_history_sql(
     object_category: str = "all",
     metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    cache_context = _build_daily_history_cache_context(
-        source_tables,
+    perf = current_perf_trace()
+    normalized_tables = _canonicalize_source_tables(source_tables)[0]
+    cache_key, count_cache_key = _daily_history_cache_keys(
+        normalized_tables,
         history_window,
         district,
         cause,
         object_category,
     )
-    return _get_or_load_daily_history(
-        cache_context,
+    cached_history = _lookup_daily_history_cache(cache_key, count_cache_key, perf)
+    if cached_history is not None:
+        return cached_history
+
+    history, trace, table_count = _load_daily_history_uncached(
+        normalized_tables,
         history_window,
         district=district,
         cause=cause,
         object_category=object_category,
         metadata_items=metadata_items,
+    )
+    return _cache_daily_history_result(
+        cache_key,
+        count_cache_key,
+        history,
+        perf=perf,
+        trace=trace,
+        table_count=table_count,
     )
 
 

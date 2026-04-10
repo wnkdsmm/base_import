@@ -1,18 +1,19 @@
 <section class="access-points-followup">
         <div class="access-points-inline-panels">
-            <article class="panel">
+            <article class="panel access-points-drivers-panel">
                 <div class="panel-head">
-                    <h2>Главные драйверы</h2>
-                    <span class="panel-meta">Какие explainable-факторы чаще всего поднимают точки вверх в рейтинге.</span>
+                    <h2>Главные драйверы риска</h2>
+                    <span class="panel-meta">Показывает, какие факторы чаще всего добавляют баллы и из-за чего точки поднимаются вверх в рейтинге.</span>
                 </div>
-                <div id="accessPointsReasonBreakdownShell" class="typology-grid">
+                <div id="accessPointsReasonBreakdownShell" class="reason-breakdown-grid">
                     {% if data.reason_breakdown %}
                         {% for item in data.reason_breakdown %}
-                        <article class="typology-card">
-                            <strong>{{ item.label }}</strong>
-                            <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
-                            <span>Средний вклад: {{ item.average_contribution_display }}</span>
-                            <span>Лидер: {{ item.lead_label }}</span>
+                        <article class="reason-breakdown-card">
+                            <span class="reason-breakdown-label">{{ item.label }}</span>
+                            <strong class="reason-breakdown-value">{{ item.count_display }}</strong>
+                            <span class="reason-breakdown-meta">{{ item.share_display }} точек попадают под этот фактор</span>
+                            <span class="reason-breakdown-meta">В среднем добавляет {{ item.average_contribution_display }} балла</span>
+                            <span class="reason-breakdown-foot">Характерный пример: {{ item.lead_label }}</span>
                         </article>
                         {% endfor %}
                     {% else %}

@@ -31,7 +31,7 @@
                 <span>Слова</span>
                 <input id="columnSearchQuery" name="query" type="text" value="{{ initial_query }}" placeholder="дети эвакуация причина адрес дата">
             </label>
-            <button id="columnSearchButton" class="primary-action column-search-submit" type="submit">Найти колонки</button>
+            <button id="columnSearchButton" class="primary-action column-search-submit column-search-button-compact" type="submit">Найти колонки</button>
         </form>
         <div id="columnSearchStatus" class="column-search-status">Сначала выберите таблицу. Поиск и тематические группы работают на одной странице.</div>
     </section>
@@ -53,9 +53,9 @@
                 <span id="columnSearchSelectionSummary" class="panel-meta">Выбрано колонок: 0 | Выбрано групп: 0</span>
             </div>
             <div class="column-builder-actions">
-                <button id="columnSearchSelectAll" class="secondary-action" type="button">Выбрать все найденные</button>
-                <button id="columnSearchClearSelection" class="secondary-action" type="button">Сбросить выбор</button>
-                <button id="columnSearchCreateTable" class="primary-action" type="button">Создать modify_*</button>
+                <button id="columnSearchSelectAll" class="secondary-action column-search-button-compact" type="button">Выбрать все найденные</button>
+                <button id="columnSearchClearSelection" class="secondary-action column-search-button-compact" type="button">Сбросить выбор</button>
+                <button id="columnSearchCreateTable" class="primary-action column-search-button-compact" type="button">Создать modify_*</button>
             </div>
             <div id="columnSearchMatches" class="column-match-list">
                 <div class="mini-empty">После поиска здесь появятся найденные колонки.</div>

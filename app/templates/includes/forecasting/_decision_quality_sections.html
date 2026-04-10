@@ -1,164 +1,86 @@
-<article id="qualityPassportPanel" class="panel quality-passport-panel">
+            <article class="panel ranking-panel risk-decision-panel-wide">
                 <div class="panel-head">
-                    <div>
-                        <h2>Можно ли доверять рекомендации и почему</h2>
-                        <span class="panel-meta">Что показывает блок: насколько надежен именно территориальный приоритет и каких данных ему не хватает.</span>
-                    </div>
-                    <span id="forecastValidationBadge" class="forecast-badge risk-badge tone-{{ passport.confidence_tone | default('fire') }}">{{ passport.validation_label }}</span>
+                    <h2>Что важно знать о блоке поддержки решений</h2>
+                    <span class="panel-meta">Что показывает блок: границы между календарем по дням, ML-количеством и территориальным приоритетом.</span>
                 </div>
-                <div class="quality-passport-grid">
-                    <article id="forecastQualityScoreCard" class="quality-score-card tone-{{ passport.confidence_tone | default('fire') }}">
-                        <span class="quality-score-label">Уровень доверия</span>
-                        <strong id="forecastQualityScore">{{ passport.confidence_score_display | default('0 / 100') }}</strong>
-                        <span id="forecastQualityLabel">{{ passport.confidence_label | default('Ограниченная') }}</span>
-                    </article>
-                    <div class="quality-summary-grid">
-                        <article class="quality-stat-card">
-                            <span>Всего таблиц</span>
-                            <strong id="forecastQualityTables">{{ passport.table_count_display | default('0') }}</strong>
-                        </article>
-                        <article class="quality-stat-card">
-                            <span>Использовано</span>
-                            <strong id="forecastQualityUsed">{{ passport.used_count_display | default('0') }}</strong>
-                        </article>
-                        <article class="quality-stat-card">
-                            <span>Частично использовано</span>
-                            <strong id="forecastQualityPartial">{{ passport.partial_count_display | default('0') }}</strong>
-                        </article>
-                        <article class="quality-stat-card">
-                            <span>Не хватило</span>
-                            <strong id="forecastQualityMissing">{{ passport.missing_count_display | default('0') }}</strong>
-                        </article>
-                    </div>
-                </div>
-                <p id="forecastQualitySummary" class="quality-summary-text">{{ passport.validation_summary | default('Паспорт качества появится после расчёта.') }}</p>
-                <ul id="forecastQualityNotes" class="notice-list forecast-note-list">
-                    {% if passport.reliability_notes %}
-                        {% for note in passport.reliability_notes %}
+                <ul id="forecastRiskNotes" class="notice-list forecast-note-list">
+                    {% if risk.notes %}
+                        {% for note in risk.notes %}
                         <li>{{ note }}</li>
                         {% endfor %}
                     {% else %}
-                    <li>Паспорт качества появится после расчёта.</li>
-                    {% endif %}
-                    {% if passport.critical_gaps %}
-                    <li>Нужно усилить: {{ passport.critical_gaps | join(', ') }}.</li>
+                    <li>После расчёта здесь появятся примечания по блоку поддержки решений.</li>
                     {% endif %}
                 </ul>
             </article>
 
-            <article class="panel">
-                <div class="panel-head">
-                    <div>
-                        <h2>Почему территория поднялась вверх в приоритете</h2>
-                        <span class="panel-meta">Что показывает блок: какие компоненты поднимают территорию вверх или вниз в списке приоритета.</span>
+            <div class="risk-decision-grid">
+                <article class="panel">
+                    <div class="panel-head">
+                        <div>
+                            <h2>Почему территория поднялась вверх в приоритете</h2>
+                            <span class="panel-meta">Что показывает блок: какие компоненты поднимают территорию вверх или вниз в списке приоритета.</span>
+                        </div>
+                        <span id="forecastWeightModeBadge" class="forecast-badge risk-badge tone-{{ risk.weight_profile.status_tone | default('forest') }}">{{ risk.weight_profile.status_label | default('Активный профиль') }}</span>
                     </div>
-                    <span id="forecastWeightModeBadge" class="forecast-badge risk-badge tone-{{ risk.weight_profile.status_tone | default('forest') }}">{{ risk.weight_profile.status_label | default('Активный профиль') }}</span>
-                </div>
-                <p id="forecastWeightProfileDescription" class="quality-summary-text">{{ risk.weight_profile.description | default('После расчета здесь появится прозрачная схема компонентных весов.') }}</p>
-                <div id="forecastWeightProfileCards" class="risk-weight-grid">
-                    {% if risk.weight_profile.components %}
-                        {% for item in risk.weight_profile.components %}
-                        <article class="risk-weight-card">
-                            <div class="risk-weight-head">
-                                <strong>{{ item.label }}</strong>
-                                <span>{{ item.current_weight_display }}</span>
-                            </div>
-                            <p>{{ item.description }}</p>
-                            <div class="risk-weight-meta">
-                                <span>Эксперт: <strong>{{ item.expert_weight_display }}</strong></span>
-                                <span>Текущий: <strong>{{ item.current_weight_display }}</strong></span>
-                                <span>Калибровка: <strong>{{ item.calibration_shift_display }}</strong></span>
-                                <span>Сельский контур: <strong>{{ item.rural_weight_display }}</strong></span>
-                            </div>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Компоненты и веса появятся после расчета.</div>
-                    {% endif %}
-                </div>
-                <ul id="forecastWeightProfileNotes" class="notice-list forecast-note-list">
-                    {% if risk.weight_profile.notes %}
-                        {% for note in risk.weight_profile.notes %}
-                        <li>{{ note }}</li>
-                        {% endfor %}
-                    {% else %}
-                    <li>После расчета здесь появятся пояснения по профилю весов.</li>
-                    {% endif %}
-                    {% if risk.weight_profile.calibration_notes %}
-                        {% for note in risk.weight_profile.calibration_notes %}
-                        <li>{{ note }}</li>
-                        {% endfor %}
-                    {% endif %}
-                </ul>
-            </article>
-
-            <article class="panel">
-                <div class="panel-head">
-                    <div>
-                        <h2>{{ risk.historical_validation.title | default('Насколько ранжирование работает на истории') }}</h2>
-                        <span class="panel-meta">Что показывает блок: насколько ранжирование территорий подтверждалось на прошлых исторических окнах.</span>
+                    <p id="forecastWeightProfileDescription" class="quality-summary-text">{{ risk.weight_profile.description | default('После расчета здесь появится прозрачная схема компонентных весов.') }}</p>
+                    <div id="forecastWeightProfileCards" class="risk-weight-grid">
+                        {% if risk.weight_profile.components %}
+                            {% for item in risk.weight_profile.components %}
+                            <article class="risk-weight-card">
+                                <div class="risk-weight-head">
+                                    <strong>{{ item.label }}</strong>
+                                    <span>{{ item.current_weight_display }}</span>
+                                </div>
+                                <p>{{ item.description }}</p>
+                                <div class="risk-weight-meta">
+                                    <span>Эксперт: <strong>{{ item.expert_weight_display }}</strong></span>
+                                    <span>Текущий: <strong>{{ item.current_weight_display }}</strong></span>
+                                    <span>Калибровка: <strong>{{ item.calibration_shift_display }}</strong></span>
+                                    <span>Сельский контур: <strong>{{ item.rural_weight_display }}</strong></span>
+                                </div>
+                            </article>
+                            {% endfor %}
+                        {% else %}
+                        <div class="mini-empty">Компоненты и веса появятся после расчета.</div>
+                        {% endif %}
                     </div>
-                    <span id="forecastHistoryValidationBadge" class="forecast-badge risk-badge tone-{{ risk.historical_validation.status_tone | default('fire') }}">{{ risk.historical_validation.status_label | default('Пока без проверки') }}</span>
-                </div>
-                <p id="forecastValidationSummary" class="quality-summary-text">{{ risk.historical_validation.summary | default('После расчёта здесь появится заготовка под историческую проверку ранжирования.') }}</p>
-                <div id="forecastValidationCards" class="quality-summary-grid">
-                    {% if risk.historical_validation.metric_cards %}
-                        {% for item in risk.historical_validation.metric_cards %}
-                        <article class="quality-stat-card">
-                            <span>{{ item.label }}</span>
-                            <strong>{{ item.value }}</strong>
-                            <small>{{ item.meta }}</small>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Метрики проверки появятся после расчета.</div>
-                    {% endif %}
-                </div>
-                <div id="forecastValidationWindows" class="risk-mini-list risk-mini-list-tight">
-                    {% if risk.historical_validation.recent_windows %}
-                        {% for item in risk.historical_validation.recent_windows %}
-                        <article class="risk-mini-card">
-                            <div class="risk-mini-head">
-                                <strong>{{ item.label }}</strong>
-                                <span>{{ item.risk_display }}</span>
-                            </div>
-                            <p>{{ item.meta }}</p>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Исторические окна появятся после расчета.</div>
-                    {% endif %}
-                </div>
-                <ul id="forecastValidationNotes" class="notice-list forecast-note-list">
-                    {% if risk.historical_validation.notes %}
-                        {% for note in risk.historical_validation.notes %}
-                        <li>{{ note }}</li>
-                        {% endfor %}
-                    {% else %}
-                    <li>После расчёта здесь появятся примечания по исторической проверке ранжирования.</li>
-                    {% endif %}
-                </ul>
-            </article>
+                    <ul id="forecastWeightProfileNotes" class="notice-list forecast-note-list">
+                        {% if risk.weight_profile.notes %}
+                            {% for note in risk.weight_profile.notes %}
+                            <li>{{ note }}</li>
+                            {% endfor %}
+                        {% else %}
+                        <li>После расчета здесь появятся пояснения по профилю весов.</li>
+                        {% endif %}
+                        {% if risk.weight_profile.calibration_notes %}
+                            {% for note in risk.weight_profile.calibration_notes %}
+                            <li>{{ note }}</li>
+                            {% endfor %}
+                        {% endif %}
+                    </ul>
+                </article>
 
-            <article class="panel">
-                <div class="panel-head">
-                    <h2>Какие данные реально учтены</h2>
-                    <span class="panel-meta">Что показывает блок: какие данные вошли в расчет итогового балла территории.</span>
-                </div>
-                <div id="forecastFeatureCards" class="forecast-feature-list risk-feature-list">
-                    {% if risk.feature_cards %}
-                        {% for item in risk.feature_cards %}
-                        <article class="forecast-feature-card status-{{ item.status }}">
-                            <div class="forecast-feature-head">
-                                <strong>{{ item.label }}</strong>
-                                <span class="forecast-badge">{{ item.status_label }}</span>
-                            </div>
-                            <p>{{ item.description }}</p>
-                            <div class="forecast-feature-source">{{ item.source }}</div>
-                        </article>
-                        {% endfor %}
-                    {% else %}
-                    <div class="mini-empty">Список признаков появится после расчета.</div>
-                    {% endif %}
-                </div>
-            </article>
+                <article class="panel">
+                    <div class="panel-head">
+                        <h2>Какие данные реально учтены</h2>
+                        <span class="panel-meta">Что показывает блок: какие данные вошли в расчет итогового балла территории.</span>
+                    </div>
+                    <div id="forecastFeatureCards" class="forecast-feature-list risk-feature-list">
+                        {% if risk.feature_cards %}
+                            {% for item in risk.feature_cards %}
+                            <article class="forecast-feature-card status-{{ item.status }}">
+                                <div class="forecast-feature-head">
+                                    <strong>{{ item.label }}</strong>
+                                    <span class="forecast-badge">{{ item.status_label }}</span>
+                                </div>
+                                <p>{{ item.description }}</p>
+                                <div class="forecast-feature-source">{{ item.source }}</div>
+                            </article>
+                            {% endfor %}
+                        {% else %}
+                        <div class="mini-empty">Список признаков появится после расчета.</div>
+                        {% endif %}
+                    </div>
+                </article>
+            </div>

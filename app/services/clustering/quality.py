@@ -11,33 +11,9 @@ from .constants import (
 from .utils import _format_integer, _format_number, _format_percent
 
 __all__ = [
-    "_apply_cluster_count_adjustment_warning",
-    "_build_ablation_warning_note",
     "_build_cluster_count_guidance",
-    "_build_cluster_count_guidance_context",
-    "_build_cluster_count_methodology_meta",
-    "_build_cluster_count_recommendation_context",
-    "_build_cluster_shape_note",
     "_build_clustering_quality_assessment",
-    "_build_configuration_recommendation_note",
-    "_build_feature_selection_quality_label_context",
-    "_build_method_comparison_scope_note",
-    "_build_method_recommendation_note",
-    "_build_quality_dissertation_points",
-    "_build_quality_method_comparison_rows",
-    "_build_quality_methodology_items",
-    "_build_quality_metric_cards",
-    "_build_quality_note_context",
-    "_build_stability_note",
-    "_cluster_count_suggested_label",
     "_empty_clustering_quality_assessment",
-    "_format_configuration_label",
-    "_format_quality_method_selection_label",
-    "_initial_cluster_count_recommendation_messages",
-    "_recommended_cluster_count_messages",
-    "_resolve_method_algorithm_key",
-    "_resolve_quality_configuration_context",
-    "_summarize_segmentation_strength",
 ]
 
 
@@ -55,7 +31,7 @@ def _empty_clustering_quality_assessment() -> Dict[str, Any]:
     return {
         "ready": False,
         "title": "Оценка качества кластеризации",
-        "subtitle": "После расчета здесь появятся метрики качества, устойчивость на повторных подвыборках и сравнение алгоритмов.",
+        "subtitle": "После расчета здесь появится понятная сводка: насколько группы различаются, насколько результат устойчив и какая настройка выглядит лучшей.",
         "metric_cards": [],
         "methodology_items": [],
         "comparison_rows": [],
@@ -80,7 +56,10 @@ def _build_configuration_recommendation_note(
             f"На пользовательском k текущий вывод использует лучшую сопоставимую конфигурацию {working_label}, "
             f"но по всему доступному диапазону убедительнее выглядит {recommended_label}."
         )
-    return f"Рабочий вывод построен по конфигурации {working_label}, а recommendation engine выбирает {recommended_label}."
+    return (
+        f"Сейчас страница построена по конфигурации {working_label}, "
+        f"но по всему доступному диапазону лучше выглядит {recommended_label}."
+    )
 
 
 def _resolve_quality_configuration_context(
@@ -103,11 +82,9 @@ def _resolve_quality_configuration_context(
         or {**dict(recommended_row or {}), "cluster_count": recommended_k}
     )
     return {
-        "recommended_configuration": recommended_configuration,
         "recommended_k": recommended_k,
         "best_silhouette_k": diagnostics.get("best_silhouette_k"),
         "selected_method": selected_method,
-        "recommended_row": recommended_row,
         "working_configuration": working_configuration,
         "effective_recommended_configuration": effective_recommended_configuration,
         "recommended_method": effective_recommended_configuration or recommended_row or selected_method,
@@ -139,8 +116,8 @@ def _build_ablation_warning_note(ablation_rows: Sequence[Dict[str, Any]]) -> str
 
     worst_feature = min(negative_adds, key=lambda item: float(item.get("delta_score") or 0.0))
     return (
-        f"В малом ablation-анализе признак '{worst_feature['feature']}' не вошёл в default feature set, "
-        "потому что его добавление ухудшало качество кластеризации."
+        f"В пробном сравнении признаков колонка '{worst_feature['feature']}' не вошла в итоговый набор, "
+        "потому что с ней кластеры разделялись хуже."
     )
 
 
@@ -193,17 +170,21 @@ def _build_quality_dissertation_points(
         method_note,
         str(cluster_count_guidance.get("quality_note") or ""),
         (
-            f"Рекомендуемая конфигурация по совокупности метрик: {recommended_config_label}."
+            f"Если смотреть на весь доступный диапазон настроек, лучшей выглядит конфигурация {recommended_config_label}."
             if recommended_config_label != working_config_label
-            else f"Рабочая конфигурация {working_config_label} уже совпадает с recommendation engine."
+            else f"Текущая конфигурация {working_config_label} уже совпадает с лучшей найденной."
         ),
         (
-            f"Пик silhouette отдельно приходится на k={_format_integer(best_silhouette_k)}, поэтому выбор k лучше читать вместе с балансом кластеров и риском микрокластеров."
+            f"По чёткости границ лучший результат отдельно даёт k={_format_integer(best_silhouette_k)}, "
+            "но итоговое число групп всё равно выбирается вместе с проверкой баланса размеров."
             if recommended_k and best_silhouette_k and recommended_k != best_silhouette_k
-            else "Silhouette, баланс и размеры кластеров не дают заметного конфликта по выбору k."
+            else "Основные показатели качества не спорят между собой по выбору числа групп."
         ),
         stability_note,
-        f"{low_support_display} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему: вместо raw 0/1 к доле добавляются около {int(RATE_SMOOTHING_PRIOR_STRENGTH)} псевдо-наблюдений из общего профиля.",
+        (
+            f"У {low_support_display} территорий пожаров немного, поэтому их долевые показатели слегка "
+            "подтянуты к общему уровню, чтобы единичные случаи не искажали разбиение."
+        ),
         f"Сравнение методов выполнено на том же наборе признаков: {', '.join(selected_features)}.",
     ]
     if comparison_scope_note:
@@ -258,52 +239,97 @@ def _build_quality_note_context(
 
 def _build_quality_metric_cards(clustering: Dict[str, Any], resample_share_label: str) -> List[Dict[str, Any]]:
     return [
-        {"label": "Коэффициент силуэта", "value": _format_number(clustering.get("silhouette"), 3), "meta": "выше — лучше"},
-        {"label": "Индекс Дэвиса-Болдина", "value": _format_number(clustering.get("davies_bouldin"), 3), "meta": "ниже - лучше"},
-        {"label": "Индекс Калински-Харабаза", "value": _format_number(clustering.get("calinski_harabasz"), 1), "meta": "выше - лучше"},
         {
-            "label": "Баланс кластеров",
-            "value": _format_percent(clustering.get("cluster_balance_ratio") or 0.0),
-            "meta": f"min/max: {_format_integer(clustering.get('smallest_cluster_size'))} / {_format_integer(clustering.get('largest_cluster_size'))}",
+            "label": "Насколько кластеры отделены",
+            "value": _format_number(clustering.get("silhouette"), 3),
+            "meta": "Чем выше значение, тем заметнее границы между группами",
         },
-        {"label": "Устойчивость на подвыборках", "value": _format_number(clustering.get("stability_ari"), 3), "meta": f"повторные {resample_share_label}-подвыборки"},
+        {
+            "label": "Насколько кластеры смешиваются",
+            "value": _format_number(clustering.get("davies_bouldin"), 3),
+            "meta": "Чем ниже значение, тем меньше соседние группы заходят друг в друга",
+        },
+        {
+            "label": "Насколько группы собраны плотно",
+            "value": _format_number(clustering.get("calinski_harabasz"), 1),
+            "meta": "Чем выше значение, тем собраннее территории внутри своих групп",
+        },
+        {
+            "label": "Насколько группы равномерны",
+            "value": _format_percent(clustering.get("cluster_balance_ratio") or 0.0),
+            "meta": (
+                f"Размер самой маленькой и самой большой группы: "
+                f"{_format_integer(clustering.get('smallest_cluster_size'))} / "
+                f"{_format_integer(clustering.get('largest_cluster_size'))}"
+            ),
+        },
+        {
+            "label": "Насколько результат повторяется",
+            "value": _format_number(clustering.get("stability_ari"), 3),
+            "meta": f"Проверено на повторных {resample_share_label}-подвыборках",
+        },
     ]
 
 
 def _build_quality_methodology_items(
     *,
-    cluster_count: int,
     selected_features: Sequence[str],
     selected_method: Dict[str, Any] | None,
-    recommended_method: Dict[str, Any],
     working_config_label: str,
     recommended_config_label: str,
     segmentation_label: str,
     mode_label: str,
     weighting_label: str,
     weighting_meta: str,
-    cluster_count_guidance: Dict[str, Any],
     low_support_display: str,
     explained_variance: Any,
-    cluster_count_is_explicit: bool,
 ) -> List[Dict[str, Any]]:
     return [
-        {"label": "Рабочая конфигурация", "value": working_config_label, "meta": "по ней построены текущие кластеры на странице"},
-        {"label": "Рекомендуемая конфигурация", "value": recommended_config_label, "meta": "лучший bundle mode / weighting / method / k в доступном диапазоне"},
-        {"label": "Режим выбора k", "value": "Пользовательский k" if cluster_count_is_explicit else "Автовыбор", "meta": str(cluster_count_guidance.get("current_note") or "")},
-        {"label": "Рабочий метод", "value": str((selected_method or {}).get("method_label") or "KMeans"), "meta": "лучший метод среди сопоставимых вариантов на текущем k"},
-        {"label": "Рекомендация по методу", "value": str((recommended_method or {}).get("method_label") or "KMeans"), "meta": "какой алгоритм выигрывает в рекомендуемой конфигурации"},
-        {"label": "Сила сегментации", "value": segmentation_label, "meta": "сводная оценка по silhouette / DB / устойчивости / размерам кластеров"},
-        {"label": "Режим типологии", "value": mode_label, "meta": "что именно кластеризуется по умолчанию"},
-        {"label": "Весы территорий", "value": weighting_label, "meta": weighting_meta or "как нагрузка влияет на центры или почему sample weights не используются"},
         {
-            "label": "Число кластеров",
-            "value": _format_integer(cluster_count),
-            "meta": str(cluster_count_guidance.get("methodology_meta") or f"диагностика ограничена диапазоном {CLUSTER_COUNT_OPTIONS[0]}..{CLUSTER_COUNT_OPTIONS[-1]}, как в UI"),
+            "label": "Текущая настройка",
+            "value": working_config_label,
+            "meta": "Именно по этой настройке построены кластеры на странице",
         },
-        {"label": "Признаков", "value": _format_integer(len(selected_features)), "meta": "выбраны по малому ablation-анализу и вкладу в silhouette / DB / CH"},
-        {"label": "Низкая поддержка", "value": low_support_display, "meta": f"территории с ≤{LOW_SUPPORT_TERRITORY_THRESHOLD} пожарами сглажены к общему уровню"},
-        {"label": "Покрытие PCA", "value": _format_percent(explained_variance or 0.0), "meta": "доля дисперсии на 2D-проекции"},
+        {
+            "label": "Лучшая найденная настройка",
+            "value": recommended_config_label,
+            "meta": "Лучшая комбинация режима, весов, метода и числа кластеров в доступном диапазоне",
+        },
+        {
+            "label": "Метод сейчас",
+            "value": str((selected_method or {}).get("method_label") or "KMeans"),
+            "meta": "Лучший среди сопоставимых вариантов при текущем числе групп",
+        },
+        {
+            "label": "Насколько кластеры различимы",
+            "value": segmentation_label,
+            "meta": "Итоговая оценка по разделению групп, устойчивости и их размерам",
+        },
+        {
+            "label": "Что именно кластеризуем",
+            "value": mode_label,
+            "meta": "Какой профиль территории сравнивается по умолчанию",
+        },
+        {
+            "label": "Как учитывается нагрузка",
+            "value": weighting_label,
+            "meta": weighting_meta or "Показывает, влияет ли число пожаров на положение территории в кластере",
+        },
+        {
+            "label": "Сколько признаков вошло в расчёт",
+            "value": _format_integer(len(selected_features)),
+            "meta": "Отобраны потому, что на текущем срезе лучше разделяют территории",
+        },
+        {
+            "label": "Территории с короткой историей",
+            "value": low_support_display,
+            "meta": f"Для территорий с ≤{LOW_SUPPORT_TERRITORY_THRESHOLD} пожарами значения сглажены, чтобы убрать шум",
+        },
+        {
+            "label": "Насколько 2D-карта отражает картину",
+            "value": _format_percent(explained_variance or 0.0),
+            "meta": "Сколько общей картины сохраняется, когда данные сводим к плоской карте",
+        },
     ]
 
 
@@ -391,23 +417,19 @@ def _build_clustering_quality_assessment(
     return {
         "ready": True,
         "title": "Оценка качества кластеризации",
-        "subtitle": "Ниже собраны честная оценка силы сегментации, устойчивость на повторных подвыборках и recommendation engine по конфигурации mode / weighting / method / k.",
+        "subtitle": "Ниже показано, насколько группы действительно различаются, насколько результат устойчив при повторном расчете и какая настройка кластеризации выглядит лучшей.",
         "metric_cards": _build_quality_metric_cards(clustering, resample_share_label),
         "methodology_items": _build_quality_methodology_items(
-            cluster_count=cluster_count,
             selected_features=selected_features,
             selected_method=selected_method,
-            recommended_method=recommended_method,
             working_config_label=working_config_label,
             recommended_config_label=recommended_config_label,
             segmentation_label=segmentation_summary["label"],
             mode_label=mode_label,
             weighting_label=weighting_label,
             weighting_meta=weighting_meta,
-            cluster_count_guidance=cluster_count_guidance,
             low_support_display=low_support_display,
             explained_variance=clustering.get("explained_variance"),
-            cluster_count_is_explicit=cluster_count_is_explicit,
         ),
         "comparison_rows": comparison_rows,
         "dissertation_points": dissertation_points,
@@ -448,7 +470,7 @@ def _build_cluster_count_guidance_context(
 
 
 def _cluster_count_suggested_label(cluster_count_is_explicit: bool) -> str:
-    return "Автовыбор k" if not cluster_count_is_explicit else "Рекомендуемый k"
+    return "Автоматический выбор" if not cluster_count_is_explicit else "Рекомендуемое значение"
 
 
 def _initial_cluster_count_recommendation_messages(
@@ -458,8 +480,8 @@ def _initial_cluster_count_recommendation_messages(
 ) -> Dict[str, str]:
     return {
         "suggested_label": _cluster_count_suggested_label(cluster_count_is_explicit),
-        "suggested_note": "Диагностика k появится, когда хватит данных для сравнения нескольких вариантов.",
-        "current_note": f"Сейчас основной вывод показан для k={_format_integer(current_cluster_count)}.",
+        "suggested_note": "Рекомендация по числу групп появится, когда хватит данных для сравнения нескольких вариантов.",
+        "current_note": f"Сейчас страница показывает {current_cluster_count} группы.",
         "quality_note": "",
         "notes_message": "",
         "model_note": "",
@@ -479,46 +501,46 @@ def _recommended_cluster_count_messages(
 
     if cluster_count_is_explicit and recommendation_gap:
         quality_note = (
-            f"Пользовательский k={_format_integer(current_cluster_count)} не совпадает с рекомендацией diagnostics; "
+            f"Выбранное вручную число групп ({_format_integer(current_cluster_count)}) не совпадает с рекомендацией; "
             f"по совокупности метрик лучше выглядит k={_format_integer(recommended_k)}."
         )
         return {
             "suggested_note": (
-                f"Диагностика рекомендует k={_format_integer(recommended_k)}; "
-                f"сейчас сохранён пользовательский k={_format_integer(current_cluster_count)}."
+                f"Диагностика рекомендует {recommended_k} группы, "
+                f"но сейчас сохранено выбранное вручную значение: {current_cluster_count}."
             ),
             "current_note": (
-                f"Сейчас показан пользовательский k={_format_integer(current_cluster_count)}; "
-                f"диагностика рекомендует k={_format_integer(recommended_k)}."
+                f"Сейчас используется выбранное вручную значение: {current_cluster_count} группы; "
+                f"диагностика советует {recommended_k}."
             ),
             "quality_note": quality_note,
             "model_note": (
-                f"Пользователь зафиксировал k={_format_integer(current_cluster_count)}, "
-                "поэтому страница не переключает число кластеров автоматически."
+                f"Число групп зафиксировано вручную на уровне {current_cluster_count}, "
+                "поэтому страница не переключает его автоматически."
             ),
             "notes_message": quality_note,
         }
 
     if cluster_count_is_explicit:
-        quality_note = f"Пользовательский k={_format_integer(current_cluster_count)} согласован с recommendation engine."
+        quality_note = f"Выбранное вручную число групп ({_format_integer(current_cluster_count)}) совпадает с рекомендацией."
         return {
-            "suggested_note": f"Диагностика подтверждает пользовательский k={_format_integer(current_cluster_count)}.",
-            "current_note": f"Пользовательский k={_format_integer(current_cluster_count)} совпадает с рекомендацией диагностики.",
+            "suggested_note": f"Диагностика подтверждает выбранное вручную значение: {current_cluster_count} группы.",
+            "current_note": f"Сейчас используется выбранное вручную значение: {current_cluster_count} группы, и оно совпадает с рекомендацией.",
             "quality_note": quality_note,
-            "model_note": f"Пользовательский k={_format_integer(current_cluster_count)} совпадает с рекомендуемым значением.",
+            "model_note": f"Число групп задано вручную: {current_cluster_count}. Это же значение рекомендует диагностика.",
             "notes_message": quality_note,
         }
 
-    suggested_note = f"Автовыбор использует k={_format_integer(current_cluster_count)} как лучший вариант по совокупности метрик."
+    suggested_note = f"Автоматический выбор использует {current_cluster_count} группы как лучший вариант по совокупности метрик."
     if auto_switched_to_recommended:
         quality_note = (
-            "Рабочий вывод автоматически синхронизирован с recommendation engine: "
+            "Страница автоматически подстроила число групп под рекомендацию диагностики: "
             f"вместо стартового k={_format_integer(adjusted_requested_cluster_count)} "
-            f"показан k={_format_integer(current_cluster_count)}."
+            f"используется k={_format_integer(current_cluster_count)}."
         )
         model_note = (
-            f"По умолчанию страница показывает рекомендуемый k={_format_integer(current_cluster_count)} "
-            f"вместо стартового k={_format_integer(adjusted_requested_cluster_count)}."
+            f"По умолчанию страница показывает рекомендованное число групп: {current_cluster_count} "
+            f"вместо стартового {adjusted_requested_cluster_count}."
         )
         return {
             "suggested_note": suggested_note,
@@ -529,10 +551,10 @@ def _recommended_cluster_count_messages(
         }
 
     quality_note = (
-        "Рабочий вывод уже синхронизирован с recommendation engine "
-        f"по числу кластеров: k={_format_integer(current_cluster_count)}."
+        "Текущее число групп уже совпадает с рекомендацией диагностики: "
+        f"k={_format_integer(current_cluster_count)}."
     )
-    model_note = f"По умолчанию страница показывает рекомендуемый k={_format_integer(current_cluster_count)}."
+    model_note = f"По умолчанию страница показывает рекомендованное число групп: {current_cluster_count}."
     return {
         "suggested_note": suggested_note,
         "current_note": model_note,
@@ -579,8 +601,8 @@ def _apply_cluster_count_adjustment_warning(
     quality_note = adjusted["quality_note"]
     model_note = adjusted["model_note"]
     adjustment_note = (
-        f"Запрошенное значение k={_format_integer(requested_cluster_count)} автоматически скорректировано до "
-        f"k={_format_integer(adjusted_requested_cluster_count)} из-за ограничений выбранной выборки."
+        f"Запрошенное число групп ({_format_integer(requested_cluster_count)}) автоматически скорректировано до "
+        f"{_format_integer(adjusted_requested_cluster_count)} из-за ограничений текущей выборки."
     )
     adjusted["current_note"] = adjustment_note if not current_note else f"{adjustment_note} {current_note}".strip()
     adjusted["suggested_note"] = f"{adjustment_note} {suggested_note}".strip()
@@ -588,36 +610,6 @@ def _apply_cluster_count_adjustment_warning(
     adjusted["model_note"] = adjustment_note if not model_note else f"{adjustment_note} {model_note}".strip()
     adjusted["notes_message"] = adjusted["quality_note"]
     return adjusted
-
-
-def _build_cluster_count_methodology_meta(
-    context: Dict[str, Any],
-    *,
-    cluster_count_is_explicit: bool,
-) -> str:
-    recommended_k = context["recommended_k"]
-    best_silhouette_k = context["best_silhouette_k"]
-    requested_cluster_count = context["requested_cluster_count"]
-    adjusted_requested_cluster_count = context["adjusted_requested_cluster_count"]
-    current_cluster_count = context["current_cluster_count"]
-    request_adjusted = context["request_adjusted"]
-    auto_switched_to_recommended = context["auto_switched_to_recommended"]
-    meta_parts = [
-        f"{'пользовательский' if cluster_count_is_explicit else 'рабочий'} k={_format_integer(current_cluster_count)}"
-    ]
-    if request_adjusted:
-        meta_parts.append(f"запрошено k={_format_integer(requested_cluster_count)}")
-    elif auto_switched_to_recommended:
-        meta_parts.append(f"стартовый k={_format_integer(adjusted_requested_cluster_count)}")
-    if recommended_k:
-        meta_parts.append(f"рекомендуемое k={_format_integer(recommended_k)}")
-    if best_silhouette_k:
-        meta_parts.append(f"пик silhouette на k={_format_integer(best_silhouette_k)}")
-    if not recommended_k and not best_silhouette_k:
-        meta_parts.append(
-            f"диагностика ограничена диапазоном {CLUSTER_COUNT_OPTIONS[0]}..{CLUSTER_COUNT_OPTIONS[-1]}, как в UI"
-        )
-    return "; ".join(meta_parts)
 
 
 def _build_cluster_count_guidance(
@@ -643,10 +635,6 @@ def _build_cluster_count_guidance(
     best_silhouette_k = guidance_context["best_silhouette_k"]
     recommendation_gap = guidance_context["recommendation_gap"]
     request_adjusted = guidance_context["request_adjusted"]
-    methodology_meta = _build_cluster_count_methodology_meta(
-        guidance_context,
-        cluster_count_is_explicit=cluster_count_is_explicit,
-    )
     return {
         "recommended_cluster_count": recommended_k,
         "best_silhouette_k": best_silhouette_k,
@@ -658,7 +646,6 @@ def _build_cluster_count_guidance(
         "quality_note": recommendation_context["quality_note"],
         "notes_message": recommendation_context["notes_message"],
         "model_note": recommendation_context["model_note"],
-        "methodology_meta": methodology_meta,
     }
 
 
@@ -726,17 +713,22 @@ def _build_stability_note(clustering: Dict[str, Any], resample_share_label: str)
     if stability_ari is None:
         return "Оценить устойчивость на повторных подвыборках не удалось: в текущем срезе слишком мало территорий для надёжного сравнения пересэмплов."
     if initialization_ari is None:
-        return f"Устойчивость ARI = {_format_number(stability_ari, 3)} считается на повторных {resample_share_label}-подвыборках, а не только на смене random_state."
+        return (
+            f"Проверка на повторных {resample_share_label}-подвыборках дала "
+            f"{_format_number(stability_ari, 3)}: так видно, насколько результат повторяется не только на тех же данных."
+        )
 
     gap = float(initialization_ari) - float(stability_ari)
     if gap >= 0.15:
         return (
-            f"На одном и том же датасете KMeans почти не чувствителен к random_state (ARI {_format_number(initialization_ari, 3)}), "
-            f"но на повторных {resample_share_label}-подвыборках устойчивость заметно ниже (ARI {_format_number(stability_ari, 3)}), поэтому уверенность в сегментации не стоит завышать."
+            f"На одних и тех же данных разбиение почти не меняется ({_format_number(initialization_ari, 3)}), "
+            f"но на повторных {resample_share_label}-подвыборках устойчивость заметно ниже "
+            f"({_format_number(stability_ari, 3)}), поэтому результат чувствителен к составу выборки."
         )
     return (
-        f"Устойчивость на повторных {resample_share_label}-подвыборках составляет ARI {_format_number(stability_ari, 3)}; "
-        f"разница с проверкой только по random_state умеренная (ARI {_format_number(initialization_ari, 3)})."
+        f"На повторных {resample_share_label}-подвыборках устойчивость составляет "
+        f"{_format_number(stability_ari, 3)}; это близко к проверке на тех же данных "
+        f"({_format_number(initialization_ari, 3)})."
     )
 
 

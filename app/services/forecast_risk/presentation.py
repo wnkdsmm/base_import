@@ -5,6 +5,45 @@ from typing import Any, Dict, List, Sequence
 from .utils import _format_integer, _scan_columns
 
 
+def _table_scope_label(count: int) -> str:
+    count_display = _format_integer(count)
+    if count == 1:
+        return f"В {count_display} таблице"
+    return f"В {count_display} таблицах"
+
+
+def _compact_feature_sources(sources: Sequence[Dict[str, Any]]) -> str:
+    if not sources:
+        return "Не найдена"
+
+    grouped_sources: List[Dict[str, Any]] = []
+    for item in sources:
+        columns = tuple(item.get("columns") or ())
+        if not columns:
+            continue
+        matched_group = next((group for group in grouped_sources if group["columns"] == columns), None)
+        if matched_group is None:
+            grouped_sources.append({"columns": columns, "tables": [item.get("table_name") or "Таблица"]})
+            continue
+        matched_group["tables"].append(item.get("table_name") or "Таблица")
+
+    if not grouped_sources:
+        return "Не найдена"
+
+    parts: List[str] = []
+    for group in grouped_sources[:3]:
+        columns_text = ", ".join(group["columns"][:4])
+        tables = group["tables"]
+        if len(tables) == 1:
+            parts.append(f"{tables[0]}: {columns_text}")
+        else:
+            parts.append(f"{_table_scope_label(len(tables))}: {columns_text}")
+    remaining_groups = len(grouped_sources) - len(parts)
+    if remaining_groups > 0:
+        parts.append(f"ещё {_format_integer(remaining_groups)} набора")
+    return "; ".join(parts)
+
+
 def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not metadata_items:
         return []
@@ -89,7 +128,7 @@ def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[
     for feature in feature_config:
         full_tables = 0
         partial_tables = 0
-        sources: List[str] = []
+        sources: List[Dict[str, Any]] = []
         for item in metadata_items:
             found_columns: List[str] = []
             for key in feature.get("resolved_keys", []):
@@ -104,7 +143,12 @@ def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[
             elif found_columns:
                 partial_tables += 1
             if found_columns:
-                sources.append(f"{item['table_name']}: {', '.join(found_columns[:4])}")
+                sources.append(
+                    {
+                        "table_name": item["table_name"],
+                        "columns": found_columns[:4],
+                    }
+                )
         if full_tables == total_tables and total_tables > 0:
             status, status_label = ("used", "Используется")
         elif full_tables > 0 or partial_tables > 0:
@@ -117,7 +161,7 @@ def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[
                 "description": feature["description"],
                 "status": status,
                 "status_label": status_label,
-                "source": "; ".join(sources[:3]) if sources else "Не найдена",
+                "source": _compact_feature_sources(sources),
             }
         )
     return cards

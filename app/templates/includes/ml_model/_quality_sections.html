@@ -91,41 +91,4 @@
             </div>
         </div>
 
-        <div class="ml-table-shell">
-            <div class="panel-head">
-                <h2 id="mlEventTableTitle">{{ quality.event_table.title }}</h2>
-                <span class="panel-meta">Что показывает блок: насколько модель оценивает вероятность хотя бы одного пожара; это дополнительный индикатор, а не приоритет территорий.</span>
-            </div>
-            <div id="mlEventTableShell">
-                {% if quality.event_table.rows %}
-                <table class="forecast-table">
-                    <thead>
-                        <tr>
-                            <th>Метод</th>
-                            <th>Роль</th>
-                            <th>Показатель Брайера</th>
-                            <th>ROC-AUC</th>
-                            <th>F1</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in quality.event_table.rows %}
-                        <tr>
-                            <td data-label="Метод">{{ row.method_label }}</td>
-                            <td data-label="Роль">{{ row.role_label }}</td>
-                            <td data-label="Показатель Брайера">{{ row.brier_display }}</td>
-                            <td data-label="ROC-AUC">{{ row.roc_auc_display }}</td>
-                            <td data-label="F1">{{ row.f1_display }}</td>
-                            <td data-label="Статус">{{ row.selection_label }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="mini-empty">{{ quality.event_table.empty_message }}</div>
-                {% endif %}
-            </div>
-        </div>
-
     </section>

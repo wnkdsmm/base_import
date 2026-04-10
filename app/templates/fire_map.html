@@ -59,33 +59,6 @@
         </div>
     </section>
 
-    <nav class="orientation-strip" aria-label="Быстрый маршрут по карте">
-        <a class="orientation-link is-primary" href="#mapBrief">
-            <span class="orientation-kicker">1</span>
-            <strong>Сначала бриф</strong>
-            <p>Понять приоритетную территорию и проверочное действие.</p>
-        </a>
-        <a class="orientation-link is-scenario" href="#mapCanvas">
-            <span class="orientation-kicker">2</span>
-            <strong>Потом карта</strong>
-            <p>Открыть слой с точками, плотностью и горячими зонами.</p>
-        </a>
-        <a class="orientation-link is-decision" href="#mapDetails">
-            <span class="orientation-kicker">3</span>
-            <strong>Затем детали</strong>
-            <p>Сверить лидеров и примечания к данным.</p>
-        </a>
-    </nav>
-
-    {% set section_id = 'mapBrief' %}
-    {% set brief_heading = 'Управленческий бриф по карте' %}
-    {% set export_href = '/brief/fire-map.txt?table_name=' ~ data.selected_table %}
-    {% set export_link_id = 'fireMapExportBriefLink' %}
-    {% set cards_id = 'fireMapBriefCards' %}
-    {% set excerpt_id = 'fireMapExportBriefExcerpt' %}
-    {% set notes_id = 'fireMapBriefNotes' %}
-    {% include 'includes/executive_brief.html' %}
-
     <section id="mapFilters" class="panel filters-panel">
         <div class="panel-head">
             <h2>Выбор таблицы</h2>

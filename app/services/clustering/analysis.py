@@ -61,13 +61,13 @@ def _describe_weighting_strategy(mode_label: str, weighting_strategy: str) -> tu
                 f"В рабочем выводе используется метод без sample weights: режим '{mode_label}' задаётся набором признаков, "
                 "а центры/границы кластеров не смещаются дополнительным весом по числу пожаров."
             ),
-            "Выбранный алгоритм не использует sample_weight; влияние нагрузки возможно только через явные признаки.",
+            "Этот алгоритм не использует отдельные веса территорий: нагрузка может влиять только через сами признаки.",
         )
     if weighting_strategy == WEIGHTING_STRATEGY_UNIFORM:
         return (
             WEIGHTING_STRATEGY_UNIFORM_LABEL,
             f"В режиме '{mode_label}' KMeans обучается с равным весом территорий: число пожаров не смещает центры кластеров.",
-            "Все территории одинаково влияют на центры KMeans.",
+            "Все территории влияют на результат одинаково, без дополнительного веса по числу пожаров.",
         )
     return (
         WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL,
@@ -75,7 +75,7 @@ def _describe_weighting_strategy(mode_label: str, weighting_strategy: str) -> tu
             f"В режиме '{mode_label}' KMeans использует умеренные log-веса по числу пожаров, "
             "поэтому территории с большей историей немного сильнее влияют на центры кластеров."
         ),
-        "Вес = log1p(число пожаров), затем нормировка к среднему весу 1.0.",
+        "Территории с большей историей пожаров влияют чуть сильнее, но без резкого перекоса в их сторону.",
     )
 
 
@@ -351,7 +351,7 @@ def _build_default_feature_selection_analysis(
                 "volume_role_code": DEFAULT_CLUSTER_MODE_PROFILE,
                 "volume_role_label": DEFAULT_CLUSTER_MODE_PROFILE_LABEL,
                 "volume_note": "Из-за малого числа доступных признаков кластеризация описывает только тот профиль, который удалось собрать из текущего среза.",
-                "selection_note": "Базовый набор собран по малому ablation-анализу, но в текущем срезе доступно слишком мало признаков для полноценного сравнения режимов.",
+                "selection_note": "Базовый набор признаков собран по короткому пробному сравнению, но в текущем срезе данных слишком мало для полноценного сравнения режимов.",
             },
         )
 
@@ -409,8 +409,8 @@ def _build_default_feature_selection_analysis(
                 "ablation_rows": [],
                 "volume_role_code": DEFAULT_CLUSTER_MODE_PROFILE,
                 "volume_role_label": DEFAULT_CLUSTER_MODE_PROFILE_LABEL,
-                "volume_note": "Сравнить profile/load режимы не удалось, поэтому выбран самый устойчивый доступный набор признаков.",
-                "selection_note": "Базовый набор собран по малому ablation-анализу, но режимы profile/load сравнить не удалось из-за ограниченного числа признаков.",
+                "volume_note": "Сравнить два режима типологии не удалось, поэтому выбран самый устойчивый доступный набор признаков.",
+                "selection_note": "Базовый набор признаков собран по короткому пробному сравнению, но режимы типологии не удалось сопоставить из-за ограниченного числа признаков.",
             },
         )
 
@@ -430,9 +430,9 @@ def _build_default_feature_selection_analysis(
             "volume_note": volume_role["note"],
             "weighting_strategy": selected_mode.get("weighting_strategy"),
             "selection_note": (
-                "Базовый набор собран по малому ablation-анализу: сначала сравниваются режимы "
+                "Базовый набор признаков собран по короткому пробному сравнению: сначала сопоставляются режимы "
                 f"'{DEFAULT_CLUSTER_MODE_PROFILE_LABEL}' и '{DEFAULT_CLUSTER_MODE_LOAD_LABEL}', "
-                "после чего в выбранном режиме проверяется вклад каждого признака в silhouette / DB / CH."
+                "после чего в выбранном режиме проверяется, какие признаки лучше разделяют территории."
             ),
         },
     )
@@ -1208,15 +1208,15 @@ def _build_notes(
             algorithm_key = str((feature_selection_report or {}).get("selected_algorithm_key") or "kmeans")
             if bool((feature_selection_report or {}).get("uses_incident_weights")):
                 notes.append(
-                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему: вместо raw 0/1 к истории территории добавляются около {int(RATE_SMOOTHING_PRIOR_STRENGTH)} псевдо-наблюдений, а в KMeans территории с большей историей получают только умеренный log-вес."
+                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому для них редкие значения сглажены к общему уровню, а территории с более длинной историей влияют на результат немного сильнее."
                 )
             elif algorithm_key == "kmeans":
                 notes.append(
-                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему: вместо raw 0/1 к истории территории добавляются около {int(RATE_SMOOTHING_PRIOR_STRENGTH)} псевдо-наблюдений, а в KMeans все территории остаются с равным весом."
+                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому для них редкие значения сглажены к общему уровню, а все территории сохраняют одинаковый вес в расчёте."
                 )
             else:
                 notes.append(
-                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему: вместо raw 0/1 к истории территории добавляются около {int(RATE_SMOOTHING_PRIOR_STRENGTH)} псевдо-наблюдений, а выбранный алгоритм работает без дополнительных sample weights."
+                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому для них редкие значения сглажены к общему уровню, а выбранный алгоритм не добавляет отдельные веса территориям."
                 )
 
     if feature_selection_report:
@@ -1232,11 +1232,11 @@ def _build_notes(
         if negative_adds:
             worst_feature = min(negative_adds, key=lambda item: float(item.get("delta_score") or 0.0))
             notes.append(
-                f"Малый ablation-анализ не включил признак '{worst_feature['feature']}', потому что его добавление ухудшало качество разбиения на текущем срезе."
+                f"В пробном сравнении признак '{worst_feature['feature']}' не вошёл в итоговый набор, потому что с ним группы разделялись хуже."
             )
 
     if silhouette is None:
-        notes.append("Коэффициент силуэта не рассчитан: для этого нужно больше территорий, чем кластеров, и хотя бы две непустые группы.")
+        notes.append("Показатель отделённости групп не рассчитан: для этого нужно больше территорий, чем кластеров, и хотя бы две непустые группы.")
     elif silhouette < 0.2:
         notes.append("Кластеры отделены слабо: профиль территорий плавный, поэтому результат стоит трактовать как предварительную типологию, а не как жёсткое разбиение.")
     elif silhouette < 0.4:
@@ -1247,15 +1247,15 @@ def _build_notes(
     if stability_ari is not None:
         if stability_ari < 0.45:
             notes.append(
-                f"На повторных подвыборках устойчивость низкая (ARI {_format_number(stability_ari, 3)}): сегментация заметно меняется от состава выборки, поэтому интерпретацию кластеров лучше проверять по представителям и центрам."
+                f"На повторных подвыборках устойчивость низкая ({_format_number(stability_ari, 3)}): сегментация заметно меняется от состава выборки, поэтому кластеры лучше проверять по представителям и центрам."
             )
         elif stability_ari < 0.7:
             notes.append(
-                f"На повторных подвыборках устойчивость умеренная (ARI {_format_number(stability_ari, 3)}): общая типология сохраняется, но границы между соседними кластерами ещё чувствительны к составу данных."
+                f"На повторных подвыборках устойчивость умеренная ({_format_number(stability_ari, 3)}): общая типология сохраняется, но границы между соседними кластерами ещё чувствительны к составу данных."
             )
         else:
             notes.append(
-                f"На повторных подвыборках сегментация выглядит воспроизводимой (ARI {_format_number(stability_ari, 3)}), хотя это всё равно не гарантирует идеальную устойчивость на новых периодах."
+                f"На повторных подвыборках сегментация выглядит воспроизводимой ({_format_number(stability_ari, 3)}), хотя это всё равно не гарантирует идеальную устойчивость на новых периодах."
             )
 
     best_quality_k = diagnostics.get("best_quality_k")
@@ -1264,20 +1264,20 @@ def _build_notes(
     available_k_label = f"{CLUSTER_COUNT_OPTIONS[0]}..{CLUSTER_COUNT_OPTIONS[-1]}"
     if best_quality_k and best_silhouette_k and best_quality_k != best_silhouette_k:
         notes.append(
-            f"В доступном пользователю диапазоне k={available_k_label} по совокупности метрик и размеров кластеров лучше выглядит k={best_quality_k}, хотя пик silhouette отдельно приходится на k={best_silhouette_k}."
+            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп лучше выглядит k={best_quality_k}, хотя по чёткости границ отдельно лидирует k={best_silhouette_k}."
         )
     elif best_quality_k:
         notes.append(
-            f"В доступном пользователю диапазоне k={available_k_label} по совокупности метрик и размеров кластеров наиболее убедительно выглядит k={best_quality_k}."
+            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп наиболее убедительно выглядит k={best_quality_k}."
         )
     elif best_silhouette_k and elbow_k and best_silhouette_k != elbow_k:
         notes.append(
-            f"В доступном пользователю диапазоне k={available_k_label} silhouette лучше всего выглядит при k={best_silhouette_k}, а локоть начинается около k={elbow_k}."
+            f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}, а заметный перелом кривой начинается около k={elbow_k}."
         )
     elif best_silhouette_k:
-        notes.append(f"В доступном пользователю диапазоне k={available_k_label} коэффициент силуэта лучше всего выглядит при k={best_silhouette_k}.")
+        notes.append(f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}.")
     elif elbow_k:
-        notes.append(f"В доступном пользователю диапазоне k={available_k_label} кривая inertia даёт заметный сгиб около k={elbow_k}.")
+        notes.append(f"В доступном диапазоне k={available_k_label} кривая внутригруппового разброса заметно меняется около k={elbow_k}.")
 
     notes.append(f"В расчёте участвовали признаки: {', '.join(selected_features)}.")
     if cluster_profiles:

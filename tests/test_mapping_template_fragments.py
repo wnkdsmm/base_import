@@ -3,6 +3,7 @@ import re
 import unittest
 
 from core.mapping.config import MarkerStyle
+from core.mapping.mixins import template_fragment_scripts
 from core.mapping.mixins.templates import MapCreatorTemplateMixin
 from core.mapping.mixins.template_fragment_scripts import build_popup_script_lines
 from core.mapping.mixins.utilities import MapCreatorUtilityMixin
@@ -150,6 +151,17 @@ def _minimal_table():
 
 
 class MappingTemplateFragmentsTest(unittest.TestCase):
+    def test_template_fragment_scripts_export_only_entry_points(self):
+        self.assertEqual(
+            set(template_fragment_scripts.__all__),
+            {
+                "build_map_setup_script_lines",
+                "build_map_layer_script_lines",
+                "build_popup_script_lines",
+                "build_tab_script_lines",
+            },
+        )
+
     def test_minimal_analytics_html_contains_expected_controls_and_payload(self):
         creator = _SmokeMapCreator()
         html = creator._generate_html([_minimal_table()], {"deaths": 1})
@@ -229,6 +241,15 @@ class MappingTemplateFragmentsTest(unittest.TestCase):
         self.assertIn('Object.prototype.hasOwnProperty.call(row, "title")', script)
         self.assertIn('replaceChildren(popupElement)', script)
         self.assertIn('overlay.setPosition(undefined);', script)
+
+    def test_popup_script_uses_only_js_nullish_coalescing_tokens(self):
+        lines_with_nullish = [line for line in build_popup_script_lines() if "??" in line]
+
+        self.assertEqual(len(lines_with_nullish), 3)
+        for line in lines_with_nullish:
+            self.assertIn("row", line)
+            self.assertNotIn('"??"', line)
+            self.assertNotIn("'??'", line)
 
 
 if __name__ == "__main__":

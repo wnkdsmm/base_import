@@ -1,64 +1,3 @@
-{% from 'includes/common_intro_macros.html' import clarity_note, orientation_strip, screen_guide %}
-{% set orientation_links = [
-    {
-        "id": "forecastPanelLink",
-        "variant": "is-primary",
-        "is_current": false,
-        "href": "/{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}",
-        "kicker": "Панель",
-        "title": "Что происходит сейчас в выбранном срезе",
-        "body": "Общий срез и краткий территориальный ориентир без календаря по дням.",
-        "cta": "Открыть панель",
-    },
-    {
-        "id": none,
-        "variant": "is-scenario",
-        "is_current": true,
-        "href": "#forecastScenarioSection",
-        "kicker": "Сценарный прогноз",
-        "title": "В какие даты вероятность пожара выше",
-        "body": "Вероятность пожара и пики пожарной активности по датам.",
-        "cta": "Вы уже в прогнозе",
-    },
-    {
-        "id": "forecastMlLink",
-        "variant": "is-ml",
-        "is_current": false,
-        "href": "/ml-model{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}&cause={{ filters.cause }}&object_category={{ filters.object_category }}&temperature={{ filters.temperature }}&forecast_days={{ filters.forecast_days }}&history_window={{ filters.history_window }}{% endif %}",
-        "kicker": "ML-прогноз",
-        "title": "Сколько пожаров может быть по датам",
-        "body": "Ожидаемое число пожаров по дням, если нужен прогноз нагрузки.",
-        "cta": "Открыть прогноз количества",
-    },
-    {
-        "id": none,
-        "variant": "is-decision",
-        "is_current": false,
-        "href": "#forecastDetails",
-        "kicker": "Поддержка решений",
-        "title": "Какие территории ставить первыми",
-        "body": "Ранжирование территорий по итогам сценария и исторических факторов.",
-        "cta": "Открыть приоритет территорий",
-    },
-] %}
-{% set guide_cards = [
-    {
-        "label": "Когда открывать",
-        "title": "Когда планируете ближайшие дни",
-        "body": "Экран нужен, если важно заранее понять, в какие даты сценарий усиливается и когда стоит готовить меры заранее.",
-    },
-    {
-        "label": "Что показывает",
-        "title": "Вероятность и пики по календарю",
-        "body": "График и таблица показывают, в какие даты вероятность пожара выше и где сценарий выбивается из недавней истории.",
-    },
-    {
-        "label": "Чем отличается",
-        "title": "Экран отвечает на вопрос «когда»",
-        "body": "За ожидаемым числом пожаров идите в ML-прогноз, за полным приоритетом территорий — в блок поддержки решений ниже.",
-    },
-] %}
-
 <main class="main dashboard-main forecasting-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
@@ -88,12 +27,3 @@
             </article>
         </div>
     </section>
-
-    {{ orientation_strip('Что показывает каждый экран', orientation_links) }}
-    {{ screen_guide('Как читать сценарный прогноз', guide_cards) }}
-    {{ clarity_note(
-        'Как читать сценарный прогноз',
-        'Как читать экран',
-        'Сначала даты, потом территории',
-        'Верхняя часть экрана отвечает на вопрос, в какие дни готовиться. Блок поддержки решений ниже использует этот сценарий, но решает уже другой вопрос: какие территории ставить первыми.'
-    ) }}

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from app.services import clustering as clustering_package
+from app.services.clustering import core as clustering_core
 from app.services.clustering.analysis import (
     _build_clustering_mode_context,
     _build_default_feature_selection_analysis,
@@ -912,8 +913,18 @@ _BaseQualityAssessmentTests = QualityAssessmentTests
 
 
 class QualityAssessmentTests(_BaseQualityAssessmentTests):
-    def test_quality_module_exports_private_helpers_without_core_cycle(self) -> None:
+    def test_quality_module_exports_bridge_helpers_without_core_cycle(self) -> None:
         expected_exports = {
+            "_build_cluster_count_guidance",
+            "_build_clustering_quality_assessment",
+            "_empty_clustering_quality_assessment",
+        }
+
+        self.assertEqual(set(clustering_quality.__all__), expected_exports)
+        self.assertEqual(list(clustering_quality.__all__), sorted(clustering_quality.__all__))
+        self.assertTrue(all(name.startswith("_") for name in clustering_quality.__all__))
+        self.assertTrue(all(hasattr(clustering_quality, name) for name in clustering_quality.__all__))
+        private_helper_names = {
             name
             for name in clustering_quality.__dict__
             if name.startswith("_")
@@ -921,15 +932,12 @@ class QualityAssessmentTests(_BaseQualityAssessmentTests):
             and getattr(getattr(clustering_quality, name), "__module__", "") == clustering_quality.__name__
             and not name.startswith("__")
         }
-
-        self.assertEqual(set(clustering_quality.__all__), expected_exports)
-        self.assertEqual(list(clustering_quality.__all__), sorted(clustering_quality.__all__))
-        self.assertTrue(all(name.startswith("_") for name in clustering_quality.__all__))
-        self.assertTrue(all(hasattr(clustering_quality, name) for name in clustering_quality.__all__))
+        self.assertLess(len(clustering_quality.__all__), len(private_helper_names))
         self.assertIn("quality", clustering_package.__all__)
         self.assertLess(clustering_package.__all__.index("quality"), clustering_package.__all__.index("core"))
         self.assertIs(_build_clustering_quality_assessment, clustering_quality._build_clustering_quality_assessment)
         self.assertIs(_build_cluster_count_guidance, clustering_quality._build_cluster_count_guidance)
+        self.assertFalse(hasattr(clustering_core, "_build_clustering_quality_payload"))
         self.assertNotIn("core", clustering_quality.__dict__)
         imported_clustering_modules = {
             getattr(value, "__module__", "")
@@ -937,6 +945,47 @@ class QualityAssessmentTests(_BaseQualityAssessmentTests):
             if str(getattr(value, "__module__", "")).startswith("app.services.clustering.")
         }
         self.assertNotIn("app.services.clustering.core", imported_clustering_modules)
+
+    def test_quality_configuration_context_keeps_only_reused_fields(self) -> None:
+        method_comparison = [
+            {
+                "method_key": "kmeans_incident_log",
+                "algorithm_key": "kmeans",
+                "method_label": "KMeans weighted",
+                "is_selected": True,
+                "is_recommended": False,
+            },
+            {
+                "method_key": "agglomerative",
+                "algorithm_key": "agglomerative",
+                "method_label": "Agglomerative",
+                "is_selected": False,
+                "is_recommended": True,
+            },
+        ]
+
+        context = clustering_quality._resolve_quality_configuration_context(
+            method_comparison=method_comparison,
+            diagnostics={"best_quality_k": 5, "best_silhouette_k": 4},
+            cluster_count=4,
+        )
+
+        self.assertEqual(
+            set(context.keys()),
+            {
+                "recommended_k",
+                "best_silhouette_k",
+                "selected_method",
+                "working_configuration",
+                "effective_recommended_configuration",
+                "recommended_method",
+                "working_config_label",
+                "recommended_config_label",
+            },
+        )
+        self.assertEqual(context["selected_method"]["method_key"], "kmeans_incident_log")
+        self.assertEqual(context["recommended_method"]["method_key"], "agglomerative")
+        self.assertEqual(context["effective_recommended_configuration"]["cluster_count"], 5)
 
     def test_cluster_count_recommendation_context_preserves_adjustment_warning(self) -> None:
         context = clustering_quality._build_cluster_count_guidance_context(
@@ -1024,6 +1073,77 @@ class QualityAssessmentTests(_BaseQualityAssessmentTests):
         self.assertEqual(context["label_context"]["mode_label"], "Profile mode")
         self.assertEqual(context["label_context"]["weighting_label"], "Uniform weights")
         self.assertEqual(context["segmentation_summary"]["label"], "\u0421\u043b\u0430\u0431\u0430\u044f")
+
+    def test_quality_assessment_reuses_prebuilt_cluster_count_guidance(self) -> None:
+        cluster_count_guidance = {
+            "recommended_cluster_count": 5,
+            "best_silhouette_k": 4,
+            "has_recommendation_gap": True,
+            "request_adjusted": False,
+            "suggested_label": "Рекомендуемый k",
+            "suggested_note": "Используйте k=5.",
+            "current_note": "Сейчас страница показывает k=4.",
+            "quality_note": "По совокупности метрик лучше выглядит k=5.",
+            "notes_message": "По совокупности метрик лучше выглядит k=5.",
+            "model_note": "Диагностика рекомендует k=5.",
+            "methodology_meta": "рабочий k=4; рекомендуемое k=5",
+        }
+
+        with patch("app.services.clustering.quality._build_cluster_count_guidance") as guidance_mock:
+            guidance_mock.side_effect = AssertionError("prebuilt cluster-count guidance should be reused")
+            quality = clustering_quality._build_clustering_quality_assessment(
+                clustering={
+                    "silhouette": 0.332,
+                    "davies_bouldin": 1.041,
+                    "calinski_harabasz": 84.2,
+                    "cluster_balance_ratio": 0.41,
+                    "stability_ari": 0.63,
+                    "initialization_ari": 0.66,
+                    "smallest_cluster_size": 8,
+                    "largest_cluster_size": 19,
+                    "has_microclusters": False,
+                    "explained_variance": 0.57,
+                },
+                method_comparison=[
+                    {
+                        "method_key": "kmeans_incident_log",
+                        "method_label": "KMeans weighted",
+                        "algorithm_key": "kmeans",
+                        "is_selected": True,
+                        "is_recommended": False,
+                        "silhouette": 0.332,
+                        "davies_bouldin": 1.041,
+                        "calinski_harabasz": 84.2,
+                        "cluster_balance_ratio": 0.41,
+                    },
+                    {
+                        "method_key": "agglomerative",
+                        "method_label": "Agglomerative",
+                        "algorithm_key": "agglomerative",
+                        "is_selected": False,
+                        "is_recommended": True,
+                        "silhouette": 0.351,
+                        "davies_bouldin": 0.982,
+                        "calinski_harabasz": 90.4,
+                        "cluster_balance_ratio": 0.46,
+                    },
+                ],
+                cluster_count=4,
+                selected_features=[AVG_FIRE_AREA, AVG_RESPONSE_MINUTES, NO_WATER_SHARE],
+                diagnostics={"best_quality_k": 5, "best_silhouette_k": 4},
+                support_summary={"low_support_share": 0.25},
+                feature_selection_report={
+                    "volume_role_label": "Profile mode",
+                    "weighting_label": "Uniform weights",
+                    "weighting_meta": "equal weights",
+                },
+                cluster_count_guidance=cluster_count_guidance,
+                cluster_count_is_explicit=True,
+            )
+
+        methodology_map = {item["label"]: item["meta"] for item in quality["methodology_items"]}
+        self.assertEqual(methodology_map[LABEL_K_MODE], cluster_count_guidance["current_note"])
+        self.assertIn(cluster_count_guidance["quality_note"], quality["dissertation_points"])
 
     def test_cluster_count_guidance_warns_when_recommended_k_differs_from_current(self) -> None:
         guidance = _build_cluster_count_guidance(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -97,6 +97,10 @@ def _optional_float(value: Any) -> Optional[float]:
     return float(value)
 
 
+def _nan_or_float(value: Any) -> float:
+    return np.nan if value is None else float(value)
+
+
 def _scenario_reference_forecast(
     train: pd.DataFrame,
     test: pd.DataFrame,
@@ -172,19 +176,9 @@ def _enforce_monotonic_horizon_interval_calibrations(
     return monotonic_calibrations
 
 
-def _selected_count_predictions(
-    rows: List[BacktestWindowRow],
-    selected_count_model_key: str,
-) -> np.ndarray:
-    return np.asarray(
-        [float(_selected_count_prediction(row, selected_count_model_key)) for row in rows],
-        dtype=float,
-    )
-
-
 def _optional_float_array(values: Sequence[Any]) -> np.ndarray:
     return np.asarray(
-        [np.nan if value is None else float(value) for value in values],
+        [_nan_or_float(value) for value in values],
         dtype=float,
     )
 
@@ -201,40 +195,44 @@ def _nan_float_array(length: int) -> np.ndarray:
     return np.full(length, np.nan, dtype=float)
 
 
-def _selected_event_probabilities(
+def _selected_count_arrays_from_rows(
+    rows: List[BacktestWindowRow],
+    selected_count_model_key: str,
+    *,
+    include_event_probabilities: Optional[bool] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    predictions: List[float] = []
+    collect_event_probabilities = (
+        selected_count_model_key in COUNT_MODEL_KEYS
+        if include_event_probabilities is None
+        else bool(include_event_probabilities)
+    )
+    event_probabilities: List[float] = []
+    for row in rows:
+        predictions.append(float(_selected_count_prediction(row, selected_count_model_key)))
+        if collect_event_probabilities:
+            event_probabilities.append(
+                _nan_or_float(row.predicted_event_probabilities.get(selected_count_model_key))
+            )
+    prediction_array = np.asarray(predictions, dtype=float)
+    if not collect_event_probabilities:
+        return prediction_array, _nan_float_array(len(rows))
+    return prediction_array, np.asarray(event_probabilities, dtype=float)
+
+
+def _selected_count_predictions(
     rows: List[BacktestWindowRow],
     selected_count_model_key: str,
 ) -> np.ndarray:
-    return _optional_float_array(
-        [row.predicted_event_probabilities.get(selected_count_model_key) for row in rows]
-    )
-
-
-def _selected_count_arrays(
-    rows: List[BacktestWindowRow],
-    selected_count_model_key: str,
-) -> Tuple[np.ndarray, np.ndarray]:
-    predictions: List[float] = []
-    event_probabilities: List[Optional[float]] = []
-    for row in rows:
-        predictions.append(float(_selected_count_prediction(row, selected_count_model_key)))
-        event_probabilities.append(row.predicted_event_probabilities.get(selected_count_model_key))
-    return np.asarray(predictions, dtype=float), _optional_float_array(event_probabilities)
+    return _selected_count_arrays_from_rows(
+        rows,
+        selected_count_model_key,
+        include_event_probabilities=False,
+    )[0]
 
 
 def _optional_probability_from_array(value: Any) -> Optional[float]:
     return None if not np.isfinite(value) else float(value)
-
-
-@dataclass
-class _HorizonBaseArrays:
-    actuals: np.ndarray
-    baseline_predictions: np.ndarray
-    heuristic_predictions: np.ndarray
-    actual_events: np.ndarray
-    baseline_event_probabilities: np.ndarray
-    heuristic_event_probabilities: np.ndarray
-    dates: List[str]
 
 
 @dataclass
@@ -318,12 +316,10 @@ class _EventMetricContext:
 class _BacktestEvaluationArtifacts:
     selection: _BacktestSelection
     selected_count_model_key: str
-    horizon_evaluation_data: Dict[int, _HorizonEvaluationData]
     interval_calibration_by_horizon: Dict[int, Dict[str, Any]]
     horizon_summaries: Dict[str, HorizonSummary]
     prediction_interval_calibration: Dict[str, Any]
     validation_summary: HorizonSummary
-    prediction_interval_coverage: Optional[float]
     backtest_rows: List[BacktestEvaluationRow]
     event_metrics: EventMetrics
     window_rows: List[BacktestWindowRow]
@@ -336,116 +332,41 @@ class _BacktestOriginSelection:
     total_windows: int
 
 
-def _build_count_model_prediction_context_from_buffers(
-    *,
-    prediction_buffers: Dict[str, List[float]],
-    event_probability_buffers: Dict[str, List[Optional[float]]],
-    window_count: int,
-) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, _CandidateCoverage]]:
-    coverage_by_model: Dict[str, _CandidateCoverage] = {}
-    prediction_arrays: Dict[str, np.ndarray] = {}
-    for model_key, predictions in prediction_buffers.items():
-        covered_window_count = len(predictions)
-        coverage_by_model[model_key] = _CandidateCoverage(
-            covered_window_count=covered_window_count,
-            window_count=window_count,
-            window_coverage=float(covered_window_count / window_count) if window_count else 0.0,
-        )
-        if covered_window_count == window_count:
-            prediction_arrays[model_key] = np.asarray(predictions, dtype=float)
-
-    event_probability_arrays = {
-        model_key: _optional_float_array(probabilities)
-        for model_key, probabilities in event_probability_buffers.items()
-    }
-    return prediction_arrays, event_probability_arrays, coverage_by_model
-
-
-def _build_horizon_array_context(
-    rows_for_horizon: List[BacktestWindowRow],
-    *,
-    include_count_model_predictions: bool,
-) -> Tuple[_HorizonBaseArrays, Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, _CandidateCoverage]]:
-    actuals: List[float] = []
-    baseline_predictions: List[float] = []
-    heuristic_predictions: List[float] = []
-    actual_events: List[int] = []
-    baseline_event_probabilities: List[float] = []
-    heuristic_event_probabilities: List[float] = []
-    dates: List[str] = []
-    prediction_buffers: Dict[str, List[float]] = {}
-    event_probability_buffers: Dict[str, List[Optional[float]]] = {}
-    if include_count_model_predictions:
-        prediction_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
-        event_probability_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
-    for row in rows_for_horizon:
-        actuals.append(float(row.actual_count))
-        baseline_predictions.append(float(row.baseline_count))
-        heuristic_predictions.append(float(row.heuristic_count))
-        actual_events.append(int(row.actual_event))
-        baseline_event_probabilities.append(
-            np.nan if row.baseline_event_probability is None else float(row.baseline_event_probability)
-        )
-        heuristic_event_probabilities.append(
-            np.nan if row.heuristic_event_probability is None else float(row.heuristic_event_probability)
-        )
-        dates.append(row.date)
-        if include_count_model_predictions:
-            for model_key in COUNT_MODEL_KEYS:
-                prediction = row.predictions.get(model_key)
-                if prediction is not None:
-                    prediction_buffers[model_key].append(float(prediction))
-                event_probability_buffers[model_key].append(row.predicted_event_probabilities.get(model_key))
-
-    base_arrays = _HorizonBaseArrays(
-        actuals=np.asarray(actuals, dtype=float),
-        baseline_predictions=np.asarray(baseline_predictions, dtype=float),
-        heuristic_predictions=np.asarray(heuristic_predictions, dtype=float),
-        actual_events=np.asarray(actual_events, dtype=int),
-        baseline_event_probabilities=np.asarray(baseline_event_probabilities, dtype=float),
-        heuristic_event_probabilities=np.asarray(heuristic_event_probabilities, dtype=float),
-        dates=dates,
-    )
-    if not include_count_model_predictions:
-        return base_arrays, {}, {}, {}
-    count_model_predictions, count_model_event_probabilities, coverage_by_model = _build_count_model_prediction_context_from_buffers(
-        prediction_buffers=prediction_buffers,
-        event_probability_buffers=event_probability_buffers,
-        window_count=len(rows_for_horizon),
-    )
-    return base_arrays, count_model_predictions, count_model_event_probabilities, coverage_by_model
-
-
 def _selected_count_arrays_from_evaluation_data(
     evaluation_data: _HorizonEvaluationData,
     selected_count_model_key: Optional[str],
 ) -> Tuple[np.ndarray, np.ndarray]:
+    row_count = len(evaluation_data.rows)
     if selected_count_model_key == 'seasonal_baseline':
-        return evaluation_data.baseline_predictions, _nan_float_array(len(evaluation_data.rows))
+        return evaluation_data.baseline_predictions, _nan_float_array(row_count)
     if selected_count_model_key == 'heuristic_forecast':
-        return evaluation_data.heuristic_predictions, _nan_float_array(len(evaluation_data.rows))
-    if selected_count_model_key in evaluation_data.count_model_predictions:
-        selected_event_probabilities = evaluation_data.count_model_event_probabilities.get(selected_count_model_key)
-        if selected_event_probabilities is None:
-            selected_event_probabilities = (
-                _selected_event_probabilities(evaluation_data.rows, selected_count_model_key)
-                if selected_count_model_key in COUNT_MODEL_KEYS
-                else _nan_float_array(len(evaluation_data.rows))
-            )
-        return evaluation_data.count_model_predictions[selected_count_model_key], selected_event_probabilities
-    if selected_count_model_key in evaluation_data.count_model_event_probabilities:
-        return (
-            _selected_count_predictions(evaluation_data.rows, selected_count_model_key),
-            evaluation_data.count_model_event_probabilities[selected_count_model_key],
+        return evaluation_data.heuristic_predictions, _nan_float_array(row_count)
+    if not selected_count_model_key:
+        return _empty_float_array(), _nan_float_array(row_count)
+
+    selected_predictions = evaluation_data.count_model_predictions.get(selected_count_model_key)
+    selected_event_probabilities = evaluation_data.count_model_event_probabilities.get(selected_count_model_key)
+    if selected_predictions is None or selected_event_probabilities is None:
+        row_predictions, row_event_probabilities = _selected_count_arrays_from_rows(
+            evaluation_data.rows,
+            selected_count_model_key,
         )
-    if selected_count_model_key in COUNT_MODEL_KEYS:
-        return _selected_count_arrays(evaluation_data.rows, selected_count_model_key)
+        if selected_predictions is None:
+            selected_predictions = row_predictions
+        if selected_event_probabilities is None:
+            selected_event_probabilities = row_event_probabilities
+    if selected_predictions is not None:
+        return selected_predictions, selected_event_probabilities
     if selected_count_model_key:
         return (
-            _selected_count_predictions(evaluation_data.rows, selected_count_model_key),
-            _nan_float_array(len(evaluation_data.rows)),
+            _selected_count_arrays_from_rows(
+                evaluation_data.rows,
+                selected_count_model_key,
+                include_event_probabilities=False,
+            )[0],
+            _nan_float_array(row_count),
         )
-    return _empty_float_array(), _nan_float_array(len(evaluation_data.rows))
+    return _empty_float_array(), _nan_float_array(row_count)
 
 
 def _with_selected_count_model(
@@ -456,20 +377,10 @@ def _with_selected_count_model(
         evaluation_data,
         selected_count_model_key,
     )
-    return _HorizonEvaluationData(
-        rows=evaluation_data.rows,
-        actuals=evaluation_data.actuals,
-        baseline_predictions=evaluation_data.baseline_predictions,
-        heuristic_predictions=evaluation_data.heuristic_predictions,
+    return replace(
+        evaluation_data,
         selected_predictions=selected_predictions,
-        count_model_predictions=evaluation_data.count_model_predictions,
-        actual_events=evaluation_data.actual_events,
-        baseline_event_probabilities=evaluation_data.baseline_event_probabilities,
-        heuristic_event_probabilities=evaluation_data.heuristic_event_probabilities,
         selected_event_probabilities=selected_event_probabilities,
-        count_model_event_probabilities=evaluation_data.count_model_event_probabilities,
-        coverage_by_model=evaluation_data.coverage_by_model,
-        dates=evaluation_data.dates,
     )
 
 
@@ -479,30 +390,68 @@ def _build_horizon_evaluation_data(
     *,
     include_count_model_predictions: bool = False,
 ) -> _HorizonEvaluationData:
-    (
-        base_arrays,
-        count_model_predictions,
-        count_model_event_probabilities,
-        coverage_by_model,
-    ) = _build_horizon_array_context(
-        rows_for_horizon,
-        include_count_model_predictions=include_count_model_predictions,
-    )
+    actuals: List[float] = []
+    baseline_predictions: List[float] = []
+    heuristic_predictions: List[float] = []
+    actual_events: List[int] = []
+    baseline_event_probabilities: List[float] = []
+    heuristic_event_probabilities: List[float] = []
+    dates: List[str] = []
+    prediction_buffers: Dict[str, List[float]] = {}
+    event_probability_buffers: Dict[str, List[float]] = {}
+    if include_count_model_predictions:
+        prediction_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
+        event_probability_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
+    for row in rows_for_horizon:
+        actuals.append(float(row.actual_count))
+        baseline_predictions.append(float(row.baseline_count))
+        heuristic_predictions.append(float(row.heuristic_count))
+        actual_events.append(int(row.actual_event))
+        baseline_event_probabilities.append(_nan_or_float(row.baseline_event_probability))
+        heuristic_event_probabilities.append(_nan_or_float(row.heuristic_event_probability))
+        dates.append(row.date)
+        if include_count_model_predictions:
+            for model_key in COUNT_MODEL_KEYS:
+                prediction = row.predictions.get(model_key)
+                if prediction is not None:
+                    prediction_buffers[model_key].append(float(prediction))
+                event_probability_buffers[model_key].append(
+                    _nan_or_float(row.predicted_event_probabilities.get(model_key))
+                )
+
+    count_model_predictions: Dict[str, np.ndarray] = {}
+    count_model_event_probabilities: Dict[str, np.ndarray] = {}
+    coverage_by_model: Dict[str, _CandidateCoverage] = {}
+    if include_count_model_predictions:
+        window_count = len(rows_for_horizon)
+        for model_key, predictions in prediction_buffers.items():
+            covered_window_count = len(predictions)
+            coverage_by_model[model_key] = _CandidateCoverage(
+                covered_window_count=covered_window_count,
+                window_count=window_count,
+                window_coverage=float(covered_window_count / window_count) if window_count else 0.0,
+            )
+            if covered_window_count == window_count:
+                count_model_predictions[model_key] = np.asarray(predictions, dtype=float)
+        count_model_event_probabilities = {
+            model_key: np.asarray(probabilities, dtype=float)
+            for model_key, probabilities in event_probability_buffers.items()
+        }
 
     evaluation_data = _HorizonEvaluationData(
         rows=rows_for_horizon,
-        actuals=base_arrays.actuals,
-        baseline_predictions=base_arrays.baseline_predictions,
-        heuristic_predictions=base_arrays.heuristic_predictions,
+        actuals=np.asarray(actuals, dtype=float),
+        baseline_predictions=np.asarray(baseline_predictions, dtype=float),
+        heuristic_predictions=np.asarray(heuristic_predictions, dtype=float),
         selected_predictions=_empty_float_array(),
         count_model_predictions=count_model_predictions,
-        actual_events=base_arrays.actual_events,
-        baseline_event_probabilities=base_arrays.baseline_event_probabilities,
-        heuristic_event_probabilities=base_arrays.heuristic_event_probabilities,
+        actual_events=np.asarray(actual_events, dtype=int),
+        baseline_event_probabilities=np.asarray(baseline_event_probabilities, dtype=float),
+        heuristic_event_probabilities=np.asarray(heuristic_event_probabilities, dtype=float),
         selected_event_probabilities=_empty_float_array(),
         count_model_event_probabilities=count_model_event_probabilities,
         coverage_by_model=coverage_by_model,
-        dates=base_arrays.dates,
+        dates=dates,
     )
     if selected_count_model_key:
         return _with_selected_count_model(evaluation_data, selected_count_model_key)
@@ -566,7 +515,11 @@ def _remeasure_deployed_interval_calibration(
     prediction_values = (
         evaluation_data.selected_predictions
         if evaluation_data is not None
-        else _selected_count_predictions(rows_for_horizon, selected_count_model_key)
+        else _selected_count_arrays_from_rows(
+            rows_for_horizon,
+            selected_count_model_key,
+            include_event_probabilities=False,
+        )[0]
     )
     deployed_coverage = _interval_coverage(
         actual_values[evaluation_slice],
@@ -1053,10 +1006,10 @@ def _build_backtest_overview(
     selection: _BacktestSelection,
     event_metrics: EventMetrics,
     prediction_interval_calibration: Dict[str, Any],
-    prediction_interval_coverage: Optional[float],
     validation_summary: HorizonSummary,
     horizon_summaries: Dict[str, HorizonSummary],
 ) -> BacktestOverview:
+    prediction_interval_coverage = validation_summary.prediction_interval_coverage
     return BacktestOverview(
         folds=len(backtest_rows),
         min_train_rows=min_train_rows,
@@ -1086,7 +1039,7 @@ def _build_backtest_overview(
         prediction_interval_level=prediction_interval_calibration['level'],
         prediction_interval_level_display=prediction_interval_calibration['level_display'],
         prediction_interval_coverage=prediction_interval_coverage,
-        prediction_interval_coverage_display=_format_ratio_percent(prediction_interval_coverage),
+        prediction_interval_coverage_display=validation_summary.prediction_interval_coverage_display,
         prediction_interval_method_label=prediction_interval_calibration['method_label'],
         prediction_interval_coverage_validated=validation_summary.prediction_interval_coverage_validated,
         prediction_interval_coverage_note=validation_summary.prediction_interval_coverage_note,
@@ -1151,12 +1104,10 @@ def _build_backtest_evaluation_artifacts(
     return _BacktestEvaluationArtifacts(
         selection=selection,
         selected_count_model_key=selected_count_model_key,
-        horizon_evaluation_data=horizon_evaluation_data,
         interval_calibration_by_horizon=interval_calibration_by_horizon,
         horizon_summaries=horizon_summaries,
         prediction_interval_calibration=prediction_interval_calibration,
         validation_summary=validation_summary,
-        prediction_interval_coverage=validation_summary.prediction_interval_coverage,
         backtest_rows=backtest_rows,
         event_metrics=_compute_event_metrics(validation_evaluation_data),
         window_rows=window_rows,
@@ -1182,7 +1133,6 @@ def _build_backtest_success_result(
         selection=artifacts.selection,
         event_metrics=artifacts.event_metrics,
         prediction_interval_calibration=artifacts.prediction_interval_calibration,
-        prediction_interval_coverage=artifacts.prediction_interval_coverage,
         validation_summary=artifacts.validation_summary,
         horizon_summaries=artifacts.horizon_summaries,
     )
@@ -1347,7 +1297,11 @@ def _run_backtest(
 
 
 def _estimate_overdispersion_ratio(counts: np.ndarray) -> float:
-    values = np.asarray(counts, dtype=float)
+    values = (
+        counts.astype(float, copy=False)
+        if isinstance(counts, np.ndarray)
+        else np.asarray(counts, dtype=float)
+    )
     if values.size == 0:
         return 1.0
     mean_value = max(float(np.mean(values)), MIN_POSITIVE_PREDICTION)
@@ -1373,7 +1327,7 @@ def _event_rate(actuals: np.ndarray) -> Optional[float]:
 
 
 def _has_both_event_classes(actuals: np.ndarray) -> bool:
-    return np.unique(actuals.astype(int, copy=False)).size > 1
+    return bool(actuals.size and np.min(actuals) != np.max(actuals))
 
 
 def _event_rate_is_saturated(event_rate: Optional[float]) -> bool:
@@ -1570,41 +1524,41 @@ def _build_event_metric_inputs_from_arrays(
     )
 
 
-def _event_metric_inputs_from_horizon(evaluation_data: _HorizonEvaluationData) -> _EventMetricInputs:
-    return _build_event_metric_inputs_from_arrays(
-        actual_events=evaluation_data.actual_events,
-        baseline_probabilities=evaluation_data.baseline_event_probabilities,
-        heuristic_probabilities=evaluation_data.heuristic_event_probabilities,
-        classifier_probabilities=evaluation_data.selected_event_probabilities,
-    )
+def _event_metric_arrays(
+    rows: List[Dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if isinstance(rows, _HorizonEvaluationData):
+        return (
+            rows.actual_events,
+            rows.baseline_event_probabilities,
+            rows.heuristic_event_probabilities,
+            rows.selected_event_probabilities,
+        )
 
-
-def _event_metric_inputs_from_rows(
-    rows: List[Dict[str, Any] | BacktestEvaluationRow],
-) -> _EventMetricInputs:
-    actual_events: List[int] = []
-    baseline_probabilities: List[Optional[float]] = []
-    heuristic_probabilities: List[Optional[float]] = []
-    classifier_probabilities: List[Optional[float]] = []
-    for row in rows:
-        actual_events.append(int(row.get('actual_event', 0)))
-        baseline_probabilities.append(row.get('baseline_event_probability'))
-        heuristic_probabilities.append(row.get('heuristic_event_probability'))
-        classifier_probabilities.append(row.get('predicted_event_probability'))
-    return _build_event_metric_inputs_from_arrays(
-        actual_events=np.asarray(actual_events, dtype=int),
-        baseline_probabilities=_optional_float_array(baseline_probabilities),
-        heuristic_probabilities=_optional_float_array(heuristic_probabilities),
-        classifier_probabilities=_optional_float_array(classifier_probabilities),
+    row_count = len(rows)
+    return (
+        np.fromiter((int(row.get('actual_event', 0)) for row in rows), dtype=int, count=row_count),
+        _optional_float_array(row.get('baseline_event_probability') for row in rows),
+        _optional_float_array(row.get('heuristic_event_probability') for row in rows),
+        _optional_float_array(row.get('predicted_event_probability') for row in rows),
     )
 
 
 def _event_metric_inputs(
     rows: List[Dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> _EventMetricInputs:
-    if isinstance(rows, _HorizonEvaluationData):
-        return _event_metric_inputs_from_horizon(rows)
-    return _event_metric_inputs_from_rows(rows)
+    (
+        actual_events,
+        baseline_probabilities,
+        heuristic_probabilities,
+        classifier_probabilities,
+    ) = _event_metric_arrays(rows)
+    return _build_event_metric_inputs_from_arrays(
+        actual_events=actual_events,
+        baseline_probabilities=baseline_probabilities,
+        heuristic_probabilities=heuristic_probabilities,
+        classifier_probabilities=classifier_probabilities,
+    )
 
 
 def _score_event_probability_candidates(

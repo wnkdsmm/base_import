@@ -290,16 +290,6 @@ def _build_component_scores_from_values(
     ]
 
 
-def _build_component_scores(row: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return _build_component_scores_from_values(
-        access_score=float(row.get("access_score") or 0.0),
-        water_score=float(row.get("water_score") or 0.0),
-        severity_score=float(row.get("severity_score") or 0.0),
-        recurrence_score=float(row.get("recurrence_score") or 0.0),
-        data_gap_score=float(row.get("data_gap_score") or 0.0),
-    )
-
-
 def _build_reason_details(score_decomposition: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ranked = sorted(
         ((item, float(item.get("contribution_points") or 0.0)) for item in score_decomposition),
@@ -320,37 +310,31 @@ def _build_reason_details(score_decomposition: Sequence[Dict[str, Any]]) -> List
     return details[:4]
 
 
-def _build_reason_details_from_decomposition(row: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return _build_reason_details(row.get("score_decomposition") or [])
-
-
-def _build_human_readable_explanation(row: Dict[str, Any]) -> str:
-    details = list(row.get("reason_details") or [])
+def _build_human_readable_explanation(
+    *,
+    label: str,
+    severity_band: str,
+    total_score_display: str,
+    reason_details: Sequence[Dict[str, Any]],
+    uncertainty_flag: bool,
+    low_support: bool,
+    uncertainty_penalty_display: str,
+) -> str:
+    details = list(reason_details)
     if not details:
         return "Точка включена в рейтинг по сумме факторов риска."
 
-    lead = f"{row.get('label') or 'Точка'} получает {row.get('severity_band') or 'средний'} риск {row.get('total_score_display') or '0'} из 100."
+    lead = f"{label or 'Точка'} получает {severity_band or 'средний'} риск {total_score_display or '0'} из 100."
     drivers = [item for item in details if item["code"] != UNCERTAINTY_CODE][:2]
     if drivers:
         lead += " Основной вклад дали " + ", ".join(
             f"{item['label'].lower()} ({item['contribution_display']})" for item in drivers
         ) + "."
-    if row.get("uncertainty_flag"):
-        lead += f" Неопределённость добавляет {row.get('uncertainty_penalty_display') or '0'} п. и требует верификации."
-    elif row.get("low_support"):
+    if uncertainty_flag:
+        lead += f" Неопределённость добавляет {uncertainty_penalty_display or '0'} п. и требует верификации."
+    elif low_support:
         lead += " Точка низкой опоры: долевые признаки сглажены, а итоговый score ослаблен."
     return lead
-
-
-def _typology_for_row(row: Dict[str, Any]) -> tuple[str, str]:
-    return _typology_for_score_values(
-        uncertainty_flag=bool(row.get("uncertainty_flag")),
-        severity_band_code=str(row.get("severity_band_code") or ""),
-        access_score=float(row.get("access_score") or 0.0),
-        water_score=float(row.get("water_score") or 0.0),
-        severity_score=float(row.get("severity_score") or 0.0),
-        recurrence_score=float(row.get("recurrence_score") or 0.0),
-    )
 
 
 def _typology_for_score_values(
@@ -479,19 +463,9 @@ def _build_completeness_share_series(
     return arrival_missing_share_series, distance_missing_share_series, completeness_share_series
 
 
-def _build_access_point_score_series(
+def _build_access_point_base_series(
     numeric_inputs: pd.DataFrame,
-    active_reason_codes: set[str],
-) -> Dict[str, pd.Series]:
-    frame_index = numeric_inputs.index
-    max_incidents = max(1.0, _finite_series_max(numeric_inputs["incident_count"], 1.0))
-    max_incidents_per_year = max(1.0, _finite_series_max(numeric_inputs["incidents_per_year"], 1.0))
-    distance_scale = max(12.0, _finite_series_max(numeric_inputs["average_distance_km"], 0.0))
-    response_scale = max(
-        LONG_RESPONSE_THRESHOLD_MINUTES,
-        _finite_series_max(numeric_inputs["average_response_minutes"], 0.0),
-    )
-
+) -> _AccessPointBaseSeries:
     (
         incident_count_series,
         years_observed_series,
@@ -508,13 +482,6 @@ def _build_access_point_score_series(
         numeric_inputs,
         incident_denominator_series,
     )
-    average_distance_series = numeric_inputs["average_distance_km"]
-    average_response_series = numeric_inputs["average_response_minutes"]
-    long_arrival_share_series = _clip_share_series(numeric_inputs["long_arrival_share"])
-    severe_share_series = _clip_share_series(numeric_inputs["severe_share"])
-    night_share_series = _clip_share_series(numeric_inputs["night_share"])
-    heating_share_series = _clip_share_series(numeric_inputs["heating_share"])
-    rural_share_series = _clip_share_series(numeric_inputs["rural_share"])
     response_coverage_share_series = _clip_share_series(numeric_inputs["response_coverage_share"])
     distance_coverage_share_series = _clip_share_series(numeric_inputs["distance_coverage_share"])
     arrival_missing_share_series, distance_missing_share_series, completeness_share_series = _build_completeness_share_series(
@@ -522,77 +489,110 @@ def _build_access_point_score_series(
         distance_coverage_share_series=distance_coverage_share_series,
         water_unknown_share_series=water_unknown_share_series,
     )
+    return _AccessPointBaseSeries(
+        incident_count=incident_count_series,
+        years_observed=years_observed_series,
+        incident_count_float=incident_count_float_series,
+        incidents_per_year=incidents_per_year_series,
+        average_distance=numeric_inputs["average_distance_km"],
+        average_response=numeric_inputs["average_response_minutes"],
+        long_arrival_share=_clip_share_series(numeric_inputs["long_arrival_share"]),
+        no_water_share=no_water_share_series,
+        water_coverage_share=water_coverage_share_series,
+        water_unknown_share=water_unknown_share_series,
+        severe_share=_clip_share_series(numeric_inputs["severe_share"]),
+        victim_share=victim_share_series,
+        major_damage_share=major_damage_share_series,
+        night_share=_clip_share_series(numeric_inputs["night_share"]),
+        heating_share=_clip_share_series(numeric_inputs["heating_share"]),
+        rural_share=_clip_share_series(numeric_inputs["rural_share"]),
+        response_coverage_share=response_coverage_share_series,
+        distance_coverage_share=distance_coverage_share_series,
+        arrival_missing_share=arrival_missing_share_series,
+        distance_missing_share=distance_missing_share_series,
+        completeness_share=completeness_share_series,
+        support_weight=_clip_share_series(numeric_inputs["support_weight"], default=1.0),
+    )
 
-    distance_norm_series = (average_distance_series / distance_scale).clip(lower=0.0, upper=1.0).fillna(0.0)
-    response_norm_series = (average_response_series / response_scale).clip(lower=0.0, upper=1.0).fillna(0.0)
-    frequency_norm_series = (incidents_per_year_series / max_incidents_per_year).clip(lower=0.0, upper=1.0)
-    incidents_norm_series = (incident_count_float_series / max_incidents).clip(lower=0.0, upper=1.0)
-    support_weight_series = _clip_share_series(numeric_inputs["support_weight"], default=1.0)
-    severity_factor_series = (
-        (0.58 * severe_share_series)
-        + (0.24 * victim_share_series)
-        + (0.18 * major_damage_share_series)
-    ).clip(lower=0.0, upper=1.0)
-    recurrence_factor_series = (
-        (0.70 * frequency_norm_series)
-        + (0.30 * incidents_norm_series)
-    ).clip(lower=0.0, upper=1.0)
-    uncertainty_factor_series = (
-        (0.35 * arrival_missing_share_series)
-        + (0.30 * water_unknown_share_series)
-        + (0.20 * distance_missing_share_series)
-        + (0.15 * (1.0 - support_weight_series))
-    ).clip(lower=0.0, upper=1.0)
 
-    return {
-        "incident_count": incident_count_series,
-        "years_observed": years_observed_series,
-        "incidents_per_year": incidents_per_year_series,
-        "average_distance": average_distance_series,
-        "average_response": average_response_series,
-        "long_arrival_share": long_arrival_share_series,
-        "no_water_share": no_water_share_series,
-        "water_coverage_share": water_coverage_share_series,
-        "water_unknown_share": water_unknown_share_series,
-        "severe_share": severe_share_series,
-        "night_share": night_share_series,
-        "heating_share": heating_share_series,
-        "rural_share": rural_share_series,
-        "response_coverage_share": response_coverage_share_series,
-        "distance_coverage_share": distance_coverage_share_series,
-        "arrival_missing_share": arrival_missing_share_series,
-        "distance_missing_share": distance_missing_share_series,
-        "completeness_share": completeness_share_series,
-        "distance_norm": distance_norm_series,
-        "response_norm": response_norm_series,
-        "support_weight": support_weight_series,
-        "severity_factor": severity_factor_series,
-        "recurrence_factor": recurrence_factor_series,
-        "uncertainty_factor": uncertainty_factor_series,
-        "access_score": _weighted_score_series(
-            frame_index,
-            active_reason_codes,
-            (
-                (0.42, DISTANCE_CODE, distance_norm_series),
-                (0.34, RESPONSE_CODE, response_norm_series),
-                (0.24, LONG_ARRIVAL_CODE, long_arrival_share_series),
-            ),
-        ),
-        "water_score": no_water_share_series * (100.0 if WATER_CODE in active_reason_codes else 0.0),
-        "severity_score": severity_factor_series * (100.0 if SEVERITY_CODE in active_reason_codes else 0.0),
-        "recurrence_score": _weighted_score_series(
-            frame_index,
-            active_reason_codes,
-            (
-                (0.72, RECURRENCE_CODE, recurrence_factor_series),
-                (0.18, NIGHT_CODE, night_share_series),
-                (0.10, HEATING_CODE, heating_share_series),
-            ),
-        ),
-        "data_gap_score": uncertainty_factor_series * 100.0,
-        "latitude": numeric_inputs["latitude"],
-        "longitude": numeric_inputs["longitude"],
+def _build_access_point_factor_series(base: _AccessPointBaseSeries) -> _AccessPointFactorSeries:
+    max_incidents = max(1.0, _finite_series_max(base.incident_count_float, 1.0))
+    max_incidents_per_year = max(1.0, _finite_series_max(base.incidents_per_year, 1.0))
+    distance_scale = max(12.0, _finite_series_max(base.average_distance, 0.0))
+    response_scale = max(
+        LONG_RESPONSE_THRESHOLD_MINUTES,
+        _finite_series_max(base.average_response, 0.0),
+    )
+    distance_norm_series = (base.average_distance / distance_scale).clip(lower=0.0, upper=1.0).fillna(0.0)
+    response_norm_series = (base.average_response / response_scale).clip(lower=0.0, upper=1.0).fillna(0.0)
+    frequency_norm_series = (base.incidents_per_year / max_incidents_per_year).clip(lower=0.0, upper=1.0)
+    incidents_norm_series = (base.incident_count_float / max_incidents).clip(lower=0.0, upper=1.0)
+    return _AccessPointFactorSeries(
+        distance_norm=distance_norm_series,
+        response_norm=response_norm_series,
+        severity_factor=(
+            (0.58 * base.severe_share)
+            + (0.24 * base.victim_share)
+            + (0.18 * base.major_damage_share)
+        ).clip(lower=0.0, upper=1.0),
+        recurrence_factor=(
+            (0.70 * frequency_norm_series)
+            + (0.30 * incidents_norm_series)
+        ).clip(lower=0.0, upper=1.0),
+        uncertainty_factor=(
+            (0.35 * base.arrival_missing_share)
+            + (0.30 * base.water_unknown_share)
+            + (0.20 * base.distance_missing_share)
+            + (0.15 * (1.0 - base.support_weight))
+        ).clip(lower=0.0, upper=1.0),
+    )
+
+
+def _build_access_point_score_series(
+    numeric_inputs: pd.DataFrame,
+    active_reason_codes: set[str],
+) -> Dict[str, pd.Series]:
+    frame_index = numeric_inputs.index
+    base = _build_access_point_base_series(numeric_inputs)
+    factors = _build_access_point_factor_series(base)
+    score_series = {
+        key: value
+        for key, value in base._asdict().items()
+        if key not in {"incident_count_float", "victim_share", "major_damage_share"}
     }
+    score_series.update(
+        {
+            "distance_norm": factors.distance_norm,
+            "response_norm": factors.response_norm,
+            "severity_factor": factors.severity_factor,
+            "recurrence_factor": factors.recurrence_factor,
+            "uncertainty_factor": factors.uncertainty_factor,
+            "access_score": _weighted_score_series(
+                frame_index,
+                active_reason_codes,
+                (
+                    (0.42, DISTANCE_CODE, factors.distance_norm),
+                    (0.34, RESPONSE_CODE, factors.response_norm),
+                    (0.24, LONG_ARRIVAL_CODE, base.long_arrival_share),
+                ),
+            ),
+            "water_score": base.no_water_share * (100.0 if WATER_CODE in active_reason_codes else 0.0),
+            "severity_score": factors.severity_factor * (100.0 if SEVERITY_CODE in active_reason_codes else 0.0),
+            "recurrence_score": _weighted_score_series(
+                frame_index,
+                active_reason_codes,
+                (
+                    (0.72, RECURRENCE_CODE, factors.recurrence_factor),
+                    (0.18, NIGHT_CODE, base.night_share),
+                    (0.10, HEATING_CODE, base.heating_share),
+                ),
+            ),
+            "data_gap_score": factors.uncertainty_factor * 100.0,
+            "latitude": numeric_inputs["latitude"],
+            "longitude": numeric_inputs["longitude"],
+        }
+    )
+    return score_series
 
 
 def _access_point_precomputed_arrays(series_map: Dict[str, pd.Series]) -> Dict[str, Sequence[Any]]:
@@ -669,19 +669,56 @@ class _AccessPointRowMetrics(NamedTuple):
     longitude: float | None
 
 
+class _AccessPointBaseSeries(NamedTuple):
+    incident_count: pd.Series
+    years_observed: pd.Series
+    incident_count_float: pd.Series
+    incidents_per_year: pd.Series
+    average_distance: pd.Series
+    average_response: pd.Series
+    long_arrival_share: pd.Series
+    no_water_share: pd.Series
+    water_coverage_share: pd.Series
+    water_unknown_share: pd.Series
+    severe_share: pd.Series
+    victim_share: pd.Series
+    major_damage_share: pd.Series
+    night_share: pd.Series
+    heating_share: pd.Series
+    rural_share: pd.Series
+    response_coverage_share: pd.Series
+    distance_coverage_share: pd.Series
+    arrival_missing_share: pd.Series
+    distance_missing_share: pd.Series
+    completeness_share: pd.Series
+    support_weight: pd.Series
+
+
+class _AccessPointFactorSeries(NamedTuple):
+    distance_norm: pd.Series
+    response_norm: pd.Series
+    severity_factor: pd.Series
+    recurrence_factor: pd.Series
+    uncertainty_factor: pd.Series
+
+
 class _AccessPointScoreContext(NamedTuple):
     score_decomposition: List[Dict[str, Any]]
     total_score: float
+    total_score_payload: float
     total_score_display: str
     uncertainty_penalty: float
+    uncertainty_penalty_payload: float
     uncertainty_penalty_display: str
     investigation_score: float
+    investigation_score_payload: float
     investigation_score_display: str
     access_score_payload: float
     water_score_payload: float
     severity_score_payload: float
     recurrence_score_payload: float
     data_gap_score_payload: float
+    component_scores: List[Dict[str, Any]]
 
 
 class _AccessPointDisplayContext(NamedTuple):
@@ -705,6 +742,12 @@ class _AccessPointReasonListContext(NamedTuple):
     reason_chips: List[str]
 
 
+class _AccessPointReasonContext(NamedTuple):
+    reason_details: List[Dict[str, Any]]
+    reason_lists: _AccessPointReasonListContext
+    explanation: str
+
+
 def _nullable_precomputed_float(value: Any) -> float | None:
     return None if value is None else float(value)
 
@@ -723,6 +766,61 @@ def _build_reason_list_context(reason_details: Sequence[Dict[str, Any]]) -> _Acc
         reasons=[f"{item['label']}: {item['value_display']}" for item in top_four_details],
         reason_chips=[f"{item['label']}: {item['contribution_display']}" for item in top_three_details],
     )
+
+
+def _build_access_point_reason_context(
+    *,
+    label: str,
+    severity_band: str,
+    total_score_display: str,
+    score_decomposition: Sequence[Dict[str, Any]],
+    uncertainty_flag: bool,
+    low_support: bool,
+    uncertainty_penalty_display: str,
+) -> _AccessPointReasonContext:
+    reason_details = _build_reason_details(score_decomposition)
+    return _AccessPointReasonContext(
+        reason_details=reason_details,
+        reason_lists=_build_reason_list_context(reason_details),
+        explanation=_build_human_readable_explanation(
+            label=label,
+            severity_band=severity_band,
+            total_score_display=total_score_display,
+            reason_details=reason_details,
+            uncertainty_flag=uncertainty_flag,
+            low_support=low_support,
+            uncertainty_penalty_display=uncertainty_penalty_display,
+        ),
+    )
+
+
+def _build_low_support_note(*, low_support: bool, incident_count: int) -> str:
+    if not low_support:
+        return ""
+    return (
+        f"\u0422\u043e\u0447\u043a\u0430 \u0441\u043e\u0431\u0440\u0430\u043d\u0430 \u0432\u0441\u0435\u0433\u043e \u043f\u043e {_format_integer(incident_count)} \u043f\u043e\u0436\u0430\u0440\u0430\u043c, "
+        "\u0434\u043e\u043b\u0435\u0432\u044b\u0435 \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u0438 \u0441\u0433\u043b\u0430\u0436\u0435\u043d\u044b."
+    )
+
+
+def _build_incomplete_note(
+    *,
+    low_support_note: str,
+    missing_data_priority: bool,
+    uncertainty_flag: bool,
+    uncertainty_penalty_display: str,
+) -> str:
+    if uncertainty_flag:
+        return (
+            f"\u041d\u0435\u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0451\u043d\u043d\u043e\u0441\u0442\u044c \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442 {uncertainty_penalty_display} \u043f. "
+            "\u0438 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u0432\u0435\u0440\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u0438 \u0432\u043e\u0434\u044b, \u0432\u0440\u0435\u043c\u0435\u043d\u0438 \u043f\u0440\u0438\u0431\u044b\u0442\u0438\u044f \u0438 \u0434\u0438\u0441\u0442\u0430\u043d\u0446\u0438\u0438."
+        )
+    if missing_data_priority:
+        return (
+            "\u0412\u044b\u0441\u043e\u043a\u0438\u0439 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u0441\u0432\u044f\u0437\u0430\u043d \u043f\u0440\u0435\u0436\u0434\u0435 \u0432\u0441\u0435\u0433\u043e \u0441 "
+            "\u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0430\u043c\u0438 \u043f\u043e \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e\u0441\u0442\u0438, \u0432\u043e\u0434\u0435 \u0438\u043b\u0438 \u0432\u0440\u0435\u043c\u0435\u043d\u0438 \u043f\u0440\u0438\u0431\u044b\u0442\u0438\u044f."
+        )
+    return low_support_note
 
 
 def _access_point_row_metrics(precomputed: Dict[str, Sequence[Any]], row_index: int) -> _AccessPointRowMetrics:
@@ -779,93 +877,60 @@ def _build_access_point_display_context(metrics: _AccessPointRowMetrics) -> _Acc
 
 
 def _access_point_decomposition_components(
+    metrics: _AccessPointRowMetrics,
+    displays: _AccessPointDisplayContext,
     *,
     active_reason_codes: set[str],
-    average_distance: Any,
-    average_response: Any,
-    distance_norm: float,
-    response_norm: float,
-    long_arrival_share: float,
-    no_water_share: float,
-    severe_share: float,
-    night_share: float,
-    heating_share: float,
-    incidents_per_year: float,
-    severity_factor: float,
-    recurrence_factor: float,
 ) -> List[tuple[str, float, float, str]]:
     components: List[tuple[str, float, float, str]] = []
     if DISTANCE_CODE in active_reason_codes:
-        components.append((DISTANCE_CODE, distance_norm * 100.0, distance_norm, _distance_value_display(average_distance)))
+        components.append((DISTANCE_CODE, metrics.distance_norm * 100.0, metrics.distance_norm, displays.average_distance_display))
     if RESPONSE_CODE in active_reason_codes:
-        components.append((RESPONSE_CODE, response_norm * 100.0, response_norm, _response_value_display(average_response)))
+        components.append((RESPONSE_CODE, metrics.response_norm * 100.0, metrics.response_norm, displays.average_response_display))
     if LONG_ARRIVAL_CODE in active_reason_codes:
-        components.append((LONG_ARRIVAL_CODE, long_arrival_share * 100.0, long_arrival_share, _share_value_display(long_arrival_share)))
+        components.append((LONG_ARRIVAL_CODE, metrics.long_arrival_share * 100.0, metrics.long_arrival_share, displays.long_arrival_share_display))
     if WATER_CODE in active_reason_codes:
-        components.append((WATER_CODE, no_water_share * 100.0, no_water_share, _share_value_display(no_water_share)))
+        components.append((WATER_CODE, metrics.no_water_share * 100.0, metrics.no_water_share, displays.no_water_share_display))
     if SEVERITY_CODE in active_reason_codes:
-        components.append((SEVERITY_CODE, severity_factor * 100.0, severity_factor, _share_value_display(severe_share)))
+        components.append((SEVERITY_CODE, metrics.severity_factor * 100.0, metrics.severity_factor, displays.severe_share_display))
     if RECURRENCE_CODE in active_reason_codes:
-        components.append((RECURRENCE_CODE, recurrence_factor * 100.0, recurrence_factor, f"{_format_number(incidents_per_year)} в год"))
+        components.append((RECURRENCE_CODE, metrics.recurrence_factor * 100.0, metrics.recurrence_factor, f"{_format_number(metrics.incidents_per_year)} в год"))
     if NIGHT_CODE in active_reason_codes:
-        components.append((NIGHT_CODE, night_share * 100.0, night_share, _share_value_display(night_share)))
+        components.append((NIGHT_CODE, metrics.night_share * 100.0, metrics.night_share, displays.night_share_display))
     if HEATING_CODE in active_reason_codes:
-        components.append((HEATING_CODE, heating_share * 100.0, heating_share, _share_value_display(heating_share)))
+        components.append((HEATING_CODE, metrics.heating_share * 100.0, metrics.heating_share, displays.heating_share_display))
     return components
 
 
 def _build_access_point_score_decomposition(
+    metrics: _AccessPointRowMetrics,
+    displays: _AccessPointDisplayContext,
     *,
-    average_distance: Any,
-    average_response: Any,
-    distance_norm: float,
-    response_norm: float,
-    long_arrival_share: float,
-    no_water_share: float,
-    severe_share: float,
-    night_share: float,
-    heating_share: float,
-    incidents_per_year: float,
-    severity_factor: float,
-    recurrence_factor: float,
-    support_weight: float,
-    uncertainty_factor: float,
-    completeness_share: float,
     active_reason_codes: set[str],
     normalized_factor_weights: Dict[str, float],
 ) -> List[Dict[str, Any]]:
     score_decomposition: List[Dict[str, Any]] = []
     for code, factor_score, factor_value, value_display in _access_point_decomposition_components(
+        metrics,
+        displays,
         active_reason_codes=active_reason_codes,
-        average_distance=average_distance,
-        average_response=average_response,
-        distance_norm=distance_norm,
-        response_norm=response_norm,
-        long_arrival_share=long_arrival_share,
-        no_water_share=no_water_share,
-        severe_share=severe_share,
-        night_share=night_share,
-        heating_share=heating_share,
-        incidents_per_year=incidents_per_year,
-        severity_factor=severity_factor,
-        recurrence_factor=recurrence_factor,
     ):
         score_decomposition.append(
             _make_decomposition_item(
                 code=code,
                 factor_score=factor_score,
                 weight_points=normalized_factor_weights[code],
-                contribution_points=normalized_factor_weights[code] * factor_value * support_weight,
+                contribution_points=normalized_factor_weights[code] * factor_value * metrics.support_weight,
                 value_display=value_display,
             )
         )
     score_decomposition.append(
         _make_decomposition_item(
             code=UNCERTAINTY_CODE,
-            factor_score=uncertainty_factor * 100.0,
+            factor_score=metrics.uncertainty_factor * 100.0,
             weight_points=UNCERTAINTY_PENALTY_MAX,
-            contribution_points=UNCERTAINTY_PENALTY_MAX * uncertainty_factor,
-            value_display=f"полнота {_share_value_display(completeness_share)}",
+            contribution_points=UNCERTAINTY_PENALTY_MAX * metrics.uncertainty_factor,
+            value_display=f"полнота {displays.completeness_display}",
             is_penalty=True,
         )
     )
@@ -883,41 +948,16 @@ def _score_total_and_uncertainty_penalty(score_decomposition: Sequence[Dict[str,
     return total_score, 0.0 if uncertainty_penalty is None else uncertainty_penalty
 
 
-def _build_access_point_score_decomposition_from_metrics(
-    metrics: _AccessPointRowMetrics,
-    *,
-    active_reason_codes: set[str],
-    normalized_factor_weights: Dict[str, float],
-) -> List[Dict[str, Any]]:
-    return _build_access_point_score_decomposition(
-        average_distance=metrics.average_distance,
-        average_response=metrics.average_response,
-        distance_norm=metrics.distance_norm,
-        response_norm=metrics.response_norm,
-        long_arrival_share=metrics.long_arrival_share,
-        no_water_share=metrics.no_water_share,
-        severe_share=metrics.severe_share,
-        night_share=metrics.night_share,
-        heating_share=metrics.heating_share,
-        incidents_per_year=metrics.incidents_per_year,
-        severity_factor=metrics.severity_factor,
-        recurrence_factor=metrics.recurrence_factor,
-        support_weight=metrics.support_weight,
-        uncertainty_factor=metrics.uncertainty_factor,
-        completeness_share=metrics.completeness_share,
-        active_reason_codes=active_reason_codes,
-        normalized_factor_weights=normalized_factor_weights,
-    )
-
-
 def _build_access_point_score_context(
     metrics: _AccessPointRowMetrics,
+    displays: _AccessPointDisplayContext,
     *,
     active_reason_codes: set[str],
     normalized_factor_weights: Dict[str, float],
 ) -> _AccessPointScoreContext:
-    score_decomposition = _build_access_point_score_decomposition_from_metrics(
+    score_decomposition = _build_access_point_score_decomposition(
         metrics,
+        displays,
         active_reason_codes=active_reason_codes,
         normalized_factor_weights=normalized_factor_weights,
     )
@@ -926,60 +966,45 @@ def _build_access_point_score_context(
         100.0,
         (0.72 * total_score) + (0.28 * (uncertainty_penalty * 100.0 / UNCERTAINTY_PENALTY_MAX)),
     )
+    total_score_payload = round(total_score, 1)
+    uncertainty_penalty_payload = round(uncertainty_penalty, 2)
+    investigation_score_payload = round(investigation_score, 1)
+    access_score_payload = round(metrics.access_score, 1)
+    water_score_payload = round(metrics.water_score, 1)
+    severity_score_payload = round(metrics.severity_score, 1)
+    recurrence_score_payload = round(metrics.recurrence_score, 1)
+    data_gap_score_payload = round(metrics.data_gap_score, 1)
     return _AccessPointScoreContext(
         score_decomposition=score_decomposition,
         total_score=total_score,
+        total_score_payload=total_score_payload,
         total_score_display=_format_number(total_score),
         uncertainty_penalty=uncertainty_penalty,
+        uncertainty_penalty_payload=uncertainty_penalty_payload,
         uncertainty_penalty_display=_format_number(uncertainty_penalty),
         investigation_score=investigation_score,
+        investigation_score_payload=investigation_score_payload,
         investigation_score_display=_format_number(investigation_score),
-        access_score_payload=round(metrics.access_score, 1),
-        water_score_payload=round(metrics.water_score, 1),
-        severity_score_payload=round(metrics.severity_score, 1),
-        recurrence_score_payload=round(metrics.recurrence_score, 1),
-        data_gap_score_payload=round(metrics.data_gap_score, 1),
+        access_score_payload=access_score_payload,
+        water_score_payload=water_score_payload,
+        severity_score_payload=severity_score_payload,
+        recurrence_score_payload=recurrence_score_payload,
+        data_gap_score_payload=data_gap_score_payload,
+        component_scores=_build_component_scores_from_values(
+            access_score=access_score_payload,
+            water_score=water_score_payload,
+            severity_score=severity_score_payload,
+            recurrence_score=recurrence_score_payload,
+            data_gap_score=data_gap_score_payload,
+        ),
     )
 
 
-def _build_access_point_payload_row(
-    *,
-    record: Dict[str, Any],
-    precomputed: Dict[str, Sequence[Any]],
-    row_index: int,
-    normalized_selected_features: Sequence[str],
-    active_reason_codes: set[str],
-    normalized_factor_weights: Dict[str, float],
+def _build_access_point_metric_payload(
+    metrics: _AccessPointRowMetrics,
+    displays: _AccessPointDisplayContext,
 ) -> Dict[str, Any]:
-    metrics = _access_point_row_metrics(precomputed, row_index)
-    score_context = _build_access_point_score_context(
-        metrics,
-        active_reason_codes=active_reason_codes,
-        normalized_factor_weights=normalized_factor_weights,
-    )
-    displays = _build_access_point_display_context(metrics)
-    low_support = bool(record.get("low_support"))
-    uncertainty_flag = bool(
-        score_context.uncertainty_penalty >= 2.5
-        or low_support
-        or metrics.completeness_share < 0.6
-    )
-    missing_data_priority = uncertainty_flag and score_context.total_score < HIGH_THRESHOLD
-    total_score_payload = round(score_context.total_score, 1)
-    uncertainty_penalty_payload = round(score_context.uncertainty_penalty, 2)
-    investigation_score_payload = round(score_context.investigation_score, 1)
-    severity_descriptor = _severity_band_descriptor(total_score_payload)
-    component_scores = _build_component_scores_from_values(
-        access_score=score_context.access_score_payload,
-        water_score=score_context.water_score_payload,
-        severity_score=score_context.severity_score_payload,
-        recurrence_score=score_context.recurrence_score_payload,
-        data_gap_score=score_context.data_gap_score_payload,
-    )
-    row: Dict[str, Any] = record
-    row.update({
-        "label": _clean_text(record.get("label")) or "Точка",
-        "location_hint": _clean_text(record.get("location_hint")) or "Локация определена по лучшей доступной сущности",
+    return {
         "incident_count": metrics.incident_count,
         "incident_count_display": _format_integer(metrics.incident_count),
         "years_observed": metrics.years_observed,
@@ -1012,36 +1037,91 @@ def _build_access_point_payload_row(
         "distance_missing_share": round(metrics.distance_missing_share, 4),
         "completeness_share": round(metrics.completeness_share, 4),
         "completeness_display": displays.completeness_display,
+        "latitude": metrics.latitude,
+        "longitude": metrics.longitude,
+        "coordinates_display": _coordinates_display(metrics.latitude, metrics.longitude),
+    }
+
+
+def _build_access_point_score_payload(
+    score_context: _AccessPointScoreContext,
+    *,
+    normalized_selected_features: Sequence[str],
+    missing_data_priority: bool,
+    uncertainty_flag: bool,
+    low_support: bool,
+    low_support_note: str,
+) -> Dict[str, Any]:
+    return {
         "access_score": score_context.access_score_payload,
         "water_score": score_context.water_score_payload,
         "severity_score": score_context.severity_score_payload,
         "recurrence_score": score_context.recurrence_score_payload,
         "data_gap_score": score_context.data_gap_score_payload,
-        "score": total_score_payload,
+        "score": score_context.total_score_payload,
         "score_display": score_context.total_score_display,
-        "total_score": total_score_payload,
+        "total_score": score_context.total_score_payload,
         "total_score_display": score_context.total_score_display,
-        "uncertainty_penalty": uncertainty_penalty_payload,
+        "uncertainty_penalty": score_context.uncertainty_penalty_payload,
         "uncertainty_penalty_display": score_context.uncertainty_penalty_display,
-        "investigation_score": investigation_score_payload,
+        "investigation_score": score_context.investigation_score_payload,
         "investigation_score_display": score_context.investigation_score_display,
         "missing_data_priority": missing_data_priority,
         "uncertainty_flag": uncertainty_flag,
         "low_support": low_support,
-        "low_support_note": (
-            f"Точка собрана всего по {_format_integer(metrics.incident_count)} пожарам, долевые признаки сглажены."
-            if low_support
-            else ""
-        ),
+        "low_support_note": low_support_note,
         "selected_feature_columns": list(normalized_selected_features),
         "selected_feature_count": len(normalized_selected_features),
         "score_decomposition": score_context.score_decomposition,
-        "latitude": metrics.latitude,
-        "longitude": metrics.longitude,
-        "coordinates_display": _coordinates_display(metrics.latitude, metrics.longitude),
-    })
+    }
+
+
+def _build_access_point_payload_row(
+    *,
+    record: Dict[str, Any],
+    precomputed: Dict[str, Sequence[Any]],
+    row_index: int,
+    normalized_selected_features: Sequence[str],
+    active_reason_codes: set[str],
+    normalized_factor_weights: Dict[str, float],
+) -> Dict[str, Any]:
+    metrics = _access_point_row_metrics(precomputed, row_index)
+    displays = _build_access_point_display_context(metrics)
+    score_context = _build_access_point_score_context(
+        metrics,
+        displays,
+        active_reason_codes=active_reason_codes,
+        normalized_factor_weights=normalized_factor_weights,
+    )
+    low_support = bool(record.get("low_support"))
+    uncertainty_flag = bool(
+        score_context.uncertainty_penalty >= 2.5
+        or low_support
+        or metrics.completeness_share < 0.6
+    )
+    missing_data_priority = uncertainty_flag and score_context.total_score < HIGH_THRESHOLD
+    label = _clean_text(record.get("label")) or "Точка"
+    location_hint = _clean_text(record.get("location_hint")) or "Локация определена по лучшей доступной сущности"
+    low_support_note = _build_low_support_note(
+        low_support=low_support,
+        incident_count=metrics.incident_count,
+    )
+    severity_descriptor = _severity_band_descriptor(score_context.total_score_payload)
+    row: Dict[str, Any] = record
+    row.update({"label": label, "location_hint": location_hint})
+    row.update(_build_access_point_metric_payload(metrics, displays))
+    row.update(
+        _build_access_point_score_payload(
+            score_context,
+            normalized_selected_features=normalized_selected_features,
+            missing_data_priority=missing_data_priority,
+            uncertainty_flag=uncertainty_flag,
+            low_support=low_support,
+            low_support_note=low_support_note,
+        )
+    )
     row.update(severity_descriptor)
-    row["component_scores"] = component_scores
+    row["component_scores"] = score_context.component_scores
     row["typology_code"], row["typology_label"] = _typology_for_score_values(
         uncertainty_flag=uncertainty_flag,
         severity_band_code=severity_descriptor["severity_band_code"],
@@ -1050,23 +1130,27 @@ def _build_access_point_payload_row(
         severity_score=score_context.severity_score_payload,
         recurrence_score=score_context.recurrence_score_payload,
     )
-    row["reason_details"] = _build_reason_details(score_context.score_decomposition)
-    reason_lists = _build_reason_list_context(row["reason_details"])
-    row["top_reason_codes"] = reason_lists.top_reason_codes
-    row["reasons"] = reason_lists.reasons
-    row["reason_chips"] = reason_lists.reason_chips
-    row["human_readable_explanation"] = _build_human_readable_explanation(row)
-    row["explanation"] = row["human_readable_explanation"]
-    row["incomplete_note"] = (
-        "Высокий приоритет проверки связан прежде всего с пропусками по доступности, воде или времени прибытия."
-        if missing_data_priority
-        else row["low_support_note"]
+    reason_context = _build_access_point_reason_context(
+        label=label,
+        severity_band=str(severity_descriptor["severity_band"]),
+        total_score_display=score_context.total_score_display,
+        score_decomposition=score_context.score_decomposition,
+        uncertainty_flag=uncertainty_flag,
+        low_support=low_support,
+        uncertainty_penalty_display=score_context.uncertainty_penalty_display,
     )
-    if uncertainty_flag:
-        row["incomplete_note"] = (
-            f"Неопределённость добавляет {row['uncertainty_penalty_display']} п. "
-            "и требует верификации воды, времени прибытия и дистанции."
-        )
+    row["reason_details"] = reason_context.reason_details
+    row["top_reason_codes"] = reason_context.reason_lists.top_reason_codes
+    row["reasons"] = reason_context.reason_lists.reasons
+    row["reason_chips"] = reason_context.reason_lists.reason_chips
+    row["human_readable_explanation"] = reason_context.explanation
+    row["explanation"] = reason_context.explanation
+    row["incomplete_note"] = _build_incomplete_note(
+        low_support_note=low_support_note,
+        missing_data_priority=missing_data_priority,
+        uncertainty_flag=uncertainty_flag,
+        uncertainty_penalty_display=score_context.uncertainty_penalty_display,
+    )
     return row
 
 

@@ -67,29 +67,39 @@
                 </div>
             </article>
 
-            <article class="panel">
+            <article class="panel access-points-distribution-panel">
                 <div class="panel-head">
-                    <h2>Распределение score</h2>
-                    <span class="panel-meta">Сколько точек попадает в низкий, средний, высокий и критический band.</span>
+                    <h2>Распределение балла риска</h2>
+                    <span class="panel-meta">Показывает, где сосредоточена основная масса точек: по уровням риска и по диапазонам итогового балла.</span>
                 </div>
-                <div id="accessPointsDistributionShell" class="typology-grid">
+                <div id="accessPointsDistributionShell" class="score-distribution-grid">
                     {% if data.score_distribution and data.score_distribution.bands %}
-                        <article class="typology-card">
-                            <strong>Средний score</strong>
-                            <span>{{ data.score_distribution.average_score_display }}</span>
+                        <article class="score-distribution-card score-distribution-card-metric">
+                            <span class="score-distribution-label">Средний балл</span>
+                            <strong class="score-distribution-value">{{ data.score_distribution.average_score_display }}</strong>
+                            <span class="score-distribution-meta">По всем точкам в рейтинге</span>
                         </article>
-                        <article class="typology-card">
-                            <strong>Медианный score</strong>
-                            <span>{{ data.score_distribution.median_score_display }}</span>
+                        <article class="score-distribution-card score-distribution-card-metric">
+                            <span class="score-distribution-label">Медианный балл</span>
+                            <strong class="score-distribution-value">{{ data.score_distribution.median_score_display }}</strong>
+                            <span class="score-distribution-meta">Типичное значение без влияния выбросов</span>
                         </article>
                         {% for item in data.score_distribution.bands %}
-                        <article class="typology-card">
-                            <strong>{{ item.label }}</strong>
-                            <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
+                        <article class="score-distribution-card">
+                            <span class="score-distribution-label">{{ item.label }} риск</span>
+                            <strong class="score-distribution-value">{{ item.count_display }}</strong>
+                            <span class="score-distribution-meta">{{ item.share_display }} от выборки</span>
+                        </article>
+                        {% endfor %}
+                        {% for item in data.score_distribution.buckets %}
+                        <article class="score-distribution-card score-distribution-card-range">
+                            <span class="score-distribution-label">Диапазон {{ item.label }}</span>
+                            <strong class="score-distribution-value">{{ item.count_display }}</strong>
+                            <span class="score-distribution-meta">точек</span>
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">Распределение score появится после расчёта рейтинга.</div>
+                    <div class="mini-empty">Распределение балла риска появится после расчёта рейтинга.</div>
                     {% endif %}
                 </div>
             </article>

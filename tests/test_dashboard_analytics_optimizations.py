@@ -422,7 +422,7 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         for metric_kind in ("'cause'", "'district'", "'month'", "'area_bucket'", "'impact_timeline'"):
             self.assertIn(metric_kind, cause_conn.queries[0])
         self.assertNotIn("'distribution'", cause_conn.queries[0])
-        self.assertTrue(service._can_reuse_distribution_counts([table], GENERAL_CAUSE_COLUMN, cause_bundle["distribution_counts"]))
+        self.assertTrue(service._can_reuse_distribution_counts([table], GENERAL_CAUSE_COLUMN))
 
         non_cause_conn = _DashboardConnection()
         with patch("app.dashboard.impact.engine.connect", return_value=non_cause_conn):
@@ -443,7 +443,6 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             service._can_reuse_distribution_counts(
                 [table],
                 BUILDING_CATEGORY_COLUMN,
-                non_cause_bundle["distribution_counts"],
             )
         )
 
@@ -558,7 +557,6 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
             service._can_reuse_distribution_counts(
                 [unsupported_table],
                 BUILDING_CATEGORY_COLUMN,
-                {"Жилое": 2},
             )
         )
         self.assertFalse(
@@ -572,7 +570,6 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
                     }
                 ],
                 GENERAL_CAUSE_COLUMN,
-                {"Электрика": 2},
             )
         )
 
@@ -804,6 +801,36 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertEqual(distribution_mock.call_args.kwargs["grouped_counts"], {"category_a": 7})
         self.assertEqual(impact_timeline_mock.call_args.kwargs["impact_timeline_rows"], [{"date_value": date(2024, 1, 2)}])
 
+    def test_standard_dashboard_charts_reuse_empty_grouped_distribution_counts_without_sql(self) -> None:
+        selected_tables = [
+            {
+                "name": "fires",
+                "column_set": {BUILDING_CATEGORY_COLUMN, DATE_COLUMN, AREA_COLUMN},
+                "years": [2024],
+                "table_year": None,
+            }
+        ]
+
+        with patch(
+            "app.dashboard.distribution.engine.connect",
+            side_effect=AssertionError("empty grouped distribution counts should not trigger fallback SQL"),
+        ):
+            charts = service._build_standard_dashboard_charts(
+                selected_tables,
+                2024,
+                BUILDING_CATEGORY_COLUMN,
+                {
+                    "distribution_counts": {},
+                    "impact_timeline_rows": [],
+                    "month_counts": {},
+                    "area_bucket_counts": {},
+                },
+            )
+
+        self.assertEqual(charts["distribution"]["items"], [])
+        self.assertEqual(charts["monthly_profile"]["items"], [])
+        self.assertEqual(charts["area_buckets"]["items"], [])
+
     def test_service_reuses_grouped_positive_counts_for_damage_dashboard(self) -> None:
         metadata = {
             "tables": [
@@ -889,6 +916,32 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         )
         self.assertEqual(aggregation["distribution"]["items"][0]["value"], 3)
 
+    def test_damage_dashboard_empty_grouped_counts_still_skip_fallback_sql(self) -> None:
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    "app.dashboard.service._collect_damage_counts",
+                    side_effect=AssertionError("empty grouped damage counts should not trigger fallback SQL"),
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "app.dashboard.distribution._collect_damage_counts",
+                    side_effect=AssertionError("damage chart helpers should reuse explicit grouped counts"),
+                )
+            )
+
+            charts = service._build_damage_dashboard_charts(
+                [],
+                None,
+                damage_counts={},
+            )
+
+        self.assertEqual(charts["distribution"]["items"], [])
+        self.assertEqual(charts["yearly_area_chart"]["items"], [])
+        self.assertEqual(charts["monthly_profile"]["items"], [])
+        self.assertEqual(charts["area_buckets"]["items"], [])
+
     def test_damage_dashboard_aggregation_uses_two_sql_queries(self) -> None:
         table = {
             "name": "fires",
@@ -941,19 +994,23 @@ class DashboardAnalyticsOptimizationTests(unittest.TestCase):
         self.assertEqual(aggregation["distribution"]["items"][0]["value"], 3)
         self.assertEqual(aggregation["widgets"]["causes"]["items"][0]["value"], 3)
 
-    def test_service_falls_back_when_distribution_counts_are_empty_or_unsupported(self) -> None:
-        self.assertFalse(
+    def test_service_reuses_empty_distribution_counts_but_rejects_unsupported_grouped_counts(self) -> None:
+        self.assertTrue(
             service._can_reuse_distribution_counts(
                 [{"name": "fires", "column_set": {BUILDING_CATEGORY_COLUMN}}],
                 BUILDING_CATEGORY_COLUMN,
-                {},
             )
         )
         self.assertFalse(
             service._can_reuse_distribution_counts(
                 [{"name": "fires", "column_set": {GENERAL_CAUSE_COLUMN}}],
                 BUILDING_CATEGORY_COLUMN,
-                {"category_a": 7},
+            )
+        )
+        self.assertFalse(
+            service._can_reuse_distribution_counts(
+                [{"name": "fires", "column_set": {GENERAL_CAUSE_COLUMN}}],
+                BUILDING_CATEGORY_COLUMN,
             )
         )
 

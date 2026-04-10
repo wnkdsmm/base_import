@@ -251,26 +251,38 @@
             return;
         }
         if (!bands.length && !buckets.length) {
-            node.innerHTML = '<div class="mini-empty">Распределение score появится после расчёта рейтинга.</div>';
+            node.innerHTML = '<div class="mini-empty">Распределение балла риска появится после расчёта рейтинга.</div>';
             return;
         }
         var cards = [
-            '<article class="typology-card"><strong>Средний score</strong><span>' + escapeHtml(distribution.average_score_display || '0') + '</span></article>',
-            '<article class="typology-card"><strong>Медианный score</strong><span>' + escapeHtml(distribution.median_score_display || '0') + '</span></article>'
+            ''
+                + '<article class="score-distribution-card score-distribution-card-metric">'
+                + '<span class="score-distribution-label">Средний балл</span>'
+                + '<strong class="score-distribution-value">' + escapeHtml(distribution.average_score_display || '0') + '</strong>'
+                + '<span class="score-distribution-meta">По всем точкам в рейтинге</span>'
+                + '</article>',
+            ''
+                + '<article class="score-distribution-card score-distribution-card-metric">'
+                + '<span class="score-distribution-label">Медианный балл</span>'
+                + '<strong class="score-distribution-value">' + escapeHtml(distribution.median_score_display || '0') + '</strong>'
+                + '<span class="score-distribution-meta">Типичное значение без влияния выбросов</span>'
+                + '</article>'
         ];
         bands.forEach(function (item) {
             cards.push(
-                '<article class="typology-card">'
-                + '<strong>' + escapeHtml(item.label || '') + '</strong>'
-                + '<span>' + escapeHtml(item.count_display || '0') + ' точек | ' + escapeHtml(item.share_display || '0%') + '</span>'
+                '<article class="score-distribution-card">'
+                + '<span class="score-distribution-label">' + escapeHtml(item.label || '') + ' риск</span>'
+                + '<strong class="score-distribution-value">' + escapeHtml(item.count_display || '0') + '</strong>'
+                + '<span class="score-distribution-meta">' + escapeHtml(item.share_display || '0%') + ' от выборки</span>'
                 + '</article>'
             );
         });
         buckets.forEach(function (item) {
             cards.push(
-                '<article class="typology-card">'
-                + '<strong>Bucket ' + escapeHtml(item.label || '') + '</strong>'
-                + '<span>' + escapeHtml(item.count_display || '0') + ' точек</span>'
+                '<article class="score-distribution-card score-distribution-card-range">'
+                + '<span class="score-distribution-label">Диапазон ' + escapeHtml(item.label || '') + '</span>'
+                + '<strong class="score-distribution-value">' + escapeHtml(item.count_display || '0') + '</strong>'
+                + '<span class="score-distribution-meta">точек</span>'
                 + '</article>'
             );
         });
@@ -289,11 +301,12 @@
         }
         node.innerHTML = items.map(function (item) {
             return ''
-                + '<article class="typology-card">'
-                + '<strong>' + escapeHtml(item.label || '') + '</strong>'
-                + '<span>' + escapeHtml(item.count_display || '0') + ' точек | ' + escapeHtml(item.share_display || '0%') + '</span>'
-                + '<span>Средний вклад: ' + escapeHtml(item.average_contribution_display || '0') + '</span>'
-                + '<span>Лидер: ' + escapeHtml(item.lead_label || '-') + '</span>'
+                + '<article class="reason-breakdown-card">'
+                + '<span class="reason-breakdown-label">' + escapeHtml(item.label || '') + '</span>'
+                + '<strong class="reason-breakdown-value">' + escapeHtml(item.count_display || '0') + '</strong>'
+                + '<span class="reason-breakdown-meta">' + escapeHtml(item.share_display || '0%') + ' точек попадают под этот фактор</span>'
+                + '<span class="reason-breakdown-meta">В среднем добавляет ' + escapeHtml(item.average_contribution_display || '0') + ' балла</span>'
+                + '<span class="reason-breakdown-foot">Характерный пример: ' + escapeHtml(item.lead_label || '-') + '</span>'
                 + '</article>';
         }).join('');
     }

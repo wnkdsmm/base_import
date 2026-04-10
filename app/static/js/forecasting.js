@@ -3,14 +3,12 @@
     var applyToneClass = shared.applyToneClass;
     var byId = shared.byId;
     var createSingleTimer = shared.createSingleTimer;
-    var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
     var fetchJson = shared.fetchJson;
     var normalizePercent = shared.normalizePercent;
     var renderChart = shared.renderPlotlyFigure;
     var setHref = shared.setHref;
     var setSelectOptions = shared.setSelectOptions;
-    var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
     var setValue = shared.setValue;
 
@@ -271,53 +269,9 @@
         }).join('');
     }
 
-    function renderMiniCards(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">' + escapeHtml(emptyMessage) + '</div>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
-            return '<article class="risk-mini-card">' +
-                '<div class="risk-mini-head"><strong>' + escapeHtml(item.label) + '</strong><span>' + escapeHtml(item.risk_display || '') + '</span></div>' +
-                '<p>' + escapeHtml(item.meta || '') + '</p>' +
-            '</article>';
-        }).join('');
-    }
-
-    function syncGeoPanel(geo, hasRenderedChart) {
-        var panel = byId('forecastGeoPanel');
-        var chartNode = byId('forecastGeoChart');
-        var compactNode = byId('forecastGeoCompactHint');
-        var compactMessage = geo && geo.compact_message ? geo.compact_message : '';
-        var shouldCompact = !hasRenderedChart;
-
-        if (panel) {
-            panel.classList.toggle('is-compact', shouldCompact);
-        }
-        if (chartNode) {
-            chartNode.classList.toggle('is-hidden', shouldCompact);
-        }
-        if (compactNode) {
-            compactNode.textContent = compactMessage;
-            compactNode.classList.toggle('is-hidden', !compactMessage);
-        }
-    }
-
-
     var currentForecastData = window.__FIRE_FORECAST_INITIAL__ || null;
     var forecastRequestToken = 0;
-    var forecastStepTimers = createTimerGroup();
     var decisionSupportJobPollTimer = createSingleTimer();
-
-    function clearForecastStepTimers() {
-        forecastStepTimers.clear();
-    }
 
     function setForecastAsyncVisibility(visible) {
         var asyncNode = byId('forecastAsyncState');
@@ -327,283 +281,32 @@
         asyncNode.classList.toggle('is-hidden', !visible);
     }
 
-    function setForecastSkeletonVisible(visible) {
-        var skeletonNode = byId('forecastLoadingSkeleton');
-        if (!skeletonNode) {
-            return;
-        }
-        skeletonNode.classList.toggle('is-hidden', !visible);
-    }
-
     function hideForecastError() {
         var errorNode = byId('forecastErrorState');
+        var runtimeNode = byId('forecastJobRuntime');
         if (!errorNode) {
             return;
         }
         errorNode.classList.add('is-hidden');
         setText('forecastErrorMessage', '');
+        if (!runtimeNode || runtimeNode.classList.contains('is-hidden')) {
+            setForecastAsyncVisibility(false);
+        }
     }
 
     function showForecastError(message) {
-        var loadingNode = byId('forecastLoadingState');
         var errorNode = byId('forecastErrorState');
         setForecastAsyncVisibility(true);
-        if (loadingNode) {
-            loadingNode.classList.remove('is-hidden', 'is-pending');
-            loadingNode.classList.add('is-ready');
-        }
-        setForecastSkeletonVisible(false);
         setText('forecastErrorMessage', message || 'Не удалось пересчитать прогноз. Попробуйте еще раз.');
         if (errorNode) {
             errorNode.classList.remove('is-hidden');
         }
     }
 
-    function setForecastProgress(activeIndex, options) {
-        var settings = options || {};
-        setStepProgress({
-            activeIndex: activeIndex,
-            isError: settings.isError,
-            isFinished: settings.isFinished,
-            lead: settings.lead,
-            leadId: 'forecastLoadingLead',
-            message: settings.message,
-            messageId: 'forecastLoadingMessage',
-            stepSelector: '.analysis-step',
-            stepsId: 'forecastProgressSteps'
-        });
-    }
-
-    function setForecastLoadingState(lead, message, activeIndex, options) {
-        var loadingNode = byId('forecastLoadingState');
-        var settings = options || {};
-        setForecastAsyncVisibility(true);
-        hideForecastError();
-        if (loadingNode) {
-            loadingNode.classList.remove('is-hidden', 'is-ready');
-            loadingNode.classList.add('is-pending');
-        }
-        setForecastSkeletonVisible(settings.showSkeleton !== false);
-        setForecastProgress(activeIndex, {
-            lead: lead,
-            message: message
-        });
-    }
-
-    function setForecastReadyState(lead, message) {
-        var loadingNode = byId('forecastLoadingState');
-        setForecastAsyncVisibility(true);
-        hideForecastError();
-        if (loadingNode) {
-            loadingNode.classList.remove('is-hidden', 'is-pending');
-            loadingNode.classList.add('is-ready');
-        }
-        setForecastSkeletonVisible(false);
-        setForecastProgress(3, {
-            lead: lead,
-            message: message,
-            isFinished: true
-        });
-    }
-
-    function startForecastProgressSequence() {
-        clearForecastStepTimers();
-        setForecastProgress(0, {
-            lead: 'Загружаем фильтры и признаки',
-            message: 'Подготавливаем данные для формы: доступные значения фильтров и найденные группы признаков.'
-        });
-        forecastStepTimers.set(function () {
-            setForecastProgress(1, {
-                lead: 'Подготавливаем базовый прогноз',
-                message: 'Фильтры уже готовы. Переходим к сбору истории и базового сценарного прогноза.'
-            });
-        }, 320);
-    }
-
-    function startBaseForecastProgressSequence() {
-        clearForecastStepTimers();
-        setForecastProgress(1, {
-            lead: 'Агрегируем историю пожаров',
-            message: 'Собираем дневной ряд и ключевые показатели по выбранным фильтрам.'
-        });
-        forecastStepTimers.set(function () {
-            setForecastProgress(2, {
-                lead: 'Считаем базовый прогноз и проверку',
-                message: 'Обновляем базовый сценарий и метрики по историческому ряду.'
-            });
-        }, 640);
-    }
-
-    function syncForecastAsyncState(data) {
-        if (!data) {
-            setForecastAsyncVisibility(false);
-            return;
-        }
-
-        if (data.metadata_pending) {
-            clearForecastStepTimers();
-            setForecastLoadingState(
-                'Подготавливаем фильтры и признаки',
-                data.metadata_status_message || 'Сначала догружаем фильтры и признаки для страницы прогноза.',
-                0,
-                { showSkeleton: true }
-            );
-            return;
-        }
-
-        if (data.decision_support_error) {
-            clearForecastStepTimers();
-            setForecastReadyState(
-                'Базовый прогноз готов, блок поддержки решений требует повтора',
-                data.decision_support_status_message || 'Базовый прогноз уже показан, но догрузка поддержки решений завершилась ошибкой.'
-            );
-            showForecastError(data.decision_support_status_message || 'Не удалось догрузить блок поддержки решений. Попробуйте еще раз.');
-            return;
-        }
-
-        if (data.decision_support_pending) {
-            clearForecastStepTimers();
-            setForecastLoadingState(
-                'Базовый прогноз готов, догружаем поддержку решений',
-                data.decision_support_status_message || 'Подтягиваем приоритеты территорий, рекомендации и финальные визуализации.',
-                3,
-                { showSkeleton: false }
-            );
-            return;
-        }
-
-        if (data.loading || data.bootstrap_mode === 'deferred') {
-            setForecastLoadingState(
-                data.metadata_ready ? 'Собираем базовый сценарный прогноз' : 'Подготавливаем сценарный прогноз',
-                data.loading_status_message || 'После загрузки фильтров и признаков рассчитываем базовый прогноз, а затем догружаем поддержку решений.',
-                data.metadata_ready ? 1 : 0,
-                { showSkeleton: true }
-            );
-            return;
-        }
-
-        if (data.base_forecast_ready || data.decision_support_ready) {
-            clearForecastStepTimers();
-            setForecastReadyState(
-                'Сценарный прогноз обновлён',
-                data.decision_support_ready
-                    ? 'Базовый прогноз, визуализации и блок поддержки решений уже синхронизированы.'
-                    : (data.loading_status_message || 'Базовый прогноз и визуализации готовы.')
-            );
-            return;
-        }
-
-        setForecastAsyncVisibility(false);
-    }
-
     function buildForecastRequestQuery(baseQuery, includeDecisionSupport) {
         var params = new URLSearchParams(baseQuery || '');
         params.set('include_decision_support', includeDecisionSupport ? '1' : '0');
         return params.toString();
-    }
-
-    function setMetadataStatus(message, state) {
-        var node = byId('forecastMetadataStatus');
-        var text = String(message == null ? '' : message).trim();
-        if (!node) {
-            return;
-        }
-
-        node.textContent = text;
-        node.classList.toggle('is-hidden', !text);
-        node.classList.remove('is-pending', 'is-ready', 'is-error');
-        if (text && state) {
-            node.classList.add('is-' + state);
-        }
-    }
-
-    function syncMetadataStatus(data) {
-        if (!data) {
-            setMetadataStatus('', '');
-            return;
-        }
-
-        if (data.metadata_error) {
-            setMetadataStatus(data.metadata_status_message, 'error');
-            return;
-        }
-        if (data.metadata_pending) {
-            setMetadataStatus(data.metadata_status_message, 'pending');
-            return;
-        }
-        if (data.metadata_ready && data.metadata_status_message) {
-            setMetadataStatus(data.metadata_status_message, 'ready');
-            return;
-        }
-        setMetadataStatus('', '');
-    }
-
-    function setBootstrapStatus(message, state) {
-        var node = byId('forecastBootstrapStatus');
-        var text = String(message == null ? '' : message).trim();
-        if (!node) {
-            return;
-        }
-
-        node.textContent = text;
-        node.classList.toggle('is-hidden', !text);
-        node.classList.remove('is-pending', 'is-ready', 'is-error');
-        if (text && state) {
-            node.classList.add('is-' + state);
-        }
-    }
-
-    function syncBootstrapStatus(data) {
-        if (!data) {
-            setBootstrapStatus('', '');
-            return;
-        }
-
-        if (data.loading && data.loading_status_message) {
-            setBootstrapStatus(data.loading_status_message, 'pending');
-            return;
-        }
-        if (data.base_forecast_ready && data.loading_status_message) {
-            setBootstrapStatus(data.loading_status_message, 'ready');
-            return;
-        }
-        setBootstrapStatus('', '');
-    }
-
-    function setDecisionSupportStatus(message, state) {
-        var node = byId('forecastDecisionSupportStatus');
-        var text = String(message == null ? '' : message).trim();
-        if (!node) {
-            return;
-        }
-
-        node.textContent = text;
-        node.classList.toggle('is-hidden', !text);
-        node.classList.remove('is-pending', 'is-ready', 'is-error');
-        if (text && state) {
-            node.classList.add('is-' + state);
-        }
-    }
-
-    function syncDecisionSupportStatus(data) {
-        if (!data) {
-            setDecisionSupportStatus('', '');
-            return;
-        }
-
-        if (data.decision_support_error) {
-            setDecisionSupportStatus(data.decision_support_status_message, 'error');
-            return;
-        }
-        if (data.decision_support_pending) {
-            setDecisionSupportStatus(data.decision_support_status_message, 'pending');
-            return;
-        }
-        if (data.decision_support_ready && data.decision_support_status_message) {
-            setDecisionSupportStatus(data.decision_support_status_message, 'ready');
-            return;
-        }
-        setDecisionSupportStatus('', '');
     }
 
     function syncSidebarBadge(data) {
@@ -681,32 +384,82 @@
         decisionSupportJobPollTimer.clear();
     }
 
+    function clearForecastJobRuntime(runtimeNode, titleNode, metaNode, logsNode) {
+        runtimeNode.classList.add('is-hidden');
+        runtimeNode.classList.remove('is-ready');
+        titleNode.textContent = 'Готовим блок поддержки решений';
+        metaNode.textContent = '';
+        logsNode.textContent = '';
+    }
+
+    function shouldShowForecastJobRuntime(jobPayload) {
+        return Boolean(
+            jobPayload &&
+            jobPayload.job_id &&
+            jobPayload.status !== 'completed' &&
+            jobPayload.status !== 'failed' &&
+            jobPayload.status !== 'missing'
+        );
+    }
+
+    function getForecastJobRuntimeTitle(jobPayload) {
+        var safeJob = jobPayload || {};
+        var meta = safeJob.meta || {};
+
+        if (safeJob.reused) {
+            return 'Подключаем уже запущенный расчёт';
+        }
+        if (meta.stage_label) {
+            return String(meta.stage_label);
+        }
+        if (safeJob.status === 'pending') {
+            return 'Готовим блок поддержки решений';
+        }
+        return 'Собираем блок поддержки решений';
+    }
+
+    function getForecastJobRuntimeMeta(jobPayload) {
+        var safeJob = jobPayload || {};
+        var meta = safeJob.meta || {};
+        var metaParts = [];
+
+        if (meta.stage_message) {
+            metaParts.push(String(meta.stage_message));
+        }
+        if (safeJob.reused) {
+            metaParts.push('используем уже запущенный расчёт');
+        }
+        return metaParts.join(' | ');
+    }
+
     function renderForecastJobRuntime(jobPayload) {
         var runtimeNode = byId('forecastJobRuntime');
-        var statusNode = byId('forecastJobStatusLabel');
+        var titleNode = byId('forecastJobRuntimeTitle');
         var metaNode = byId('forecastJobMeta');
         var logsNode = byId('forecastJobLogOutput');
         var safeJob = jobPayload || {};
         var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
-        var meta = safeJob.meta || {};
-        var metaParts = [];
+        var errorNode = byId('forecastErrorState');
 
-        if (!runtimeNode || !statusNode || !metaNode || !logsNode) {
+        if (!runtimeNode || !titleNode || !metaNode || !logsNode) {
             return;
         }
-        if (!safeJob.job_id) {
-            runtimeNode.classList.add('is-hidden');
-            runtimeNode.classList.remove('is-ready');
-            statusNode.textContent = '';
-            metaNode.textContent = '';
-            logsNode.textContent = '';
+        if (!shouldShowForecastJobRuntime(safeJob)) {
+            clearForecastJobRuntime(runtimeNode, titleNode, metaNode, logsNode);
+            if (!errorNode || errorNode.classList.contains('is-hidden')) {
+                setForecastAsyncVisibility(false);
+            }
             return;
         }
 
+        setForecastAsyncVisibility(true);
         runtimeNode.classList.remove('is-hidden');
-        runtimeNode.classList.toggle('is-ready', safeJob.status === 'completed');
-        statusNode.textContent = 'Статус decision-support job: ' + String(safeJob.status || 'pending');
-        metaParts.push('job_id: ' + String(safeJob.job_id || ''));
+        runtimeNode.classList.remove('is-ready');
+        titleNode.textContent = getForecastJobRuntimeTitle(safeJob);
+        metaNode.textContent = getForecastJobRuntimeMeta(safeJob);
+        logsNode.textContent = logs.length ? logs.join('\n') : 'Покажем прогресс, как только расчёт перейдёт к следующему этапу.';
+        return;
+        /* Legacy technical runtime rendering removed.
         if (meta.cache_hit) {
             metaParts.push('кэш');
         }
@@ -715,41 +468,11 @@
         }
         metaNode.textContent = metaParts.join(' | ');
         logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
+        */
     }
 
     function updateDecisionSupportJobState(jobPayload) {
-        var safeJob = jobPayload || {};
-        var meta = safeJob.meta || {};
-        var logs = Array.isArray(safeJob.logs) ? safeJob.logs : [];
-        var stageLabel = meta.stage_label ? String(meta.stage_label) : 'Поддержка решений';
-        var message = String(meta.stage_message || '').trim();
-
-        if (!message && logs.length) {
-            message = logs[logs.length - 1];
-        }
-        if (!message) {
-            message = safeJob.status === 'pending'
-                ? 'Ожидаем запуска фонового расчета блока поддержки решений.'
-                : 'Блок поддержки решений выполняется в фоне.';
-        }
-
-        renderForecastJobRuntime(safeJob);
-        if (safeJob.status === 'completed') {
-            setDecisionSupportStatus('Блок поддержки решений и рекомендации готовы.', 'ready');
-            return;
-        }
-
-        setForecastLoadingState(
-            'Догружаем поддержку решений',
-            message,
-            3,
-            { showSkeleton: false }
-        );
-        setForecastProgress(3, {
-            lead: 'Decision support: ' + stageLabel,
-            message: message
-        });
-        setDecisionSupportStatus(message, safeJob.status === 'failed' ? 'error' : 'pending');
+        renderForecastJobRuntime(jobPayload || {});
     }
 
     async function pollDecisionSupportJob(jobId, baseQuery, requestToken) {
@@ -794,13 +517,6 @@
             );
             console.error(error);
             showForecastError(decisionSupportMessage);
-            clearForecastStepTimers();
-            setForecastProgress(3, {
-                lead: 'Не удалось завершить поддержку решений',
-                message: decisionSupportMessage,
-                isError: true
-            });
-            setDecisionSupportStatus(decisionSupportMessage, 'error');
             renderForecastJobRuntime(payload);
         }
     }
@@ -816,26 +532,6 @@
             return 'sky';
         }
         return tone || 'sky';
-    }
-
-    function renderQualityPassport(passport) {
-        var safePassport = passport || {};
-        var notes = Array.isArray(safePassport.reliability_notes) ? safePassport.reliability_notes.slice() : [];
-        if (Array.isArray(safePassport.critical_gaps) && safePassport.critical_gaps.length) {
-            notes.unshift('Нужно усилить: ' + safePassport.critical_gaps.join(', ') + '.');
-        }
-
-        setText('forecastQualityScore', safePassport.confidence_score_display || '0 / 100');
-        setText('forecastQualityLabel', safePassport.confidence_label || 'Ограниченная');
-        setText('forecastQualityTables', safePassport.table_count_display || '0');
-        setText('forecastQualityUsed', safePassport.used_count_display || '0');
-        setText('forecastQualityPartial', safePassport.partial_count_display || '0');
-        setText('forecastQualityMissing', safePassport.missing_count_display || '0');
-        setText('forecastQualitySummary', safePassport.validation_summary || 'Паспорт качества появится после расчёта.');
-        setText('forecastValidationBadge', safePassport.validation_label || 'Валидация ограничена');
-        applyToneClass(byId('forecastQualityScoreCard'), safePassport.confidence_tone || 'fire');
-        applyToneClass(byId('forecastValidationBadge'), safePassport.confidence_tone || 'fire');
-        renderNotes('forecastQualityNotes', notes, 'Паспорт качества появится после расчёта.');
     }
 
     function renderWeightProfile(profile) {
@@ -876,46 +572,6 @@
         renderNotes('forecastWeightProfileNotes', notes, 'После расчета здесь появятся пояснения, почему профиль весов выглядит именно так.');
     }
 
-    function renderHistoricalValidation(validation) {
-        var safeValidation = validation || {};
-        var cardsContainer = byId('forecastValidationCards');
-        var windowsContainer = byId('forecastValidationWindows');
-        var metricCards = Array.isArray(safeValidation.metric_cards) ? safeValidation.metric_cards : [];
-        var windows = Array.isArray(safeValidation.recent_windows) ? safeValidation.recent_windows : [];
-
-        setText('forecastValidationSummary', safeValidation.summary || 'После расчёта здесь появится проверка, насколько блок поддержки решений поднимает важные территории по историческим данным.');
-        setText('forecastHistoryValidationBadge', safeValidation.status_label || 'Пока без проверки');
-        applyToneClass(byId('forecastHistoryValidationBadge'), safeValidation.status_tone || 'fire');
-
-        if (cardsContainer) {
-            if (!metricCards.length) {
-                cardsContainer.innerHTML = '<div class="mini-empty">Метрики проверки появятся после расчета.</div>';
-            } else {
-                cardsContainer.innerHTML = metricCards.map(function (item) {
-                    return '<article class="quality-stat-card">' +
-                        '<span>' + escapeHtml(item.label || '-') + '</span>' +
-                        '<strong>' + escapeHtml(item.value || '-') + '</strong>' +
-                        '<small>' + escapeHtml(item.meta || '') + '</small>' +
-                    '</article>';
-                }).join('');
-            }
-        }
-
-        if (windowsContainer) {
-            if (!windows.length) {
-                windowsContainer.innerHTML = '<div class="mini-empty">Исторические окна появятся после расчета.</div>';
-            } else {
-                windowsContainer.innerHTML = windows.map(function (item) {
-                    return '<article class="risk-mini-card">' +
-                        '<div class="risk-mini-head"><strong>' + escapeHtml(item.label || '-') + '</strong><span>' + escapeHtml(item.risk_display || '') + '</span></div>' +
-                        '<p>' + escapeHtml(item.meta || '') + '</p>' +
-                    '</article>';
-                }).join('');
-            }
-        }
-
-        renderNotes('forecastValidationNotes', safeValidation.notes || [], 'После расчёта здесь появятся замечания по исторической проверке ранжирования.');
-    }
     function renderCommandCards(brief) {
         var container = byId('forecastCommandCards');
         var cards = brief && Array.isArray(brief.cards) ? brief.cards : [];
@@ -1020,14 +676,12 @@
         var quality = data.quality_assessment || {};
         var risk = data.risk_prediction || {};
         var passport = risk.quality_passport || {};
-        var geo = risk.geo_summary || {};
         var territories = Array.isArray(risk.territories) ? risk.territories : [];
         var weightProfile = risk.weight_profile || {};
-        var validation = risk.historical_validation || {};
         var notes = [];
         var seenNotes = {};
 
-        [].concat(passport.reliability_notes || [], weightProfile.notes || [], validation.notes || [], risk.notes || [], data.notes || []).forEach(function (note) {
+        [].concat(passport.reliability_notes || [], weightProfile.notes || [], risk.notes || [], data.notes || []).forEach(function (note) {
             var text = String(note || '').trim();
             if (text && !seenNotes[text]) {
                 seenNotes[text] = true;
@@ -1067,19 +721,8 @@
             });
         }
 
-        lines.push('', 'Можно ли доверять рекомендации и почему');
-        lines.push('Статус валидации данных: ' + (passport.validation_label || 'Валидация данных ограничена'));
-        lines.push('Надёжность данных: ' + (passport.confidence_label || 'Ограниченная') + ' (' + (passport.confidence_score_display || '0 / 100') + ')');
-        lines.push('Комментарий: ' + (passport.validation_summary || 'Оценка качества не сформирована.'));
         lines.push('Надёжность вывода по территории-лидеру: ' + ((risk.top_territory_confidence_label || (territories[0] && territories[0].ranking_confidence_label) || 'Ограниченная')) + ' (' + ((risk.top_territory_confidence_score_display || (territories[0] && territories[0].ranking_confidence_display) || '0 / 100')) + ')');
         lines.push('Пояснение: ' + ((risk.top_territory_confidence_note || (territories[0] && territories[0].ranking_confidence_note) || 'Нет пояснения по надёжности вывода.')));
-
-        lines.push('', 'Насколько ranking работает на истории');
-        lines.push('Статус: ' + (validation.status_label || 'Пока без проверки'));
-        lines.push('Комментарий: ' + (validation.summary || 'Нет данных для проверки.'));
-        (validation.metric_cards || []).forEach(function (item) {
-            lines.push('- ' + (item.label || 'Метрика') + ': ' + (item.value || '-') + ' | ' + (item.meta || ''));
-        });
 
         lines.push('', 'Приоритетные территории');
         if (territories.length) {
@@ -1099,12 +742,6 @@
         } else {
             lines.push('Нет данных для ранжирования территорий.');
         }
-
-        lines.push('', 'Где зоны внимания на карте');
-        lines.push('Зона внимания: ' + (geo.top_zone_label || '-'));
-        lines.push('Пиковый риск на карте: ' + (geo.top_risk_display || '0 / 100'));
-        lines.push('Зон выделено: ' + (geo.hotspots_count_display || '0'));
-        lines.push('Пояснение: ' + (geo.top_explanation || 'Нет данных для карты риска.'));
 
         lines.push('', 'Ограничения и замечания');
         if (notes.length) {
@@ -1145,7 +782,6 @@
         var charts = data.charts || {};
         var risk = data.risk_prediction || {};
         var executiveBrief = data.executive_brief || {};
-        var geo = risk.geo_summary || {};
         var passport = risk.quality_passport || {};
         var territories = Array.isArray(risk.territories) ? risk.territories : [];
         var leadTerritory = territories[0] || {};
@@ -1192,18 +828,9 @@
 
         setText('forecastDailyChartTitle', 'Что ожидается по дням');
         setText('forecastWeekdayChartTitle', 'Какие дни недели чаще напряжённее');
-        setText('forecastGeoChartTitle', 'Где зоны внимания на карте');
-
         setText('forecastRiskDescription', risk.model_description || '');
         setText('forecastRiskTopLabel', risk.top_territory_label || '-');
         setText('forecastRiskTopExplanation', risk.top_territory_explanation || 'Недостаточно данных для лидирующей территории.');
-        setText('forecastGeoDescription', geo.model_description || 'Что показывает блок: пространственные зоны внимания для территориального приоритета. Карта не заменяет календарь по дням.');
-        setText('forecastGeoCoverage', geo.coverage_display || '0 с координатами');
-        setText('forecastGeoTopZone', geo.top_zone_label || '-');
-        setText('forecastGeoTopRisk', geo.top_risk_display || '0 / 100');
-        setText('forecastGeoHotspotsCount', geo.hotspots_count_display || '0');
-        setText('forecastGeoTopExplanation', geo.top_explanation || 'Нет данных для объяснения зоны риска.');
-        setText('forecastGeoCompactHint', geo.compact_message || '');
 
         var summaryNode = byId('forecastSummaryLine');
         if (summaryNode) {
@@ -1216,24 +843,15 @@
         renderCommandNotes(executiveBrief);
         renderNotes('forecastNotesList', data.notes || [], 'Замечаний пока нет.');
         renderNotes('forecastRiskNotes', risk.notes || [], 'После расчёта здесь появятся примечания о границах между сценарным прогнозом, ML-прогнозом и территориальным приоритетом.');
-        renderQualityPassport(passport);
         renderWeightProfile(risk.weight_profile || {});
-        renderHistoricalValidation(risk.historical_validation || {});
         renderForecastTable(data.forecast_rows || []);
         renderRiskSummary(risk.summary_cards || []);
         renderRiskTerritories(risk.territories || []);
         renderFeatureCards(risk.feature_cards || data.features || []);
-        renderMiniCards('forecastGeoHotspots', geo.hotspots || [], 'Зоны появятся после расчёта.');
-        renderMiniCards('forecastGeoDistricts', geo.districts || [], 'Сводка по районам появится после расчёта.');
         renderChart(charts.daily, 'forecastDailyChart', 'forecastDailyChartFallback');
         renderChart(charts.weekday, 'forecastWeekdayChart', 'forecastWeekdayChartFallback');
-        var geoRendered = renderChart(charts.geo, 'forecastGeoChart', 'forecastGeoChartFallback');
-        syncGeoPanel(geo, geoRendered);
         syncSidebarBadge(data);
-        syncMetadataStatus(data);
-        syncBootstrapStatus(data);
-        syncDecisionSupportStatus(data);
-        syncForecastAsyncState(data);
+        hideForecastError();
         updateForecastBriefExport({
             table_name: filters.table_name || '',
             district: filters.district || 'all',
@@ -1256,15 +874,7 @@
     async function fetchDecisionSupport(baseQuery, requestToken) {
         var response;
         var payload = null;
-        clearForecastStepTimers();
         stopDecisionSupportPolling();
-        setForecastLoadingState(
-            'Догружаем поддержку решений',
-            'Базовый прогноз уже обновлён. Подтягиваем рекомендации и финальные визуализации.',
-            3,
-            { showSkeleton: false }
-        );
-        setDecisionSupportStatus('Догружаем приоритеты территорий и рекомендации...', 'pending');
         try {
             var result = await fetchJson('/api/forecasting-decision-support-jobs', {
                 method: 'POST',
@@ -1299,28 +909,10 @@
             );
             console.error(error);
             showForecastError(decisionSupportMessage);
-            clearForecastStepTimers();
-            setForecastProgress(3, {
-                lead: 'Не удалось завершить поддержку решений',
-                message: decisionSupportMessage,
-                isError: true
-            });
-            setDecisionSupportStatus(decisionSupportMessage, 'error');
         }
     }
 
     async function fetchForecastMetadata(baseQuery, requestToken) {
-        setForecastLoadingState(
-            'Загружаем фильтры и признаки',
-            'Сначала догружаем фильтры, доступные значения и найденные признаки.',
-            0,
-            { showSkeleton: true }
-        );
-        startForecastProgressSequence();
-        setMetadataStatus('Загружаем фильтры и признаки...', 'pending');
-        setBootstrapStatus('Базовый прогноз запустится сразу после загрузки фильтров и признаков.', 'pending');
-        setDecisionSupportStatus('', '');
-
         try {
             var metadataPayload = await requestForecastMetadataPayload(baseQuery, { expectResolved: false });
             if (requestToken !== forecastRequestToken) {
@@ -1346,6 +938,8 @@
         var query = buildForecastRequestQuery(baseQuery, false);
         forecastRequestToken = requestToken;
         stopDecisionSupportPolling();
+        hideForecastError();
+        setForecastAsyncVisibility(false);
         renderForecastJobRuntime(null);
         if (button) {
             button.disabled = true;
@@ -1356,16 +950,6 @@
             if (requestToken !== forecastRequestToken) {
                 return;
             }
-
-            setForecastLoadingState(
-                'Собираем базовый сценарный прогноз',
-                'Фильтры уже готовы. Загружаем данные, агрегируем историю и подготавливаем базовый расчёт.',
-                1,
-                { showSkeleton: true }
-            );
-            startBaseForecastProgressSequence();
-            setMetadataStatus('Фильтры и признаки готовы.', 'ready');
-            setBootstrapStatus('Собираем базовый сценарный прогноз...', 'pending');
 
             var data = await requestForecastPayload(query, { expectResolved: true });
             if (requestToken !== forecastRequestToken) {
@@ -1385,27 +969,10 @@
                 'Не удалось загрузить базовый прогноз. Попробуйте изменить фильтры или запустить расчёт еще раз.'
             );
             console.error(error);
-            clearForecastStepTimers();
             if (error && error.forecastingStage === 'metadata') {
-                setMetadataStatus(forecastErrorMessage, 'error');
-                setBootstrapStatus('Базовый прогноз не запущен: фильтры и признаки не загрузились.', 'error');
-                setForecastProgress(0, {
-                    lead: 'Не удалось загрузить фильтры и признаки',
-                    message: forecastErrorMessage,
-                    isError: true
-                });
-                setDecisionSupportStatus('', '');
                 showForecastError(forecastErrorMessage);
                 return;
             }
-            setMetadataStatus('Фильтры и признаки готовы.', 'ready');
-            setBootstrapStatus(forecastErrorMessage, 'error');
-            setForecastProgress(2, {
-                lead: 'Не удалось завершить базовый прогноз',
-                message: forecastErrorMessage,
-                isError: true
-            });
-            setDecisionSupportStatus('', '');
             showForecastError(forecastErrorMessage);
         } finally {
             if (button && requestToken === forecastRequestToken) {

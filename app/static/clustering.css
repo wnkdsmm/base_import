@@ -19,7 +19,7 @@
     padding: 22px;
     border-radius: 24px;
     border: 1px solid var(--line);
-    background: linear-gradient(180deg, rgba(248, 252, 255, 0.96) 0%, rgba(236, 244, 255, 0.84) 100%);
+    background: var(--surface-panel);
 }
 
 .cluster-feature-grid {
@@ -37,19 +37,19 @@
     border-radius: 18px;
     border: 1px solid var(--line);
     background: var(--surface-panel);
-    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
 }
 
 .cluster-feature-option:hover {
     transform: translateY(-1px);
     border-color: var(--accent-border);
-    box-shadow: 0 12px 24px rgba(27, 54, 96, 0.08);
+    box-shadow: none;
 }
 
 .cluster-feature-option:focus-within {
     border-color: var(--control-border-strong);
     background: var(--surface-panel-strong);
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    box-shadow: none;
 }
 
 .cluster-feature-option input {
@@ -90,6 +90,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(min(320px, 100%), 0.9fr);
     gap: var(--section-gap);
+    align-items: start;
 }
 
 .clustering-primary,
@@ -97,6 +98,12 @@
     display: grid;
     gap: 20px;
     min-width: 0;
+    align-content: start;
+}
+
+.clustering-secondary .ranking-panel {
+    align-self: start;
+    align-content: start;
 }
 
 .cluster-scatter-chart {
@@ -143,7 +150,7 @@
     border-radius: 999px;
     color: #f8fbff;
     font-size: 12px;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+    background: var(--accent);
 }
 
 .cluster-overview-meta,

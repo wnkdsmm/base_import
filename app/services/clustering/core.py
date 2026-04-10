@@ -564,35 +564,6 @@ def _run_clustering_model_stage(
         )
 
 
-def _build_clustering_quality_payload(
-    *,
-    clustering: Dict[str, Any],
-    method_comparison: Sequence[Dict[str, Any]],
-    actual_cluster_count: int,
-    selected_features: Sequence[str],
-    diagnostics: Dict[str, Any],
-    dataset: Dict[str, Any],
-    runtime_feature_context: Dict[str, Any],
-    requested_cluster_count: int,
-    requested_working_cluster_count: int,
-    cluster_count_is_explicit: bool,
-    cluster_count_guidance: Dict[str, Any],
-) -> Dict[str, Any]:
-    return _build_clustering_quality_assessment(
-        clustering,
-        method_comparison,
-        actual_cluster_count,
-        selected_features,
-        diagnostics=diagnostics,
-        support_summary=dataset.get("support_summary"),
-        feature_selection_report=runtime_feature_context,
-        requested_cluster_count=requested_cluster_count,
-        resolved_requested_cluster_count=requested_working_cluster_count,
-        cluster_count_is_explicit=cluster_count_is_explicit,
-        cluster_count_guidance=cluster_count_guidance,
-    )
-
-
 def _build_clustering_charts_payload(
     *,
     clustering: Dict[str, Any],
@@ -678,16 +649,16 @@ def _build_clustering_success_payload(
             runtime_feature_context=runtime_feature_context,
         ),
         "summary": summary,
-        "quality_assessment": _build_clustering_quality_payload(
-            clustering=clustering,
-            method_comparison=method_comparison,
-            actual_cluster_count=actual_cluster_count,
-            selected_features=selected_features,
+        "quality_assessment": _build_clustering_quality_assessment(
+            clustering,
+            method_comparison,
+            actual_cluster_count,
+            selected_features,
             diagnostics=diagnostics,
-            dataset=dataset,
-            runtime_feature_context=runtime_feature_context,
+            support_summary=dataset.get("support_summary"),
+            feature_selection_report=runtime_feature_context,
             requested_cluster_count=requested_cluster_count,
-            requested_working_cluster_count=requested_working_cluster_count,
+            resolved_requested_cluster_count=requested_working_cluster_count,
             cluster_count_is_explicit=cluster_count_is_explicit,
             cluster_count_guidance=cluster_count_guidance,
         ),

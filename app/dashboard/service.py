@@ -53,9 +53,8 @@ from .utils import _find_option_label, _format_datetime
 def _can_reuse_distribution_counts(
     selected_tables: list[dict[str, Any]],
     group_column: str,
-    grouped_counts: dict[str, int],
 ) -> bool:
-    if not group_column or not grouped_counts:
+    if not group_column:
         return False
     if group_column not in CAUSE_COLUMNS:
         return any(_resolve_table_column_name(table, group_column) for table in selected_tables)
@@ -281,7 +280,6 @@ def _build_standard_dashboard_charts(
         if _can_reuse_distribution_counts(
             selected_tables,
             selected_group_column,
-            distribution_counts,
         )
         else None
     )

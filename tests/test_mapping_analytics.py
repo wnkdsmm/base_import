@@ -1,4 +1,6 @@
+import ast
 from datetime import date
+import inspect
 import math
 import unittest
 from unittest.mock import patch
@@ -19,6 +21,15 @@ from core.mapping.mixins.analytics_hotspots import build_hotspot_payloads
 from core.mapping.mixins.analytics_logistics import build_logistics_summary_payload
 from core.mapping.mixins.analytics_payload import build_spatial_dbscan_payload
 from core.mapping.mixins.analytics_priority import build_fallback_risk_zones, build_priority_territories
+
+
+def _relative_import_modules(module):
+    tree = ast.parse(inspect.getsource(module))
+    return {
+        node.module
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module
+    }
 
 
 class _AnalyticsSmokeCreator(MapCreatorAnalyticsMixin):
@@ -123,6 +134,24 @@ class MappingAnalyticsTests(unittest.TestCase):
         }
 
         self.assertEqual(method_names, {"_collect_spatial_records", "_build_spatial_analytics"})
+
+    def test_analytics_helper_modules_keep_one_way_import_boundary(self):
+        self.assertEqual(
+            _relative_import_modules(analytics_module),
+            {
+                "analytics_dbscan",
+                "analytics_hotspots",
+                "analytics_logistics",
+                "analytics_payload",
+                "analytics_priority",
+            },
+        )
+        self.assertEqual(_relative_import_modules(analytics_dbscan), {"analytics_geometry"})
+        self.assertEqual(_relative_import_modules(analytics_geometry), set())
+        self.assertEqual(_relative_import_modules(analytics_hotspots), set())
+        self.assertEqual(_relative_import_modules(analytics_logistics), set())
+        self.assertEqual(_relative_import_modules(analytics_payload), set())
+        self.assertEqual(_relative_import_modules(analytics_priority), {"analytics_geometry"})
 
     @patch("core.mapping.mixins.analytics_hotspots._build_geo_prediction")
     def test_spatial_analytics_payload_survives_helper_decomposition(self, geo_prediction):

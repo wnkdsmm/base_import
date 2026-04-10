@@ -7,7 +7,6 @@ from typing import Any, Dict
 from app.runtime_cache import CopyingTtlCache
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
-    compose_executive_brief_text,
     empty_executive_brief,
 )
 from app.services.forecast_risk.core import build_decision_support_payload
@@ -83,7 +82,7 @@ def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
                 )
             except Exception as exc:
                 brief = empty_executive_brief()
-                brief["notes"] = [f"Управленческий бриф по карте временно недоступен: {exc}"]
+                brief["notes"] = [f"Территориальный приоритет на карте временно недоступен: {exc}"]
                 risk_prediction = {"territories": [], "notes": list(brief["notes"])}
 
             _FIRE_MAP_BRIEF_CACHE.set(
@@ -93,12 +92,6 @@ def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
                     "risk_prediction": risk_prediction,
                 },
             )
-
-    brief["export_text"] = compose_executive_brief_text(
-        brief,
-        scope_label=f"Таблица: {selected_table or 'не выбрана'} | Режим: fire-map",
-        generated_at=generated_at,
-    )
 
     return {
         "generated_at": generated_at,

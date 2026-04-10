@@ -474,35 +474,6 @@
             }).join('') + '</tbody></table>';
     }
 
-    function renderEventTable(table) {
-        var container = byId('mlEventTableShell');
-        var safeTable = table || {};
-        var rows = Array.isArray(safeTable.rows) ? safeTable.rows : [];
-        if (!container) {
-            return;
-        }
-
-        if (!rows.length) {
-            container.innerHTML = '<div class="mini-empty">' + escapeHtml(safeTable.empty_message || 'Недостаточно окон для сравнения вероятности события пожара.') + '</div>';
-            return;
-        }
-
-        container.innerHTML = ''
-            + '<table class="forecast-table">'
-            + '<thead><tr><th>Метод</th><th>Роль</th><th>Показатель Брайера</th><th>ROC-AUC</th><th>F1</th><th>Статус</th></tr></thead>'
-            + '<tbody>' + rows.map(function (row) {
-                return ''
-                    + '<tr>'
-                    + '<td data-label="Метод">' + escapeHtml(row.method_label || '-') + '</td>'
-                    + '<td data-label="Роль">' + escapeHtml(row.role_label || '-') + '</td>'
-                    + '<td data-label="Показатель Брайера">' + escapeHtml(row.brier_display || '-') + '</td>'
-                    + '<td data-label="ROC-AUC">' + escapeHtml(row.roc_auc_display || '-') + '</td>'
-                    + '<td data-label="F1">' + escapeHtml(row.f1_display || '-') + '</td>'
-                    + '<td data-label="Статус">' + escapeHtml(row.selection_label || '-') + '</td>'
-                    + '</tr>';
-            }).join('') + '</tbody></table>';
-    }
-
     function renderForecastTable(rows) {
         var container = byId('mlForecastTableShell');
         if (!container) {
@@ -516,7 +487,7 @@
 
         container.innerHTML = ''
             + '<table class="forecast-table">'
-            + '<thead><tr><th>Дата</th><th>Ожидаемое число пожаров</th><th>Диапазон</th><th>Индекс риска</th><th>P(&gt;=1 пожара)</th><th>Температура</th></tr></thead>'
+            + '<thead><tr><th>Дата</th><th>Ожидаемое число пожаров</th><th>Диапазон</th><th>Индекс риска</th><th>Температура</th></tr></thead>'
             + '<tbody>' + rows.map(function (row) {
                 return ''
                     + '<tr>'
@@ -524,7 +495,6 @@
                     + '<td data-label="Ожидаемое число пожаров">' + escapeHtml(row.forecast_value_display || '0') + '</td>'
                     + '<td data-label="Диапазон">' + escapeHtml(row.range_display || '—') + '</td>'
                     + '<td data-label="Индекс риска"><span class="ml-risk-pill ml-risk-' + escapeHtml(row.risk_level_tone || 'minimal') + '">' + escapeHtml(row.risk_index_display || '0 / 100') + '</span></td>'
-                    + '<td data-label="P(>=1 пожара)">' + escapeHtml(row.event_probability_display || '—') + '</td>'
                     + '<td data-label="Температура">' + escapeHtml(row.temperature_display || '—') + '</td>'
                     + '</tr>';
             }).join('') + '</tbody></table>';
@@ -640,7 +610,6 @@
         renderCardSkeletons('mlQualityMetricCards', 4);
         renderOptionalMetricCards('mlQualityEventMetricsSection', 'mlQualityEventMetricCards', []);
         renderTableSkeleton('mlCountTableShell', 8, 4);
-        renderTableSkeleton('mlEventTableShell', 6, 3);
         renderChartSkeleton('mlForecastChart', 'mlForecastChartFallback');
         renderTableSkeleton('mlForecastTableShell', 6, 4);
         renderChartSkeleton('mlImportanceChart', 'mlImportanceChartFallback');
@@ -679,9 +648,6 @@
         renderOptionalMetricCards('mlQualityEventMetricsSection', 'mlQualityEventMetricCards', quality.event_metric_cards || [], '');
         setText('mlCountTableTitle', 'Сравнение моделей по числу пожаров');
         renderCountTable(quality.count_table || {});
-        setText('mlEventTableTitle', 'Сравнение моделей по вероятности хотя бы одного пожара');
-        renderEventTable(quality.event_table || {});
-
         setText('mlForecastTitle', 'Сколько пожаров ожидается по дням');
         renderLineChart(charts.forecast, 'mlForecastChart', 'mlForecastChartFallback');
         renderForecastTable(data.forecast_rows || []);
