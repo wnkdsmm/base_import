@@ -15,11 +15,26 @@ _DEFAULT_TEMPLATE_ASSETS = {
     "base_css_version": "css/base.css",
     "layout_css_version": "css/layout.css",
     "shared_components_css_version": "css/shared-components.css",
-    "page_misc_css_version": "css/page-misc.css",
-    "analytics_css_version": "analytics.css",
-    "dashboard_css_version": "dashboard.css",
     "analytics_shared_js_version": "js/analytics_shared.js",
     "sidebar_js_version": "js/sidebar.js",
+}
+
+ANALYTICS_PAGE_ASSETS = {
+    "analytics_css_version": "analytics.css",
+    "dashboard_css_version": "dashboard.css",
+}
+
+DASHBOARD_ONLY_ASSETS = {
+    "dashboard_css_version": "dashboard.css",
+}
+
+PAGE_MISC_ASSETS = {
+    "page_misc_css_version": "css/page-misc.css",
+}
+
+TABLE_VIEW_ASSETS = {
+    "analytics_css_version": "analytics.css",
+    "page_misc_css_version": "css/page-misc.css",
 }
 
 
