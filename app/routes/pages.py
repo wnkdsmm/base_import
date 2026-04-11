@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -44,76 +45,34 @@ def resolve_selected_table(table_options, table_name: str) -> str:
 router = APIRouter()
 
 
-def get_dashboard_page_context(**kwargs):
-    from app.dashboard.service import get_dashboard_page_context as _get_dashboard_page_context
+def _lazy(module_path: str, attr: str):
+    """Return a thin wrapper that resolves ``module_path:attr`` on first call.
 
-    return _get_dashboard_page_context(**kwargs)
+    Heavy service modules are imported lazily so worker startup stays cheap;
+    ``importlib.import_module`` is cached by ``sys.modules``, so the actual
+    import only happens once.
+    """
 
+    def _invoke(*args, **kwargs):
+        return getattr(importlib.import_module(module_path), attr)(*args, **kwargs)
 
-def get_dashboard_shell_context(**kwargs):
-    from app.dashboard.service import get_dashboard_shell_context as _get_dashboard_shell_context
-
-    return _get_dashboard_shell_context(**kwargs)
-
-
-def get_forecasting_page_context(**kwargs):
-    from app.services.forecasting.core import get_forecasting_page_context as _get_forecasting_page_context
-
-    return _get_forecasting_page_context(**kwargs)
+    _invoke.__name__ = attr
+    _invoke.__qualname__ = attr
+    return _invoke
 
 
-def get_forecasting_shell_context(**kwargs):
-    from app.services.forecasting.core import get_forecasting_shell_context as _get_forecasting_shell_context
-
-    return _get_forecasting_shell_context(**kwargs)
-
-
-def get_ml_model_shell_context(**kwargs):
-    from app.services.ml_model.core import get_ml_model_shell_context as _get_ml_model_shell_context
-
-    return _get_ml_model_shell_context(**kwargs)
-
-
-def get_clustering_page_context(**kwargs):
-    from app.services.clustering.core import get_clustering_page_context as _get_clustering_page_context
-
-    return _get_clustering_page_context(**kwargs)
-
-
-def get_access_points_shell_context(**kwargs):
-    from app.services.access_points.core import get_access_points_shell_context as _get_access_points_shell_context
-
-    return _get_access_points_shell_context(**kwargs)
-
-
-def get_fire_map_page_context(table_name: str):
-    from app.services.fire_map_service import get_fire_map_page_context as _get_fire_map_page_context
-
-    return _get_fire_map_page_context(table_name)
-
-
-def build_fire_map_html(table_name: str):
-    from app.services.fire_map_service import build_fire_map_html as _build_fire_map_html
-
-    return _build_fire_map_html(table_name)
-
-
-def get_plotly_bundle():
-    from app.plotly_bundle import get_plotly_bundle as _get_plotly_bundle
-
-    return _get_plotly_bundle()
-
-
-def get_all_tables():
-    from app.table_metadata import get_all_tables as _get_all_tables
-
-    return _get_all_tables()
-
-
-def build_table_page_bundle(**kwargs):
-    from app.services.table_workflows import build_table_page_bundle as _build_table_page_bundle
-
-    return _build_table_page_bundle(**kwargs)
+get_dashboard_page_context = _lazy("app.dashboard.service", "get_dashboard_page_context")
+get_dashboard_shell_context = _lazy("app.dashboard.service", "get_dashboard_shell_context")
+get_forecasting_page_context = _lazy("app.services.forecasting.core", "get_forecasting_page_context")
+get_forecasting_shell_context = _lazy("app.services.forecasting.core", "get_forecasting_shell_context")
+get_ml_model_shell_context = _lazy("app.services.ml_model.core", "get_ml_model_shell_context")
+get_clustering_page_context = _lazy("app.services.clustering.core", "get_clustering_page_context")
+get_access_points_shell_context = _lazy("app.services.access_points.core", "get_access_points_shell_context")
+get_fire_map_page_context = _lazy("app.services.fire_map_service", "get_fire_map_page_context")
+build_fire_map_html = _lazy("app.services.fire_map_service", "build_fire_map_html")
+get_plotly_bundle = _lazy("app.plotly_bundle", "get_plotly_bundle")
+get_all_tables = _lazy("app.table_metadata", "get_all_tables")
+build_table_page_bundle = _lazy("app.services.table_workflows", "build_table_page_bundle")
 
 
 def _extract_nested_text(payload: dict[str, Any], *path: str) -> str:

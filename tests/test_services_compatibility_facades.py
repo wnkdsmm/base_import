@@ -25,7 +25,6 @@ ROUTES_LEGACY_EXPORTS = ["api_router", "pages_router"]
 ACCESS_POINTS_LEGACY_EXPORTS = [
     "clear_access_points_cache",
     "get_access_points_data",
-    "get_access_points_page_context",
     "get_access_points_shell_context",
 ]
 
