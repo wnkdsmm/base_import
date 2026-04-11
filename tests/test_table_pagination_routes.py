@@ -13,8 +13,8 @@ from starlette.requests import Request
 
 import app.db_metadata as db_metadata
 import app.db_views as db_views
-from app.routes import api as api_routes
-from app.routes import pages as pages_routes
+import app.routes.api as api_routes
+import app.routes.pages as pages_routes
 
 
 class TablePaginationRoutesFixture(unittest.TestCase):

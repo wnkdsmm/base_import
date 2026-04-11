@@ -8,6 +8,14 @@ from typing import Any, Callable, Dict, List, Optional, Set
 import pandas as pd
 from natasha import MorphVocab, Doc, Segmenter, NewsEmbedding, NewsMorphTagger
 
+from app.domain.column_matching import (
+    COLUMN_CATEGORY_RULES,
+    FALLBACK_IMPORTANT_PATTERNS,
+    KEYWORD_IMPORTANCE_RULES,
+    LEGACY_EXPLICIT_IMPORTANT_COLUMNS,
+    MANDATORY_FEATURE_REGISTRY,
+    get_mandatory_feature_catalog,
+)
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from core.processing.pipeline import PipelineStep
 
@@ -15,7 +23,7 @@ from core.processing.pipeline import PipelineStep
 logger = logging.getLogger(__name__)
 
 
-MANDATORY_FEATURE_REGISTRY = [
+_LEGACY_MANDATORY_FEATURE_REGISTRY = [
     {
         "id": "fire_date",
         "label": "Дата пожара",
@@ -130,7 +138,7 @@ MANDATORY_FEATURE_REGISTRY = [
     },
 ]
 
-LEGACY_EXPLICIT_IMPORTANT_COLUMNS = {
+_LEGACY_EXPLICIT_IMPORTANT_COLUMNS = {
     "Количество погибших в КУП": "Погибшие",
     "Количество травмированных в КУП": "Травмированные",
     "Эвакуировано на пожаре": "Эвакуировано",
@@ -139,7 +147,7 @@ LEGACY_EXPLICIT_IMPORTANT_COLUMNS = {
     "Спасено детей": "Спасено детей",
 }
 
-KEYWORD_IMPORTANCE_RULES = [
+_LEGACY_KEYWORD_IMPORTANCE_RULES = [
     {"id": "casualty_flag", "label": "Есть травмированные или погибшие", "include_all": [["травм", "погиб"]], "exclude": []},
     {"id": "fatalities_keyword", "label": "Погибшие", "include_any": [["погибш"], ["смерт"], ["гибел"]], "exclude": ["причин", "мест", "момент", "фио", "дата", "возраст", "пол", "уг", "сотрудник"]},
     {"id": "injuries_keyword", "label": "Травмированные", "include_any": [["травм"]], "exclude": ["вид", "мест", "фио", "дата", "возраст", "пол", "ут", "сотрудник"]},
@@ -149,7 +157,7 @@ KEYWORD_IMPORTANCE_RULES = [
     {"id": "rescued_keyword", "label": "Спасено", "include_any": [["спас"]], "exclude": ["дет", "здан", "сооруж", "скот", "техник", "материал", "ценност"]},
 ]
 
-FALLBACK_IMPORTANT_PATTERNS = [
+_LEGACY_FALLBACK_IMPORTANT_PATTERNS = [
     (["погибш"], "Погибшие"),
     (["смерт"], "Смерть"),
     (["гибел"], "Гибель"),
@@ -162,7 +170,7 @@ FALLBACK_IMPORTANT_PATTERNS = [
     (["дет"], "Дети"),
 ]
 
-COLUMN_CATEGORY_RULES = [
+_LEGACY_COLUMN_CATEGORY_RULES = [
     {"id": "dates", "label": "Даты и время", "description": "Дата пожара, время, месяц, год и другие временные признаки.", "keywords": ["дата", "время", "год", "месяц", "день", "час", "период"], "parts": ["дат", "времен", "год", "месяц", "день", "час", "период"]},
     {"id": "causes", "label": "Причины", "description": "Причины возгорания, источники и условия возникновения пожара.", "keywords": ["причина", "возгорание", "источник", "поджог", "аварийный режим"], "parts": ["причин", "возгоран", "источник", "поджог", "авар"]},
     {"id": "address", "label": "Адрес и география", "description": "Адрес, район, населенный пункт, улица и координаты.", "keywords": ["адрес", "район", "город", "улица", "дом", "населенный пункт", "широта", "долгота", "координата"], "parts": ["адрес", "район", "город", "улиц", "дом", "населен", "пункт", "широт", "долгот", "координат", "посел", "село", "деревн"]},
@@ -886,7 +894,7 @@ class NatashaColumnMatcher:
         return _sort_column_query_matches(_partition_column_query_matches(matches, len(query_terms)))
 
 
-def get_mandatory_feature_catalog() -> List[Dict[str, object]]:
+def _legacy_get_mandatory_feature_catalog() -> List[Dict[str, object]]:
     return [
         {
             "id": feature["id"],

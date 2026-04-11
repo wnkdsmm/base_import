@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence
 
-from app.services.table_options import get_fire_map_table_options
+from app.table_catalog import get_user_table_options, resolve_selected_table_value
 
 
 def _normalize_filter_value(value: str) -> str:
@@ -21,7 +21,7 @@ def _history_window_year_span(history_window: str) -> int:
 def _build_forecasting_table_options() -> List[Dict[str, str]]:
     options = []
     seen = set()
-    for option in get_fire_map_table_options():
+    for option in get_user_table_options():
         value = str(option.get("value") or "").strip()
         if not value or value == "all" or value in seen:
             continue
@@ -93,10 +93,7 @@ def _canonicalize_source_tables(source_tables: Sequence[str]) -> tuple[List[str]
 
 
 def _resolve_forecasting_selection(table_options: List[Dict[str, str]], table_name: str) -> str:
-    values = {option["value"] for option in table_options}
-    if table_name in values:
-        return table_name
-    return "all" if table_options else ""
+    return resolve_selected_table_value(table_options, table_name, fallback_value="all")
 
 
 def _selected_source_table_notes(table_options: List[Dict[str, str]], selected_table: str) -> List[str]:

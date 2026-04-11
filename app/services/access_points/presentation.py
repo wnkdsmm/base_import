@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
-from app.services.forecast_risk.utils import _clean_text, _format_integer, _unique_non_empty
+from app.services.shared.data_utils import _clean_text, _unique_non_empty
+from app.services.shared.formatting import _format_integer
 
 from .constants import ACCESS_POINTS_DESCRIPTION, ACCESS_POINTS_TITLE, MAX_NOTES
 

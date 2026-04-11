@@ -3,7 +3,13 @@ from __future__ import annotations
 from statistics import mean
 from typing import Any, Dict, List
 
-from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go, serialize_plotly_figure
+from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go
+from app.services.charting import (
+    build_chart_bundle,
+    build_empty_chart_bundle,
+    build_empty_plotly_payload,
+    build_service_plotly_layout,
+)
 
 from .constants import PLOTLY_PALETTE
 from .utils import (
@@ -128,7 +134,7 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
         hoverlabel={"bgcolor": "#fffaf5", "font": {"color": PLOTLY_PALETTE["ink"]}},
     )
 
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
+    return build_chart_bundle(title, figure)
 
 
 def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_average: float) -> Dict[str, Any]:
@@ -178,7 +184,7 @@ def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_
         legend={"orientation": "h", "y": 1.12, "x": 0},
         xaxis={"showgrid": False, "zeroline": False, "tickangle": -35},
     )
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
+    return build_chart_bundle(title, figure)
 
 
 def _build_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -195,7 +201,7 @@ def _build_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any
     figure.add_trace(go.Scatter(x=[item["label"] for item in weekday_profile], y=[overall_average] * len(weekday_profile), mode="lines", name="Общий средний уровень", line=dict(color="rgba(94, 73, 49, 0.55)", width=2, dash="dot"), hovertemplate="Средний уровень: %{y:.1f}<extra></extra>"))
     figure.update_layout(**_plotly_layout("Среднее пожаров в день", height=340))
     figure.update_layout(legend={"orientation": "h", "y": 1.12, "x": 0})
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
+    return build_chart_bundle(title, figure)
 def _build_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
     title = "Карта зон риска"
     points = geo_prediction.get("points") or []
@@ -277,56 +283,25 @@ def _build_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
         showlegend=False,
         hoverlabel={"bgcolor": "#fffaf5", "font": {"color": PLOTLY_PALETTE["ink"]}},
     )
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
+    return build_chart_bundle(title, figure)
 
 def _empty_chart_bundle(title: str, message: str, use_plotly: bool = True) -> Dict[str, Any]:
-    plotly_payload = _build_empty_plotly(message) if use_plotly else empty_plotly_payload()
-    return {"title": title, "plotly": plotly_payload, "empty_message": message}
+    return build_empty_chart_bundle(
+        title,
+        message,
+        annotation_color="#7b6a5a",
+        use_plotly_placeholder=use_plotly,
+    )
 
 
 def _plotly_layout(yaxis_title: str, height: int = 340) -> Dict[str, Any]:
-    return {
-        "height": height,
-        "showlegend": True,
-        "paper_bgcolor": "rgba(255,255,255,0)",
-        "plot_bgcolor": "rgba(255,255,255,0)",
-        "font": {"family": 'Bahnschrift, "Segoe UI", "Trebuchet MS", sans-serif', "color": PLOTLY_PALETTE["ink"]},
-        "margin": {"l": 52, "r": 24, "t": 24, "b": 48},
-        "xaxis": {"showgrid": False, "zeroline": False},
-        "yaxis": {"title": yaxis_title, "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
-        "hoverlabel": {"bgcolor": "#fffaf5", "font": {"color": PLOTLY_PALETTE["ink"]}},
-    }
+    return build_service_plotly_layout(
+        yaxis_title,
+        height=height,
+        margin_right=24,
+        hover_bgcolor="#fffaf5",
+    )
 
 
 def _build_empty_plotly(message: str) -> Dict[str, Any]:
-    if not PLOTLY_AVAILABLE:
-        return empty_plotly_payload(message)
-
-    figure = go.Figure()
-    figure.update_layout(
-        height=320,
-        paper_bgcolor="rgba(255,255,255,0)",
-        plot_bgcolor="rgba(255,255,255,0)",
-        margin={"l": 20, "r": 20, "t": 20, "b": 20},
-        xaxis={"visible": False},
-        yaxis={"visible": False},
-        annotations=[
-            {
-                "text": message,
-                "x": 0.5,
-                "y": 0.5,
-                "xref": "paper",
-                "yref": "paper",
-                "showarrow": False,
-                "font": {"size": 16, "color": "#7b6a5a"},
-            }
-        ],
-    )
-    payload = _figure_to_dict(figure)
-    payload["empty_message"] = message
-    return payload
-
-
-def _figure_to_dict(figure: Any) -> Dict[str, Any]:
-    return serialize_plotly_figure(figure)
-
+    return build_empty_plotly_payload(message, annotation_color="#7b6a5a")

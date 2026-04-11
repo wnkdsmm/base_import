@@ -2,20 +2,76 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Request
 
-from app.services.forecasting.core import (
-    get_forecasting_data,
-    get_forecasting_decision_support_data,
-    get_forecasting_metadata,
+from .api_common import (
+    job_status_response,
+    run_analytics_request,
+    run_session_analytics_request,
 )
-from app.services.forecasting.jobs import (
-    get_forecasting_decision_support_job_status,
-    start_forecasting_decision_support_job,
-)
-
-from .api_common import ensure_session_id, run_analytics_request, utf8_json
 
 
 router = APIRouter()
+
+_INVALID_FORECASTING_MESSAGE = "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430."
+_FAILED_FORECASTING_MESSAGE = (
+    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0431\u0440\u0430\u0442\u044c "
+    "\u0434\u0430\u043d\u043d\u044b\u0435 \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430. "
+    "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
+)
+_INVALID_FORECASTING_METADATA_MESSAGE = (
+    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c "
+    "\u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 "
+    "\u0444\u0438\u043b\u044c\u0442\u0440\u043e\u0432 \u0438 \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u043e\u0432."
+)
+_FAILED_FORECASTING_METADATA_MESSAGE = (
+    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c "
+    "\u0444\u0438\u043b\u044c\u0442\u0440\u044b \u0438 \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u0438 \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430. "
+    "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
+)
+_INVALID_DECISION_SUPPORT_MESSAGE = (
+    "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b "
+    "\u0434\u043b\u044f \u0444\u043e\u043d\u043e\u0432\u043e\u0433\u043e \u0431\u043b\u043e\u043a\u0430 "
+    "\u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0438 \u0440\u0435\u0448\u0435\u043d\u0438\u0439."
+)
+_FAILED_DECISION_SUPPORT_MESSAGE = (
+    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c "
+    "\u0444\u043e\u043d\u043e\u0432\u044b\u0439 \u0440\u0430\u0441\u0447\u0435\u0442 \u0431\u043b\u043e\u043a\u0430 "
+    "\u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0438 \u0440\u0435\u0448\u0435\u043d\u0438\u0439. "
+    "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
+)
+
+
+def get_forecasting_data(**kwargs):
+    from app.services.forecasting.core import get_forecasting_data as _get_forecasting_data
+
+    return _get_forecasting_data(**kwargs)
+
+
+def get_forecasting_decision_support_data(**kwargs):
+    from app.services.forecasting.core import get_forecasting_decision_support_data as _get_decision_support_data
+
+    return _get_decision_support_data(**kwargs)
+
+
+def get_forecasting_metadata(**kwargs):
+    from app.services.forecasting.core import get_forecasting_metadata as _get_forecasting_metadata
+
+    return _get_forecasting_metadata(**kwargs)
+
+
+def start_forecasting_decision_support_job(**kwargs):
+    from app.services.forecasting.jobs import (
+        start_forecasting_decision_support_job as _start_forecasting_decision_support_job,
+    )
+
+    return _start_forecasting_decision_support_job(**kwargs)
+
+
+def get_forecasting_decision_support_job_status(**kwargs):
+    from app.services.forecasting.jobs import (
+        get_forecasting_decision_support_job_status as _get_forecasting_decision_support_job_status,
+    )
+
+    return _get_forecasting_decision_support_job_status(**kwargs)
 
 
 @router.get("/api/forecasting-data")
@@ -54,9 +110,9 @@ def forecasting_data_endpoint(
     return run_analytics_request(
         action,
         invalid_code="forecasting_invalid_request",
-        invalid_message="Некорректные параметры прогноза.",
+        invalid_message=_INVALID_FORECASTING_MESSAGE,
         failed_code="forecasting_failed",
-        failed_message="Не удалось собрать данные прогноза. Попробуйте повторить запрос.",
+        failed_message=_FAILED_FORECASTING_MESSAGE,
     )
 
 
@@ -81,18 +137,17 @@ def forecasting_metadata_endpoint(
             history_window=history_window,
         ),
         invalid_code="forecasting_metadata_invalid_request",
-        invalid_message="Не удалось обработать параметры загрузки фильтров и признаков.",
+        invalid_message=_INVALID_FORECASTING_METADATA_MESSAGE,
         failed_code="forecasting_metadata_failed",
-        failed_message="Не удалось загрузить фильтры и признаки прогноза. Попробуйте повторить запрос.",
+        failed_message=_FAILED_FORECASTING_METADATA_MESSAGE,
     )
 
 
 @router.post("/api/forecasting-decision-support-jobs")
 def start_forecasting_decision_support_job_endpoint(request: Request, payload: dict = Body(...)):
-    session_id = ensure_session_id(request)
-
-    def action():
-        return start_forecasting_decision_support_job(
+    return run_session_analytics_request(
+        request,
+        lambda session_id: start_forecasting_decision_support_job(
             session_id=session_id,
             table_name=str(payload.get("table_name") or "all"),
             district=str(payload.get("district") or "all"),
@@ -101,23 +156,14 @@ def start_forecasting_decision_support_job_endpoint(request: Request, payload: d
             temperature=str(payload.get("temperature") or ""),
             forecast_days=str(payload.get("forecast_days") or "14"),
             history_window=str(payload.get("history_window") or "all"),
-        )
-
-    result = run_analytics_request(
-        action,
+        ),
         invalid_code="forecasting_decision_support_invalid_request",
-        invalid_message="Некорректные параметры для фонового блока поддержки решений.",
+        invalid_message=_INVALID_DECISION_SUPPORT_MESSAGE,
         failed_code="forecasting_decision_support_failed",
-        failed_message="Не удалось запустить фоновый расчет блока поддержки решений. Попробуйте повторить запрос.",
+        failed_message=_FAILED_DECISION_SUPPORT_MESSAGE,
     )
-    if isinstance(result, dict):
-        return utf8_json(result, session_id=session_id)
-    return result
 
 
 @router.get("/api/forecasting-decision-support-jobs/{job_id}")
 def forecasting_decision_support_job_status_endpoint(request: Request, job_id: str):
-    session_id = ensure_session_id(request)
-    result = get_forecasting_decision_support_job_status(session_id=session_id, job_id=job_id)
-    status_code = 404 if result.get("status") == "missing" else 200
-    return utf8_json(result, status_code=status_code, session_id=session_id)
+    return job_status_response(request, job_id, get_forecasting_decision_support_job_status)

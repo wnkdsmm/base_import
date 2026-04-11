@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Sequence
 
 import pandas as pd
 
-from core.processing.steps.keep_important_columns import MANDATORY_FEATURE_REGISTRY
+from app.domain.column_matching import MANDATORY_FEATURE_REGISTRY
 
 
 FEATURE_GROUPS = [

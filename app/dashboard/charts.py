@@ -10,6 +10,12 @@ from app.plotly_bundle import (
     go,
     serialize_plotly_figure,
 )
+from app.services.charting import (
+    build_dashboard_plotly_layout,
+    build_empty_chart_bundle,
+    build_empty_plotly_payload,
+    build_item_chart_bundle,
+)
 from app.statistics_constants import PLOTLY_PALETTE
 
 def _finalize_chart(
@@ -19,40 +25,27 @@ def _finalize_chart(
     plotly: Optional[Dict[str, Any]] = None,
     description: str = "",
 ) -> Dict[str, Any]:
-    max_value = max([float(item["value"]) for item in items], default=0)
-    normalized_items = []
-    for item in items:
-        width_percent = 0 if max_value <= 0 else max(4, round(float(item["value"]) / max_value * 100, 2))
-        updated = dict(item)
-        updated["width_percent"] = width_percent
-        normalized_items.append(updated)
-    return {
-        "title": title,
-        "description": description,
-        "items": normalized_items,
-        "empty_message": empty_message,
-        "plotly": plotly or build_empty_plotly_figure_payload(
-            empty_message,
-            annotation_color="#7b6a5a",
-        ),
-    }
+    return build_item_chart_bundle(
+        title,
+        items,
+        empty_message,
+        plotly=plotly,
+        description=description,
+        annotation_color="#7b6a5a",
+    )
 
 
 def _build_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
-    return _finalize_chart(
+    return build_empty_chart_bundle(
         title,
-        [],
         empty_message,
-        plotly=build_empty_plotly_figure_payload(
-            empty_message,
-            annotation_color="#7b6a5a",
-        ),
-    )
+        annotation_color="#7b6a5a",
+    )["plotly"]
 
 
 def _build_yearly_plotly(title: str, items: List[Dict[str, Any]], metric: str, empty_message: str) -> Dict[str, Any]:
     if not items:
-        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
+        return build_empty_plotly_payload(empty_message, annotation_color="#7b6a5a")
 
     x_values = [item["label"] for item in items]
     y_values = [item["value"] for item in items]
@@ -111,7 +104,7 @@ def _wrap_plotly_label(value: Any, max_width: int = 34, max_lines: int = 3) -> s
 
 def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
     if not items:
-        return build_empty_plotly_figure_payload(empty_message, annotation_color="#7b6a5a")
+        return build_empty_plotly_payload(empty_message, annotation_color="#7b6a5a")
 
     ordered_items = list(reversed(items))
     figure = go.Figure(
@@ -554,28 +547,7 @@ def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], emp
 
 
 def _plotly_layout(yaxis_title: str, showlegend: bool) -> Dict[str, Any]:
-    return {
-        "height": 340,
-        "bargap": 0.45,
-        "showlegend": showlegend,
-        "paper_bgcolor": PLOTLY_PALETTE["paper"],
-        "plot_bgcolor": PLOTLY_PALETTE["paper"],
-        "font": {"family": 'Bahnschrift, "Segoe UI", "Trebuchet MS", sans-serif', "color": PLOTLY_PALETTE["ink"]},
-        "margin": {"l": 52, "r": 26, "t": 20, "b": 48},
-        "xaxis": {
-            "showgrid": False,
-            "zeroline": False,
-            "tickfont": {"size": 12},
-        },
-        "yaxis": {
-            "title": yaxis_title,
-            "gridcolor": PLOTLY_PALETTE["grid"],
-            "zeroline": False,
-            "tickfont": {"size": 12},
-            "title_font": {"size": 12},
-        },
-        "hoverlabel": {"bgcolor": "#fffaf5", "font": {"color": PLOTLY_PALETTE["ink"]}},
-    }
+    return build_dashboard_plotly_layout(yaxis_title, showlegend=showlegend)
 
 __all__ = [
     "_finalize_chart",

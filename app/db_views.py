@@ -1,12 +1,11 @@
 import math
-import re
 from contextlib import nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 
 from sqlalchemy import inspect, text
 
-from app.db_metadata import get_table_columns_cached, get_table_names_cached, invalidate_db_metadata_cache
+from app.db_metadata import get_table_columns_cached, register_table_order_cache_invalidator
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from config.db import engine
 
@@ -142,7 +141,6 @@ def _get_table_order_strategy_cached(table_name: str) -> TableOrderStrategy:
         )
 
     if physical_row_order_sql:
-        # Explicit last-resort fallback for tables without a primary key or unique index.
         return TableOrderStrategy(
             order_by_sql=physical_row_order_sql,
             source="physical_row_fallback",
@@ -155,6 +153,9 @@ def _get_table_order_strategy_cached(table_name: str) -> TableOrderStrategy:
         columns=available_columns,
         note="Best-effort fallback when the engine has no physical row identifier available.",
     )
+
+
+register_table_order_cache_invalidator(_get_table_order_strategy_cached.cache_clear)
 
 
 def _build_ordered_select_query(table_name: str, columns, limit=None, offset=0):
@@ -188,32 +189,7 @@ def _fetch_ordered_rows(conn, table_name: str, columns, limit=None, offset=0):
     return [list(row) for row in result]
 
 
-def _sanitize_table_name(table_name: str) -> str:
-    normalized = re.sub(r"\s+", "_", str(table_name).strip())
-    normalized = re.sub(r"[^0-9A-Za-zА-Яа-я_]+", "_", normalized)
-    normalized = re.sub(r"_+", "_", normalized).strip("_")
-    return normalized or "table"
-
-
-def build_modified_table_name(source_table: str) -> str:
-    base_name = f"modify_{_sanitize_table_name(source_table)}"
-    return base_name[:63]
-
-
-def get_all_tables():
-    """Получить список всех таблиц в базе данных."""
-    return get_table_names_cached()
-
-
-def get_table_columns(table_name):
-    """Получить список колонок для таблицы."""
-    if not table_name or not isinstance(table_name, str):
-        raise ValueError("Invalid table name")
-    return get_table_columns_cached(table_name)
-
-
 def get_table_preview(table_name, selected_columns, limit=100):
-    """Превью выбранных колонок из таблицы."""
     ensure_sqlalchemy_timing(engine)
     with perf_trace("table.preview", table_name=table_name, requested_limit=limit) as perf:
         if not table_name or not isinstance(table_name, str):
@@ -257,7 +233,6 @@ def normalize_table_page_size(page_size):
 
 
 def get_table_data(table_name, limit=None, offset=0, perf=None):
-    """Получить данные из таблицы с limit/offset и общим числом строк."""
     ensure_sqlalchemy_timing(engine)
     trace = perf or perf_trace("table.data", table_name=table_name, requested_limit=limit, requested_offset=offset)
     trace_context = nullcontext(trace) if perf is not None else trace
@@ -281,7 +256,13 @@ def get_table_data(table_name, limit=None, offset=0, perf=None):
             with active_perf.span("payload_render"):
                 with engine.connect() as conn:
                     total_rows = int(conn.execute(text(f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}")).scalar() or 0)
-                    rows = _fetch_ordered_rows(conn, table_name, columns, limit=safe_limit if has_limit else None, offset=safe_offset)
+                    rows = _fetch_ordered_rows(
+                        conn,
+                        table_name,
+                        columns,
+                        limit=safe_limit if has_limit else None,
+                        offset=safe_offset,
+                    )
                 active_perf.update(input_rows=total_rows, total_rows=total_rows, returned_rows=len(rows))
                 return columns, rows, total_rows
         except Exception as exc:
@@ -342,90 +323,42 @@ def get_table_page(table_name, page=1, page_size=DEFAULT_TABLE_PAGE_SIZE):
             }
 
 
+def build_modified_table_name(source_table: str) -> str:
+    from app.table_operations import build_modified_table_name as _build_modified_table_name
+
+    return _build_modified_table_name(source_table)
+
+
+def get_all_tables():
+    from app.table_metadata import get_all_tables as _get_all_tables
+
+    return _get_all_tables()
+
+
+def get_table_columns(table_name):
+    from app.table_metadata import get_table_columns as _get_table_columns
+
+    return _get_table_columns(table_name)
+
+
 def create_modified_table(source_table: str, selected_columns, target_table: str | None = None):
-    if not source_table or not isinstance(source_table, str):
-        raise ValueError("Invalid source table name")
+    from app.table_operations import create_modified_table as _create_modified_table
 
-    source_columns = get_table_columns(source_table)
-    selected_set = {str(column) for column in (selected_columns or []) if column}
-    ordered_columns = [column for column in source_columns if column in selected_set]
-    if not ordered_columns:
-        raise ValueError("Не выбрано ни одной колонки для новой таблицы")
-
-    target_table_name = target_table or build_modified_table_name(source_table)
-    replaced_existing = target_table_name in set(get_table_names_cached())
-
-    quoted_target = _quote_identifier(target_table_name)
-    quoted_source = _quote_identifier(source_table)
-    quoted_columns = ", ".join(_quote_identifier(column) for column in ordered_columns)
-
-    with engine.begin() as conn:
-        conn.execute(text(f"DROP TABLE IF EXISTS {quoted_target}"))
-        conn.execute(text(f"CREATE TABLE {quoted_target} AS SELECT {quoted_columns} FROM {quoted_source}"))
-
-    invalidate_db_metadata_cache()
-    try:
-        from app.services.pipeline_service import invalidate_runtime_caches
-
-        invalidate_runtime_caches()
-    except Exception:
-        pass
-
-    return {
-        "table_name": target_table_name,
-        "selected_columns": ordered_columns,
-        "replaced_existing": replaced_existing,
-    }
+    return _create_modified_table(
+        source_table,
+        selected_columns,
+        target_table=target_table,
+        db_engine=engine,
+    )
 
 
 def delete_tables(table_names):
-    normalized_names = []
-    seen_names = set()
+    from app.table_operations import delete_tables as _delete_tables
 
-    for table_name in table_names or []:
-        if not table_name or not isinstance(table_name, str):
-            continue
-
-        normalized_name = str(table_name).strip()
-        if not normalized_name or normalized_name in seen_names:
-            continue
-
-        normalized_names.append(normalized_name)
-        seen_names.add(normalized_name)
-
-    if not normalized_names:
-        raise ValueError("Не выбрана ни одна таблица для удаления")
-
-    available_tables = set(get_table_names_cached())
-    missing_tables = [table_name for table_name in normalized_names if table_name not in available_tables]
-    if missing_tables:
-        raise ValueError("Таблицы не найдены: " + ", ".join(missing_tables))
-
-    with engine.begin() as conn:
-        for table_name in normalized_names:
-            conn.execute(text(f"DROP TABLE IF EXISTS {_quote_identifier(table_name)}"))
-
-    invalidate_db_metadata_cache()
-    try:
-        from app.services.pipeline_service import invalidate_runtime_caches
-
-        invalidate_runtime_caches()
-    except Exception:
-        pass
-
-    remaining_tables = get_table_names_cached()
-    return {
-        "deleted_tables": normalized_names,
-        "remaining_tables": remaining_tables,
-        "remaining_count": len(remaining_tables),
-    }
+    return _delete_tables(table_names, db_engine=engine)
 
 
 def delete_table(table_name: str):
-    result = delete_tables([table_name])
-    deleted_name = result["deleted_tables"][0]
-    return {
-        "table_name": deleted_name,
-        "remaining_tables": result["remaining_tables"],
-        "remaining_count": result["remaining_count"],
-    }
+    from app.table_operations import delete_table as _delete_table
+
+    return _delete_table(table_name, db_engine=engine)

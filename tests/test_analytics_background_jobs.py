@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app.services.clustering import jobs as clustering_jobs
-from app.services.forecasting import jobs as forecasting_jobs
+import app.services.forecasting.jobs as forecasting_jobs
 
 
 class ClusteringJobsTests(unittest.TestCase):

@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi.responses import HTMLResponse
 from starlette.requests import Request
 
-from app.routes import pages as pages_routes
+import app.routes.pages as pages_routes
 from app.services.ml_model import core
 
 

@@ -4,10 +4,10 @@ from typing import Any, Dict, Optional, Tuple
 
 from app.db_metadata import get_table_signature_cached, invalidate_db_metadata_cache
 from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
+from app.table_catalog import select_user_table_names
 from app.statistics_constants import DASHBOARD_CACHE_TTL_SECONDS, METADATA_CACHE_TTL_SECONDS
 
 from .metadata import _collect_dashboard_metadata
-from .utils import _select_tables
 
 _DASHBOARD_METADATA_CACHE = CopyingTtlCache[Tuple[str, ...], Dict[str, Any]](
     ttl_seconds=METADATA_CACHE_TTL_SECONDS,
@@ -22,7 +22,7 @@ _DASHBOARD_CACHE = CopyingTtlCache[Tuple[Any, ...], Dict[str, Any]](
 
 
 def _current_dashboard_table_names() -> Tuple[str, ...]:
-    return tuple(sorted(_select_tables(list(get_table_signature_cached()))))
+    return tuple(sorted(select_user_table_names(list(get_table_signature_cached()))))
 
 
 def _metadata_table_names(metadata: Optional[Dict[str, Any]]) -> Tuple[str, ...]:

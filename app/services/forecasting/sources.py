@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from sqlalchemy import text
 
 from app.db_metadata import get_table_columns_cached
-from app.services.ml_model.constants import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
+from app.domain.predictive_settings import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
 from config.db import engine
 
 from .constants import (

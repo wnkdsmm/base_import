@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict
 import pandas as pd
 from fastapi import UploadFile
 
+from app.runtime_invalidation import invalidate_runtime_caches as shared_invalidate_runtime_caches
 from app.state import UPLOAD_FOLDER, job_store
 from config.constants import (
     DOMINANT_VALUE_THRESHOLD,
@@ -266,8 +267,11 @@ def invalidate_runtime_caches(on_warning: Callable[[str], None] | None = None) -
     except Exception as exc:
         warn(f"Предупреждение при обновлении кэша карты пожаров: {exc}")
 
+invalidate_runtime_caches = shared_invalidate_runtime_caches
+
+
 def _invalidate_runtime_caches(session_id: str, job_id: str) -> None:
-    invalidate_runtime_caches(on_warning=lambda message: add_log(session_id, job_id, message))
+    shared_invalidate_runtime_caches(on_warning=lambda message: add_log(session_id, job_id, message))
 
 def _build_upload_file_path(session_id: str, job_id: str, original_filename: str) -> Path:
     safe_name = Path(original_filename).name or "uploaded_file.xlsx"

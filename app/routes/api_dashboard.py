@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.dashboard.service import get_dashboard_data
-
 from .api_common import run_analytics_request
 
 
 router = APIRouter()
+
+
+def get_dashboard_data(**kwargs):
+    from app.dashboard.service import get_dashboard_data as _get_dashboard_data
+
+    return _get_dashboard_data(**kwargs)
 
 
 @router.get("/api/dashboard-data")

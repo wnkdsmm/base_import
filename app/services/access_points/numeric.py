@@ -6,7 +6,7 @@ from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 
-from app.services.forecast_risk.utils import _clamp
+from app.services.shared.data_utils import _clamp
 
 
 def _share(numerator: float, denominator: float) -> float:

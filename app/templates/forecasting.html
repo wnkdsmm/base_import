@@ -20,6 +20,8 @@
 <link rel="stylesheet" href="/static/forecasting.css?v={{ forecasting_css_version }}">
 {% endblock %}
 
+{% block body_attributes %} data-page="forecasting" data-forecasting-ready="0"{% endblock %}
+
 {% block sidebar_status %}
     <div class="sidebar-status">
         <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">{% if data.bootstrap_mode == 'deferred' %}Подготавливаем прогноз{% elif data.has_data %}Сценарный прогноз собран{% else %}Нужно уточнить фильтры{% endif %}</span>
@@ -39,6 +41,9 @@
 {% endblock %}
 
 {% block content %}
+<script>
+document.documentElement.setAttribute('data-forecasting-boot', '1');
+</script>
 {% include 'includes/forecasting/hero_intro.html' %}
 {% include 'includes/forecasting/controls_overview.html' %}
 {% include 'includes/forecasting/analysis_sections.html' %}
@@ -46,6 +51,9 @@
 
 {% block page_data %}
 <script>
+if (document.body) {
+    document.body.setAttribute('data-forecasting-ready', '1');
+}
 window.__FIRE_FORECAST_INITIAL__ = {{ data | tojson }};
 </script>
 {% endblock %}

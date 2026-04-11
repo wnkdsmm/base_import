@@ -49,6 +49,29 @@ def utf8_json(payload: JsonPayload, status_code: int = 200, session_id: str | No
     return response
 
 
+def json_action_response(
+    action: Callable[[], JsonPayload],
+    *,
+    session_id: str | None = None,
+    status_code: int = 200,
+    on_value_error: Callable[[ValueError], tuple[JsonPayload, int]] | None = None,
+    on_exception: Callable[[Exception], tuple[JsonPayload, int]] | None = None,
+) -> Response:
+    try:
+        payload = action()
+        return utf8_json(payload, status_code=status_code, session_id=session_id)
+    except ValueError as exc:
+        if on_value_error is None:
+            raise
+        error_payload, error_status_code = on_value_error(exc)
+        return utf8_json(error_payload, status_code=error_status_code, session_id=session_id)
+    except Exception as exc:
+        if on_exception is None:
+            raise
+        error_payload, error_status_code = on_exception(exc)
+        return utf8_json(error_payload, status_code=error_status_code, session_id=session_id)
+
+
 def analytics_error_response(
     *,
     code: str,
@@ -148,3 +171,42 @@ def run_analytics_request(
             status_code=500,
             exc=exc,
         )
+
+
+def run_session_json_action(
+    request: Request,
+    action: Callable[[str], JsonPayload],
+    *,
+    status_code: int = 200,
+) -> Response:
+    session_id = ensure_session_id(request)
+    return json_action_response(lambda: action(session_id), session_id=session_id, status_code=status_code)
+
+
+def run_session_analytics_request(
+    request: Request,
+    action: Callable[[str], RouteResult],
+    *,
+    invalid_code: str,
+    invalid_message: str,
+    failed_code: str,
+    failed_message: str,
+) -> RouteResult | Response:
+    session_id = ensure_session_id(request)
+    result = run_analytics_request(
+        lambda: action(session_id),
+        invalid_code=invalid_code,
+        invalid_message=invalid_message,
+        failed_code=failed_code,
+        failed_message=failed_message,
+    )
+    if isinstance(result, dict):
+        return utf8_json(result, session_id=session_id)
+    return result
+
+
+def job_status_response(request: Request, job_id: str, loader: Callable[..., JsonPayload]) -> Response:
+    session_id = ensure_session_id(request)
+    result = loader(session_id=session_id, job_id=job_id)
+    status_code = 404 if result.get("status") == "missing" else 200
+    return utf8_json(result, status_code=status_code, session_id=session_id)

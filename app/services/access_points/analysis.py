@@ -5,12 +5,8 @@ from typing import Any, Dict, List, NamedTuple, Sequence
 
 import pandas as pd
 
-from app.services.forecast_risk.utils import (
-    _clean_text,
-    _format_integer,
-    _format_number,
-    _format_percent,
-)
+from app.services.shared.data_utils import _clean_text
+from app.services.shared.formatting import _format_integer, _format_number, _format_percent
 
 from .constants import (
     DEFAULT_ACCESS_POINT_FEATURES,

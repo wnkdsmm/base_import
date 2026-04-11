@@ -1,3 +1,4 @@
-from core.mapping.fire_map_generator import Config, MapCreator
+from core.mapping.config import Config
+from core.mapping.creator import MapCreator
 
 __all__ = ["Config", "MapCreator"]

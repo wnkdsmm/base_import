@@ -4,21 +4,31 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 from typing import Any, Dict, Tuple
 
-from app.log_manager import add_log
-from app.state import FINAL_JOB_STATUSES, job_store
 from app.services.job_support import (
-    build_job_payload_from_snapshot,
-    build_missing_job_payload,
-    discard_reusable_job_id,
-    find_reusable_job_id,
+    JobLaunchBundle,
+    JobReuseCoordinator,
+    LinkedJobProgressReporter,
+    LinkedJobStatusSpec,
+    StageTrackingJobProgressReporter,
+    attach_linked_job_metadata,
+    build_linked_job_status_payload,
+    run_background_job,
     serialize_job_cache_key,
+    start_cache_aware_job,
 )
+from app.state import FINAL_JOB_STATUSES, job_store
 
 from .core import _build_ml_request_state, _cache_get, get_ml_model_data
 
 _ML_JOB_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml-model")
 _ML_JOB_LOCK = RLock()
 _ML_JOB_IDS_BY_CACHE_KEY: Dict[Tuple[str, str], str] = {}
+_BACKTEST_STATUS_SPEC = LinkedJobStatusSpec(
+    payload_key="backtest_job",
+    meta_key="backtest_job_id",
+    include_result=False,
+    include_meta=False,
+)
 
 
 def start_ml_model_job(
@@ -47,65 +57,38 @@ def start_ml_model_job(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-
-    with _ML_JOB_LOCK:
-        reusable_job_id = find_reusable_job_id(
+    reuse_coordinator = JobReuseCoordinator(
+        session_id=session_id,
+        cache_key_token=cache_key_token,
+        job_ids_by_cache_key=_ML_JOB_IDS_BY_CACHE_KEY,
+        job_lock=_ML_JOB_LOCK,
+    )
+    return start_cache_aware_job(
+        reuse_coordinator=reuse_coordinator,
+        build_status_payload=lambda job_id, reused: _build_job_status_payload(
             session_id,
-            cache_key_token,
-            job_ids_by_cache_key=_ML_JOB_IDS_BY_CACHE_KEY,
-        )
-        if reusable_job_id:
-            return _build_job_status_payload(
-                session_id,
-                reusable_job_id,
-                reused=True,
-            )
-
-        cached_payload = _cache_get(request_state["cache_key"])
-        if cached_payload is not None:
-            main_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_model")
-            backtest_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_backtest")
-            _attach_job_metadata(
-                session_id=session_id,
-                main_job_id=main_job.job_id,
-                backtest_job_id=backtest_job.job_id,
-                cache_key_token=cache_key_token,
-                params_payload=params_payload,
-                cache_hit=True,
-            )
-            job_store.set_job_result(session_id, main_job.job_id, cached_payload)
-            job_store.set_job_result(session_id, backtest_job.job_id, _extract_backtest_result(cached_payload))
-            job_store.mark_job_status(session_id, main_job.job_id, "completed")
-            job_store.mark_job_status(session_id, backtest_job.job_id, "completed")
-            add_log(session_id, main_job.job_id, "Результат ML-анализа взят из кэша без повторного запуска фоновой задачи.")
-            add_log(session_id, backtest_job.job_id, "Backtesting уже был рассчитан ранее и взят из кэша вместе с ML-результатом.")
-            _ML_JOB_IDS_BY_CACHE_KEY[(session_id, cache_key_token)] = main_job.job_id
-            return _build_job_status_payload(session_id, main_job.job_id, reused=False)
-
-        main_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_model")
-        backtest_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_backtest")
-        _attach_job_metadata(
+            job_id,
+            reused=reused,
+        ),
+        load_cached_payload=lambda: _cache_get(request_state["cache_key"]),
+        create_jobs=lambda cache_hit: _create_ml_job_bundle(
             session_id=session_id,
-            main_job_id=main_job.job_id,
-            backtest_job_id=backtest_job.job_id,
             cache_key_token=cache_key_token,
             params_payload=params_payload,
-            cache_hit=False,
-        )
-        job_store.mark_job_status(session_id, main_job.job_id, "pending")
-        job_store.mark_job_status(session_id, backtest_job.job_id, "pending")
-        add_log(session_id, main_job.job_id, "ML-задача поставлена в очередь. Интерфейс продолжает работать, пока расчёт идёт в фоне.")
-        add_log(session_id, backtest_job.job_id, "Backtesting ожидает запуска после подготовки ML-данных.")
-        _ML_JOB_IDS_BY_CACHE_KEY[(session_id, cache_key_token)] = main_job.job_id
-        _ML_JOB_EXECUTOR.submit(
-            _run_ml_model_job,
-            session_id,
-            main_job.job_id,
-            backtest_job.job_id,
-            params_payload,
-            cache_key_token,
-        )
-        return _build_job_status_payload(session_id, main_job.job_id, reused=False)
+            cache_hit=cache_hit,
+        ),
+        handle_cached_payload=lambda bundle, cached_payload: _handle_cached_ml_payload(
+            session_id=session_id,
+            bundle=bundle,
+            cached_payload=cached_payload,
+        ),
+        submit_background_job=lambda bundle: _submit_ml_job(
+            session_id=session_id,
+            bundle=bundle,
+            params_payload=params_payload,
+            cache_key_token=cache_key_token,
+        ),
+    )
 
 
 def get_ml_job_status(session_id: str, job_id: str) -> Dict[str, Any]:
@@ -119,16 +102,31 @@ def _run_ml_model_job(
     params_payload: Dict[str, str],
     cache_key_token: str,
 ) -> None:
-    reporter = _MlJobProgressReporter(
+    primary_reporter = StageTrackingJobProgressReporter(
         session_id=session_id,
-        main_job_id=main_job_id,
-        backtest_job_id=backtest_job_id,
+        job_id=main_job_id,
+        status_resolver=_ml_main_status_resolver,
     )
-    final_status = "failed"
-    try:
-        job_store.mark_job_status(session_id, main_job_id, "running")
-        add_log(session_id, main_job_id, "Фоновый ML-анализ запущен.")
-        payload = get_ml_model_data(
+    reporter = LinkedJobProgressReporter(
+        primary_reporter=primary_reporter,
+        session_id=session_id,
+        primary_job_id=main_job_id,
+        secondary_job_id=backtest_job_id,
+        secondary_phase_prefix="ml_backtest.",
+        secondary_status_resolver=_ml_backtest_status_resolver,
+        mirror_to_primary_prefix="[Backtesting] ",
+    )
+    reuse_coordinator = JobReuseCoordinator(
+        session_id=session_id,
+        cache_key_token=cache_key_token,
+        job_ids_by_cache_key=_ML_JOB_IDS_BY_CACHE_KEY,
+        job_lock=_ML_JOB_LOCK,
+    )
+    run_background_job(
+        reuse_coordinator=reuse_coordinator,
+        primary_job_id=main_job_id,
+        on_start=lambda: _start_ml_job_execution(session_id=session_id, main_job_id=main_job_id),
+        execute=lambda: get_ml_model_data(
             table_name=params_payload["table_name"],
             cause=params_payload["cause"],
             object_category=params_payload["object_category"],
@@ -136,81 +134,194 @@ def _run_ml_model_job(
             forecast_days=params_payload["forecast_days"],
             history_window=params_payload["history_window"],
             progress_callback=reporter.handle_progress,
-        )
-        job_store.set_job_result(session_id, main_job_id, payload)
-        if job_store.get_job_status(session_id, backtest_job_id) not in FINAL_JOB_STATUSES:
-            job_store.mark_job_status(session_id, backtest_job_id, "completed")
-            add_log(session_id, backtest_job_id, "Backtesting завершён в составе общей ML-задачи.")
-        job_store.set_job_result(session_id, backtest_job_id, _extract_backtest_result(payload))
-        job_store.mark_job_status(session_id, main_job_id, "completed")
-        add_log(session_id, main_job_id, "ML-анализ завершён, результат сохранён в job_store.")
-        final_status = "completed"
-    except Exception as exc:
-        error_message = f"Ошибка ML-анализа: {exc}"
-        job_store.set_job_error(session_id, main_job_id, error_message)
-        job_store.mark_job_status(session_id, main_job_id, "failed")
-        add_log(session_id, main_job_id, error_message)
-        backtest_status = job_store.get_job_status(session_id, backtest_job_id)
-        if backtest_status not in FINAL_JOB_STATUSES:
-            job_store.set_job_error(session_id, backtest_job_id, error_message)
-            job_store.mark_job_status(session_id, backtest_job_id, "failed")
-            add_log(session_id, backtest_job_id, "Backtesting остановлен из-за ошибки в общей ML-задаче.")
-    finally:
-        if final_status != "completed":
-            with _ML_JOB_LOCK:
-                discard_reusable_job_id(
-                    session_id,
-                    cache_key_token,
-                    main_job_id,
-                    job_ids_by_cache_key=_ML_JOB_IDS_BY_CACHE_KEY,
-                )
+        ),
+        on_success=lambda payload: _finalize_ml_job_success(
+            session_id=session_id,
+            main_job_id=main_job_id,
+            backtest_job_id=backtest_job_id,
+            payload=payload,
+        ),
+        on_failure=lambda error_message: _finalize_ml_job_failure(
+            session_id=session_id,
+            main_job_id=main_job_id,
+            backtest_job_id=backtest_job_id,
+            error_message=error_message,
+        ),
+        build_error_message=lambda exc: f"\u041e\u0448\u0438\u0431\u043a\u0430 ML-\u0430\u043d\u0430\u043b\u0438\u0437\u0430: {exc}",
+    )
 
 
-def _attach_job_metadata(
+def _create_ml_job_bundle(
+    *,
     session_id: str,
-    main_job_id: str,
-    backtest_job_id: str,
     cache_key_token: str,
     params_payload: Dict[str, str],
     cache_hit: bool,
-) -> None:
-    job_store.update_job_meta(
-        session_id,
-        main_job_id,
-        cache_key=cache_key_token,
+) -> JobLaunchBundle:
+    main_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_model")
+    backtest_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_backtest")
+    attach_linked_job_metadata(
+        session_id=session_id,
+        primary_job_id=main_job.job_id,
+        cache_key_token=cache_key_token,
+        params_payload=params_payload,
         cache_hit=cache_hit,
-        params=params_payload,
-        backtest_job_id=backtest_job_id,
+        primary_meta={"backtest_job_id": backtest_job.job_id},
+        linked_meta_by_job_id={
+            backtest_job.job_id: {"parent_job_id": main_job.job_id},
+        },
     )
-    job_store.update_job_meta(
+    if cache_hit:
+        return JobLaunchBundle(
+            primary_job_id=main_job.job_id,
+            related_job_ids={"backtest": backtest_job.job_id},
+        )
+    job_store.mark_job_status(session_id, main_job.job_id, "pending")
+    job_store.mark_job_status(session_id, backtest_job.job_id, "pending")
+    job_store.add_log(
+        session_id,
+        main_job.job_id,
+        "ML-\u0437\u0430\u0434\u0430\u0447\u0430 \u043f\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u0430 \u0432 "
+        "\u043e\u0447\u0435\u0440\u0435\u0434\u044c. \u0418\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441 "
+        "\u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0430\u0435\u0442 \u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c, "
+        "\u043f\u043e\u043a\u0430 \u0440\u0430\u0441\u0447\u0451\u0442 \u0438\u0434\u0451\u0442 \u0432 \u0444\u043e\u043d\u0435.",
+    )
+    job_store.add_log(
+        session_id,
+        backtest_job.job_id,
+        "Backtesting \u043e\u0436\u0438\u0434\u0430\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u043a\u0430 \u043f\u043e\u0441"
+        "\u043b\u0435 \u043f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0438 ML-\u0434\u0430\u043d\u043d\u044b\u0445.",
+    )
+    return JobLaunchBundle(
+        primary_job_id=main_job.job_id,
+        related_job_ids={"backtest": backtest_job.job_id},
+    )
+
+
+def _handle_cached_ml_payload(
+    *,
+    session_id: str,
+    bundle: JobLaunchBundle,
+    cached_payload: Dict[str, Any],
+) -> None:
+    backtest_job_id = bundle.related_job_ids["backtest"]
+    job_store.complete_job(
+        session_id,
+        bundle.primary_job_id,
+        result=cached_payload,
+        log_message=(
+            "\u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 ML-\u0430\u043d\u0430\u043b\u0438\u0437\u0430 "
+            "\u0432\u0437\u044f\u0442 \u0438\u0437 \u043a\u044d\u0448\u0430 \u0431\u0435\u0437 \u043f\u043e\u0432\u0442"
+            "\u043e\u0440\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0443\u0441\u043a\u0430 \u0444\u043e\u043d\u043e\u0432\u043e\u0439 "
+            "\u0437\u0430\u0434\u0430\u0447\u0438."
+        ),
+    )
+    job_store.complete_job(
         session_id,
         backtest_job_id,
-        cache_key=cache_key_token,
-        cache_hit=cache_hit,
-        params=params_payload,
-        parent_job_id=main_job_id,
+        result=_extract_backtest_result(cached_payload),
+        log_message=(
+            "Backtesting \u0443\u0436\u0435 \u0431\u044b\u043b \u0440\u0430\u0441\u0441\u0447"
+            "\u0438\u0442\u0430\u043d \u0440\u0430\u043d\u0435\u0435 \u0438 \u0432\u0437\u044f\u0442 \u0438\u0437 "
+            "\u043a\u044d\u0448\u0430 \u0432\u043c\u0435\u0441\u0442\u0435 \u0441 ML-\u0440\u0435\u0437\u0443\u043b\u044c"
+            "\u0442\u0430\u0442\u043e\u043c."
+        ),
+    )
+
+
+def _submit_ml_job(
+    *,
+    session_id: str,
+    bundle: JobLaunchBundle,
+    params_payload: Dict[str, str],
+    cache_key_token: str,
+) -> None:
+    _ML_JOB_EXECUTOR.submit(
+        _run_ml_model_job,
+        session_id,
+        bundle.primary_job_id,
+        bundle.related_job_ids["backtest"],
+        params_payload,
+        cache_key_token,
+    )
+
+
+def _start_ml_job_execution(*, session_id: str, main_job_id: str) -> None:
+    job_store.mark_job_status(session_id, main_job_id, "running")
+    job_store.add_log(
+        session_id,
+        main_job_id,
+        "\u0424\u043e\u043d\u043e\u0432\u044b\u0439 ML-\u0430\u043d\u0430\u043b\u0438\u0437 \u0437\u0430\u043f\u0443\u0449\u0435\u043d.",
+    )
+
+
+def _finalize_ml_job_success(
+    *,
+    session_id: str,
+    main_job_id: str,
+    backtest_job_id: str,
+    payload: Dict[str, Any],
+) -> None:
+    job_store.complete_job(
+        session_id,
+        main_job_id,
+        result=payload,
+        log_message=(
+            "ML-\u0430\u043d\u0430\u043b\u0438\u0437 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d, "
+            "\u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d "
+            "\u0432 job_store."
+        ),
+    )
+    backtest_result = _extract_backtest_result(payload)
+    if job_store.get_job_status(session_id, backtest_job_id) not in FINAL_JOB_STATUSES:
+        job_store.complete_job(
+            session_id,
+            backtest_job_id,
+            result=backtest_result,
+            log_message=(
+                "Backtesting \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d \u0432 \u0441\u043e\u0441\u0442\u0430\u0432\u0435 "
+                "\u043e\u0431\u0449\u0435\u0439 ML-\u0437\u0430\u0434\u0430\u0447\u0438."
+            ),
+        )
+        return
+    job_store.set_job_result(session_id, backtest_job_id, backtest_result)
+
+
+def _finalize_ml_job_failure(
+    *,
+    session_id: str,
+    main_job_id: str,
+    backtest_job_id: str,
+    error_message: str,
+) -> None:
+    job_store.fail_job(
+        session_id,
+        main_job_id,
+        error_message=error_message,
+        log_message=error_message,
+    )
+    if job_store.get_job_status(session_id, backtest_job_id) in FINAL_JOB_STATUSES:
+        return
+    job_store.fail_job(
+        session_id,
+        backtest_job_id,
+        error_message=error_message,
+        log_message=(
+            "Backtesting \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d \u0438\u0437-\u0437\u0430 "
+            "\u043e\u0448\u0438\u0431\u043a\u0438 \u0432 \u043e\u0431\u0449\u0435\u0439 ML-\u0437\u0430\u0434\u0430\u0447\u0435."
+        ),
     )
 
 
 def _build_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> Dict[str, Any]:
-    snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
-    if snapshot is None:
-        return build_missing_job_payload(job_id, reused=reused, include_meta=False)
-
-    meta = snapshot.get("meta") or {}
-    backtest_job_id = str(meta.get("backtest_job_id") or "")
-    backtest_snapshot = job_store.get_job_snapshot(session_id, job_id=backtest_job_id) if backtest_job_id else None
-    payload = build_job_payload_from_snapshot(snapshot, reused=reused)
-    if backtest_snapshot is not None:
-        payload["backtest_job"] = build_job_payload_from_snapshot(
-            backtest_snapshot,
-            reused=None,
-            include_result=False,
-            include_meta=False,
-        )
-    else:
-        payload["backtest_job"] = None
-    return payload
+    return build_linked_job_status_payload(
+        session_id,
+        job_id,
+        reused=reused,
+        linked_specs=[_BACKTEST_STATUS_SPEC],
+        include_meta=True,
+        missing_include_meta=False,
+    )
 
 
 def _build_params_payload(
@@ -248,39 +359,21 @@ def _serialize_cache_key(cache_key: Tuple[Any, ...]) -> str:
     return serialize_job_cache_key(cache_key)
 
 
-class _MlJobProgressReporter:
-    def __init__(self, session_id: str, main_job_id: str, backtest_job_id: str) -> None:
-        self._session_id = session_id
-        self._main_job_id = main_job_id
-        self._backtest_job_id = backtest_job_id
-        self._last_main_message = ""
-        self._last_backtest_message = ""
+def _ml_main_status_resolver(normalized_phase: str, normalized_message: str) -> str | None:
+    del normalized_message
+    if normalized_phase.startswith("ml_model.") and normalized_phase.endswith(".running"):
+        return "running"
+    return None
 
-    def handle_progress(self, phase: str, message: str) -> None:
-        normalized_phase = str(phase or "").strip().lower()
-        normalized_message = str(message or "").strip()
-        if not normalized_message:
-            return
-        if normalized_phase.startswith("ml_backtest"):
-            self._handle_backtest_progress(normalized_phase, normalized_message)
-            return
-        if normalized_message != self._last_main_message:
-            add_log(self._session_id, self._main_job_id, normalized_message)
-            self._last_main_message = normalized_message
-        if normalized_phase.endswith(".running"):
-            job_store.mark_job_status(self._session_id, self._main_job_id, "running")
 
-    def _handle_backtest_progress(self, phase: str, message: str) -> None:
-        if message != self._last_backtest_message:
-            add_log(self._session_id, self._backtest_job_id, message)
-            add_log(self._session_id, self._main_job_id, f"[Backtesting] {message}")
-            self._last_backtest_message = message
-        if phase.endswith(".pending"):
-            job_store.mark_job_status(self._session_id, self._backtest_job_id, "pending")
-        elif phase.endswith(".running"):
-            job_store.mark_job_status(self._session_id, self._backtest_job_id, "running")
-        elif phase.endswith(".completed"):
-            job_store.mark_job_status(self._session_id, self._backtest_job_id, "completed")
-        elif phase.endswith(".failed"):
-            job_store.set_job_error(self._session_id, self._backtest_job_id, message)
-            job_store.mark_job_status(self._session_id, self._backtest_job_id, "failed")
+def _ml_backtest_status_resolver(normalized_phase: str, normalized_message: str) -> str | None:
+    del normalized_message
+    if normalized_phase.endswith(".pending"):
+        return "pending"
+    if normalized_phase.endswith(".running"):
+        return "running"
+    if normalized_phase.endswith(".completed"):
+        return "completed"
+    if normalized_phase.endswith(".failed"):
+        return "failed"
+    return None

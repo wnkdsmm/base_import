@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app.services.forecasting import core
+import app.services.forecasting.core as core
 
 
 class ForecastingShellContextTests(unittest.TestCase):

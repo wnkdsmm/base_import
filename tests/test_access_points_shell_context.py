@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app.services.access_points import core
+import app.services.access_points.core as core
 
 
 class AccessPointsShellContextTests(unittest.TestCase):

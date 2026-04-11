@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.db_metadata import get_table_columns_cached
 from config.db import engine
-from core.mapping.fire_map_generator import Config
+from core.mapping.config import Config
 
 _FIRE_MAP_COLUMN_GROUPS: Tuple[str, ...] = (
     "lat_names",

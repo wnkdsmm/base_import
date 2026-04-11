@@ -5,8 +5,8 @@ from datetime import timedelta
 import math
 from typing import Any, Dict, List, Sequence, Tuple
 
-from app.services.forecasting.constants import GEO_LOOKBACK_DAYS, MAX_GEO_CHART_POINTS, MAX_GEO_HOTSPOTS
-from app.services.forecasting.utils import _format_integer, _format_number
+from app.services.shared.formatting import _format_integer, _format_number
+from app.domain.predictive_settings import GEO_LOOKBACK_DAYS, MAX_GEO_CHART_POINTS, MAX_GEO_HOTSPOTS
 
 
 def _build_geo_prediction(

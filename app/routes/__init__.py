@@ -1,4 +1,9 @@
-from app.routes.api import router as api_router
-from app.routes.pages import router as pages_router
+from __future__ import annotations
 
-__all__ = ["api_router", "pages_router"]
+"""Routes package namespace.
+
+Import routers from ``app.routes.api`` and ``app.routes.pages`` instead of
+package-level aliases.
+"""
+
+__all__: list[str] = []

@@ -4,12 +4,12 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from app.statistics_constants import EXCLUDED_TABLE_PREFIXES
+from app.table_catalog import select_user_table_names
 from config.db import engine
 
 
 def _select_tables(table_names: List[str]) -> List[str]:
-    return [name for name in table_names if not name.startswith(EXCLUDED_TABLE_PREFIXES) and not name.startswith("alembic")]
+    return select_user_table_names(table_names)
 
 
 def _extract_year_from_name(table_name: str) -> Optional[int]:

@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Tuple
 
 from app.perf import profiled
 from app.runtime_cache import CopyingTtlCache
-from app.services.forecasting.utils import _format_datetime
+from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
+from app.services.shared.formatting import _format_datetime
 from config.db import engine
 
 from .analysis import (
@@ -20,7 +21,7 @@ from .analysis import (
     _select_incomplete_points,
     _select_top_points,
 )
-from .charts import _build_points_scatter_chart, _empty_chart_bundle
+from .charts import _build_points_scatter_chart
 from .constants import ACCESS_POINT_LIMIT_OPTIONS
 from .data import (
     _build_access_points_table_options,

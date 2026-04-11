@@ -1,13 +1,9 @@
-from .core import (
-    clear_access_points_cache,
-    get_access_points_data,
-    get_access_points_page_context,
-    get_access_points_shell_context,
-)
+from __future__ import annotations
 
-__all__ = [
-    "clear_access_points_cache",
-    "get_access_points_data",
-    "get_access_points_page_context",
-    "get_access_points_shell_context",
-]
+"""Access-points service namespace.
+
+Import public helpers from ``app.services.access_points.core`` and sibling
+submodules instead of package-level reexports.
+"""
+
+__all__: list[str] = []

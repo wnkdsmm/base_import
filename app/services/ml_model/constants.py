@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections import OrderedDict
-from typing import Any, Dict, Tuple
+from app.domain.predictive_settings import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
 
 MODEL_NAME = 'ML-прогноз по числу пожаров'
 
@@ -37,8 +36,6 @@ MIN_FEATURE_ROWS = 24
 MIN_BACKTEST_POINTS = 8
 MIN_EVENT_CLASS_COUNT = 8
 EVENT_RATE_SATURATION_MARGIN = 0.05
-MIN_TEMPERATURE_NON_NULL_DAYS = 30
-MIN_TEMPERATURE_COVERAGE = 0.20
 MAX_HISTORY_POINTS = 900
 MAX_BACKTEST_POINTS = 45
 PERMUTATION_REPEATS = 8
@@ -104,7 +101,6 @@ ML_PREDICTIVE_BLOCK_DESCRIPTION = (
 ML_CACHE_SCHEMA_VERSION = 2
 
 _CACHE_LIMIT = 12
-_ML_CACHE: 'OrderedDict[Tuple[int, str, str, str, str, int, str], Dict[str, Any]]' = OrderedDict()
 
 _POISSON_PARAMS = {
     'alpha': 0.40,

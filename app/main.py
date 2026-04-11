@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.routes import api_router, pages_router
+from app.routes.api import router as api_router
+from app.routes.pages import router as pages_router
 from config.paths import STATIC_DIR
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from sqlalchemy import inspect
 
@@ -11,6 +11,21 @@ _METADATA_CACHE_TTL_SECONDS = 60.0
 _TABLE_NAMES_CACHE_KEY = "__table_names__"
 _TABLE_NAMES_CACHE = CopyingTtlCache[str, Tuple[str, ...]](ttl_seconds=_METADATA_CACHE_TTL_SECONDS)
 _TABLE_COLUMNS_CACHE = CopyingTtlCache[str, Tuple[str, ...]](ttl_seconds=_METADATA_CACHE_TTL_SECONDS)
+_TABLE_ORDER_CACHE_INVALIDATORS: list[Callable[[], None]] = []
+
+
+def register_table_order_cache_invalidator(invalidator: Callable[[], None]) -> None:
+    if invalidator in _TABLE_ORDER_CACHE_INVALIDATORS:
+        return
+    _TABLE_ORDER_CACHE_INVALIDATORS.append(invalidator)
+
+
+def invalidate_table_order_caches() -> None:
+    for invalidator in list(_TABLE_ORDER_CACHE_INVALIDATORS):
+        try:
+            invalidator()
+        except Exception:
+            continue
 
 
 
@@ -21,12 +36,7 @@ def invalidate_db_metadata_cache(table_name: Optional[str] = None) -> None:
     else:
         _TABLE_COLUMNS_CACHE.delete(str(table_name))
 
-    try:
-        from app.db_views import invalidate_table_order_cache
-
-        invalidate_table_order_cache(table_name)
-    except Exception:
-        pass
+    invalidate_table_order_caches()
 
 
 
@@ -76,3 +86,15 @@ def get_table_column_set_cached(table_name: str, force_refresh: bool = False) ->
 
 def get_table_signature_cached() -> Tuple[str, ...]:
     return tuple(sorted(get_table_names_cached()))
+
+
+__all__ = [
+    "get_table_column_set_cached",
+    "get_table_columns_cached",
+    "get_table_names_cached",
+    "get_table_signature_cached",
+    "invalidate_db_metadata_cache",
+    "invalidate_table_order_caches",
+    "register_table_order_cache_invalidator",
+    "table_exists_cached",
+]

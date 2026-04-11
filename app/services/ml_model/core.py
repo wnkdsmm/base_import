@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
-from app.runtime_cache import clone_mutable_payload, freeze_mutable_payload
+from app.runtime_cache import build_immutable_payload_lru_cache
 from app.services.forecasting.data import (
     _build_daily_history_sql,
     _build_forecasting_table_options,
@@ -26,18 +26,20 @@ from app.services.forecasting.utils import (
     _parse_history_window,
     _resolve_option_value,
 )
+from app.services.shared.request_state import build_ml_request_state as _build_ml_request_state_impl
 from config.db import engine
 
-from .constants import _CACHE_LIMIT, _ML_CACHE
+from .constants import ML_CACHE_SCHEMA_VERSION, _CACHE_LIMIT
 from .data_access import (
     clear_ml_model_input_cache,
     load_ml_aggregation_inputs as _load_ml_aggregation_inputs_impl,
     load_ml_filter_bundle as _load_ml_filter_bundle_impl,
 )
 from .payloads import _build_ml_payload, _compact_ui_notes, _empty_ml_model_data
-from .request_state import build_ml_request_state as _build_ml_request_state_impl
 from .runtime import MlProgressCallback, _emit_progress
 from .training import _train_ml_model, clear_training_artifact_cache
+
+_ML_CACHE = build_immutable_payload_lru_cache(max_size=_CACHE_LIMIT)
 
 
 def _build_ml_context(initial_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -80,7 +82,7 @@ def _build_no_source_ml_payload(
     source_table_notes: list[str],
 ) -> Dict[str, Any]:
     base_payload['notes'].extend(source_table_notes)
-    base_payload['notes'].append('РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С‚Р°Р±Р»РёС† РґР»СЏ ML-РјРѕРґРµР»Рё.')
+    base_payload['notes'].append('\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0442\u0430\u0431\u043b\u0438\u0446 \u0434\u043b\u044f ML-\u043c\u043e\u0434\u0435\u043b\u0438.')
     base_payload['notes'] = _compact_ui_notes(base_payload['notes'])
     return base_payload
 
@@ -147,12 +149,12 @@ def get_ml_model_page_context(
             temperature,
             selected_history_window,
         )
-        initial_data['notes'].append('ML-СЃС‚СЂР°РЅРёС†Р° РѕС‚РєСЂС‹С‚Р° РІ Р±РµР·РѕРїР°СЃРЅРѕРј СЂРµР¶РёРјРµ: РѕР±СѓС‡РµРЅРёРµ РІСЂРµРјРµРЅРЅРѕ РѕС‚РєР»СЋС‡РµРЅРѕ РёР·-Р·Р° РІРЅСѓС‚СЂРµРЅРЅРµР№ РѕС€РёР±РєРё.')
-        initial_data['notes'].append(f'РўРµС…РЅРёС‡РµСЃРєР°СЏ РїСЂРёС‡РёРЅР°: {exc}')
+        initial_data['notes'].append('ML-\u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0430 \u043e\u0442\u043a\u0440\u044b\u0442\u0430 \u0432 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u043c \u0440\u0435\u0436\u0438\u043c\u0435: \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u0435 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u043e \u0438\u0437-\u0437\u0430 \u0432\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u0435\u0439 \u043e\u0448\u0438\u0431\u043a\u0438.')
+        initial_data['notes'].append(f'\u0422\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u0438\u0447\u0438\u043d\u0430: {exc}')
         initial_data['notes'] = _compact_ui_notes(initial_data['notes'])
         initial_data['model_description'] = (
-            'ML-РїСЂРѕРіРЅРѕР· РІСЂРµРјРµРЅРЅРѕ РѕС‚РєСЂС‹С‚ Р±РµР· РѕР±СѓС‡РµРЅРёСЏ, С‡С‚РѕР±С‹ СЌРєСЂР°РЅ РѕСЃС‚Р°РІР°Р»СЃСЏ РґРѕСЃС‚СѓРїРµРЅ РґР°Р¶Рµ РїСЂРё РїСЂРѕР±Р»РµРјРµ РІ РґР°РЅРЅС‹С… РёР»Рё РїСЂРёР·РЅР°РєР°С…. '
-            'Р•РіРѕ Р·Р°РґР°С‡Р° РЅРµ РјРµРЅСЏРµС‚СЃСЏ: РѕС†РµРЅРёС‚СЊ РѕР¶РёРґР°РµРјРѕРµ С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ РїРѕ РґР°С‚Р°Рј, Р° РЅРµ СЂР°РЅР¶РёСЂРѕРІР°С‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё.'
+            'ML-\u043f\u0440\u043e\u0433\u043d\u043e\u0437 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043e\u0442\u043a\u0440\u044b\u0442 \u0431\u0435\u0437 \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f, \u0447\u0442\u043e\u0431\u044b \u044d\u043a\u0440\u0430\u043d \u043e\u0441\u0442\u0430\u0432\u0430\u043b\u0441\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0434\u0430\u0436\u0435 \u043f\u0440\u0438 \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0435 \u0432 \u0434\u0430\u043d\u043d\u044b\u0445 \u0438\u043b\u0438 \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u0430\u0445. '
+            '\u0415\u0433\u043e \u0437\u0430\u0434\u0430\u0447\u0430 \u043d\u0435 \u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f: \u043e\u0446\u0435\u043d\u0438\u0442\u044c \u043e\u0436\u0438\u0434\u0430\u0435\u043c\u043e\u0435 \u0447\u0438\u0441\u043b\u043e \u043f\u043e\u0436\u0430\u0440\u043e\u0432 \u043f\u043e \u0434\u0430\u0442\u0430\u043c, \u0430 \u043d\u0435 \u0440\u0430\u043d\u0436\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0438.'
         )
     return _build_ml_context(initial_data)
 
@@ -228,7 +230,7 @@ def get_ml_model_data(
     if cached is not None:
         if perf is not None:
             perf.update(cache_hit=True, payload_has_data=bool(cached.get('has_data')))
-        _emit_progress(progress_callback, 'ml_model.completed', 'Р РµР·СѓР»СЊС‚Р°С‚ ML-Р°РЅР°Р»РёР·Р° РІР·СЏС‚ РёР· РєСЌС€Р°.')
+        _emit_progress(progress_callback, 'ml_model.completed', '\u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 ML-\u0430\u043d\u0430\u043b\u0438\u0437\u0430 \u0432\u0437\u044f\u0442 \u0438\u0437 \u043a\u044d\u0448\u0430.')
         return cached
 
     if perf is not None:
@@ -240,7 +242,7 @@ def get_ml_model_data(
             perf.update(payload_has_data=False, payload_notes=len(base['notes']))
         return _cache_store(cache_key, base)
 
-    _emit_progress(progress_callback, 'ml_model.running', 'РЎРѕР±РёСЂР°РµРј SQL-Р°РіСЂРµРіР°С‚С‹ Рё РґРѕСЃС‚СѓРїРЅС‹Рµ С„РёР»СЊС‚СЂС‹ РґР»СЏ ML-РїСЂРѕРіРЅРѕР·Р°.')
+    _emit_progress(progress_callback, 'ml_model.running', '\u0421\u043e\u0431\u0438\u0440\u0430\u0435\u043c SQL-\u0430\u0433\u0440\u0435\u0433\u0430\u0442\u044b \u0438 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0435 \u0444\u0438\u043b\u044c\u0442\u0440\u044b \u0434\u043b\u044f ML-\u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430.')
     filter_prep_context = perf.span('filter_prep') if perf is not None else nullcontext()
     with filter_prep_context:
         filter_bundle = _load_ml_filter_bundle(
@@ -275,7 +277,7 @@ def get_ml_model_data(
     _emit_progress(
         progress_callback,
         'ml_model.running',
-        f"РџРѕРґРіРѕС‚РѕРІР»РµРЅ РґРЅРµРІРЅРѕР№ СЂСЏРґ: {len(daily_history)} РґРЅРµР№ РёСЃС‚РѕСЂРёРё, {filtered_records_count} РїРѕР¶Р°СЂРѕРІ РїРѕСЃР»Рµ С„РёР»СЊС‚СЂРѕРІ.",
+        f"\u041f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u043b\u0435\u043d \u0434\u043d\u0435\u0432\u043d\u043e\u0439 \u0440\u044f\u0434: {len(daily_history)} \u0434\u043d\u0435\u0439 \u0438\u0441\u0442\u043e\u0440\u0438\u0438, {filtered_records_count} \u043f\u043e\u0436\u0430\u0440\u043e\u0432 \u043f\u043e\u0441\u043b\u0435 \u0444\u0438\u043b\u044c\u0442\u0440\u043e\u0432.",
     )
     model_training_context = perf.span('model_training') if perf is not None else nullcontext()
     with model_training_context:
@@ -286,7 +288,7 @@ def get_ml_model_data(
             progress_callback=progress_callback,
         )
         temperature_quality = _temperature_quality_from_daily_history(daily_history)
-    _emit_progress(progress_callback, 'ml_model.running', 'Р¤РѕСЂРјРёСЂСѓРµРј РёС‚РѕРіРѕРІС‹Рµ РјРµС‚СЂРёРєРё, РіСЂР°С„РёРєРё Рё С‚Р°Р±Р»РёС†С‹ ML-РїСЂРѕРіРЅРѕР·Р°.')
+    _emit_progress(progress_callback, 'ml_model.running', '\u0424\u043e\u0440\u043c\u0438\u0440\u0443\u0435\u043c \u0438\u0442\u043e\u0433\u043e\u0432\u044b\u0435 \u043c\u0435\u0442\u0440\u0438\u043a\u0438, \u0433\u0440\u0430\u0444\u0438\u043a\u0438 \u0438 \u0442\u0430\u0431\u043b\u0438\u0446\u044b ML-\u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430.')
     payload_render_context = perf.span('payload_render') if perf is not None else nullcontext()
     with payload_render_context:
         payload = _build_ml_payload(
@@ -315,23 +317,16 @@ def get_ml_model_data(
                 feature_importance_rows=len(payload['feature_importance']),
                 forecast_rows=len(payload['forecast_rows']),
             )
-    _emit_progress(progress_callback, 'ml_model.completed', 'ML-Р°РЅР°Р»РёР· Р·Р°РІРµСЂС€С‘РЅ, СЂРµР·СѓР»СЊС‚Р°С‚ РіРѕС‚РѕРІ Рє РІС‹РґР°С‡Рµ.')
+    _emit_progress(progress_callback, 'ml_model.completed', 'ML-\u0430\u043d\u0430\u043b\u0438\u0437 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d, \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0433\u043e\u0442\u043e\u0432 \u043a \u0432\u044b\u0434\u0430\u0447\u0435.')
     return _cache_store(cache_key, payload)
 
 
 def _cache_get(cache_key: Tuple[int, str, str, str, str, int, str]) -> Optional[Dict[str, Any]]:
-    cached = _ML_CACHE.get(cache_key)
-    if cached is None:
-        return None
-    _ML_CACHE.move_to_end(cache_key)
-    return clone_mutable_payload(cached)
+    return _ML_CACHE.get(cache_key)
 
 
 def _cache_store(cache_key: Tuple[int, str, str, str, str, int, str], payload: Dict[str, Any]) -> Dict[str, Any]:
-    _ML_CACHE[cache_key] = freeze_mutable_payload(payload)
-    _ML_CACHE.move_to_end(cache_key)
-    while len(_ML_CACHE) > _CACHE_LIMIT:
-        _ML_CACHE.popitem(last=False)
+    _ML_CACHE.set(cache_key, payload)
     return payload
 
 
@@ -350,6 +345,7 @@ def _build_ml_request_state(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        cache_schema_version=ML_CACHE_SCHEMA_VERSION,
         table_options_builder=_build_forecasting_table_options,
         selection_resolver=_resolve_forecasting_selection,
         source_tables_resolver=_selected_source_tables,

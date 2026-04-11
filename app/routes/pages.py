@@ -1,86 +1,135 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
 
-from app.dashboard.service import get_dashboard_page_context, get_dashboard_shell_context
-from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS, get_all_tables
-from app.plotly_bundle import get_plotly_bundle
-from app.services.access_points.core import get_access_points_shell_context
-from app.services.clustering.core import get_clustering_page_context
-from app.services.fire_map_service import build_fire_map_html, get_fire_map_page_context
-from app.services.forecasting.core import get_forecasting_page_context, get_forecasting_shell_context
-from app.services.ml_model.core import get_ml_model_page_context, get_ml_model_shell_context
-from app.services.table_options import (
-    get_column_search_table_options,
-    get_fire_map_table_options,
-    resolve_selected_table,
+from app.db_views import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
+from app.domain.column_matching import get_mandatory_feature_catalog
+from app.table_catalog import (
+    get_user_table_options,
+    resolve_selected_table_value,
 )
-from app.services.table_workflows import build_table_page_bundle
 from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
-from config.paths import STATIC_DIR, TEMPLATES_DIR
-from core.processing.steps.keep_important_columns import get_mandatory_feature_catalog
+
+from .page_common import (
+    asset_versions,
+    cached_text_response,
+    download_text_response,
+    empty_cached_response,
+    render_context_page,
+    render_template_page,
+    resolve_page_mode_context,
+    templates,
+)
+
+
+def get_column_search_table_options():
+    return get_user_table_options()
+
+
+def get_fire_map_table_options():
+    return get_user_table_options()
+
+
+def resolve_selected_table(table_options, table_name: str) -> str:
+    return resolve_selected_table_value(table_options, table_name)
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-def _static_version(filename: str) -> int:
-    try:
-        return int((STATIC_DIR / filename).stat().st_mtime_ns)
-    except OSError:
-        return 0
+def get_dashboard_page_context(**kwargs):
+    from app.dashboard.service import get_dashboard_page_context as _get_dashboard_page_context
+
+    return _get_dashboard_page_context(**kwargs)
 
 
-def _base_template_context(request: Request, **context: object) -> dict[str, object]:
-    return {
-        "request": request,
-        "base_css_version": _static_version("css/base.css"),
-        "layout_css_version": _static_version("css/layout.css"),
-        "shared_components_css_version": _static_version("css/shared-components.css"),
-        "page_misc_css_version": _static_version("css/page-misc.css"),
-        "analytics_css_version": _static_version("analytics.css"),
-        "dashboard_css_version": _static_version("dashboard.css"),
-        "analytics_shared_js_version": _static_version("js/analytics_shared.js"),
-        "sidebar_js_version": _static_version("js/sidebar.js"),
-        **context,
-    }
+def get_dashboard_shell_context(**kwargs):
+    from app.dashboard.service import get_dashboard_shell_context as _get_dashboard_shell_context
+
+    return _get_dashboard_shell_context(**kwargs)
 
 
-def _render_template_page(request: Request, template_name: str, **context: object) -> Response:
-    status_code = context.pop("status_code", None)
-    template_context = _base_template_context(request, **context)
-    if status_code is None:
-        return templates.TemplateResponse(
-            request,
-            template_name,
-            template_context,
-        )
-    return templates.TemplateResponse(
-        request,
-        template_name,
-        template_context,
-        status_code=status_code,
-    )
+def get_forecasting_page_context(**kwargs):
+    from app.services.forecasting.core import get_forecasting_page_context as _get_forecasting_page_context
+
+    return _get_forecasting_page_context(**kwargs)
 
 
-def _is_deferred_mode(mode: str) -> bool:
-    return str(mode).strip().lower() == "deferred"
+def get_forecasting_shell_context(**kwargs):
+    from app.services.forecasting.core import get_forecasting_shell_context as _get_forecasting_shell_context
+
+    return _get_forecasting_shell_context(**kwargs)
 
 
-def _resolve_page_mode_context(
-    *,
-    mode: str,
-    page_loader,
-    shell_loader,
-    page_kwargs: dict[str, object],
-    shell_kwargs: dict[str, object] | None = None,
-):
-    if not _is_deferred_mode(mode):
-        return page_loader(**page_kwargs)
-    return shell_loader(**(shell_kwargs or page_kwargs))
+def get_ml_model_page_context(**kwargs):
+    from app.services.ml_model.core import get_ml_model_page_context as _get_ml_model_page_context
+
+    return _get_ml_model_page_context(**kwargs)
+
+
+def get_ml_model_shell_context(**kwargs):
+    from app.services.ml_model.core import get_ml_model_shell_context as _get_ml_model_shell_context
+
+    return _get_ml_model_shell_context(**kwargs)
+
+
+def get_clustering_page_context(**kwargs):
+    from app.services.clustering.core import get_clustering_page_context as _get_clustering_page_context
+
+    return _get_clustering_page_context(**kwargs)
+
+
+def get_access_points_shell_context(**kwargs):
+    from app.services.access_points.core import get_access_points_shell_context as _get_access_points_shell_context
+
+    return _get_access_points_shell_context(**kwargs)
+
+
+def get_fire_map_page_context(table_name: str):
+    from app.services.fire_map_service import get_fire_map_page_context as _get_fire_map_page_context
+
+    return _get_fire_map_page_context(table_name)
+
+
+def build_fire_map_html(table_name: str):
+    from app.services.fire_map_service import build_fire_map_html as _build_fire_map_html
+
+    return _build_fire_map_html(table_name)
+
+
+def get_plotly_bundle():
+    from app.plotly_bundle import get_plotly_bundle as _get_plotly_bundle
+
+    return _get_plotly_bundle()
+
+
+def get_all_tables():
+    from app.table_metadata import get_all_tables as _get_all_tables
+
+    return _get_all_tables()
+
+
+def build_table_page_bundle(**kwargs):
+    from app.services.table_workflows import build_table_page_bundle as _build_table_page_bundle
+
+    return _build_table_page_bundle(**kwargs)
+
+
+def _extract_nested_text(payload: dict[str, Any], *path: str) -> str:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return ""
+        current = current.get(key)
+    return str(current or "")
+
+
+def _download_brief_response(initial_data: dict[str, Any], filename: str, *path: str) -> Response:
+    text = _extract_nested_text(initial_data, *path)
+    return download_text_response(text or "Управленческий бриф пока недоступен.", filename)
 
 
 PROFILING_DEFAULTS = {
@@ -89,33 +138,21 @@ PROFILING_DEFAULTS = {
     "low_variance_threshold": LOW_VARIANCE_THRESHOLD,
 }
 
+
 @router.get("/assets/plotly.js")
 def plotly_bundle_asset() -> Response:
-    return Response(
-        content=get_plotly_bundle(),
-        media_type="application/javascript; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=86400"},
-    )
+    return cached_text_response(get_plotly_bundle(), "application/javascript; charset=utf-8")
 
 
 @router.get("/favicon.ico", include_in_schema=False)
 def favicon() -> Response:
-    return Response(status_code=204, headers={"Cache-Control": "public, max-age=86400"})
-
-
-def _download_text_response(text: str, filename: str) -> Response:
-    return Response(
-        content=text,
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return empty_cached_response()
 
 
 @router.get("/brief/dashboard.txt")
 def dashboard_brief_download(table_name: str = "all", year: str = "all", group_column: str = "") -> Response:
     data = get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)["initial_data"]
-    text = str((data.get("management") or {}).get("export_text") or "")
-    return _download_text_response(text or "Управленческий бриф пока недоступен.", "dashboard-brief.txt")
+    return _download_brief_response(data, "dashboard-brief.txt", "management", "export_text")
 
 
 @router.get("/brief/forecasting.txt")
@@ -137,8 +174,7 @@ def forecasting_brief_download(
         forecast_days=forecast_days,
         history_window=history_window,
     )["initial_data"]
-    text = str((data.get("executive_brief") or {}).get("export_text") or "")
-    return _download_text_response(text or "Управленческий бриф пока недоступен.", "forecasting-brief.txt")
+    return _download_brief_response(data, "forecasting-brief.txt", "executive_brief", "export_text")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -149,17 +185,18 @@ def home(
     group_column: str = "",
     mode: str = "full",
 ):
-    dashboard = _resolve_page_mode_context(
+    dashboard = resolve_page_mode_context(
         mode=mode,
         page_loader=get_dashboard_page_context,
         shell_loader=get_dashboard_shell_context,
         page_kwargs={"table_name": table_name, "year": year, "group_column": group_column},
     )
-    return _render_template_page(
+    return render_context_page(
         request,
         "index.html",
-        dashboard=dashboard,
-        dashboard_js_version=_static_version("js/dashboard.js"),
+        context_name="dashboard",
+        context_value=dashboard,
+        asset_files={"dashboard_js_version": "js/dashboard.js"},
     )
 
 
@@ -183,12 +220,15 @@ def forecasting_page(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    return _render_template_page(
+    return render_context_page(
         request,
         "forecasting.html",
-        forecast=forecast,
-        forecasting_css_version=_static_version("forecasting.css"),
-        forecasting_js_version=_static_version("js/forecasting.js"),
+        context_name="forecast",
+        context_value=forecast,
+        asset_files={
+            "forecasting_css_version": "forecasting.css",
+            "forecasting_js_version": "js/forecasting.js",
+        },
     )
 
 
@@ -212,19 +252,22 @@ def ml_model_page(
         "forecast_days": forecast_days,
         "history_window": history_window,
     }
-    ml_model = _resolve_page_mode_context(
+    ml_model = resolve_page_mode_context(
         mode=mode,
         page_loader=get_ml_model_page_context,
         shell_loader=get_ml_model_shell_context,
         page_kwargs=page_kwargs,
         shell_kwargs={**page_kwargs, "prefer_cached": True},
     )
-    return _render_template_page(
+    return render_context_page(
         request,
         "ml_model.html",
-        ml_model=ml_model,
-        ml_model_css_version=_static_version("ml_model.css"),
-        ml_model_js_version=_static_version("js/ml_model.js"),
+        context_name="ml_model",
+        context_value=ml_model,
+        asset_files={
+            "ml_model_css_version": "ml_model.css",
+            "ml_model_js_version": "js/ml_model.js",
+        },
     )
 
 
@@ -245,12 +288,15 @@ def clustering_page(
         feature_columns=feature_columns or [],
         cluster_count_is_explicit="cluster_count" in request.query_params,
     )
-    return _render_template_page(
+    return render_context_page(
         request,
         "clustering.html",
-        clustering=clustering,
-        clustering_css_version=_static_version("clustering.css"),
-        clustering_js_version=_static_version("js/clustering.js"),
+        context_name="clustering",
+        context_value=clustering,
+        asset_files={
+            "clustering_css_version": "clustering.css",
+            "clustering_js_version": "js/clustering.js",
+        },
     )
 
 
@@ -270,12 +316,15 @@ def access_points_page(
         limit=limit,
         feature_columns=feature_columns or [],
     )
-    return _render_template_page(
+    return render_context_page(
         request,
         "access_points.html",
-        access_points=access_points,
-        access_points_css_version=_static_version("access_points.css"),
-        access_points_js_version=_static_version("js/access_points.js"),
+        context_name="access_points",
+        context_value=access_points,
+        asset_files={
+            "access_points_css_version": "access_points.css",
+            "access_points_js_version": "js/access_points.js",
+        },
     )
 
 
@@ -283,26 +332,20 @@ def access_points_page(
 def column_search_page(request: Request, table_name: str = "", query: str = ""):
     table_options = get_column_search_table_options()
     selected_table = resolve_selected_table(table_options, table_name)
-
-    return _render_template_page(
+    return render_template_page(
         request,
         "column_search.html",
         table_options=table_options,
         selected_table=selected_table,
         initial_query=query,
-        column_search_js_version=_static_version("js/column_search.js"),
+        **asset_versions(column_search_js_version="js/column_search.js"),
     )
 
 
 @router.get("/fire-map", response_class=HTMLResponse)
 def fire_map_page(request: Request, table_name: str = ""):
     fire_map = get_fire_map_page_context(table_name)
-
-    return _render_template_page(
-        request,
-        "fire_map.html",
-        fire_map=fire_map,
-    )
+    return render_context_page(request, "fire_map.html", context_name="fire_map", context_value=fire_map)
 
 
 @router.get("/fire-map/embed", response_class=HTMLResponse)
@@ -311,7 +354,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
     selected_table = resolve_selected_table(table_options, table_name)
 
     if not table_name or table_name != selected_table:
-        return _render_template_page(
+        return render_template_page(
             request,
             "fire_map_error.html",
             message="Выберите существующую таблицу для построения карты.",
@@ -321,7 +364,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
     try:
         map_html = build_fire_map_html(table_name)
         if not map_html:
-            return _render_template_page(
+            return render_template_page(
                 request,
                 "fire_map_error.html",
                 message="Для выбранной таблицы не удалось собрать карту. Проверьте координаты, даты и наличие записей.",
@@ -329,7 +372,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
             )
         return HTMLResponse(map_html)
     except Exception as exc:
-        return _render_template_page(
+        return render_template_page(
             request,
             "fire_map_error.html",
             message=str(exc),
@@ -340,12 +383,14 @@ def fire_map_embed(request: Request, table_name: str = ""):
 @router.get("/tables", response_class=HTMLResponse)
 async def list_tables(request: Request):
     tables = get_all_tables()
-    return _render_template_page(
+    return render_template_page(
         request,
         "tables.html",
         tables=tables,
-        import_js_version=_static_version("js/import.js"),
-        tables_js_version=_static_version("js/tables.js"),
+        **asset_versions(
+            import_js_version="js/import.js",
+            tables_js_version="js/tables.js",
+        ),
     )
 
 
@@ -364,31 +409,30 @@ async def view_table(
         raise HTTPException(status_code=404, detail="Table not found") from exc
 
     table_page = table_bundle["table_page"]
-    columns = table_page["columns"]
-    rows = table_page["rows"]
-
-    return _render_template_page(
+    return render_template_page(
         request,
         "table_view.html",
         table_name=table_name,
-        columns=columns,
-        rows=rows,
+        columns=table_page["columns"],
+        rows=table_page["rows"],
         pagination=table_page,
         page_size_options=TABLE_PAGE_SIZE_OPTIONS,
         table_summary=table_bundle["table_summary"],
-        table_view_js_version=_static_version("js/table_view.js"),
+        **asset_versions(table_view_js_version="js/table_view.js"),
     )
 
 
 @router.get("/select_table", response_class=HTMLResponse)
 def select_table(request: Request):
     tables = get_all_tables()
-    return _render_template_page(
+    return render_template_page(
         request,
         "select_table.html",
         tables=tables,
         mandatory_feature_catalog=get_mandatory_feature_catalog(),
-        profiling_css_version=_static_version("profiling.css"),
         profiling_defaults=PROFILING_DEFAULTS,
-        select_table_js_version=_static_version("js/select_table.js"),
+        **asset_versions(
+            profiling_css_version="profiling.css",
+            select_table_js_version="js/select_table.js",
+        ),
     )

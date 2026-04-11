@@ -3,9 +3,9 @@ import re
 import unittest
 
 from core.mapping.config import MarkerStyle
-from core.mapping.mixins import template_fragment_scripts
+import core.mapping.mixins.template_scripts as template_scripts
 from core.mapping.mixins.templates import MapCreatorTemplateMixin
-from core.mapping.mixins.template_fragment_scripts import build_popup_script_lines
+from core.mapping.mixins.template_scripts import build_popup_script_lines
 from core.mapping.mixins.utilities import MapCreatorUtilityMixin
 
 
@@ -151,10 +151,11 @@ def _minimal_table():
 
 
 class MappingTemplateFragmentsTest(unittest.TestCase):
-    def test_template_fragment_scripts_export_only_entry_points(self):
+    def test_template_scripts_export_only_entry_points(self):
         self.assertEqual(
-            set(template_fragment_scripts.__all__),
+            set(template_scripts.__all__),
             {
+                "build_filter_script_lines",
                 "build_map_setup_script_lines",
                 "build_map_layer_script_lines",
                 "build_popup_script_lines",

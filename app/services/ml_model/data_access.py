@@ -2,28 +2,16 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Sequence
 
-from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
+from app.runtime_cache import build_immutable_payload_ttl_cache, callable_cache_scope
 from app.services.forecasting.selection import _canonicalize_source_tables, _normalize_filter_value
 
-_ML_FILTER_BUNDLE_CACHE = CopyingTtlCache(
-    ttl_seconds=120.0,
-    storer=freeze_mutable_payload,
-    loader=clone_mutable_payload,
-)
-_ML_AGGREGATION_INPUT_CACHE = CopyingTtlCache(
-    ttl_seconds=120.0,
-    storer=freeze_mutable_payload,
-    loader=clone_mutable_payload,
-)
+_ML_FILTER_BUNDLE_CACHE = build_immutable_payload_ttl_cache(ttl_seconds=120.0)
+_ML_AGGREGATION_INPUT_CACHE = build_immutable_payload_ttl_cache(ttl_seconds=120.0)
 
 
 def clear_ml_model_input_cache() -> None:
     _ML_FILTER_BUNDLE_CACHE.clear()
     _ML_AGGREGATION_INPUT_CACHE.clear()
-
-
-def _callable_cache_scope(*callables: Callable[..., Any]) -> tuple[int, ...]:
-    return tuple(id(item) for item in callables)
 
 
 def load_ml_filter_bundle(
@@ -134,7 +122,7 @@ def _ml_filter_bundle_cache_key(
     normalized_tables = _canonicalize_source_tables(source_tables)[0]
     return (
         "ml_filter_bundle",
-        *_callable_cache_scope(collect_forecasting_metadata, build_option_catalog_sql),
+        *callable_cache_scope(collect_forecasting_metadata, build_option_catalog_sql),
         *normalized_tables,
         selected_history_window,
     )
@@ -152,7 +140,7 @@ def _ml_aggregation_input_cache_key(
     normalized_tables = _canonicalize_source_tables(source_tables)[0]
     return (
         "ml_aggregation_inputs",
-        *_callable_cache_scope(build_daily_history_sql, count_forecasting_records_sql),
+        *callable_cache_scope(build_daily_history_sql, count_forecasting_records_sql),
         *normalized_tables,
         selected_history_window,
         _normalize_filter_value(selected_cause),

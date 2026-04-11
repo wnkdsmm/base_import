@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pandas as pd
 
-from app.services.forecast_risk.utils import _clean_text, _is_rural_label, _normalize_match_text, _unique_non_empty
+from app.services.shared.data_utils import _clean_text, _is_rural_label, _normalize_match_text, _unique_non_empty
 
 from .constants import GENERIC_OBJECT_TOKENS, MIN_ACCESS_POINT_SUPPORT, POINT_FEATURE_COLUMNS
 from .data import _collect_access_point_inputs

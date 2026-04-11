@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 from app.perf import current_perf_trace, profiled
 from app.plotly_bundle import get_plotly_bundle
-from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
+from app.runtime_cache import build_immutable_payload_ttl_cache
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
     compose_executive_brief_text,
 )
 from app.services.forecast_risk.core import build_decision_support_payload
+from app.services.shared.request_state import (
+    build_forecasting_cache_key as _build_forecasting_cache_key,
+    build_forecasting_request_state as _build_forecasting_request_state_impl,
+    emit_progress as _emit_forecasting_progress,
+)
 from config.db import engine
 
 from .assembly import (
@@ -60,12 +65,6 @@ from .presentation import (
     _build_summary,
 )
 from .quality import _build_scenario_quality_assessment, _run_scenario_backtesting
-from .request_state import (
-    build_forecasting_cache_key as _build_forecasting_cache_key_impl,
-    build_forecasting_request_state as _build_forecasting_request_state_impl,
-    emit_forecasting_progress as _emit_forecasting_progress_impl,
-    normalize_forecasting_cache_value as _normalize_forecasting_cache_value_impl,
-)
 from .utils import (
     _format_datetime,
     _format_float_for_input,
@@ -76,11 +75,7 @@ from .utils import (
     _resolve_option_value,
 )
 
-_FORECASTING_CACHE = CopyingTtlCache(
-    ttl_seconds=120.0,
-    storer=freeze_mutable_payload,
-    loader=clone_mutable_payload,
-)
+_FORECASTING_CACHE = build_immutable_payload_ttl_cache(ttl_seconds=120.0)
 
 
 def clear_forecasting_cache() -> None:
@@ -190,9 +185,9 @@ def _build_forecasting_shell_fallback_initial_data(
         initial_data["notes"].append(initial_data["metadata_status_message"])
         initial_data["notes"].append(initial_data["loading_status_message"])
     initial_data["notes"].append(
-        "Р§Р°СЃС‚СЊ Р±С‹СЃС‚СЂРѕРіРѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ РєРѕРЅС‚РµРєСЃС‚Р° РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРЅР°, РїРѕСЌС‚РѕРјСѓ СЃС‚СЂР°РЅРёС†Р° РѕС‚РєСЂС‹С‚Р° СЃ Р±РµР·РѕРїР°СЃРЅС‹РјРё placeholder-РґР°РЅРЅС‹РјРё."
+        "\u0427\u0430\u0441\u0442\u044c \u0431\u044b\u0441\u0442\u0440\u043e\u0433\u043e \u0441\u0442\u0430\u0440\u0442\u043e\u0432\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0430 \u043e\u0442\u043a\u0440\u044b\u0442\u0430 \u0441 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u044b\u043c\u0438 placeholder-\u0434\u0430\u043d\u043d\u044b\u043c\u0438."
     )
-    initial_data["notes"].append(f"РўРµС…РЅРёС‡РµСЃРєР°СЏ РїСЂРёС‡РёРЅР°: {exc}")
+    initial_data["notes"].append(f"\u0422\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u0438\u0447\u0438\u043d\u0430: {exc}")
     initial_data["model_description"] = SCENARIO_FORECAST_DESCRIPTION
     return initial_data
 
@@ -214,7 +209,7 @@ def _build_no_source_forecasting_payload(
     *,
     include_decision_support: bool,
 ) -> Dict[str, Any]:
-    base_data["notes"].append("РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С‚Р°Р±Р»РёС† РґР»СЏ РїСЂРѕРіРЅРѕР·РёСЂРѕРІР°РЅРёСЏ.")
+    base_data["notes"].append("\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0442\u0430\u0431\u043b\u0438\u0446 \u0434\u043b\u044f \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f.")
     base_data["bootstrap_mode"] = "full"
     base_data["loading"] = False
     base_data["deferred"] = False
@@ -230,34 +225,6 @@ def _build_no_source_forecasting_payload(
     base_data["decision_support_error"] = False
     base_data["decision_support_status_message"] = ""
     return base_data
-
-
-def _normalize_forecasting_cache_value(value: str) -> str:
-    return _normalize_forecasting_cache_value_impl(value)
-
-
-def _build_forecasting_cache_key(
-    selected_table: str,
-    source_tables: list[str],
-    district: str,
-    cause: str,
-    object_category: str,
-    temperature: str,
-    days_ahead: int,
-    history_window: str,
-    include_decision_support: bool,
-) -> tuple[str, ...]:
-    return _build_forecasting_cache_key_impl(
-        selected_table=selected_table,
-        source_tables=source_tables,
-        district=district,
-        cause=cause,
-        object_category=object_category,
-        temperature=temperature,
-        days_ahead=days_ahead,
-        history_window=history_window,
-        include_decision_support=include_decision_support,
-    )
 
 
 def _build_forecasting_request_state(
@@ -286,14 +253,6 @@ def _build_forecasting_request_state(
         forecast_days_parser=_parse_forecast_days,
         history_window_parser=_parse_history_window,
     )
-
-
-def _emit_forecasting_progress(
-    progress_callback: Callable[[str, str], None] | None,
-    phase: str,
-    message: str,
-) -> None:
-    _emit_forecasting_progress_impl(progress_callback, phase, message)
 
 
 def _build_forecasting_shell_data(

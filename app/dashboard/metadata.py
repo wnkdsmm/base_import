@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from app.db_metadata import get_table_columns_cached, get_table_signature_cached
+from app.table_catalog import build_table_options, select_user_table_names
 from app.statistics_constants import (
     BUILDING_CATEGORY_COLUMN,
     BUILDING_CAUSE_COLUMN,
@@ -18,11 +19,15 @@ from app.statistics_constants import (
 from config.db import engine
 
 from .data_access import _fetch_table_years, _resolve_table_column_name
-from .utils import _extract_year_from_name, _parse_year, _select_tables
+from .utils import _extract_year_from_name, _parse_year
 
 
 def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> Dict[str, Any]:
-    resolved_table_names = list(table_names) if table_names is not None else list(_select_tables(list(get_table_signature_cached())))
+    resolved_table_names = (
+        list(table_names)
+        if table_names is not None
+        else list(select_user_table_names(list(get_table_signature_cached())))
+    )
 
     tables: List[Dict[str, Any]] = []
     errors: List[str] = []
@@ -48,9 +53,11 @@ def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> 
             except Exception as exc:
                 errors.append(f"{table_name}: {exc}")
 
-    table_options = [{"value": "all", "label": "Все таблицы"}] + [
-        {"value": table["name"], "label": table["name"]} for table in tables
-    ]
+    table_options = build_table_options(
+        [table["name"] for table in tables],
+        include_all=True,
+        all_label="\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b",
+    )
     group_column_options = _collect_group_column_options(tables)
     preferred_default_columns = [
         RISK_CATEGORY_COLUMN,

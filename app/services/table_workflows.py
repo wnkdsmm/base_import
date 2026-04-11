@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from app.db_views import create_modified_table, get_table_columns, get_table_page, get_table_preview
+from app.db_views import get_table_page, get_table_preview
 from app.services.table_summary import build_table_page_summary
+from app.table_metadata import get_table_columns
+from app.table_operations import create_modified_table
 from core.processing.steps.keep_important_columns import get_column_matcher
 
 

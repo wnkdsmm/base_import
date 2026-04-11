@@ -5,7 +5,8 @@ from typing import Any, Dict, Sequence
 import numpy as np
 import pandas as pd
 
-from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go, serialize_plotly_figure
+from app.plotly_bundle import PLOTLY_AVAILABLE, go
+from app.services.charting import build_chart_bundle, build_empty_chart_bundle as _empty_chart_bundle, build_service_plotly_layout
 from app.statistics_constants import PLOTLY_PALETTE
 
 from .utils import _format_integer, _format_number, _format_percent
@@ -68,7 +69,7 @@ def _build_scatter_chart(
             )
         )
 
-    layout = _plotly_layout("", height=420)
+    layout = build_service_plotly_layout("", height=420)
     base_xaxis = dict(layout.pop("xaxis", {}))
     base_yaxis = dict(layout.pop("yaxis", {}))
     figure.update_layout(
@@ -77,7 +78,7 @@ def _build_scatter_chart(
         yaxis={**base_yaxis, "title": "Компонента 2 (PCA)", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
         legend={"orientation": "h", "y": 1.1, "x": 0},
     )
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
+    return build_chart_bundle(title, figure)
 
 
 
@@ -122,7 +123,7 @@ def _build_distribution_chart(
     layout = _plotly_layout("Территорий", height=340)
     layout["showlegend"] = False
     figure.update_layout(**layout)
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
+    return build_chart_bundle(title, figure)
 
 
 
@@ -180,66 +181,12 @@ def _build_diagnostics_chart(
         }
     )
     figure.update_layout(**layout)
-    return {"title": title, "plotly": _figure_to_dict(figure), "empty_message": ""}
-
-
-
-def _empty_chart_bundle(title: str, message: str) -> Dict[str, Any]:
-    return {
-        "title": title,
-        "plotly": _build_empty_plotly(message),
-        "empty_message": message,
-    }
-
-
-
-def _build_empty_plotly(message: str) -> Dict[str, Any]:
-    if not PLOTLY_AVAILABLE:
-        return empty_plotly_payload(message)
-
-    figure = go.Figure()
-    figure.update_layout(
-        height=320,
-        paper_bgcolor="rgba(255,255,255,0)",
-        plot_bgcolor="rgba(255,255,255,0)",
-        margin={"l": 20, "r": 20, "t": 20, "b": 20},
-        xaxis={"visible": False},
-        yaxis={"visible": False},
-        annotations=[
-            {
-                "text": message,
-                "x": 0.5,
-                "y": 0.5,
-                "xref": "paper",
-                "yref": "paper",
-                "showarrow": False,
-                "font": {"size": 16, "color": "#61758d"},
-            }
-        ],
-    )
-    payload = _figure_to_dict(figure)
-    payload["empty_message"] = message
-    return payload
+    return build_chart_bundle(title, figure)
 
 
 
 def _plotly_layout(yaxis_title: str, height: int = 340) -> Dict[str, Any]:
-    return {
-        "height": height,
-        "showlegend": True,
-        "paper_bgcolor": "rgba(255,255,255,0)",
-        "plot_bgcolor": "rgba(255,255,255,0)",
-        "font": {"family": 'Bahnschrift, "Segoe UI", "Trebuchet MS", sans-serif', "color": PLOTLY_PALETTE["ink"]},
-        "margin": {"l": 52, "r": 42, "t": 24, "b": 48},
-        "xaxis": {"showgrid": False, "zeroline": False},
-        "yaxis": {"title": yaxis_title, "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
-        "hoverlabel": {"bgcolor": "#fbfdff", "font": {"color": PLOTLY_PALETTE["ink"]}},
-    }
-
-
-
-def _figure_to_dict(figure: Any) -> Dict[str, Any]:
-    return serialize_plotly_figure(figure)
+    return build_service_plotly_layout(yaxis_title, height=height)
 
 
 def _diagnostic_shapes(

@@ -2,13 +2,49 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Request
 
-from app.services.clustering.core import get_clustering_data
-from app.services.clustering.jobs import get_clustering_job_status, start_clustering_job
-
-from .api_common import coerce_string_list, ensure_session_id, run_analytics_request, utf8_json
+from .api_common import (
+    coerce_string_list,
+    job_status_response,
+    run_analytics_request,
+    run_session_analytics_request,
+)
 
 
 router = APIRouter()
+
+_INVALID_CLUSTERING_MESSAGE = "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u043a\u043b\u0430\u0441\u0442\u0435\u0440\u0438\u0437\u0430\u0446\u0438\u0438."
+_FAILED_CLUSTERING_MESSAGE = (
+    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0431\u0440\u0430\u0442\u044c "
+    "clustering-\u0434\u0430\u043d\u043d\u044b\u0435. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 "
+    "\u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
+)
+_INVALID_CLUSTERING_JOB_MESSAGE = (
+    "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b "
+    "\u0434\u043b\u044f \u0444\u043e\u043d\u043e\u0432\u043e\u0439 clustering-\u0437\u0430\u0434\u0430\u0447\u0438."
+)
+_FAILED_CLUSTERING_JOB_MESSAGE = (
+    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c "
+    "\u0444\u043e\u043d\u043e\u0432\u0443\u044e clustering-\u0437\u0430\u0434\u0430\u0447\u0443. "
+    "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
+)
+
+
+def get_clustering_data(**kwargs):
+    from app.services.clustering.core import get_clustering_data as _get_clustering_data
+
+    return _get_clustering_data(**kwargs)
+
+
+def start_clustering_job(**kwargs):
+    from app.services.clustering.jobs import start_clustering_job as _start_clustering_job
+
+    return _start_clustering_job(**kwargs)
+
+
+def get_clustering_job_status(**kwargs):
+    from app.services.clustering.jobs import get_clustering_job_status as _get_clustering_job_status
+
+    return _get_clustering_job_status(**kwargs)
 
 
 @router.get("/api/clustering-data")
@@ -30,18 +66,17 @@ def clustering_data_endpoint(
             cluster_count_is_explicit="cluster_count" in request.query_params,
         ),
         invalid_code="clustering_invalid_request",
-        invalid_message="Некорректные параметры кластеризации.",
+        invalid_message=_INVALID_CLUSTERING_MESSAGE,
         failed_code="clustering_failed",
-        failed_message="Не удалось собрать clustering-данные. Попробуйте повторить запрос.",
+        failed_message=_FAILED_CLUSTERING_MESSAGE,
     )
 
 
 @router.post("/api/clustering-jobs")
 def start_clustering_job_endpoint(request: Request, payload: dict = Body(...)):
-    session_id = ensure_session_id(request)
-
-    def action():
-        return start_clustering_job(
+    return run_session_analytics_request(
+        request,
+        lambda session_id: start_clustering_job(
             session_id=session_id,
             table_name=str(payload.get("table_name") or ""),
             cluster_count=str(payload.get("cluster_count") or "4"),
@@ -49,23 +84,14 @@ def start_clustering_job_endpoint(request: Request, payload: dict = Body(...)):
             sampling_strategy=str(payload.get("sampling_strategy") or "stratified"),
             feature_columns=coerce_string_list(payload.get("feature_columns")),
             cluster_count_is_explicit="cluster_count" in payload,
-        )
-
-    result = run_analytics_request(
-        action,
+        ),
         invalid_code="clustering_job_invalid_request",
-        invalid_message="Некорректные параметры для фоновой clustering-задачи.",
+        invalid_message=_INVALID_CLUSTERING_JOB_MESSAGE,
         failed_code="clustering_job_failed",
-        failed_message="Не удалось запустить фоновую clustering-задачу. Попробуйте повторить запрос.",
+        failed_message=_FAILED_CLUSTERING_JOB_MESSAGE,
     )
-    if isinstance(result, dict):
-        return utf8_json(result, session_id=session_id)
-    return result
 
 
 @router.get("/api/clustering-jobs/{job_id}")
 def clustering_job_status_endpoint(request: Request, job_id: str):
-    session_id = ensure_session_id(request)
-    result = get_clustering_job_status(session_id=session_id, job_id=job_id)
-    status_code = 404 if result.get("status") == "missing" else 200
-    return utf8_json(result, status_code=status_code, session_id=session_id)
+    return job_status_response(request, job_id, get_clustering_job_status)

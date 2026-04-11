@@ -5,15 +5,13 @@ import math
 import unittest
 from unittest.mock import patch
 
-from core.mapping.mixins import (
-    analytics as analytics_module,
-    analytics_dbscan,
-    analytics_geometry,
-    analytics_hotspots,
-    analytics_logistics,
-    analytics_payload,
-    analytics_priority,
-)
+import core.mapping.mixins.analytics as analytics_module
+import core.mapping.mixins.analytics_dbscan as analytics_dbscan
+import core.mapping.mixins.analytics_geometry as analytics_geometry
+import core.mapping.mixins.analytics_hotspots as analytics_hotspots
+import core.mapping.mixins.analytics_logistics as analytics_logistics
+import core.mapping.mixins.analytics_payload as analytics_payload
+import core.mapping.mixins.analytics_priority as analytics_priority
 from core.mapping.mixins.analytics import MapCreatorAnalyticsMixin
 from core.mapping.mixins.analytics_dbscan import build_dbscan_cluster_result
 from core.mapping.mixins.analytics_geometry import group_records_by_field, project_records_to_local_xy

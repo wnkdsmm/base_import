@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
 from app.services.executive_brief import empty_executive_brief
 
-from .charts import _empty_chart_bundle
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS, SCENARIO_FORECAST_DESCRIPTION
 from .data import (
     _build_forecasting_table_options,

@@ -6,6 +6,7 @@ from datetime import datetime
 from app.perf import current_perf_trace, profiled
 from app.plotly_bundle import get_plotly_bundle
 from app.runtime_cache import CopyingTtlCache
+from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
 from typing import Any, Callable, Dict, List, Sequence, Tuple
 from config.db import engine
 
@@ -22,7 +23,7 @@ from .analysis import (
     _evaluate_cluster_counts,
     _run_clustering,
 )
-from .charts import _build_diagnostics_chart, _build_distribution_chart, _build_scatter_chart, _empty_chart_bundle
+from .charts import _build_diagnostics_chart, _build_distribution_chart, _build_scatter_chart
 from .constants import (
     CLUSTER_COUNT_OPTIONS,
     MIN_ROWS_PER_CLUSTER,

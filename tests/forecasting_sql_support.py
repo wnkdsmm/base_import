@@ -2,8 +2,8 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
-from app.services.forecasting import core as forecasting_core
-from app.services.forecasting import data as forecasting_data
+import app.services.forecasting.core as forecasting_core
+import app.services.forecasting.data as forecasting_data
 from app.services.ml_model import core as ml_core
 from tests.mojibake_check import MOJIBAKE_PATTERN as SHARED_MOJIBAKE_PATTERN
 

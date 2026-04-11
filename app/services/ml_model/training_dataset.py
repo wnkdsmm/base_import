@@ -8,18 +8,6 @@ import pandas as pd
 from .constants import FEATURE_COLUMNS, NON_TEMPERATURE_FEATURE_COLUMNS
 
 
-def _build_history_frame(history_tail: List[Dict[str, Any]]) -> pd.DataFrame:
-    frame = pd.DataFrame(
-        {
-            'date': pd.to_datetime([item['date'] for item in history_tail]),
-            'count': [float(item['count']) for item in history_tail],
-            'avg_temperature': [item.get('avg_temperature') for item in history_tail],
-        }
-    ).sort_values('date').reset_index(drop=True)
-    frame['avg_temperature'] = pd.to_numeric(frame['avg_temperature'], errors='coerce')
-    return frame
-
-
 def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
     reference = frame.copy().sort_values('date').reset_index(drop=True)
     if 'weekday' not in reference.columns:
@@ -31,6 +19,16 @@ def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return reference
 
 
+def _build_history_frame(history_tail: List[Dict[str, Any]]) -> pd.DataFrame:
+    frame = pd.DataFrame(
+        {
+            'date': pd.to_datetime([item['date'] for item in history_tail]),
+            'count': [float(item['count']) for item in history_tail],
+            'avg_temperature': [item.get('avg_temperature') for item in history_tail],
+        }
+    ).sort_values('date').reset_index(drop=True)
+    frame['avg_temperature'] = pd.to_numeric(frame['avg_temperature'], errors='coerce')
+    return frame
 def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     result['weekday'] = result['date'].dt.weekday.astype(int)

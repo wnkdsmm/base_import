@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import Any, Dict
 
 from app.runtime_cache import CopyingTtlCache
+from app.table_catalog import get_user_table_options, resolve_selected_table_value
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
     empty_executive_brief,
 )
 from app.services.forecast_risk.core import build_decision_support_payload
-from app.services.table_options import get_fire_map_table_options, resolve_selected_table
 from config.paths import get_result_folder
 from config.settings import Settings
 from core.processing.steps.create_fire_map import CreateFireMapStep
@@ -53,8 +53,8 @@ def build_fire_map_html(table_name: str) -> str:
 
 def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
     generated_at = datetime.now().strftime("%d.%m.%Y %H:%M")
-    table_options = get_fire_map_table_options()
-    selected_table = resolve_selected_table(table_options, table_name)
+    table_options = get_user_table_options()
+    selected_table = resolve_selected_table_value(table_options, table_name)
     brief = empty_executive_brief()
     risk_prediction: Dict[str, Any] = {
         "territories": [],

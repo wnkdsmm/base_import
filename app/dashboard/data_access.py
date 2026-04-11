@@ -5,11 +5,12 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
+from app.domain.fire_columns import DASHBOARD_DISTRICT_COLUMN_CANDIDATES as DISTRICT_COLUMN_CANDIDATES
 from app.statistics_constants import AREA_COLUMN, CAUSE_COLUMNS, DATE_COLUMN, IMPACT_METRIC_CONFIG
 
 from .utils import _date_expression, _quote_identifier
 
-DISTRICT_COLUMN_CANDIDATES = [
+_LEGACY_DISTRICT_COLUMN_CANDIDATES = [
     "Район",
     "Муниципальный район",
     "Муниципальное образование",

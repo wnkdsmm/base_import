@@ -16,6 +16,7 @@ UPLOAD_FOLDER = UPLOADS_DIR
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
 FINAL_JOB_STATUSES = {"completed", "failed"}
+_UNSET = object()
 
 
 def _utcnow() -> datetime:
@@ -205,6 +206,46 @@ class JobStore:
         with self._lock:
             job = self._require_job(session_id, job_id)
             job.error_message = error_message
+            self._touch_job(session_id, job)
+
+    def complete_job(
+        self,
+        session_id: str,
+        job_id: str,
+        *,
+        result: Any = _UNSET,
+        log_message: str = "",
+        **meta: Any,
+    ) -> None:
+        with self._lock:
+            job = self._require_job(session_id, job_id)
+            if result is not _UNSET:
+                job.result = freeze_mutable_payload(result)
+            job.error_message = ""
+            if meta:
+                job.meta.update(_freeze_job_meta(meta))
+            job.status = "completed"
+            if log_message:
+                job.logs.append(log_message)
+            self._touch_job(session_id, job)
+
+    def fail_job(
+        self,
+        session_id: str,
+        job_id: str,
+        *,
+        error_message: str,
+        log_message: str | None = None,
+        **meta: Any,
+    ) -> None:
+        with self._lock:
+            job = self._require_job(session_id, job_id)
+            job.error_message = error_message
+            if meta:
+                job.meta.update(_freeze_job_meta(meta))
+            job.status = "failed"
+            if log_message:
+                job.logs.append(log_message)
             self._touch_job(session_id, job)
 
     def update_job_meta(self, session_id: str, job_id: str, **meta: Any) -> None:

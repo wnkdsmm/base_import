@@ -1,18 +1,9 @@
-"""Public forecasting service modules without eager submodule imports."""
-
 from __future__ import annotations
 
-from importlib import import_module
-from types import ModuleType
+"""Forecasting service namespace.
 
-__all__ = ["charts", "constants", "core", "data", "jobs", "utils"]
+Import canonical helpers from explicit submodules such as
+``app.services.forecasting.core`` or ``app.services.forecasting.jobs``.
+"""
 
-
-def __getattr__(name: str) -> ModuleType:
-    if name not in __all__:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    return import_module(f"{__name__}.{name}")
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+__all__: list[str] = []

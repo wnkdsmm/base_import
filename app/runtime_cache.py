@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date, datetime, time as datetime_time, timedelta
 from pathlib import PurePath
@@ -56,6 +57,10 @@ class _FrozenLeaf:
     value: Any
 
 
+def callable_cache_scope(*callables: Callable[..., Any]) -> tuple[int, ...]:
+    return tuple(id(item) for item in callables)
+
+
 def freeze_mutable_payload(value: V) -> object:
     """Build an immutable snapshot for JSON-like payloads with deepcopy fallback for rare leaves."""
     if isinstance(value, _IMMUTABLE_LEAF_TYPES):
@@ -108,6 +113,20 @@ def clone_mutable_payload(value: object) -> V:
     return copy.deepcopy(value)  # type: ignore[return-value]
 
 
+def _resolve_copy_hooks(
+    copier: Optional[Callable[[V], V]] = None,
+    *,
+    storer: Optional[Callable[[V], object]] = None,
+    loader: Optional[Callable[[object], V]] = None,
+) -> tuple[Callable[[V], object], Callable[[object], V]]:
+    if (storer is None) != (loader is None):
+        raise ValueError("Copying cache requires both storer and loader or neither of them.")
+    if storer is not None and loader is not None:
+        return storer, loader
+    copy_value = copier or copy.deepcopy
+    return copy_value, copy_value  # type: ignore[return-value]
+
+
 class CopyingTtlCache(Generic[K, V]):
     def __init__(
         self,
@@ -118,15 +137,11 @@ class CopyingTtlCache(Generic[K, V]):
         loader: Optional[Callable[[object], V]] = None,
     ) -> None:
         self._ttl_seconds = max(float(ttl_seconds), 0.0)
-        if (storer is None) != (loader is None):
-            raise ValueError("CopyingTtlCache requires both storer and loader or neither of them.")
-        if storer is not None and loader is not None:
-            self._store_value = storer
-            self._load_value = loader
-        else:
-            copy_value = copier or copy.deepcopy
-            self._store_value = copy_value
-            self._load_value = copy_value
+        self._store_value, self._load_value = _resolve_copy_hooks(
+            copier,
+            storer=storer,
+            loader=loader,
+        )
         self._lock = RLock()
         self._items: Dict[K, Dict[str, object]] = {}
 
@@ -157,3 +172,69 @@ class CopyingTtlCache(Generic[K, V]):
     def delete(self, key: K) -> None:
         with self._lock:
             self._items.pop(key, None)
+
+
+class CopyingLruCache(Generic[K, V]):
+    def __init__(
+        self,
+        max_size: int,
+        copier: Optional[Callable[[V], V]] = None,
+        *,
+        storer: Optional[Callable[[V], object]] = None,
+        loader: Optional[Callable[[object], V]] = None,
+    ) -> None:
+        self._max_size = max(int(max_size), 0)
+        self._store_value, self._load_value = _resolve_copy_hooks(
+            copier,
+            storer=storer,
+            loader=loader,
+        )
+        self._lock = RLock()
+        self._items: "OrderedDict[K, object]" = OrderedDict()
+
+    def get(self, key: K) -> Optional[V]:
+        with self._lock:
+            item = self._items.get(key)
+            if item is None:
+                return None
+            self._items.move_to_end(key)
+            return self._load_value(item)
+
+    def set(self, key: K, value: V) -> V:
+        stored_value = self._store_value(value)
+        with self._lock:
+            self._items[key] = stored_value
+            self._items.move_to_end(key)
+            while len(self._items) > self._max_size:
+                self._items.popitem(last=False)
+        return self._load_value(stored_value)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+    def delete(self, key: K) -> None:
+        with self._lock:
+            self._items.pop(key, None)
+
+
+def build_immutable_payload_ttl_cache(
+    *,
+    ttl_seconds: float,
+) -> CopyingTtlCache[Hashable, Any]:
+    return CopyingTtlCache(
+        ttl_seconds=ttl_seconds,
+        storer=freeze_mutable_payload,
+        loader=clone_mutable_payload,
+    )
+
+
+def build_immutable_payload_lru_cache(
+    *,
+    max_size: int,
+) -> CopyingLruCache[Hashable, Any]:
+    return CopyingLruCache(
+        max_size=max_size,
+        storer=freeze_mutable_payload,
+        loader=clone_mutable_payload,
+    )

@@ -2,7 +2,8 @@ import logging
 from pathlib import Path
 
 from app.db_metadata import get_table_names_cached
-from core.mapping.fire_map_generator import Config, MapCreator
+from core.mapping.config import Config
+from core.mapping.creator import MapCreator
 from core.processing.steps.fire_map_loader import load_fire_map_source
 
 

@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from app.services.access_points.core import get_access_points_data
-
 from .api_common import run_analytics_request
 
 
 router = APIRouter()
+
+
+def get_access_points_data(**kwargs):
+    from app.services.access_points.core import get_access_points_data as _get_access_points_data
+
+    return _get_access_points_data(**kwargs)
 
 
 @router.get("/api/access-points-data")
