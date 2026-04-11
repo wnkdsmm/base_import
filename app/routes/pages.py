@@ -64,12 +64,6 @@ def get_forecasting_shell_context(**kwargs):
     return _get_forecasting_shell_context(**kwargs)
 
 
-def get_ml_model_page_context(**kwargs):
-    from app.services.ml_model.core import get_ml_model_page_context as _get_ml_model_page_context
-
-    return _get_ml_model_page_context(**kwargs)
-
-
 def get_ml_model_shell_context(**kwargs):
     from app.services.ml_model.core import get_ml_model_shell_context as _get_ml_model_shell_context
 
@@ -242,7 +236,6 @@ def ml_model_page(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-    mode: str = "full",
 ):
     page_kwargs = {
         "table_name": table_name,
@@ -252,13 +245,7 @@ def ml_model_page(
         "forecast_days": forecast_days,
         "history_window": history_window,
     }
-    ml_model = resolve_page_mode_context(
-        mode=mode,
-        page_loader=get_ml_model_page_context,
-        shell_loader=get_ml_model_shell_context,
-        page_kwargs=page_kwargs,
-        shell_kwargs={**page_kwargs, "prefer_cached": True},
-    )
+    ml_model = get_ml_model_shell_context(**page_kwargs, prefer_cached=True)
     return render_context_page(
         request,
         "ml_model.html",

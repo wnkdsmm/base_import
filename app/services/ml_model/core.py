@@ -120,45 +120,6 @@ def _load_ml_aggregation_inputs(
     )
 
 
-def get_ml_model_page_context(
-    table_name: str = 'all',
-    cause: str = 'all',
-    object_category: str = 'all',
-    temperature: str = '',
-    forecast_days: str = '14',
-    history_window: str = 'all',
-) -> Dict[str, Any]:
-    try:
-        initial_data = get_ml_model_data(
-            table_name=table_name,
-            cause=cause,
-            object_category=object_category,
-            temperature=temperature,
-            forecast_days=forecast_days,
-            history_window=history_window,
-        )
-    except Exception as exc:
-        table_options = _build_forecasting_table_options()
-        selected_table = _resolve_forecasting_selection(table_options, table_name)
-        days_ahead = _parse_forecast_days(forecast_days)
-        selected_history_window = _parse_history_window(history_window)
-        initial_data = _empty_ml_model_data(
-            table_options,
-            selected_table,
-            days_ahead,
-            temperature,
-            selected_history_window,
-        )
-        initial_data['notes'].append('ML-\u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0430 \u043e\u0442\u043a\u0440\u044b\u0442\u0430 \u0432 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u043c \u0440\u0435\u0436\u0438\u043c\u0435: \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u0435 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u043e \u0438\u0437-\u0437\u0430 \u0432\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u0435\u0439 \u043e\u0448\u0438\u0431\u043a\u0438.')
-        initial_data['notes'].append(f'\u0422\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043f\u0440\u0438\u0447\u0438\u043d\u0430: {exc}')
-        initial_data['notes'] = _compact_ui_notes(initial_data['notes'])
-        initial_data['model_description'] = (
-            'ML-\u043f\u0440\u043e\u0433\u043d\u043e\u0437 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043e\u0442\u043a\u0440\u044b\u0442 \u0431\u0435\u0437 \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f, \u0447\u0442\u043e\u0431\u044b \u044d\u043a\u0440\u0430\u043d \u043e\u0441\u0442\u0430\u0432\u0430\u043b\u0441\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0434\u0430\u0436\u0435 \u043f\u0440\u0438 \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0435 \u0432 \u0434\u0430\u043d\u043d\u044b\u0445 \u0438\u043b\u0438 \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u0430\u0445. '
-            '\u0415\u0433\u043e \u0437\u0430\u0434\u0430\u0447\u0430 \u043d\u0435 \u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f: \u043e\u0446\u0435\u043d\u0438\u0442\u044c \u043e\u0436\u0438\u0434\u0430\u0435\u043c\u043e\u0435 \u0447\u0438\u0441\u043b\u043e \u043f\u043e\u0436\u0430\u0440\u043e\u0432 \u043f\u043e \u0434\u0430\u0442\u0430\u043c, \u0430 \u043d\u0435 \u0440\u0430\u043d\u0436\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0438.'
-        )
-    return _build_ml_context(initial_data)
-
-
 def get_ml_model_shell_context(
     table_name: str = 'all',
     cause: str = 'all',

@@ -18,7 +18,7 @@
 
 {% block sidebar_status %}
     <div class="sidebar-status" id="mlSidebarStatus">
-        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">
+        <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">
             {% if data.bootstrap_mode == 'deferred' %}Собираем ML-прогноз{% elif data.has_data %}ML-прогноз готов{% else %}Нужно уточнить фильтры{% endif %}
         </span>
         <div class="status-line">
