@@ -29,14 +29,13 @@ from app.services.forecasting.utils import (
 from app.services.shared.request_state import build_ml_request_state as _build_ml_request_state_impl
 from config.db import engine
 
-from .constants import ML_CACHE_SCHEMA_VERSION, _CACHE_LIMIT
+from .ml_model_types import ML_CACHE_SCHEMA_VERSION, MlProgressCallback, _CACHE_LIMIT, _emit_progress
 from .data_access import (
     clear_ml_model_input_cache,
     load_ml_aggregation_inputs as _load_ml_aggregation_inputs_impl,
     load_ml_filter_bundle as _load_ml_filter_bundle_impl,
 )
 from .payloads import _build_ml_payload, _compact_ui_notes, _empty_ml_model_data
-from .runtime import MlProgressCallback, _emit_progress
 from .training import _train_ml_model, clear_training_artifact_cache
 
 _ML_CACHE = build_immutable_payload_lru_cache(max_size=_CACHE_LIMIT)

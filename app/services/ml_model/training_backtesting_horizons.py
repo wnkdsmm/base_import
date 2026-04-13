@@ -8,8 +8,7 @@ import numpy as np
 
 from app.services.model_quality import compute_count_metrics
 
-from .constants import COUNT_MODEL_KEYS
-from .domain_types import BacktestEvaluationRow, BacktestWindowRow, CountMetrics, HorizonSummary
+from .ml_model_types import BacktestEvaluationRow, BacktestWindowRow, COUNT_MODEL_KEYS, CountMetrics, HorizonSummary
 from .training_backtesting_support import (
     _empty_float_array,
     _lead_time_label,

@@ -4,8 +4,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .constants import COUNT_MODEL_KEYS, MIN_POSITIVE_PREDICTION
-from .domain_types import BacktestWindowRow
+from .ml_model_types import BacktestWindowRow, COUNT_MODEL_KEYS, MIN_POSITIVE_PREDICTION
 
 
 def _optional_float(value: Any) -> Optional[float]:

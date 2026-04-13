@@ -37,7 +37,7 @@ except Exception:  # pragma: no cover - optional dependency
     HessianInversionWarning = None
     PerfectSeparationWarning = None
 
-from .constants import (
+from .ml_model_types import (
     COUNT_MODEL_CONTINUOUS_COLUMNS,
     MIN_EVENT_CLASS_COUNT,
     NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS,

@@ -2,7 +2,7 @@ from datetime import date
 
 import pandas as pd
 
-from app.services.access_points.analysis import _build_access_point_rows, _select_incomplete_points
+from app.services.access_points.analysis_ranking import _build_access_point_rows, _select_incomplete_points
 from app.services.access_points.features import _build_access_point_candidate_features
 
 

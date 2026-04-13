@@ -1,0 +1,458 @@
+﻿Карта проекта base_import
+================================================================================
+
+Сгенерировано: 2026-04-12 14:48:58
+Файлов в карте: 292
+Исключено из инвентаризации: .git, .claude, __pycache__, .pytest_cache, .mypy_cache, .venv/venv, node_modules, build, dist, а также ранее сгенерированные PROJECT_FILE_MAP*.
+Правило подсчета строк: для текстовых файлов показывается число строк, для бинарных файлов указывается n/a.
+
+Сводка по блокам
+--------------------------------------------------------------------------------
+- Корень проекта: файлов 6, строк 520
+- IDE / VS Code: файлов 2, строк 30
+- Конфигурация: файлов 5, строк 132
+- FastAPI / инфраструктура: файлов 14, строк 1712
+- FastAPI / dashboard: файлов 11, строк 3868
+- FastAPI / доменная модель: файлов 7, строк 789
+- FastAPI / роуты: файлов 13, строк 1529
+- Сервисы / общее: файлов 10, строк 2510
+- Сервисы / access_points: файлов 10, строк 3492
+- Сервисы / clustering: файлов 9, строк 4505
+- Сервисы / forecast_risk: файлов 13, строк 3867
+- Сервисы / forecasting: файлов 17, строк 5530
+- Сервисы / ml_model: файлов 24, строк 7552
+- Сервисы / shared: файлов 4, строк 414
+- Фронтенд / CSS: файлов 11, строк 6141
+- Фронтенд / JS: файлов 12, строк 5897
+- Шаблоны / страницы: файлов 15, строк 1363
+- Шаблоны / includes / access_points: файлов 4, строк 371
+- Шаблоны / includes / clustering: файлов 4, строк 347
+- Шаблоны / includes / dashboard: файлов 3, строк 349
+- Шаблоны / includes / forecasting: файлов 9, строк 428
+- Шаблоны / includes / ml_model: файлов 5, строк 344
+- ETL / core root: файлов 1, строк 1
+- ETL / mapping: файлов 18, строк 2545
+- ETL / processing: файлов 2, строк 50
+- ETL / processing steps: файлов 7, строк 1634
+- Данные / generated results: файлов 3, строк 31474
+- Данные / sample data: файлов 3, строк 5
+- Скрипты: файлов 4, строк 550
+- Тесты / access_points: файлов 6, строк 1124
+- Тесты / analytics_api_contract: файлов 4, строк 287
+- Тесты / clustering: файлов 3, строк 1941
+- Тесты / forecasting: файлов 5, строк 1007
+- Тесты / ml_model: файлов 8, строк 4069
+- Тесты / mapping: файлов 2, строк 760
+- Тесты / pipeline: файлов 2, строк 300
+- Тесты / table views and routes: файлов 3, строк 463
+- Тесты / infrastructure and hygiene: файлов 13, строк 2572
+
+Подробная карта файлов
+--------------------------------------------------------------------------------
+
+[Корень проекта]
+Файлов: 6 | Строк: 520
+- .gitignore — строк: 29 — Правила исключения для git: кэши, артефакты, локальные данные и окружения.
+- README.md — строк: 138 — Главный runbook проекта: запуск FastAPI, legacy ETL, материализованные представления и benchmark-скрипты.
+- main.py — строк: 62 — Старый desktop-entrypoint: выбор файла и запуск ETL-пайплайна обработки.
+- requirements.txt — строк: 19 — Список Python-зависимостей проекта.
+- start_web_app.cmd — строк: 99 — Командный файл для запуска веб-приложения в Windows.
+- start_web_app.vbs — строк: 173 — VBScript-обертка для тихого запуска веб-приложения без консольного окна.
+
+[IDE / VS Code]
+Файлов: 2 | Строк: 30
+- .vscode/launch.json — строк: 27 — Файл настройки IDE для разработки: `launch`.
+- .vscode/settings.json — строк: 3 — Локальные настройки VS Code для этого репозитория.
+
+[Конфигурация]
+Файлов: 5 | Строк: 132
+- config/__init__.py — строк: 2 — Пакет конфигурации проекта.
+- config/constants.py — строк: 40 — Конфигурационный файл проекта: `constants`.
+- config/db.py — строк: 32 — Настройки подключения к базе данных и фабрики подключения.
+- config/paths.py — строк: 22 — Центральные пути к каталогам, данным и служебным артефактам.
+- config/settings.py — строк: 36 — Глобальные настройки приложения и feature flags.
+
+[FastAPI / инфраструктура]
+Файлов: 14 | Строк: 1712
+- app/__init__.py — строк: 0 — Пакет FastAPI-приложения.
+- app/db_metadata.py — строк: 100 — Чтение и нормализация метаданных таблиц базы данных.
+- app/db_views.py — строк: 364 — Операции с SQL-view и материализованными представлениями.
+- app/main.py — строк: 17 — Точка сборки FastAPI-приложения, регистрация middleware и роутов.
+- app/perf.py — строк: 161 — Утилиты измерения производительности и таймингов для запросов и сервисов.
+- app/plotly_bundle.py — строк: 102 — Подготовка и выдача Plotly-бандла для графиков в интерфейсе.
+- app/runtime_cache.py — строк: 240 — Кэш времени жизни процесса для дорогих вычислений и подготовленных данных.
+- app/runtime_invalidation.py — строк: 96 — Механизмы сброса runtime-кэшей при изменении исходных данных.
+- app/state.py — строк: 324 — Общее состояние приложения и контейнеры зависимостей времени выполнения.
+- app/statistics_constants.py — строк: 52 — Инфраструктурный модуль FastAPI-приложения: `statistics constants`.
+- app/table_catalog.py — строк: 62 — Каталог таблиц и служебная информация для UI и API.
+- app/table_invalidation.py — строк: 18 — Инфраструктурный модуль FastAPI-приложения: `table invalidation`.
+- app/table_metadata.py — строк: 47 — Метаданные колонок и представление таблиц для интерфейса.
+- app/table_operations.py — строк: 129 — Общие операции над таблицами: чтение, фильтрация, подготовка ответа.
+
+[FastAPI / dashboard]
+Файлов: 11 | Строк: 3868
+- app/dashboard/__init__.py — строк: 9 — Компонент dashboard-слоя приложения: `init`.
+- app/dashboard/cache.py — строк: 71 — Компонент dashboard-слоя приложения: `cache`.
+- app/dashboard/charts.py — строк: 570 — Компонент dashboard-слоя приложения: `charts`.
+- app/dashboard/data_access.py — строк: 299 — Компонент dashboard-слоя приложения: `data access`.
+- app/dashboard/distribution.py — строк: 493 — Компонент dashboard-слоя приложения: `distribution`.
+- app/dashboard/impact.py — строк: 780 — Компонент dashboard-слоя приложения: `impact`.
+- app/dashboard/management.py — строк: 175 — Компонент dashboard-слоя приложения: `management`.
+- app/dashboard/metadata.py — строк: 171 — Компонент dashboard-слоя приложения: `metadata`.
+- app/dashboard/service.py — строк: 785 — Сервисный слой dashboard: агрегации, карточки, графики и подготовка данных страницы.
+- app/dashboard/summary.py — строк: 408 — Компонент dashboard-слоя приложения: `summary`.
+- app/dashboard/utils.py — строк: 107 — Компонент dashboard-слоя приложения: `utils`.
+
+[FastAPI / доменная модель]
+Файлов: 7 | Строк: 789
+- app/domain/__init__.py — строк: 2 — Доменная сущность или тип данных приложения: `init`.
+- app/domain/access_points_metadata.py — строк: 64 — Доменная сущность или тип данных приложения: `access points metadata`.
+- app/domain/analytics_metadata.py — строк: 231 — Доменная сущность или тип данных приложения: `analytics metadata`.
+- app/domain/column_matching.py — строк: 267 — Доменная сущность или тип данных приложения: `column matching`.
+- app/domain/fire_columns.py — строк: 190 — Доменная сущность или тип данных приложения: `fire columns`.
+- app/domain/predictive_settings.py — строк: 6 — Доменная сущность или тип данных приложения: `predictive settings`.
+- app/domain/time_labels.py — строк: 29 — Доменная сущность или тип данных приложения: `time labels`.
+
+[FastAPI / роуты]
+Файлов: 13 | Строк: 1529
+- app/routes/__init__.py — строк: 9 — Роут или вспомогательная логика маршрутизации для `init`.
+- app/routes/api.py — строк: 96 — Основные API-эндпоинты приложения.
+- app/routes/api_access_points.py — строк: 37 — Роут или вспомогательная логика маршрутизации для `api access points`.
+- app/routes/api_clustering.py — строк: 97 — Роут или вспомогательная логика маршрутизации для `api clustering`.
+- app/routes/api_column_search.py — строк: 41 — Роут или вспомогательная логика маршрутизации для `api column search`.
+- app/routes/api_common.py — строк: 212 — Роут или вспомогательная логика маршрутизации для `api common`.
+- app/routes/api_dashboard.py — строк: 30 — Роут или вспомогательная логика маршрутизации для `api dashboard`.
+- app/routes/api_forecasting.py — строк: 169 — Роут или вспомогательная логика маршрутизации для `api forecasting`.
+- app/routes/api_ml_model.py — строк: 79 — Роут или вспомогательная логика маршрутизации для `api ml model`.
+- app/routes/api_ops.py — строк: 105 — Роут или вспомогательная логика маршрутизации для `api ops`.
+- app/routes/api_tables.py — строк: 129 — Роут или вспомогательная логика маршрутизации для `api tables`.
+- app/routes/page_common.py — строк: 114 — Общие вспомогательные функции для page-роутов.
+- app/routes/pages.py — строк: 411 — Роуты HTML-страниц и экранов пользовательского интерфейса.
+
+[Сервисы / общее]
+Файлов: 10 | Строк: 2510
+- app/services/__init__.py — строк: 9 — Общий сервисный модуль приложения: `init`.
+- app/services/charting.py — строк: 189 — Общий сервисный модуль приложения: `charting`.
+- app/services/executive_brief.py — строк: 268 — Общий сервисный модуль приложения: `executive brief`.
+- app/services/explainable_logistics.py — строк: 198 — Общий сервисный модуль приложения: `explainable logistics`.
+- app/services/fire_map_service.py — строк: 104 — Общий сервисный модуль приложения: `fire map service`.
+- app/services/job_support.py — строк: 400 — Общий сервисный модуль приложения: `job support`.
+- app/services/model_quality.py — строк: 158 — Оценка качества моделей и подготовка сводных метрик.
+- app/services/pipeline_service.py — строк: 512 — Оркестрация пайплайна подготовки данных и служебных операций.
+- app/services/table_summary.py — строк: 478 — Общий сервисный модуль приложения: `table summary`.
+- app/services/table_workflows.py — строк: 194 — Общий сервисный модуль приложения: `table workflows`.
+
+[Сервисы / access_points]
+Файлов: 10 | Строк: 3492
+- app/services/access_points/__init__.py — строк: 9 — Сервисная логика точек доступа и связанных расчетов: модуль `init`.
+- app/services/access_points/analysis.py — строк: 1396 — Сервисная логика точек доступа и связанных расчетов: модуль `analysis`.
+- app/services/access_points/charts.py — строк: 132 — Сервисная логика точек доступа и связанных расчетов: модуль `charts`.
+- app/services/access_points/constants.py — строк: 71 — Сервисная логика точек доступа и связанных расчетов: модуль `constants`.
+- app/services/access_points/core.py — строк: 419 — Сервисная логика точек доступа и связанных расчетов: модуль `core`.
+- app/services/access_points/data.py — строк: 515 — Сервисная логика точек доступа и связанных расчетов: модуль `data`.
+- app/services/access_points/features.py — строк: 135 — Сервисная логика точек доступа и связанных расчетов: модуль `features`.
+- app/services/access_points/numeric.py — строк: 104 — Сервисная логика точек доступа и связанных расчетов: модуль `numeric`.
+- app/services/access_points/point_data.py — строк: 513 — Сервисная логика точек доступа и связанных расчетов: модуль `point data`.
+- app/services/access_points/presentation.py — строк: 198 — Сервисная логика точек доступа и связанных расчетов: модуль `presentation`.
+
+[Сервисы / clustering]
+Файлов: 9 | Строк: 4505
+- app/services/clustering/__init__.py — строк: 18 — Сервисная логика кластеризации: модуль `init`.
+- app/services/clustering/analysis.py — строк: 1354 — Сервисная логика кластеризации: модуль `analysis`.
+- app/services/clustering/charts.py — строк: 271 — Сервисная логика кластеризации: модуль `charts`.
+- app/services/clustering/constants.py — строк: 114 — Сервисная логика кластеризации: модуль `constants`.
+- app/services/clustering/core.py — строк: 1107 — Сервисная логика кластеризации: модуль `core`.
+- app/services/clustering/data.py — строк: 527 — Сервисная логика кластеризации: модуль `data`.
+- app/services/clustering/jobs.py — строк: 271 — Сервисная логика кластеризации: модуль `jobs`.
+- app/services/clustering/quality.py — строк: 802 — Сервисная логика кластеризации: модуль `quality`.
+- app/services/clustering/utils.py — строк: 41 — Сервисная логика кластеризации: модуль `utils`.
+
+[Сервисы / forecast_risk]
+Файлов: 13 | Строк: 3867
+- app/services/forecast_risk/__init__.py — строк: 9 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `init`.
+- app/services/forecast_risk/constants.py — строк: 36 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `constants`.
+- app/services/forecast_risk/core.py — строк: 297 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `core`.
+- app/services/forecast_risk/data.py — строк: 311 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `data`.
+- app/services/forecast_risk/geo.py — строк: 247 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `geo`.
+- app/services/forecast_risk/notes.py — строк: 45 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `notes`.
+- app/services/forecast_risk/presentation.py — строк: 371 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `presentation`.
+- app/services/forecast_risk/profile_resolution.py — строк: 409 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `profile resolution`.
+- app/services/forecast_risk/profiles.py — строк: 353 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `profiles`.
+- app/services/forecast_risk/reliability.py — строк: 187 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `reliability`.
+- app/services/forecast_risk/scoring.py — строк: 922 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `scoring`.
+- app/services/forecast_risk/utils.py — строк: 264 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `utils`.
+- app/services/forecast_risk/validation.py — строк: 416 — Расчеты риск-оценки и вспомогательная логика прогнозных рисков: модуль `validation`.
+
+[Сервисы / forecasting]
+Файлов: 17 | Строк: 5530
+- app/services/forecasting/__init__.py — строк: 9 — Сервисная логика прогнозирования: модуль `init`.
+- app/services/forecasting/assembly.py — строк: 646 — Сервисная логика прогнозирования: модуль `assembly`.
+- app/services/forecasting/bootstrap.py — строк: 333 — Сервисная логика прогнозирования: модуль `bootstrap`.
+- app/services/forecasting/charts.py — строк: 307 — Сервисная логика прогнозирования: модуль `charts`.
+- app/services/forecasting/constants.py — строк: 33 — Сервисная логика прогнозирования: модуль `constants`.
+- app/services/forecasting/core.py — строк: 725 — Сервисная логика прогнозирования: модуль `core`.
+- app/services/forecasting/data.py — строк: 56 — Сервисная логика прогнозирования: модуль `data`.
+- app/services/forecasting/inputs.py — строк: 190 — Сервисная логика прогнозирования: модуль `inputs`.
+- app/services/forecasting/jobs.py — строк: 309 — Сервисная логика прогнозирования: модуль `jobs`.
+- app/services/forecasting/payloads.py — строк: 164 — Сервисная логика прогнозирования: модуль `payloads`.
+- app/services/forecasting/presentation.py — строк: 299 — Сервисная логика прогнозирования: модуль `presentation`.
+- app/services/forecasting/quality.py — строк: 158 — Сервисная логика прогнозирования: модуль `quality`.
+- app/services/forecasting/selection.py — строк: 116 — Сервисная логика прогнозирования: модуль `selection`.
+- app/services/forecasting/shaping.py — строк: 502 — Сервисная логика прогнозирования: модуль `shaping`.
+- app/services/forecasting/sources.py — строк: 200 — Сервисная логика прогнозирования: модуль `sources`.
+- app/services/forecasting/sql.py — строк: 1184 — Сервисная логика прогнозирования: модуль `sql`.
+- app/services/forecasting/utils.py — строк: 299 — Сервисная логика прогнозирования: модуль `utils`.
+
+[Сервисы / ml_model]
+Файлов: 24 | Строк: 7552
+- app/services/ml_model/__init__.py — строк: 7 — Сервисная логика ML-моделей и backtesting: модуль `init`.
+- app/services/ml_model/constants.py — строк: 115 — Сервисная логика ML-моделей и backtesting: модуль `constants`.
+- app/services/ml_model/core.py — строк: 327 — Сервисная логика ML-моделей и backtesting: модуль `core`.
+- app/services/ml_model/data_access.py — строк: 148 — Сервисная логика ML-моделей и backtesting: модуль `data access`.
+- app/services/ml_model/domain_types.py — строк: 515 — Сервисная логика ML-моделей и backtesting: модуль `domain types`.
+- app/services/ml_model/jobs.py — строк: 379 — Сервисная логика ML-моделей и backtesting: модуль `jobs`.
+- app/services/ml_model/payloads.py — строк: 196 — Сервисная логика ML-моделей и backtesting: модуль `payloads`.
+- app/services/ml_model/presentation.py — строк: 915 — Сервисная логика ML-моделей и backtesting: модуль `presentation`.
+- app/services/ml_model/runtime.py — строк: 14 — Сервисная логика ML-моделей и backtesting: модуль `runtime`.
+- app/services/ml_model/training.py — строк: 517 — Сервисная логика ML-моделей и backtesting: модуль `training`.
+- app/services/ml_model/training_backtesting.py — строк: 97 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting`.
+- app/services/ml_model/training_backtesting_baselines.py — строк: 64 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting baselines`.
+- app/services/ml_model/training_backtesting_events.py — строк: 536 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting events`.
+- app/services/ml_model/training_backtesting_horizons.py — строк: 424 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting horizons`.
+- app/services/ml_model/training_backtesting_runtime.py — строк: 692 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting runtime`.
+- app/services/ml_model/training_backtesting_support.py — строк: 109 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting support`.
+- app/services/ml_model/training_backtesting_types.py — строк: 157 — Сервисная логика ML-моделей и backtesting: модуль `training backtesting types`.
+- app/services/ml_model/training_dataset.py — строк: 132 — Сервисная логика ML-моделей и backtesting: модуль `training dataset`.
+- app/services/ml_model/training_forecast.py — строк: 1072 — Сервисная логика ML-моделей и backtesting: модуль `training forecast`.
+- app/services/ml_model/training_importance.py — строк: 107 — Сервисная логика ML-моделей и backtesting: модуль `training importance`.
+- app/services/ml_model/training_models.py — строк: 330 — Сервисная логика ML-моделей и backtesting: модуль `training models`.
+- app/services/ml_model/training_result.py — строк: 333 — Сервисная логика ML-моделей и backtesting: модуль `training result`.
+- app/services/ml_model/training_selection.py — строк: 259 — Сервисная логика ML-моделей и backtesting: модуль `training selection`.
+- app/services/ml_model/training_temperature.py — строк: 107 — Сервисная логика ML-моделей и backtesting: модуль `training temperature`.
+
+[Сервисы / shared]
+Файлов: 4 | Строк: 414
+- app/services/shared/__init__.py — строк: 1 — Общая сервисная утилита, переиспользуемая в нескольких доменах: `init`.
+- app/services/shared/data_utils.py — строк: 192 — Общие табличные утилиты: датафреймы, преобразования, нормализация и проверки.
+- app/services/shared/formatting.py — строк: 32 — Общие функции форматирования значений для UI и отчетов.
+- app/services/shared/request_state.py — строк: 189 — Общая сервисная утилита, переиспользуемая в нескольких доменах: `request state`.
+
+[Фронтенд / CSS]
+Файлов: 11 | Строк: 6141
+- app/static/access_points.css — строк: 374 — Стили интерфейса для блока `access points`.
+- app/static/analytics.css — строк: 700 — Стили интерфейса для блока `analytics`.
+- app/static/clustering.css — строк: 187 — Стили интерфейса для блока `clustering`.
+- app/static/css/base.css — строк: 111 — Стили интерфейса для блока `base`.
+- app/static/css/layout.css — строк: 286 — Стили интерфейса для блока `layout`.
+- app/static/css/page-misc.css — строк: 711 — Стили интерфейса для блока `page misc`.
+- app/static/css/shared-components.css — строк: 842 — Стили интерфейса для блока `shared components`.
+- app/static/dashboard.css — строк: 530 — Стили интерфейса для блока `dashboard`.
+- app/static/forecasting.css — строк: 1092 — Стили интерфейса для блока `forecasting`.
+- app/static/ml_model.css — строк: 438 — Стили интерфейса для блока `ml model`.
+- app/static/profiling.css — строк: 870 — Стили интерфейса для блока `profiling`.
+
+[Фронтенд / JS]
+Файлов: 12 | Строк: 5897
+- app/static/js/access_points.js — строк: 531 — Клиентский JavaScript для интерфейсного сценария `access points`.
+- app/static/js/analytics_shared.js — строк: 290 — Клиентский JavaScript для интерфейсного сценария `analytics shared`.
+- app/static/js/clustering.js — строк: 505 — Клиентский JavaScript для интерфейсного сценария `clustering`.
+- app/static/js/column_search.js — строк: 555 — Клиентский JavaScript для интерфейсного сценария `column search`.
+- app/static/js/dashboard.js — строк: 549 — Клиентский JavaScript для интерфейсного сценария `dashboard`.
+- app/static/js/forecasting.js — строк: 1005 — Клиентский JavaScript для интерфейсного сценария `forecasting`.
+- app/static/js/import.js — строк: 224 — Клиентский JavaScript для интерфейсного сценария `import`.
+- app/static/js/ml_model.js — строк: 1054 — Клиентский JavaScript для интерфейсного сценария `ml model`.
+- app/static/js/select_table.js — строк: 372 — Клиентский JavaScript для интерфейсного сценария `select table`.
+- app/static/js/sidebar.js — строк: 231 — Клиентский JavaScript для интерфейсного сценария `sidebar`.
+- app/static/js/table_view.js — строк: 318 — Клиентский JavaScript для интерфейсного сценария `table view`.
+- app/static/js/tables.js — строк: 263 — Клиентский JavaScript для интерфейсного сценария `tables`.
+
+[Шаблоны / страницы]
+Файлов: 15 | Строк: 1363
+- app/templates/access_points.html — строк: 54 — HTML-шаблон страницы или экрана `access points`.
+- app/templates/base.html — строк: 50 — HTML-шаблон страницы или экрана `base`.
+- app/templates/clustering.html — строк: 55 — HTML-шаблон страницы или экрана `clustering`.
+- app/templates/column_search.html — строк: 91 — HTML-шаблон страницы или экрана `column search`.
+- app/templates/fire_map.html — строк: 171 — HTML-шаблон страницы или экрана `fire map`.
+- app/templates/fire_map_error.html — строк: 16 — HTML-шаблон страницы или экрана `fire map error`.
+- app/templates/forecasting.html — строк: 66 — HTML-шаблон страницы или экрана `forecasting`.
+- app/templates/includes/common_intro_macros.html — строк: 32 — Встраиваемый HTML-фрагмент интерфейса для `common intro macros`.
+- app/templates/includes/executive_brief.html — строк: 55 — Встраиваемый HTML-фрагмент интерфейса для `executive brief`.
+- app/templates/includes/sidebar_nav.html — строк: 11 — Встраиваемый HTML-фрагмент интерфейса для `sidebar nav`.
+- app/templates/index.html — строк: 61 — HTML-шаблон страницы или экрана `index`.
+- app/templates/ml_model.html — строк: 59 — HTML-шаблон страницы или экрана `ml model`.
+- app/templates/select_table.html — строк: 294 — HTML-шаблон страницы или экрана `select table`.
+- app/templates/table_view.html — строк: 229 — HTML-шаблон страницы или экрана `table view`.
+- app/templates/tables.html — строк: 119 — HTML-шаблон страницы или экрана `tables`.
+
+[Шаблоны / includes / access_points]
+Файлов: 4 | Строк: 371
+- app/templates/includes/access_points/_analysis_layout.html — строк: 139 — Встраиваемый HTML-фрагмент интерфейса для `analysis layout`.
+- app/templates/includes/access_points/_ranking_sections.html — строк: 104 — Встраиваемый HTML-фрагмент интерфейса для `ranking sections`.
+- app/templates/includes/access_points/analysis_sections.html — строк: 3 — Встраиваемый HTML-фрагмент интерфейса для `analysis sections`.
+- app/templates/includes/access_points/overview.html — строк: 125 — Встраиваемый HTML-фрагмент интерфейса для `overview`.
+
+[Шаблоны / includes / clustering]
+Файлов: 4 | Строк: 347
+- app/templates/includes/clustering/_cluster_analysis.html — строк: 134 — Встраиваемый HTML-фрагмент интерфейса для `cluster analysis`.
+- app/templates/includes/clustering/_quality_overview.html — строк: 96 — Встраиваемый HTML-фрагмент интерфейса для `quality overview`.
+- app/templates/includes/clustering/analysis_sections.html — строк: 3 — Встраиваемый HTML-фрагмент интерфейса для `analysis sections`.
+- app/templates/includes/clustering/overview.html — строк: 114 — Встраиваемый HTML-фрагмент интерфейса для `overview`.
+
+[Шаблоны / includes / dashboard]
+Файлов: 3 | Строк: 349
+- app/templates/includes/dashboard/analytics_sections.html — строк: 110 — Встраиваемый HTML-фрагмент интерфейса для `analytics sections`.
+- app/templates/includes/dashboard/hero_intro.html — строк: 74 — Встраиваемый HTML-фрагмент интерфейса для `hero intro`.
+- app/templates/includes/dashboard/overview_and_brief.html — строк: 165 — Встраиваемый HTML-фрагмент интерфейса для `overview and brief`.
+
+[Шаблоны / includes / forecasting]
+Файлов: 9 | Строк: 428
+- app/templates/includes/forecasting/_brief_and_controls.html — строк: 96 — Встраиваемый HTML-фрагмент интерфейса для `brief and controls`.
+- app/templates/includes/forecasting/_decision_geo_sections.html — строк: 84 — Встраиваемый HTML-фрагмент интерфейса для `decision geo sections`.
+- app/templates/includes/forecasting/_decision_priority_sections.html — строк: 2 — Встраиваемый HTML-фрагмент интерфейса для `decision priority sections`.
+- app/templates/includes/forecasting/_decision_quality_sections.html — строк: 88 — Встраиваемый HTML-фрагмент интерфейса для `decision quality sections`.
+- app/templates/includes/forecasting/_quality_overview.html — строк: 25 — Встраиваемый HTML-фрагмент интерфейса для `quality overview`.
+- app/templates/includes/forecasting/_scenario_sections.html — строк: 97 — Встраиваемый HTML-фрагмент интерфейса для `scenario sections`.
+- app/templates/includes/forecasting/analysis_sections.html — строк: 5 — Встраиваемый HTML-фрагмент интерфейса для `analysis sections`.
+- app/templates/includes/forecasting/controls_overview.html — строк: 2 — Встраиваемый HTML-фрагмент интерфейса для `controls overview`.
+- app/templates/includes/forecasting/hero_intro.html — строк: 29 — Встраиваемый HTML-фрагмент интерфейса для `hero intro`.
+
+[Шаблоны / includes / ml_model]
+Файлов: 5 | Строк: 344
+- app/templates/includes/ml_model/_controls_overview.html — строк: 135 — Встраиваемый HTML-фрагмент интерфейса для `controls overview`.
+- app/templates/includes/ml_model/_quality_sections.html — строк: 94 — Встраиваемый HTML-фрагмент интерфейса для `quality sections`.
+- app/templates/includes/ml_model/controls_and_quality.html — строк: 2 — Встраиваемый HTML-фрагмент интерфейса для `controls and quality`.
+- app/templates/includes/ml_model/forecast_sections.html — строк: 84 — Встраиваемый HTML-фрагмент интерфейса для `forecast sections`.
+- app/templates/includes/ml_model/hero_intro.html — строк: 29 — Встраиваемый HTML-фрагмент интерфейса для `hero intro`.
+
+[ETL / core root]
+Файлов: 1 | Строк: 1
+- core/__init__.py — строк: 1 — Корневой пакет legacy ETL-ядра.
+
+[ETL / mapping]
+Файлов: 18 | Строк: 2545
+- core/mapping/__init__.py — строк: 4 — Шаг картографического/гео-пайплайна: модуль `init`.
+- core/mapping/config.py — строк: 60 — Шаг картографического/гео-пайплайна: модуль `config`.
+- core/mapping/creator.py — строк: 214 — Шаг картографического/гео-пайплайна: модуль `creator`.
+- core/mapping/data_access.py — строк: 77 — Шаг картографического/гео-пайплайна: модуль `data access`.
+- core/mapping/mixins/__init__.py — строк: 3 — Шаг картографического/гео-пайплайна: модуль `init`.
+- core/mapping/mixins/analytics.py — строк: 159 — Шаг картографического/гео-пайплайна: модуль `analytics`.
+- core/mapping/mixins/analytics_dbscan.py — строк: 131 — Шаг картографического/гео-пайплайна: модуль `analytics dbscan`.
+- core/mapping/mixins/analytics_geometry.py — строк: 64 — Шаг картографического/гео-пайплайна: модуль `analytics geometry`.
+- core/mapping/mixins/analytics_hotspots.py — строк: 47 — Шаг картографического/гео-пайплайна: модуль `analytics hotspots`.
+- core/mapping/mixins/analytics_logistics.py — строк: 95 — Шаг картографического/гео-пайплайна: модуль `analytics logistics`.
+- core/mapping/mixins/analytics_payload.py — строк: 254 — Шаг картографического/гео-пайплайна: модуль `analytics payload`.
+- core/mapping/mixins/analytics_priority.py — строк: 182 — Шаг картографического/гео-пайплайна: модуль `analytics priority`.
+- core/mapping/mixins/exports.py — строк: 64 — Шаг картографического/гео-пайплайна: модуль `exports`.
+- core/mapping/mixins/template_analytics.py — строк: 238 — Шаг картографического/гео-пайплайна: модуль `template analytics`.
+- core/mapping/mixins/template_layout.py — строк: 260 — Шаг картографического/гео-пайплайна: модуль `template layout`.
+- core/mapping/mixins/template_scripts.py — строк: 390 — Шаг картографического/гео-пайплайна: модуль `template scripts`.
+- core/mapping/mixins/templates.py — строк: 66 — Шаг картографического/гео-пайплайна: модуль `templates`.
+- core/mapping/mixins/utilities.py — строк: 237 — Шаг картографического/гео-пайплайна: модуль `utilities`.
+
+[ETL / processing]
+Файлов: 2 | Строк: 50
+- core/processing/__init__.py — строк: 3 — Инфраструктура ETL-обработки: модуль `init`.
+- core/processing/pipeline.py — строк: 47 — Основной ETL-пайплайн обработки исходных данных по шагам.
+
+[ETL / processing steps]
+Файлов: 7 | Строк: 1634
+- core/processing/steps/__init__.py — строк: 0 — Отдельный шаг ETL-обработки: модуль `init`.
+- core/processing/steps/create_clean_table.py — строк: 123 — Отдельный шаг ETL-обработки: модуль `create clean table`.
+- core/processing/steps/create_fire_map.py — строк: 65 — Отдельный шаг ETL-обработки: модуль `create fire map`.
+- core/processing/steps/fire_map_loader.py — строк: 92 — Отдельный шаг ETL-обработки: модуль `fire map loader`.
+- core/processing/steps/fires_feature_profiling.py — строк: 233 — Отдельный шаг ETL-обработки: модуль `fires feature profiling`.
+- core/processing/steps/import_data.py — строк: 52 — Отдельный шаг ETL-обработки: модуль `import data`.
+- core/processing/steps/keep_important_columns.py — строк: 1069 — Отдельный шаг ETL-обработки: модуль `keep important columns`.
+
+[Данные / generated results]
+Файлов: 3 | Строк: 31474
+- data/results/folder_clean_ekup_Yemelyanovo_2025/fires_map.html — строк: 380 — Сгенерированный артефакт данных или результат обработки: `fires_map.html`.
+- data/results/folder_clean_ekup_Yemelyanovo_2025/fires_map_analysis.json — строк: 31060 — Сгенерированный артефакт данных или результат обработки: `fires_map_analysis.json`.
+- data/results/folder_clean_ekup_Yemelyanovo_2025/fires_map_analysis.md — строк: 34 — Сгенерированный артефакт данных или результат обработки: `fires_map_analysis.md`.
+
+[Данные / sample data]
+Файлов: 3 | Строк: 5
+- sample_data/README.md — строк: 5 — Описание структуры sample_data и примеров входных файлов.
+- sample_data/uploads/ekup_Yemelyanovo_2023.xlsx — строк: n/a (binary) — Пример входных данных или демонстрационный артефакт: `ekup_Yemelyanovo_2023.xlsx`.
+- sample_data/uploads/ekup_Yemelyanovo_2024.xlsx — строк: n/a (binary) — Пример входных данных или демонстрационный артефакт: `ekup_Yemelyanovo_2024.xlsx`.
+
+[Скрипты]
+Файлов: 4 | Строк: 550
+- scripts/__init__.py — строк: 1 — Служебный сценарий автоматизации или проверки: `init`.
+- scripts/benchmark_analytics_perf.py — строк: 370 — Бенчмарк производительности аналитических сервисов и страниц.
+- scripts/check_generated_artifacts.py — строк: 140 — Проверка наличия и целостности сгенерированных артефактов проекта.
+- scripts/prepare_forecasting_aggregates.py — строк: 39 — Подготовка агрегатов и вспомогательных таблиц для forecasting-модулей.
+
+[Тесты / access_points]
+Файлов: 6 | Строк: 1124
+- tests/access_points_point_cases.py — строк: 161 — Тестовый сценарий для проверки поведения блока `access points point cases`.
+- tests/access_points_ranking_cases.py — строк: 157 — Тестовый сценарий для проверки поведения блока `access points ranking cases`.
+- tests/access_points_scoring_support.py — строк: 57 — Тестовый сценарий для проверки поведения блока `access points scoring support`.
+- tests/test_access_points_point_data.py — строк: 468 — Тестовый сценарий для проверки поведения блока `test access points point data`.
+- tests/test_access_points_scoring.py — строк: 7 — Тестовый сценарий для проверки поведения блока `test access points scoring`.
+- tests/test_access_points_shell_context.py — строк: 274 — Тестовый сценарий для проверки поведения блока `test access points shell context`.
+
+[Тесты / analytics_api_contract]
+Файлов: 4 | Строк: 287
+- tests/analytics_api_contract_dashboard_cases.py — строк: 125 — Тестовый сценарий для проверки поведения блока `analytics api contract dashboard cases`.
+- tests/analytics_api_contract_service_cases.py — строк: 121 — Тестовый сценарий для проверки поведения блока `analytics api contract service cases`.
+- tests/analytics_api_contract_support.py — строк: 34 — Тестовый сценарий для проверки поведения блока `analytics api contract support`.
+- tests/test_analytics_api_contract.py — строк: 7 — Тестовый сценарий для проверки поведения блока `test analytics api contract`.
+
+[Тесты / clustering]
+Файлов: 3 | Строк: 1941
+- tests/clustering_math_analysis_cases.py — строк: 475 — Тестовый сценарий для проверки поведения блока `clustering math analysis cases`.
+- tests/clustering_math_quality_cases.py — строк: 1445 — Тестовый сценарий для проверки поведения блока `clustering math quality cases`.
+- tests/test_clustering_math.py — строк: 21 — Тестовый сценарий для проверки поведения блока `test clustering math`.
+
+[Тесты / forecasting]
+Файлов: 5 | Строк: 1007
+- tests/forecasting_sql_payload_cases.py — строк: 165 — Тестовый сценарий для проверки поведения блока `forecasting sql payload cases`.
+- tests/forecasting_sql_source_cases.py — строк: 502 — Тестовый сценарий для проверки поведения блока `forecasting sql source cases`.
+- tests/forecasting_sql_support.py — строк: 167 — Тестовый сценарий для проверки поведения блока `forecasting sql support`.
+- tests/test_forecasting_shell_context.py — строк: 166 — Тестовый сценарий для проверки поведения блока `test forecasting shell context`.
+- tests/test_forecasting_sql_aggregation.py — строк: 7 — Тестовый сценарий для проверки поведения блока `test forecasting sql aggregation`.
+
+[Тесты / ml_model]
+Файлов: 8 | Строк: 4069
+- tests/ml_model_comparison_model_cases.py — строк: 1917 — Тестовый сценарий для проверки поведения блока `ml model comparison model cases`.
+- tests/ml_model_comparison_presentation_cases.py — строк: 751 — Тестовый сценарий для проверки поведения блока `ml model comparison presentation cases`.
+- tests/ml_model_payload_interval_cases.py — строк: 486 — Тестовый сценарий для проверки поведения блока `ml model payload interval cases`.
+- tests/ml_model_payload_variant_cases.py — строк: 615 — Тестовый сценарий для проверки поведения блока `ml model payload variant cases`.
+- tests/test_ml_model_comparison.py — строк: 41 — Тестовый сценарий для проверки поведения блока `test ml model comparison`.
+- tests/test_ml_model_jobs.py — строк: 118 — Тестовый сценарий для проверки поведения блока `test ml model jobs`.
+- tests/test_ml_model_payload.py — строк: 7 — Тестовый сценарий для проверки поведения блока `test ml model payload`.
+- tests/test_ml_model_shell_context.py — строк: 134 — Тестовый сценарий для проверки поведения блока `test ml model shell context`.
+
+[Тесты / mapping]
+Файлов: 2 | Строк: 760
+- tests/test_mapping_analytics.py — строк: 503 — Тестовый сценарий для проверки поведения блока `test mapping analytics`.
+- tests/test_mapping_template_fragments.py — строк: 257 — Тестовый сценарий для проверки поведения блока `test mapping template fragments`.
+
+[Тесты / pipeline]
+Файлов: 2 | Строк: 300
+- tests/test_legacy_pipeline.py — строк: 72 — Тестовый сценарий для проверки поведения блока `test legacy pipeline`.
+- tests/test_pipeline_service_optimizations.py — строк: 228 — Тестовый сценарий для проверки поведения блока `test pipeline service optimizations`.
+
+[Тесты / table views and routes]
+Файлов: 3 | Строк: 463
+- tests/test_table_pagination_db_views.py — строк: 135 — Тестовый сценарий для проверки поведения блока `test table pagination db views`.
+- tests/test_table_pagination_order.py — строк: 150 — Тестовый сценарий для проверки поведения блока `test table pagination order`.
+- tests/test_table_pagination_routes.py — строк: 178 — Тестовый сценарий для проверки поведения блока `test table pagination routes`.
+
+[Тесты / infrastructure and hygiene]
+Файлов: 13 | Строк: 2572
+- tests/mojibake_check.py — строк: 50 — Тестовый сценарий для проверки поведения блока `mojibake check`.
+- tests/test_analytics_background_jobs.py — строк: 124 — Тестовый сценарий для проверки поведения блока `test analytics background jobs`.
+- tests/test_cache_state_optimizations.py — строк: 166 — Тестовый сценарий для проверки поведения блока `test cache state optimizations`.
+- tests/test_dashboard_analytics_optimizations.py — строк: 1153 — Тестовый сценарий для проверки поведения блока `test dashboard analytics optimizations`.
+- tests/test_domain_metadata_consolidation.py — строк: 47 — Тестовый сценарий для проверки поведения блока `test domain metadata consolidation`.
+- tests/test_explainable_logistics.py — строк: 37 — Тестовый сценарий для проверки поведения блока `test explainable logistics`.
+- tests/test_keep_important_columns_matcher.py — строк: 322 — Тестовый сценарий для проверки поведения блока `test keep important columns matcher`.
+- tests/test_ml_temperature_quality.py — строк: 209 — Тестовый сценарий для проверки поведения блока `test ml temperature quality`.
+- tests/test_no_mojibake_literals.py — строк: 31 — Тестовый сценарий для проверки поведения блока `test no mojibake literals`.
+- tests/test_ranking_validation.py — строк: 135 — Тестовый сценарий для проверки поведения блока `test ranking validation`.
+- tests/test_repo_hygiene.py — строк: 29 — Тестовый сценарий для проверки поведения блока `test repo hygiene`.
+- tests/test_services_compatibility_facades.py — строк: 149 — Тестовый сценарий для проверки поведения блока `test services compatibility facades`.
+- tests/test_template_layout.py — строк: 120 — Тестовый сценарий для проверки поведения блока `test template layout`.
+

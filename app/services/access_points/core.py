@@ -11,13 +11,15 @@ from app.services.charting import build_empty_chart_bundle as _empty_chart_bundl
 from app.services.shared.formatting import _format_datetime
 from config.db import engine
 
-from .analysis import (
-    _build_access_point_rows,
-    _build_access_point_rows_from_entity_frame,
+from .analysis_output import (
     _build_reason_breakdown,
     _build_score_distribution,
     _build_typology_rows,
     _build_uncertainty_notes,
+)
+from .analysis_ranking import (
+    _build_access_point_rows,
+    _build_access_point_rows_from_entity_frame,
     _select_incomplete_points,
     _select_top_points,
 )

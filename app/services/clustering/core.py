@@ -10,10 +10,12 @@ from app.services.charting import build_empty_chart_bundle as _empty_chart_bundl
 from typing import Any, Callable, Dict, List, Sequence, Tuple
 from config.db import engine
 
-from .analysis import (
+from .analysis_features import (
     _build_clustering_mode_context,
     _build_runtime_clustering_context,
     _build_default_feature_selection_analysis,
+)
+from .analysis_metrics import (
     _build_centroid_table,
     _build_cluster_profiles,
     _build_notes,

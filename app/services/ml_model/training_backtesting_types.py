@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from .domain_types import (
+from .ml_model_types import (
     BacktestEvaluationRow,
     BacktestWindowRow,
     CountMetrics,

@@ -2,23 +2,21 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from .constants import (
+from .ml_model_types import (
+    BacktestEvaluationRow,
+    BacktestOverview,
+    BacktestSuccess,
     CLASSIFICATION_THRESHOLD,
     COUNT_MODEL_LABELS,
     COUNT_SELECTION_RULE,
     EVENT_MODEL_LABEL,
     EVENT_SELECTION_RULE,
     EXPLAINABLE_COUNT_MODEL_KEY,
-    PREDICTION_INTERVAL_LEVEL,
-    PREDICTION_INTERVAL_METHOD_LABEL,
-)
-from .domain_types import (
-    BacktestEvaluationRow,
-    BacktestOverview,
-    BacktestSuccess,
     CountComparisonRow,
     EventComparisonRow,
     HorizonSummary,
+    PREDICTION_INTERVAL_LEVEL,
+    PREDICTION_INTERVAL_METHOD_LABEL,
 )
 
 

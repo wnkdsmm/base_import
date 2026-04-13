@@ -4,14 +4,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.model_quality import relative_delta
 
-from .constants import (
+from .ml_model_types import (
+    CountComparisonRow,
+    CountMetrics,
     COUNT_MODEL_KEYS,
     COUNT_MODEL_LABELS,
     COUNT_MODEL_SELECTION_TOLERANCE,
     EXPLAINABLE_COUNT_MODEL_KEY,
     MIN_POSITIVE_PREDICTION,
 )
-from .domain_types import CountComparisonRow, CountMetrics
 
 
 def _available_count_model_labels(count_metrics: Dict[str, CountMetrics]) -> List[str]:

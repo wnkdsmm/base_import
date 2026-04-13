@@ -45,8 +45,14 @@
 document.documentElement.setAttribute('data-forecasting-boot', '1');
 </script>
 {% include 'includes/forecasting/hero_intro.html' %}
-{% include 'includes/forecasting/controls_overview.html' %}
-{% include 'includes/forecasting/analysis_sections.html' %}
+{% include 'includes/forecasting/_brief_and_controls.html' %}
+{% include 'includes/forecasting/_quality_overview.html' %}
+{% include 'includes/forecasting/_scenario_sections.html' %}
+<section id="forecastDetails" class="risk-grid risk-decision-layout">
+        <div class="risk-side-stack">
+{% include 'includes/forecasting/_decision_quality_sections.html' %}
+{% include 'includes/forecasting/_decision_geo_sections.html' %}
+</main>
 {% endblock %}
 
 {% block page_data %}

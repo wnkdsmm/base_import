@@ -19,6 +19,13 @@
         }
     }
 
+    function setSectionHidden(id, isHidden) {
+        var node = byId(id);
+        if (node) {
+            node.classList.toggle('is-hidden', !!isHidden);
+        }
+    }
+
     function setHref(id, href) {
         var node = byId(id);
         if (node && href) {
@@ -43,6 +50,19 @@
 
         var numericValue = Math.max(0, Math.min(100, Number(match[1])));
         return numericValue + '%';
+    }
+
+    function normalizeCssColor(value, fallback) {
+        var normalizedFallback = fallback || 'currentColor';
+        var candidate = String(value == null ? '' : value).trim();
+        if (!candidate) {
+            return normalizedFallback;
+        }
+
+        var probe = document.createElement('span');
+        probe.style.color = '';
+        probe.style.color = candidate;
+        return probe.style.color ? candidate : normalizedFallback;
     }
 
     function setSelectOptions(id, options, selectedValue, emptyLabel, config) {
@@ -279,9 +299,11 @@
         getApiErrorMessage: getApiErrorMessage,
         getErrorMessage: getErrorMessage,
         normalizePercent: normalizePercent,
+        normalizeCssColor: normalizeCssColor,
         renderPlotlyFigure: renderPlotlyFigure,
         runProgressSequence: runProgressSequence,
         setHref: setHref,
+        setSectionHidden: setSectionHidden,
         setSelectOptions: setSelectOptions,
         setStepProgress: setStepProgress,
         setText: setText,

@@ -15,8 +15,8 @@ from config.paths import get_result_folder
 from config.settings import Settings
 from core.processing.steps.create_fire_map import CreateFireMapStep
 
-_FIRE_MAP_CACHE = CopyingTtlCache(ttl_seconds=120.0, copier=lambda value: value)
-_FIRE_MAP_BRIEF_CACHE = CopyingTtlCache(ttl_seconds=120.0)
+_FIRE_MAP_CACHE = CopyingTtlCache(ttl_seconds=300.0, copier=lambda value: value)
+_FIRE_MAP_BRIEF_CACHE = CopyingTtlCache(ttl_seconds=300.0)
 
 
 

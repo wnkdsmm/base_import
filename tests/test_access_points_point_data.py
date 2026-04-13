@@ -4,7 +4,7 @@ import unittest
 
 import pandas as pd
 
-from app.services.access_points.analysis import _build_access_point_rows, _build_access_point_rows_from_entity_frame
+from app.services.access_points.analysis_ranking import _build_access_point_rows, _build_access_point_rows_from_entity_frame
 from app.services.access_points.point_data import _build_point_entity_frames
 
 

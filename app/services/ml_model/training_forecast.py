@@ -11,7 +11,7 @@ import pandas as pd
 from app.services.forecasting.data import _build_forecast_rows as _build_scenario_forecast_rows
 from app.services.forecasting.utils import _format_number, _format_percent
 
-from .constants import (
+from .ml_model_types import (
     MIN_INTERVAL_BIN_RESIDUALS,
     MIN_INTERVAL_CALIBRATION_WINDOWS,
     MIN_INTERVAL_EVALUATION_WINDOWS,

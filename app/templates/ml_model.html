@@ -42,7 +42,8 @@
 
 {% block content %}
 {% include 'includes/ml_model/hero_intro.html' %}
-{% include 'includes/ml_model/controls_and_quality.html' %}
+{% include 'includes/ml_model/_controls_overview.html' %}
+{% include 'includes/ml_model/_quality_sections.html' %}
 {% include 'includes/ml_model/forecast_sections.html' %}
 {% endblock %}
 
@@ -54,6 +55,9 @@ window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
 
 {% block scripts %}
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/ml_model_charts.js?v={{ ml_model_js_version }}"></script>
+<script src="/static/js/ml_model_api.js?v={{ ml_model_js_version }}"></script>
+<script src="/static/js/ml_model_ui.js?v={{ ml_model_js_version }}"></script>
 <script src="/static/js/ml_model.js?v={{ ml_model_js_version }}"></script>
 {{ super() }}
 {% endblock %}

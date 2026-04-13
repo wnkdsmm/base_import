@@ -8,7 +8,7 @@ import pandas as pd
 from app.services.forecasting.data import _temperature_quality_from_daily_history
 from app.services.forecasting.utils import _format_percent
 
-from .constants import FEATURE_COLUMNS, MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS, NON_TEMPERATURE_FEATURE_COLUMNS
+from .ml_model_types import FEATURE_COLUMNS, MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS, NON_TEMPERATURE_FEATURE_COLUMNS
 from .training_dataset import _prepare_reference_frame
 
 

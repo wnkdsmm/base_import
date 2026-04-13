@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.exceptions import ConvergenceWarning
 
-from app.services.ml_model.domain_types import BacktestWindowRow, CountMetrics, HorizonSummary
+from app.services.ml_model.ml_model_types import BacktestWindowRow, CountMetrics, HorizonSummary
 from app.services.ml_model import training as ml_training
 from app.services.ml_model import training_backtesting as ml_training_backtesting
 from app.services.ml_model import training_forecast as ml_training_forecast

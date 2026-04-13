@@ -15,16 +15,17 @@ from . import training_models as _models
 from . import training_result as _result
 from . import training_selection as _selection
 from . import training_temperature as _temperature
-from .constants import (
+from .ml_model_types import (
     COUNT_MODEL_KEYS,
     COUNT_MODEL_LABELS,
     EXPLAINABLE_COUNT_MODEL_KEY,
+    MlProgressCallback,
     MAX_HISTORY_POINTS,
     MIN_DAILY_HISTORY,
     MIN_FEATURE_ROWS,
+    _emit_progress,
+    coerce_backtest_result,
 )
-from .domain_types import coerce_backtest_result
-from .runtime import MlProgressCallback, _emit_progress
 
 # Compatibility exports for tests and legacy imports.
 _all_count_metrics = _selection._all_count_metrics
@@ -151,7 +152,7 @@ class _FeatureImportanceArtifacts:
     note: Optional[str]
 
 
-_TRAINING_ARTIFACT_CACHE_LIMIT = 4
+_TRAINING_ARTIFACT_CACHE_LIMIT = 32
 _TRAINING_ARTIFACT_CACHE: OrderedDict[Tuple[int, Tuple[Tuple[Any, ...], ...]], _TrainingArtifacts] = OrderedDict()
 
 

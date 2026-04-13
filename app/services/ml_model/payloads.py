@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from app.services.forecasting.presentation import _build_feature_cards_with_quality
 from app.services.forecasting.utils import _format_datetime, _format_float_for_input, _history_window_label
 
-from .constants import (
+from .ml_model_types import (
     FORECAST_DAY_OPTIONS,
     HISTORY_WINDOW_OPTIONS,
     ML_PREDICTIVE_BLOCK_DESCRIPTION,

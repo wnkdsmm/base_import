@@ -7,7 +7,10 @@ from sklearn.metrics import log_loss, roc_auc_score
 
 from app.services.model_quality import compute_classification_metrics
 
-from .constants import (
+from .ml_model_types import (
+    BacktestEvaluationRow,
+    EventComparisonRow,
+    EventMetrics,
     CLASSIFICATION_THRESHOLD,
     EVENT_BASELINE_METHOD_LABEL,
     EVENT_BASELINE_ROLE_LABEL,
@@ -22,7 +25,6 @@ from .constants import (
     EVENT_SELECTION_RULE,
     MIN_BACKTEST_POINTS,
 )
-from .domain_types import BacktestEvaluationRow, EventComparisonRow, EventMetrics
 from .training_backtesting_support import (
     _empty_float_array,
     _empty_int_array,

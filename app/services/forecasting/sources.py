@@ -46,16 +46,29 @@ def _collect_forecasting_inputs(
     min_year = _resolve_history_window_min_year(metadata_items, history_window)
     for metadata in metadata_items:
         try:
-            records.extend(
-                _load_forecasting_records(
-                    metadata["table_name"],
-                    metadata["resolved_columns"],
-                    district=district,
-                    cause=cause,
-                    object_category=object_category,
-                    min_year=min_year,
-                )
+            cache_key = _build_sql_cache_key(
+                "forecasting_records",
+                [metadata["table_name"]],
+                district,
+                cause,
+                object_category,
+                history_window,
             )
+            cached_records = _FORECASTING_SQL_CACHE.get(cache_key)
+            if cached_records is not None:
+                records.extend(cached_records)
+                continue
+
+            table_records = _load_forecasting_records(
+                metadata["table_name"],
+                metadata["resolved_columns"],
+                district=district,
+                cause=cause,
+                object_category=object_category,
+                min_year=min_year,
+            )
+            _FORECASTING_SQL_CACHE.set(cache_key, table_records)
+            records.extend(table_records)
         except Exception as exc:
             notes.append(f"{metadata['table_name']}: {exc}")
 
@@ -172,25 +185,30 @@ def _resolve_history_window_min_year(metadata_items: Sequence[Dict[str, Any]], h
     if cached_year is not None:
         return int(cached_year)
 
-    latest_years: List[int] = []
+    query_parts: List[str] = []
+    for metadata in metadata_items:
+        resolved_columns = metadata.get("resolved_columns") or {}
+        date_column = resolved_columns.get("date")
+        table_name = str(metadata.get("table_name") or "")
+        if not date_column or not table_name:
+            continue
+        date_expression = _date_expression(date_column)
+        query_parts.append(
+            f"""
+            SELECT MAX(EXTRACT(YEAR FROM {date_expression})) AS max_year
+            FROM {_quote_identifier(table_name)}
+            WHERE {date_expression} IS NOT NULL
+            """
+        )
+
+    if not query_parts:
+        return None
+
+    union_query = text("\nUNION ALL\n".join(query_parts))
     with engine.connect() as conn:
-        for metadata in metadata_items:
-            resolved_columns = metadata.get("resolved_columns") or {}
-            date_column = resolved_columns.get("date")
-            table_name = str(metadata.get("table_name") or "")
-            if not date_column or not table_name:
-                continue
-            date_expression = _date_expression(date_column)
-            query = text(
-                f"""
-                SELECT MAX(EXTRACT(YEAR FROM {date_expression})) AS max_year
-                FROM {_quote_identifier(table_name)}
-                WHERE {date_expression} IS NOT NULL
-                """
-            )
-            max_year = conn.execute(query).scalar()
-            if max_year is not None:
-                latest_years.append(int(max_year))
+        rows = conn.execute(union_query).mappings().all()
+
+    latest_years = [int(row["max_year"]) for row in rows if row.get("max_year") is not None]
 
     if not latest_years:
         return None
