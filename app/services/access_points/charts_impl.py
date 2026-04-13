@@ -108,3 +108,7 @@ def _build_points_scatter_chart(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any
         )
     )
     return build_chart_bundle(title, figure)
+
+
+def build_access_points_points_scatter_chart(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    return _build_points_scatter_chart(rows)

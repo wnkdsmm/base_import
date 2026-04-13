@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import re
 import textwrap
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from app.services.charting import (
-    build_dashboard_plotly_layout,
     build_empty_chart_bundle,
     build_empty_plotly_payload,
     build_horizontal_legend,
@@ -16,6 +15,7 @@ from app.services.charting import (
     build_plotly_bar_payload,
     build_plotly_bar_trace,
     build_plotly_line,
+    build_plotly_layout,
     build_plotly_marker,
     build_plotly_palette,
     build_plotly_payload_from_traces,
@@ -24,6 +24,36 @@ from app.services.charting import (
     merge_plotly_layout,
 )
 from app.statistics_constants import PLOTLY_PALETTE
+
+
+def build_dashboard_plotly_layout(
+    yaxis_title: str = "",
+    *,
+    showlegend: bool = True,
+    height: int = 340,
+    margin_left: int = 52,
+    margin_right: int = 26,
+    margin_top: int = 20,
+    margin_bottom: int = 48,
+    hover_bgcolor: str = "#fffaf5",
+    bargap: float = 0.45,
+) -> Dict[str, Any]:
+    return build_plotly_layout(
+        yaxis_title,
+        height=height,
+        showlegend=showlegend,
+        include_xy_axes=True,
+        margin_left=margin_left,
+        margin_right=margin_right,
+        margin_top=margin_top,
+        margin_bottom=margin_bottom,
+        hover_bgcolor=hover_bgcolor,
+        paper_bgcolor=PLOTLY_PALETTE["paper"],
+        plot_bgcolor=PLOTLY_PALETTE["paper"],
+        bargap=bargap,
+        axis_tickfont_size=12,
+        axis_title_font_size=12,
+    )
 
 def _finalize_chart(
     title: str,
@@ -442,7 +472,118 @@ def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], emp
 def _plotly_layout(yaxis_title: str, showlegend: bool) -> Dict[str, Any]:
     return build_dashboard_plotly_layout(yaxis_title, showlegend=showlegend)
 
+
+def build_dashboard_finalize_chart(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+    *,
+    plotly: Dict[str, Any] | None = None,
+    description: str = "",
+) -> Dict[str, Any]:
+    return _finalize_chart(title, list(items), empty_message, plotly=plotly, description=description)
+
+
+def build_dashboard_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
+    return _build_empty_plotly_chart(title, empty_message)
+
+
+def build_dashboard_yearly_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    metric: str,
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_yearly_plotly(title, list(items), metric, empty_message)
+
+
+def build_dashboard_wrap_plotly_label(value: Any, max_width: int = 34, max_lines: int = 3) -> str:
+    return _wrap_plotly_label(value, max_width=max_width, max_lines=max_lines)
+
+
+def build_dashboard_cause_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+    return _build_cause_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_distribution_pie_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_distribution_pie_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_distribution_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_distribution_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_combined_impact_timeline_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_combined_impact_timeline_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_damage_overview_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_damage_overview_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_damage_pairs_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_damage_pairs_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_damage_standalone_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_damage_standalone_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_damage_share_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_damage_share_plotly(title, list(items), empty_message)
+
+
+def build_dashboard_table_breakdown_plotly(
+    title: str,
+    items: Sequence[Dict[str, Any]],
+    empty_message: str,
+) -> Dict[str, Any]:
+    return _build_table_breakdown_plotly(title, list(items), empty_message)
+
+
 __all__ = [
+    "build_dashboard_plotly_layout",
+    "build_dashboard_finalize_chart",
+    "build_dashboard_empty_plotly_chart",
+    "build_dashboard_yearly_plotly",
+    "build_dashboard_wrap_plotly_label",
+    "build_dashboard_cause_plotly",
+    "build_dashboard_distribution_pie_plotly",
+    "build_dashboard_distribution_plotly",
+    "build_dashboard_combined_impact_timeline_plotly",
+    "build_dashboard_damage_overview_plotly",
+    "build_dashboard_damage_pairs_plotly",
+    "build_dashboard_damage_standalone_plotly",
+    "build_dashboard_damage_share_plotly",
+    "build_dashboard_table_breakdown_plotly",
     "_finalize_chart",
     "_build_yearly_plotly",
     "_wrap_plotly_label",

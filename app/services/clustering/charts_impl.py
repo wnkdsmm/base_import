@@ -219,3 +219,38 @@ def _format_metric(column_name: str, value: Any) -> str:
     if column_name.startswith("Доля") or column_name.startswith("Покрытие"):
         return _format_percent(float(value))
     return _format_number(value, 2)
+
+
+def build_clustering_scatter_chart(
+    pca_points: Any,
+    labels: Any,
+    cluster_labels: Sequence[str],
+    cluster_frame: Any,
+    entity_frame: Any,
+) -> Dict[str, Any]:
+    return _build_scatter_chart(pca_points, labels, cluster_labels, cluster_frame, entity_frame)
+
+
+def build_clustering_distribution_chart(
+    labels: Any,
+    cluster_labels: Sequence[str],
+    total_rows: int,
+    entity_frame: Any,
+) -> Dict[str, Any]:
+    return _build_distribution_chart(labels, cluster_labels, total_rows, entity_frame)
+
+
+def build_clustering_diagnostics_chart(
+    rows: Sequence[Dict[str, Any]],
+    current_cluster_count: int,
+    recommended_cluster_count: int | None,
+    best_silhouette_k: int | None,
+    elbow_k: int | None,
+) -> Dict[str, Any]:
+    return _build_diagnostics_chart(
+        rows,
+        current_cluster_count,
+        recommended_cluster_count,
+        best_silhouette_k,
+        elbow_k,
+    )

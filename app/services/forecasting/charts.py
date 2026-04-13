@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from app.services.charting import (
+from .charts_impl import (
     build_forecasting_forecast_breakdown_chart,
     build_forecasting_forecast_chart,
     build_forecasting_geo_chart,

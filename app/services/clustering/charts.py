@@ -3,12 +3,15 @@ from __future__ import annotations
 from typing import Any, Dict, Sequence
 
 from app.services.charting import (
-    build_clustering_diagnostics_chart,
-    build_clustering_distribution_chart,
-    build_clustering_scatter_chart,
     build_reference_annotations,
 )
 from app.statistics_constants import PLOTLY_PALETTE
+
+from .charts_impl import (
+    build_clustering_diagnostics_chart,
+    build_clustering_distribution_chart,
+    build_clustering_scatter_chart,
+)
 
 
 def _build_scatter_chart(

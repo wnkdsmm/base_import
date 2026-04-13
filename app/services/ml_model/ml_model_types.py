@@ -639,3 +639,9 @@ def coerce_backtest_result(value: Any) -> BacktestRunResult:
         },
         backtest_overview=BacktestOverview.coerce(value.get("backtest_overview")),
     )
+
+
+# --- Training internals ---
+# `training.constants` and `training.domain_types` were thin re-export shims over
+# this module. `training.runtime` only exposed `MlProgressCallback` and
+# `_emit_progress`, which are defined above.

@@ -35,8 +35,8 @@
     --section-gap: clamp(16px, 1.4vw, 20px);
     --chart-height-lg: clamp(320px, 52vh, 420px);
     --chart-height-md: clamp(260px, 44vh, 360px);
-    --radius-xl: 30px;
-    --radius-lg: 22px;
+    --radius-xl: 24px;
+    --radius-lg: 18px;
     --radius-md: 16px;
     --radius-sm: 12px;
     --radius-control: 14px;

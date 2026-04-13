@@ -338,3 +338,25 @@ def _plotly_layout(yaxis_title: str, height: int = 340) -> Dict[str, Any]:
 
 def _build_empty_plotly(message: str) -> Dict[str, Any]:
     return build_empty_plotly_payload(message, annotation_color="#7b6a5a")
+
+
+def build_forecasting_forecast_chart(
+    daily_history: List[Dict[str, Any]],
+    forecast_rows: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return _build_forecast_chart(daily_history, forecast_rows)
+
+
+def build_forecasting_forecast_breakdown_chart(
+    forecast_rows: List[Dict[str, Any]],
+    recent_average: float,
+) -> Dict[str, Any]:
+    return _build_forecast_breakdown_chart(forecast_rows, recent_average)
+
+
+def build_forecasting_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return _build_weekday_chart(weekday_profile)
+
+
+def build_forecasting_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
+    return _build_geo_chart(geo_prediction)
