@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
@@ -152,7 +152,7 @@ class MapCreatorAnalyticsMixin:
                 build_circle_polygon=self._build_circle_polygon,
             )
             if risk_zones:
-                notes.append('РћСЃРЅРѕРІРЅС‹Рµ Р·РѕРЅС‹ СЂРёСЃРєР° РїРѕСЃС‚СЂРѕРµРЅС‹ РїРѕ С†РµРЅС‚СЂРѕРёРґР°Рј РїСЂРёРѕСЂРёС‚РµС‚РЅС‹С… С‚РµСЂСЂРёС‚РѕСЂРёР№, РїРѕС‚РѕРјСѓ С‡С‚Рѕ hotspot/DBSCAN РґР°Р»Рё СЃР»Р°Р±С‹Р№ СЃРёРіРЅР°Р».')
+                notes.append('Основные зоны риска построены по центроидам приоритетных территорий, потому что hotspot/DBSCAN дали слабый сигнал.')
                 priority_territories = build_priority_territories(
                     records,
                     risk_zones,

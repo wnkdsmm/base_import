@@ -11,7 +11,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     align-items: center;
     max-width: 100%;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 12px;
     font-weight: 700;
     color: #fffaf2;
@@ -44,7 +44,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 .forecast-load-status {
     margin-top: 14px;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: var(--radius-control);
     border: 1px solid rgba(58, 92, 132, 0.14);
     background: #f3f7fc;
     color: var(--muted);
@@ -288,27 +288,11 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     color: var(--accent);
 }
 
-.risk-badge.tone-high,
-.risk-badge.tone-fire {
-    background: var(--fire);
-}
-
-.risk-badge.tone-medium,
-.risk-badge.tone-sand {
-    background: var(--sand);
-    color: #24364f;
-}
-
-.risk-badge.tone-low,
-.risk-badge.tone-sky {
-    background: var(--sky);
-}
-
 .risk-score-bar {
     height: 10px;
     margin-top: 14px;
     overflow: hidden;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: rgba(188, 205, 235, 0.36);
 }
 
@@ -418,14 +402,14 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 .risk-guide-level {
     display: inline-flex;
     padding: 5px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 12px;
     font-weight: 700;
 }
 
 .risk-guide-card.tone-high {
     border-color: rgba(217, 93, 57, 0.18);
-    background: #ffeee7;
+    background: var(--tone-fire-soft);
 }
 
 .risk-guide-card.tone-high .risk-guide-level {
@@ -435,7 +419,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .risk-guide-card.tone-medium {
     border-color: rgba(228, 197, 147, 0.34);
-    background: #fff6e2;
+    background: var(--tone-sand-soft);
 }
 
 .risk-guide-card.tone-medium .risk-guide-level {
@@ -445,7 +429,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .risk-guide-card.tone-low {
     border-color: rgba(71, 120, 214, 0.18);
-    background: #edf6ff;
+    background: var(--tone-sky-soft);
 }
 
 .risk-guide-card.tone-low .risk-guide-level {
@@ -518,8 +502,8 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 .risk-territory-meta span {
     display: block;
     padding: 10px 12px;
-    border-radius: 14px;
-    border: 1px solid rgba(189, 205, 231, 0.42);
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line-soft);
     background: rgba(255, 255, 255, 0.64);
     color: var(--muted);
     line-height: 1.45;
@@ -570,11 +554,11 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     min-height: 100%;
     padding: 18px;
     border-radius: var(--radius-md);
-    border: 1px solid rgba(189, 205, 231, 0.42);
+    border: 1px solid var(--line-soft);
     background: var(--paper-strong);
     text-decoration: none;
     color: inherit;
-    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+    transition: var(--transition-interactive);
 }
 
 .workflow-card:hover,
@@ -607,7 +591,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     min-width: 34px;
     min-height: 34px;
     padding: 6px 12px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: rgba(34, 88, 140, 0.12);
     color: #20486a;
     font-size: 12px;
@@ -642,7 +626,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     gap: 10px;
     padding: 18px;
     border-radius: var(--radius-md);
-    border: 1px solid rgba(189, 205, 231, 0.42);
+    border: 1px solid var(--line-soft);
     background: var(--paper-strong);
 }
 
@@ -688,8 +672,8 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .quality-stat-card {
     padding: 14px 16px;
-    border-radius: 14px;
-    border: 1px solid rgba(189, 205, 231, 0.42);
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line-soft);
     background: rgba(255, 255, 255, 0.72);
 }
 
@@ -740,7 +724,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .workflow-card-scenario .workflow-step {
     background: rgba(71, 120, 214, 0.14);
-    color: #1d4ed8;
+    color: var(--accent-deep);
 }
 
 .workflow-card-ml {
@@ -750,7 +734,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .workflow-card-ml .workflow-step {
     background: rgba(47, 122, 95, 0.16);
-    color: #1f5d47;
+    color: var(--forest-deep);
 }
 
 .workflow-card-decision {
@@ -760,7 +744,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .workflow-card-decision .workflow-step {
     background: rgba(217, 93, 57, 0.14);
-    color: #9f2d1f;
+    color: var(--fire-deep);
 }
 
 @media (max-width: 1180px) {
@@ -777,7 +761,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .risk-component-card {
     padding: 14px;
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     border: 1px solid rgba(189, 205, 231, 0.48);
     background: var(--paper-strong);
 }
@@ -820,7 +804,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 .risk-component-bar {
     height: 8px;
     margin-top: 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     overflow: hidden;
     background: rgba(188, 205, 235, 0.32);
 }
@@ -861,8 +845,8 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 .risk-recommendation-item,
 .risk-weight-card {
     padding: 14px 16px;
-    border-radius: 16px;
-    border: 1px solid rgba(189, 205, 231, 0.42);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line-soft);
     background: rgba(246, 250, 255, 0.88);
 }
 
@@ -1004,7 +988,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     display: inline-flex;
     align-items: center;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 12px;
     color: #fffaf2;
     background: var(--sky);
@@ -1047,7 +1031,7 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
     justify-content: center;
     min-width: 152px;
     padding: 10px 14px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: rgba(9, 44, 74, 0.08);
     color: var(--accent-deep);
     font-size: 12px;

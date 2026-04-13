@@ -4,18 +4,12 @@ from tests.clustering_math_analysis_cases import (
     FeatureSelectionTests,
     WeightingStrategyTests,
 )
-from tests.clustering_math_quality_cases import (
-    NotesAndPayloadTests,
-    QualityAssessmentTests,
-    RenderConfigurationTests,
-)
+from tests.clustering_math_quality_cases import test_clustering_case
 
 __all__ = [
     "AggregationSmoothingTests",
     "DiagnosticsAndStabilityTests",
     "FeatureSelectionTests",
-    "NotesAndPayloadTests",
-    "QualityAssessmentTests",
-    "RenderConfigurationTests",
     "WeightingStrategyTests",
+    "test_clustering_case",
 ]

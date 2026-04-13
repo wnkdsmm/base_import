@@ -12,7 +12,7 @@ from .ml_model_types import (
     ML_PREDICTIVE_BLOCK_DESCRIPTION,
     MODEL_NAME,
 )
-from .presentation import (
+from .training.presentation import (
     _build_forecast_chart,
     _build_importance_chart,
     _build_notes,
@@ -20,7 +20,7 @@ from .presentation import (
     _build_summary,
     _empty_light_chart,
 )
-from .training_result import _empty_ml_result
+from .training.training_result import _empty_ml_result
 
 
 def _compact_ui_notes(items: List[Any], limit: int = 2) -> List[str]:

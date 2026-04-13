@@ -110,7 +110,7 @@ def _build_access_points_cache_key(
     feature_columns: List[str],
 ) -> Tuple[str, ...]:
     return (
-        "v5",
+        "v6",
         selected_table,
         *tuple(source_tables),
         _normalize_cache_value(district),

@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 from app.services.ml_model import core as ml_core
-from app.services.ml_model import training as ml_training
+from app.services.ml_model.training import training as ml_training
 from tests.mojibake_check import MOJIBAKE_PATTERN as SHARED_MOJIBAKE_PATTERN
 
 

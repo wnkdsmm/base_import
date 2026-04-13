@@ -1,4 +1,4 @@
-﻿Option Explicit
+Option Explicit
 
 Dim shell, fso, projectRoot, appHost, appPort, appUrl, readyUrl, serverCommand
 Set shell = CreateObject("WScript.Shell")

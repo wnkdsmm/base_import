@@ -3,8 +3,8 @@ from datetime import date, timedelta
 
 from app.services.forecasting.core import _build_feature_cards_with_quality
 from app.services.forecasting.data import _temperature_quality_from_daily_history
-from app.services.ml_model.presentation import _build_notes
-from app.services.ml_model.training import _train_ml_model
+from app.services.ml_model.training.presentation import _build_notes
+from app.services.ml_model.training.training import _train_ml_model
 from tests.mojibake_check import encode_as_mojibake
 
 

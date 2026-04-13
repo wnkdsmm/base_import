@@ -5,18 +5,13 @@
     var escapeHtml = shared.escapeHtml;
     var fetchJson = shared.fetchJson;
     var renderChart = shared.renderPlotlyFigure;
+    var renderListItems = shared.renderListItems;
+    var renderMetricCards = shared.renderMetricCards;
+    var setSectionHidden = shared.setSectionHidden;
     var setSelectOptions = shared.setSelectOptions;
     var setText = shared.setText;
 
     var clusteringJobPollTimer = createSingleTimer();
-
-    function setClusteringAsyncVisibility(visible) {
-        var asyncNode = byId('clusteringAsyncState');
-        if (!asyncNode) {
-            return;
-        }
-        asyncNode.classList.toggle('is-hidden', !visible);
-    }
 
     function syncClusteringAsyncContainer() {
         var errorNode = byId('clusteringErrorState');
@@ -24,7 +19,7 @@
         var hasVisibleError = Boolean(errorNode) && !errorNode.classList.contains('is-hidden');
         var hasVisibleRuntime = Boolean(runtimeNode) && !runtimeNode.classList.contains('is-hidden');
 
-        setClusteringAsyncVisibility(hasVisibleError || hasVisibleRuntime);
+        setSectionHidden('clusteringAsyncState', !(hasVisibleError || hasVisibleRuntime));
     }
 
     function hideClusteringError() {
@@ -154,27 +149,6 @@
             + '</article>';
     }
 
-    function renderMetricCards(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">' + escapeHtml(emptyMessage) + '</div>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
-            return ''
-                + '<article class="stat-card">'
-                + '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>'
-                + '<strong class="stat-value">' + escapeHtml(item.value || '-') + '</strong>'
-                + '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>'
-                + '</article>';
-        }).join('');
-    }
-
     function renderQualityTable(rows) {
         var container = byId('clusteringQualityTableShell');
         if (!container) {
@@ -200,27 +174,6 @@
                     + '<td data-label="Статус">' + escapeHtml(row.selection_label || '-') + '</td>'
                     + '</tr>';
             }).join('') + '</tbody></table>';
-    }
-
-    function renderNoticeList(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        var filteredItems;
-        if (!container) {
-            return;
-        }
-
-        filteredItems = Array.isArray(items) ? items.filter(function (item) {
-            return String(item || '').trim().length > 0;
-        }) : [];
-
-        if (!filteredItems.length) {
-            container.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
-            return;
-        }
-
-        container.innerHTML = filteredItems.map(function (item) {
-            return '<li>' + escapeHtml(item) + '</li>';
-        }).join('');
     }
 
     function renderDataTable(containerId, columns, rows, emptyMessage) {
@@ -312,7 +265,7 @@
             metaNode.textContent = '';
             logsNode.textContent = '';
             if (!errorNode || errorNode.classList.contains('is-hidden')) {
-                setClusteringAsyncVisibility(false);
+                setSectionHidden('clusteringAsyncState', true);
             }
             return;
         }
@@ -397,7 +350,7 @@
         renderMetricCards('clusteringQualityMetrics', quality.metric_cards || [], 'После расчета здесь появятся внутренние метрики качества кластеризации.');
         renderMetricCards('clusteringQualityMethodology', quality.methodology_items || [], 'Методология сравнения появится после расчета.');
         renderQualityTable(quality.comparison_rows || []);
-        renderNoticeList('clusteringQualityNotes', quality.dissertation_points || [], 'После расчета здесь появятся формулировки для раздела о качестве.');
+        renderListItems('clusteringQualityNotes', quality.dissertation_points || [], 'После расчета здесь появятся формулировки для раздела о качестве.', { filterEmpty: true });
 
         setText('clusterScatterTitle', charts.scatter ? charts.scatter.title : 'Кластеры территорий на двумерной проекции');
         setText('clusterDistributionTitle', charts.distribution ? charts.distribution.title : 'Размеры кластеров по числу территорий');
@@ -408,7 +361,7 @@
 
         renderDataTable('clusterCentroidTableShell', data.centroid_columns, data.centroid_rows, 'После расчета здесь появятся средние профили кластеров.');
         renderProfiles(data.cluster_profiles || []);
-        renderNoticeList('clusterNotesList', data.notes || [], 'После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.');
+        renderListItems('clusterNotesList', data.notes || [], 'После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.', { filterEmpty: true });
         renderDataTable('clusterRepresentativesTableShell', data.representative_columns, data.representative_rows, 'После расчета здесь появятся территории, ближайшие к центрам кластеров.');
         syncClusteringAsyncContainer();
     }

@@ -121,30 +121,42 @@ def _load_table_metadata(table_name: str) -> Dict[str, Any]:
     return {"table_name": table_name, "columns": columns, "resolved_columns": resolved_columns}
 
 
+def _optional_text_expression(column_name: Optional[str], fallback: str = "''") -> str:
+    if not column_name:
+        return fallback
+    return _text_expression(column_name)
+
+
+def _optional_numeric_expression(column_name: Optional[str], fallback: str = "NULL") -> str:
+    if not column_name:
+        return fallback
+    return _numeric_expression_for_column(column_name)
+
+
 def _build_source_sql(table_name: str, resolved_columns: Dict[str, Optional[str]]) -> str:
-    district_expr = _text_expression(resolved_columns["district"], fallback="''")
-    settlement_expr = _text_expression(resolved_columns["settlement"], fallback="''")
-    settlement_type_expr = _text_expression(resolved_columns["settlement_type"], fallback="''")
-    territory_expr = _text_expression(resolved_columns["territory_label"], fallback="''")
-    object_category_expr = _text_expression(resolved_columns["object_category"], fallback="''")
-    object_name_expr = _text_expression(resolved_columns["object_name"], fallback="''")
-    address_expr = _text_expression(resolved_columns["address"], fallback="''")
-    address_comment_expr = _text_expression(resolved_columns["address_comment"], fallback="''")
-    latitude_expr = _numeric_expression_for_column(resolved_columns["latitude"], fallback="NULL")
-    longitude_expr = _numeric_expression_for_column(resolved_columns["longitude"], fallback="NULL")
-    report_expr = _text_expression(resolved_columns["report_time"], fallback="''")
-    arrival_expr = _text_expression(resolved_columns["arrival_time"], fallback="''")
-    detection_expr = _text_expression(resolved_columns["detection_time"], fallback="''")
-    distance_expr = _numeric_expression_for_column(resolved_columns["distance_to_fire_station"], fallback="NULL")
-    water_supply_count_expr = _numeric_expression_for_column(resolved_columns["water_supply_count"], fallback="NULL")
-    water_supply_details_expr = _text_expression(resolved_columns["water_supply_details"], fallback="''")
-    consequence_expr = _text_expression(resolved_columns["consequence"], fallback="''")
-    deaths_expr = _numeric_expression_for_column(resolved_columns["deaths"], fallback="NULL")
-    injuries_expr = _numeric_expression_for_column(resolved_columns["injuries"], fallback="NULL")
-    casualty_flag_expr = _text_expression(resolved_columns["casualty_flag"], fallback="''")
-    destroyed_area_expr = _numeric_expression_for_column(resolved_columns["destroyed_area"], fallback="NULL")
-    destroyed_buildings_expr = _numeric_expression_for_column(resolved_columns["destroyed_buildings"], fallback="NULL")
-    registered_damage_expr = _numeric_expression_for_column(resolved_columns["registered_damage"], fallback="NULL")
+    district_expr = _optional_text_expression(resolved_columns["district"], fallback="''")
+    settlement_expr = _optional_text_expression(resolved_columns["settlement"], fallback="''")
+    settlement_type_expr = _optional_text_expression(resolved_columns["settlement_type"], fallback="''")
+    territory_expr = _optional_text_expression(resolved_columns["territory_label"], fallback="''")
+    object_category_expr = _optional_text_expression(resolved_columns["object_category"], fallback="''")
+    object_name_expr = _optional_text_expression(resolved_columns["object_name"], fallback="''")
+    address_expr = _optional_text_expression(resolved_columns["address"], fallback="''")
+    address_comment_expr = _optional_text_expression(resolved_columns["address_comment"], fallback="''")
+    latitude_expr = _optional_numeric_expression(resolved_columns["latitude"], fallback="NULL")
+    longitude_expr = _optional_numeric_expression(resolved_columns["longitude"], fallback="NULL")
+    report_expr = _optional_text_expression(resolved_columns["report_time"], fallback="''")
+    arrival_expr = _optional_text_expression(resolved_columns["arrival_time"], fallback="''")
+    detection_expr = _optional_text_expression(resolved_columns["detection_time"], fallback="''")
+    distance_expr = _optional_numeric_expression(resolved_columns["distance_to_fire_station"], fallback="NULL")
+    water_supply_count_expr = _optional_numeric_expression(resolved_columns["water_supply_count"], fallback="NULL")
+    water_supply_details_expr = _optional_text_expression(resolved_columns["water_supply_details"], fallback="''")
+    consequence_expr = _optional_text_expression(resolved_columns["consequence"], fallback="''")
+    deaths_expr = _optional_numeric_expression(resolved_columns["deaths"], fallback="NULL")
+    injuries_expr = _optional_numeric_expression(resolved_columns["injuries"], fallback="NULL")
+    casualty_flag_expr = _optional_text_expression(resolved_columns["casualty_flag"], fallback="''")
+    destroyed_area_expr = _optional_numeric_expression(resolved_columns["destroyed_area"], fallback="NULL")
+    destroyed_buildings_expr = _optional_numeric_expression(resolved_columns["destroyed_buildings"], fallback="NULL")
+    registered_damage_expr = _optional_numeric_expression(resolved_columns["registered_damage"], fallback="NULL")
     date_expr = _date_expression(DATE_COLUMN)
 
     return f"""
@@ -208,7 +220,7 @@ def _normalize_record(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     return {
         "district": district,
-        "territory_label": _pick_territory_label(district, territory_label, settlement),
+        "territory_label": _pick_territory_label(territory_label, district),
         "settlement": settlement,
         "settlement_type": settlement_type,
         "object_category": object_category,
@@ -305,7 +317,10 @@ def _summarize_consequences(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]
 
 
 def _summarize_water_supply(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-    flags = [_parse_water_supply_flag(record.get("water_supply_details")) for record in records]
+    flags = [
+        _parse_water_supply_flag(record.get("water_supply_count"), _clean_text(record.get("water_supply_details")))
+        for record in records
+    ]
     with_water_supply = sum(1 for flag in flags if flag is True)
     without_water_supply = sum(1 for flag in flags if flag is False)
     return {
@@ -318,7 +333,10 @@ def _summarize_response(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     response_minutes = [
         minutes
         for minutes in (
-            _calculate_response_minutes(record.get("report_time"), record.get("arrival_time"), record.get("detection_time"))
+            _calculate_response_minutes(
+                record.get("report_time") or record.get("detection_time"),
+                record.get("arrival_time"),
+            )
             for record in records
         )
         if minutes is not None
@@ -448,11 +466,13 @@ def _collect_access_point_metadata(source_tables: Sequence[str]) -> Tuple[List[D
 def _record_to_access_point_input(record: Dict[str, Any], *, source_table: str) -> Dict[str, Any]:
     event_date = record.get("event_date")
     response_minutes = _calculate_response_minutes(
-        record.get("report_time"),
+        record.get("report_time") or record.get("detection_time"),
         record.get("arrival_time"),
-        record.get("detection_time"),
     )
-    has_water_supply = _parse_water_supply_flag(record.get("water_supply_details"))
+    has_water_supply = _parse_water_supply_flag(
+        record.get("water_supply_count"),
+        _clean_text(record.get("water_supply_details")),
+    )
     deaths = int(record.get("deaths") or 0) if record.get("deaths") is not None else 0
     injuries = int(record.get("injuries") or 0) if record.get("injuries") is not None else 0
     return {

@@ -16,7 +16,7 @@
     gap: 16px;
     margin-top: 8px;
     padding: 22px;
-    border-radius: 24px;
+    border-radius: var(--radius-panel);
     border: 1px solid var(--line);
     background: var(--paper-strong);
 }
@@ -33,7 +33,7 @@
     gap: 12px;
     align-items: start;
     padding: 16px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--paper-strong);
     transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
@@ -129,7 +129,7 @@
 .typology-card,
 .incomplete-card {
     border: 1px solid rgba(148, 163, 184, 0.26);
-    border-radius: 20px;
+    border-radius: var(--radius-chip);
     background: var(--paper-strong);
     padding: 16px 18px;
     display: grid;
@@ -169,7 +169,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -184,7 +184,7 @@
 .point-score,
 .score-pill {
     padding: 6px 11px;
-    color: #0f172a;
+    color: var(--ink-strong);
     background: rgba(148, 163, 184, 0.14);
 }
 
@@ -200,7 +200,7 @@
 
 .score-pill.tone-watch,
 .point-card.tone-watch .point-score {
-    color: #0f766e;
+    color: var(--teal-deep);
 }
 
 .score-pill.tone-normal,
@@ -241,7 +241,7 @@
 
 .point-explanation {
     margin: 0;
-    color: #0f172a;
+    color: var(--ink-strong);
     line-height: 1.55;
 }
 
@@ -266,7 +266,7 @@
     align-content: start;
     gap: 6px;
     padding: 14px 16px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid rgba(148, 163, 184, 0.24);
     background: rgba(255, 255, 255, 0.86);
 }
@@ -309,7 +309,7 @@
     align-content: start;
     gap: 6px;
     padding: 14px 16px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid rgba(148, 163, 184, 0.24);
     background: rgba(255, 255, 255, 0.86);
 }
@@ -368,7 +368,7 @@
     .point-card,
     .typology-card,
     .incomplete-card {
-        border-radius: 18px;
+        border-radius: var(--radius-card);
         padding: 14px;
     }
 }

@@ -1,7 +1,7 @@
 import unittest
 from datetime import date
 
-from app.services.ml_model.presentation import _build_quality_assessment, _build_summary
+from app.services.ml_model.training.presentation import _build_quality_assessment, _build_summary
 
 class SummaryPresentationTests(unittest.TestCase):
     @staticmethod

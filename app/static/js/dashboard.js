@@ -5,6 +5,8 @@
     const escapeHtml = shared.escapeHtml;
     const fetchJson = shared.fetchJson;
     const getApiErrorMessage = shared.getApiErrorMessage;
+    const renderListItems = shared.renderListItems;
+    const renderPlotlyInContainer = shared.renderPlotlyInContainer;
     const setHref = shared.setHref;
     const setSelectOptions = shared.setSelectOptions;
     const setText = shared.setText;
@@ -31,49 +33,6 @@
         summaryNode.textContent = 'Сейчас на панели: таблица ' + getSelectedText(byId('tableFilter'), 'Все таблицы') +
             ' | год ' + getSelectedText(byId('yearFilter'), 'Все годы') +
             ' | разрез ' + getSelectedText(byId('groupColumnFilter'), 'Категория риска');
-    }
-
-    function renderChartFallback(chart, container) {
-        const message = chart && chart.empty_message
-            ? chart.empty_message
-            : 'Интерактивный график не загрузился.';
-        container.innerHTML = '<div class="chart-empty">' + escapeHtml(message) + '</div>';
-    }
-
-    function renderPlotlyChart(chart, containerId) {
-        const container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        const figure = chart && chart.plotly;
-        if (!figure || !window.Plotly) {
-            renderChartFallback(chart, container);
-            return;
-        }
-
-        const plotlyApi = window.Plotly;
-        const renderChart = typeof plotlyApi.newPlot === 'function' ? plotlyApi.newPlot.bind(plotlyApi) : plotlyApi.react.bind(plotlyApi);
-        const data = Array.isArray(figure.data) ? figure.data : [];
-        const layout = figure.layout || {};
-        const config = figure.config || { responsive: true };
-
-        try {
-            if (typeof plotlyApi.purge === 'function') {
-                plotlyApi.purge(container);
-            }
-            container.innerHTML = '';
-            const renderPromise = renderChart(container, data, layout, config);
-            if (renderPromise && typeof renderPromise.catch === 'function') {
-                renderPromise.catch(function (error) {
-                    console.error('Plotly render failed for', containerId, error);
-                    renderChartFallback(chart, container);
-                });
-            }
-        } catch (error) {
-            console.error('Plotly render failed for', containerId, error);
-            renderChartFallback(chart, container);
-        }
     }
 
     function renderRankingList(containerId, items, emptyMessage, accentClass) {
@@ -109,25 +68,7 @@
         }
 
         panel.classList.remove('is-hidden');
-        list.innerHTML = notes.map(function (note) {
-            return '<li>' + escapeHtml(note) + '</li>';
-        }).join('');
-    }
-
-    function renderSimpleNotes(containerId, notes, emptyMessage) {
-        const container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(notes) || !notes.length) {
-            container.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
-            return;
-        }
-
-        container.innerHTML = notes.map(function (note) {
-            return '<li>' + escapeHtml(note) + '</li>';
-        }).join('');
+        renderListItems('dashboardNotesList', notes, '');
     }
 
     function hideDashboardError() {
@@ -403,7 +344,7 @@
         renderManagementCards(brief.cards || management.brief_cards || []);
         renderManagementTerritories(management.territories || []);
         renderManagementActions(management.actions || []);
-        renderSimpleNotes('managementNotesList', brief.notes || management.notes || [], 'Ограничения и примечания к территориальному выводу появятся после загрузки данных.');
+        renderListItems('managementNotesList', brief.notes || management.notes || [], 'Ограничения и примечания к территориальному выводу появятся после загрузки данных.');
         updateDashboardBriefExport({
             table_name: filters.table_name || '',
             year: filters.year || 'all',
@@ -447,11 +388,11 @@
         setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
         setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Что показывает блок: преобладают ли небольшие или крупные пожары.');
 
-        renderPlotlyChart(charts.yearly_fires, 'yearlyFiresChart');
-        renderPlotlyChart(charts.distribution, 'distributionChart');
-        renderPlotlyChart(charts.yearly_area, 'yearlyAreaChart');
-        renderPlotlyChart(charts.monthly_profile, 'monthlyProfileChart');
-        renderPlotlyChart(charts.area_buckets, 'areaBucketsChart');
+        renderPlotlyInContainer(charts.yearly_fires, 'yearlyFiresChart');
+        renderPlotlyInContainer(charts.distribution, 'distributionChart');
+        renderPlotlyInContainer(charts.yearly_area, 'yearlyAreaChart');
+        renderPlotlyInContainer(charts.monthly_profile, 'monthlyProfileChart');
+        renderPlotlyInContainer(charts.area_buckets, 'areaBucketsChart');
 
         renderRankingList('topDistributionList', rankings.top_distribution, 'Нет данных по распределению.', 'ranking-row-fire');
         renderRankingList('topTablesList', rankings.top_tables, 'Нет таблиц в текущем фильтре.', 'ranking-row-table');

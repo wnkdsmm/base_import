@@ -28,13 +28,21 @@ DASHBOARD_ONLY_ASSETS = {
     "dashboard_css_version": "dashboard.css",
 }
 
-PAGE_MISC_ASSETS = {
-    "page_misc_css_version": "css/page-misc.css",
+COLUMN_SEARCH_ASSETS = {
+    "column_search_css_version": "column_search.css",
+}
+
+FIRE_MAP_ASSETS = {
+    "fire_map_css_version": "fire_map.css",
+}
+
+TABLES_ASSETS = {
+    "tables_css_version": "tables.css",
 }
 
 TABLE_VIEW_ASSETS = {
     "analytics_css_version": "analytics.css",
-    "page_misc_css_version": "css/page-misc.css",
+    "tables_css_version": "tables.css",
 }
 
 

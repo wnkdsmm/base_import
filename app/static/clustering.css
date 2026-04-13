@@ -17,7 +17,7 @@
     gap: 16px;
     margin-top: 8px;
     padding: 22px;
-    border-radius: 24px;
+    border-radius: var(--radius-panel);
     border: 1px solid var(--line);
     background: var(--surface-panel);
 }
@@ -34,10 +34,10 @@
     gap: 12px;
     align-items: start;
     padding: 16px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-panel);
-    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+    transition: var(--transition-interactive);
 }
 
 .cluster-feature-option:hover {
@@ -126,7 +126,7 @@
 
 .cluster-overview-card {
     padding: 16px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
 }
 
@@ -147,7 +147,7 @@
     justify-content: center;
     min-width: 76px;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: #f8fbff;
     font-size: 12px;
     background: var(--accent);

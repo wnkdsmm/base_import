@@ -1,0 +1,14 @@
+{
+  "before": {
+    "duplicate_selector_count": 30,
+    "identical_count": 21,
+    "different_count": 9,
+    "hardcoded_multi_count": 59
+  },
+  "after": {
+    "duplicate_selector_count": 8,
+    "identical_count": 0,
+    "different_count": 8,
+    "hardcoded_multi_count": 31
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "cases": [
+    {
+      "class": "ClassificationMetricsTests",
+      "method": "test_marks_single_class_probability_validation_as_unavailable"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_backtest_keeps_baseline_or_heuristic_when_ml_candidates_are_unavailable"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_backtest_tracks_partial_window_coverage_for_ml_candidates_without_dropping_baseline_windows"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_fit_count_model_marks_convergence_warning_as_unavailable"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_fit_negative_binomial_marks_warning_instability_as_unavailable"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_negative_binomial_requires_enough_history_and_clear_overdispersion"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_non_converged_candidate_is_excluded_from_selection_and_comparison"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_predict_count_from_design_sanitizes_non_finite_and_caps_overflow_outputs"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_run_backtest_sanitizes_non_finite_predictions_before_metrics_and_intervals"
+    },
+    {
+      "class": "CountModelConvergenceTests",
+      "method": "test_warning_unstable_negative_binomial_is_excluded_from_selection_and_comparison"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_backtest_artifacts_reuse_selected_predictions_for_rows_and_intervals"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_backtest_selection_reuses_validation_horizon_arrays"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_documents_heuristic_explainability_tie_break"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_prefers_heuristic_over_nearly_equal_ml_for_explainability"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_prefers_poisson_when_quality_is_within_tolerance"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_selection_details_do_not_emit_legacy_selection_text"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_selects_baseline_when_it_beats_all_candidates"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_selects_heuristic_when_it_beats_ml_candidates"
+    },
+    {
+      "class": "CountModelSelectionTests",
+      "method": "test_selects_poisson_as_working_method_when_ml_quality_is_within_tolerance"
+    },
+    {
+      "class": "CountPredictionStressTests",
+      "method": "test_future_forecast_rows_keep_plausible_spikes_after_zero_stretch_and_noisy_bursts"
+    },
+    {
+      "class": "CountPredictionStressTests",
+      "method": "test_run_backtest_keeps_large_sparse_candidate_predictions_finite_without_truncating_them_to_tiny_values"
+    },
+    {
+      "class": "CountPredictionStressTests",
+      "method": "test_sanitize_count_predictions_stays_finite_without_truncating_plausible_extremes_too_early"
+    },
+    {
+      "class": "CountPredictionStressTests",
+      "method": "test_sanitize_count_predictions_still_caps_only_numeric_explosions_on_extreme_series"
+    },
+    {
+      "class": "EventPayloadLabelTests",
+      "method": "test_event_payload_uses_unicode_labels_without_mojibake"
+    },
+    {
+      "class": "EventProbabilityExplanationTests",
+      "method": "test_all_positive_backtest_uses_single_class_explanation_in_payload"
+    },
+    {
+      "class": "EventSelectionTests",
+      "method": "test_keeps_heuristic_probability_when_classifier_is_worse"
+    },
+    {
+      "class": "EventSelectionTests",
+      "method": "test_marks_all_positive_backtest_as_invalid_probability_validation"
+    },
+    {
+      "class": "EventSelectionTests",
+      "method": "test_marks_saturated_event_rate_as_uninformative_even_when_both_classes_exist"
+    },
+    {
+      "class": "IntervalMetadataSyncTests",
+      "method": "test_monotonic_widening_remeasures_coverage_and_keeps_forecast_metadata_in_sync"
+    },
+    {
+      "class": "LeadTimeAwareTrainingTests",
+      "method": "test_lead_time_specific_calibration_is_wider_for_longer_horizons"
+    },
+    {
+      "class": "LeadTimeAwareTrainingTests",
+      "method": "test_run_backtest_exposes_horizon_specific_validation_for_7_14_30_days"
+    },
+    {
+      "class": "LeadTimeAwareTrainingTests",
+      "method": "test_train_ml_model_keeps_horizon_metadata_consistent_for_1_7_14_30_without_temperature"
+    },
+    {
+      "class": "PredictionIntervalBacktestIntegrationTests",
+      "method": "test_run_backtest_on_synthetic_history_reports_validated_coverage_without_in_sample_fallback"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_adaptive_bins_keep_non_negative_ordered_bounds_across_quiet_and_peak_predictions"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_adaptive_interval_uses_narrower_margin_for_low_count_bin_and_wider_for_peak_bin"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_conformal_interval_coverage_is_measured_only_on_later_windows"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_conformal_interval_hides_validated_coverage_when_windows_are_too_few"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_conformal_interval_is_non_negative_and_monotonic"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_forward_rolling_backtest_keeps_adaptive_low_and_peak_margins"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_interval_backtest_reuses_identical_prefix_calibrations"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_regime_shift_benchmark_prefers_forward_rolling_split_over_fixed_chrono_baseline"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_small_synthetic_series_marks_validated_coverage_as_unavailable"
+    },
+    {
+      "class": "PredictionIntervalCalibrationTests",
+      "method": "test_synthetic_series_with_quiet_periods_shift_and_spikes_keeps_validated_coverage_out_of_sample"
+    },
+    {
+      "class": "ProbabilityPayloadTests",
+      "method": "test_payload_keeps_saturated_probabilities_unclipped"
+    },
+    {
+      "class": "TemperatureBacktestLeakageTests",
+      "method": "test_backtest_coverage_metadata_is_remeasured_on_deployed_interval_evaluation_slice"
+    },
+    {
+      "class": "TemperatureBacktestLeakageTests",
+      "method": "test_backtest_prediction_intervals_are_non_negative_and_report_honest_coverage"
+    },
+    {
+      "class": "TemperatureBacktestLeakageTests",
+      "method": "test_future_temperatures_do_not_change_past_backtest_windows"
+    },
+    {
+      "class": "TrainingGuardrailTests",
+      "method": "test_train_ml_model_returns_not_ready_before_backtest_when_history_is_too_short"
+    }
+  ]
+}

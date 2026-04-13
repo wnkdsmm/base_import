@@ -1,0 +1,31 @@
+selector	type	action	status
+.chart-panel .panel-head	identical	removed from analytics.css; kept in shared-components.css	resolved
+.filter-hint	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.hidden-file-input	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.preview-table	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.preview-table td	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.preview-table th	equivalent split blocks	removed from page-misc.css; kept in shared-components.css	resolved
+.table-preview-wrap	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.table-scroll.is-dragging	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.table-stack-mobile td::before	identical	removed from page-misc.css; kept in shared-components.css	resolved
+:is(.data-table-shell, .table-scroll, .table-shell)	identical	removed from page-misc.css; kept in shared-components.css	resolved
+:is(.data-table-shell, .table-scroll, .table-shell) > table	identical	removed from page-misc.css; kept in shared-components.css	resolved
+:is(.data-table, .preview-table).table-sticky-first :is(th, td):first-child	identical	removed from page-misc.css; kept in shared-components.css	resolved
+:is(.data-table, .preview-table).table-sticky-first th:first-child	identical	removed from page-misc.css; kept in shared-components.css	resolved
+:is(.data-table, .preview-table).table-sticky-first td:first-child	identical	removed from page-misc.css; kept in shared-components.css	resolved
+:is(.data-table, .preview-table).table-sticky-first tbody tr:hover td:first-child	identical	removed from page-misc.css; kept in shared-components.css	resolved
+.risk-badge.tone-high	identical	moved to shared-components.css; removed from analytics.css and forecasting.css	resolved
+.risk-badge.tone-fire	identical	moved to shared-components.css; removed from analytics.css and forecasting.css	resolved
+.risk-badge.tone-medium	identical	moved to shared-components.css; removed from analytics.css and forecasting.css	resolved
+.risk-badge.tone-sand	identical	moved to shared-components.css; removed from analytics.css and forecasting.css	resolved
+.risk-badge.tone-low	identical	moved to shared-components.css; removed from analytics.css and forecasting.css	resolved
+.risk-badge.tone-sky	identical	moved to shared-components.css; removed from analytics.css and forecasting.css	resolved
+.stats-grid	identical	moved to shared-components.css; removed from dashboard.css and page-misc.css	resolved
+.chart-empty	different	kept as composition (shared color + analytics layout)	override_kept
+.mini-empty	different	kept as composition (shared color + analytics layout)	override_kept
+.notice-list	different	kept as composition (shared color + analytics spacing)	override_kept
+.ranking-meta	different	kept as composition (shared color + analytics align/weight/mobile)	override_kept
+.eyebrow	different	kept as composition (layout geometry + shared theme colors)	override_kept
+.sidebar :is(button, .sidebar-link)	different	kept as composition (layout behavior + shared sizing)	override_kept
+.stat-card	different	kept as cascade (shared base + dashboard page padding)	override_kept
+.table-scroll	different	kept as cascade: shared base + layout media override	override_kept

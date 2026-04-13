@@ -1,0 +1,2078 @@
+{
+  "border-radius|24px": {
+    "category": "border-radius",
+    "value": "24px",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/clustering.css",
+      "app/static/css/page-misc.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 4,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 14,
+        "selector": ".access-point-feature-picker",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/clustering.css",
+        "line": 15,
+        "selector": ".cluster-feature-picker",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 688,
+        "selector": ".map-error-page .map-error",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 292,
+        "selector": ".ml-chart-placeholder",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "border-radius|18px": {
+    "category": "border-radius",
+    "value": "18px",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/analytics.css",
+      "app/static/clustering.css",
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css",
+      "app/static/dashboard.css"
+    ],
+    "count": 21,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 30,
+        "selector": ".access-point-feature-option",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 264,
+        "selector": ".score-distribution-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 307,
+        "selector": ".reason-breakdown-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 10,
+        "selector": ".point-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 10,
+        "selector": ".typology-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 10,
+        "selector": ".incomplete-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 17,
+        "selector": ".analysis-status-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 17,
+        "selector": ".analysis-error-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 17,
+        "selector": ".analysis-runtime-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 357,
+        "selector": ".insight-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/clustering.css",
+        "line": 31,
+        "selector": ".cluster-feature-option",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/clustering.css",
+        "line": 127,
+        "selector": ".cluster-overview-card",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "border-radius|20px": {
+    "category": "border-radius",
+    "value": "20px",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 4,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 128,
+        "selector": ".point-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 128,
+        "selector": ".typology-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 128,
+        "selector": ".incomplete-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 250,
+        "selector": ".screen-guide-card",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "border-radius|999px": {
+    "category": "border-radius",
+    "value": "999px",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/analytics.css",
+      "app/static/clustering.css",
+      "app/static/css/layout.css",
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css",
+      "app/static/ml_model.css",
+      "app/static/profiling.css"
+    ],
+    "count": 33,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 165,
+        "selector": ".point-rank",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 165,
+        "selector": ".point-score",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 165,
+        "selector": ".point-chip",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 165,
+        "selector": ".score-pill",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 84,
+        "selector": ".analysis-step",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 244,
+        "selector": ".analysis-skeleton-line",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/clustering.css",
+        "line": 144,
+        "selector": ".cluster-badge",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 41,
+        "selector": ".brand-kicker",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 41,
+        "selector": ".eyebrow",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 6,
+        "selector": ".sidebar-toggle",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 68,
+        "selector": ".sidebar-dismiss",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 559,
+        "selector": ".column-group-count",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "color|#0f172a": {
+    "category": "color",
+    "value": "#0f172a",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/analytics.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 8,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 184,
+        "selector": ".point-score",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 184,
+        "selector": ".score-pill",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 242,
+        "selector": ".point-explanation",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 204,
+        "selector": ".analysis-job-log-output",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 220,
+        "selector": ".ml-job-runtime-head strong",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 231,
+        "selector": ".ml-job-log-output",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 345,
+        "selector": ".ml-interval-value",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 370,
+        "selector": ".ml-quality-extra h3",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#0f766e": {
+    "category": "color",
+    "value": "#0f766e",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/analytics.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 6,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 201,
+        "selector": ".score-pill.tone-watch",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 201,
+        "selector": ".point-card.tone-watch .point-score",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 109,
+        "selector": ".analysis-step.is-done",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 90,
+        "selector": ".ml-line-forecast",
+        "prop": "stroke"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 95,
+        "selector": ".ml-forecast-point",
+        "prop": "fill"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 190,
+        "selector": ".ml-risk-minimal",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#334155": {
+    "category": "color",
+    "value": "#334155",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 206,
+        "selector": ".score-pill.tone-normal",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/access_points.css",
+        "line": 206,
+        "selector": ".point-card.tone-normal .point-score",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 132,
+        "selector": ".ml-bar-meta",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#475569": {
+    "category": "color",
+    "value": "#475569",
+    "files": [
+      "app/static/access_points.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 6,
+    "examples": [
+      {
+        "file": "app/static/access_points.css",
+        "line": 237,
+        "selector": ".point-chip-soft",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 106,
+        "selector": ".ml-chart-legend-item",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 225,
+        "selector": ".ml-job-runtime-head span",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 225,
+        "selector": ".ml-job-backtest-meta",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 353,
+        "selector": ".ml-interval-meta",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 381,
+        "selector": ".ml-importance-note",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#edf8f2": {
+    "category": "color",
+    "value": "#edf8f2",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 33,
+        "selector": ".analysis-status-card.is-ready",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 33,
+        "selector": ".analysis-runtime-card.is-ready",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 60,
+        "selector": ".forecast-load-status.is-ready",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|rgba(255, 255, 255, 0.72)": {
+    "category": "color",
+    "value": "rgba(255, 255, 255, 0.72)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 84,
+        "selector": ".analysis-step",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 126,
+        "selector": ".analysis-status-line",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 689,
+        "selector": ".quality-stat-card",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|rgba(37, 99, 235, 0.12)": {
+    "category": "color",
+    "value": "rgba(37, 99, 235, 0.12)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/shared-components.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 103,
+        "selector": ".analysis-step.is-active",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 294,
+        "selector": ".clarity-note-label",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 185,
+        "selector": ".ml-risk-low",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#1d4ed8": {
+    "category": "color",
+    "value": "#1d4ed8",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 5,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 103,
+        "selector": ".analysis-step.is-active",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 674,
+        "selector": ".orientation-link.is-primary .orientation-kicker",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 683,
+        "selector": ".orientation-link.is-scenario .orientation-kicker",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 741,
+        "selector": ".workflow-card-scenario .workflow-step",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 185,
+        "selector": ".ml-risk-low",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|rgba(15, 118, 110, 0.12)": {
+    "category": "color",
+    "value": "rgba(15, 118, 110, 0.12)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 109,
+        "selector": ".analysis-step.is-done",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 190,
+        "selector": ".ml-risk-minimal",
+        "prop": "background"
+      }
+    ]
+  },
+  "border-radius|14px": {
+    "category": "border-radius",
+    "value": "14px",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/base.css",
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css",
+      "app/static/dashboard.css",
+      "app/static/forecasting.css",
+      "app/static/ml_model.css",
+      "app/static/profiling.css"
+    ],
+    "count": 24,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 126,
+        "selector": ".analysis-status-line",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 204,
+        "selector": ".analysis-job-log-output",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 401,
+        "selector": ".ranking-row",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 498,
+        "selector": ".table-page-link",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 498,
+        "selector": ".table-page-indicator",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/base.css",
+        "line": 82,
+        "selector": ".skip-link",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 88,
+        "selector": ".danger-action",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 115,
+        "selector": ".table-action-status",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 489,
+        "selector": ".column-search-status",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 354,
+        "selector": ".filter-field :is(select, input)",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 407,
+        "selector": ".primary-action",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 440,
+        "selector": ".filter-summary",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "color|1px solid rgba(58, 92, 132, 0.14)": {
+    "category": "color",
+    "value": "1px solid rgba(58, 92, 132, 0.14)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 126,
+        "selector": ".analysis-status-line",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 44,
+        "selector": ".forecast-load-status",
+        "prop": "border"
+      }
+    ]
+  },
+  "color|rgba(184, 129, 34, 0.18)": {
+    "category": "color",
+    "value": "rgba(184, 129, 34, 0.18)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 146,
+        "selector": ".analysis-status-line.is-pending",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 54,
+        "selector": ".forecast-load-status.is-pending",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|#8a5d00": {
+    "category": "color",
+    "value": "#8a5d00",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 146,
+        "selector": ".analysis-status-line.is-pending",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 54,
+        "selector": ".forecast-load-status.is-pending",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|rgba(47, 122, 95, 0.16)": {
+    "category": "color",
+    "value": "rgba(47, 122, 95, 0.16)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 152,
+        "selector": ".analysis-status-line.is-ready",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 60,
+        "selector": ".forecast-load-status.is-ready",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 751,
+        "selector": ".workflow-card-ml .workflow-step",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#2b6b55": {
+    "category": "color",
+    "value": "#2b6b55",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 152,
+        "selector": ".analysis-status-line.is-ready",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 60,
+        "selector": ".forecast-load-status.is-ready",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|rgba(186, 72, 44, 0.18)": {
+    "category": "color",
+    "value": "rgba(186, 72, 44, 0.18)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 158,
+        "selector": ".analysis-status-line.is-error",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 66,
+        "selector": ".forecast-load-status.is-error",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|#9a4029": {
+    "category": "color",
+    "value": "#9a4029",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 158,
+        "selector": ".analysis-status-line.is-error",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 66,
+        "selector": ".forecast-load-status.is-error",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#e2e8f0": {
+    "category": "color",
+    "value": "#e2e8f0",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/shared-components.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 204,
+        "selector": ".analysis-job-log-output",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 510,
+        "selector": ".secondary-action.is-disabled",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 231,
+        "selector": ".ml-job-log-output",
+        "prop": "color"
+      }
+    ]
+  },
+  "border-radius|16px": {
+    "category": "border-radius",
+    "value": "16px",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css",
+      "app/static/dashboard.css",
+      "app/static/forecasting.css",
+      "app/static/profiling.css"
+    ],
+    "count": 20,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 235,
+        "selector": ".analysis-skeleton-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 339,
+        "selector": ".chart-empty",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 339,
+        "selector": ".mini-empty",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 19,
+        "selector": ".forecast-table tbody tr",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 22,
+        "selector": ".table-link-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 521,
+        "selector": ".column-group-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 521,
+        "selector": ".column-match-card",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 91,
+        "selector": ".hero-context-note",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 19,
+        "selector": ":is(.data-table, .preview-table).table-stack-mobile tbody tr",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/dashboard.css",
+        "line": 384,
+        "selector": ".executive-action-item",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/dashboard.css",
+        "line": 447,
+        "selector": ".executive-confidence-inline",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 778,
+        "selector": ".risk-component-card",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "color|rgba(148, 163, 184, 0.2)": {
+    "category": "color",
+    "value": "rgba(148, 163, 184, 0.2)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/ml_model.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 244,
+        "selector": ".analysis-skeleton-line",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 267,
+        "selector": ".ml-skeleton-line",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/ml_model.css",
+        "line": 310,
+        "selector": ".ml-skeleton-table-cell",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|1px dashed rgba(46, 83, 140, 0.16)": {
+    "category": "color",
+    "value": "1px dashed rgba(46, 83, 140, 0.16)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/clustering.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 339,
+        "selector": ".chart-empty",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 339,
+        "selector": ".mini-empty",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/clustering.css",
+        "line": 81,
+        "selector": ".cluster-feature-help",
+        "prop": "border-top"
+      }
+    ]
+  },
+  "color|#ffeee7": {
+    "category": "color",
+    "value": "#ffeee7",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 371,
+        "selector": ".tone-fire",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 690,
+        "selector": ".tone-high",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 426,
+        "selector": ".risk-guide-card.tone-high",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#edf9f3": {
+    "category": "color",
+    "value": "#edf9f3",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/page-misc.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 375,
+        "selector": ".tone-area",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 662,
+        "selector": ".tone-forest",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 125,
+        "selector": ".table-action-status[data-tone=\"success\"]",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|rgba(236, 244, 255, 0.72)": {
+    "category": "color",
+    "value": "rgba(236, 244, 255, 0.72)",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 523,
+        "selector": ".table-page-link.is-disabled",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 384,
+        "selector": ".filter-field :is(select, input):disabled",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#edf6ff": {
+    "category": "color",
+    "value": "#edf6ff",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 658,
+        "selector": ".tone-sky",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 698,
+        "selector": ".tone-low",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 446,
+        "selector": ".risk-guide-card.tone-low",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#fff6e2": {
+    "category": "color",
+    "value": "#fff6e2",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 666,
+        "selector": ".tone-sand",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 694,
+        "selector": ".tone-medium",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 436,
+        "selector": ".risk-guide-card.tone-medium",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#24364f": {
+    "category": "color",
+    "value": "#24364f",
+    "files": [
+      "app/static/analytics.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 5,
+    "examples": [
+      {
+        "file": "app/static/analytics.css",
+        "line": 675,
+        "selector": ".risk-badge.tone-medium",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/analytics.css",
+        "line": 675,
+        "selector": ".risk-badge.tone-sand",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 296,
+        "selector": ".risk-badge.tone-medium",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 296,
+        "selector": ".risk-badge.tone-sand",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 441,
+        "selector": ".risk-guide-card.tone-medium .risk-guide-level",
+        "prop": "color"
+      }
+    ]
+  },
+  "transition|transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease": {
+    "category": "transition",
+    "value": "transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease",
+    "files": [
+      "app/static/clustering.css",
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 6,
+    "examples": [
+      {
+        "file": "app/static/clustering.css",
+        "line": 31,
+        "selector": ".cluster-feature-option",
+        "prop": "transition"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 22,
+        "selector": ".table-link-card",
+        "prop": "transition"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 239,
+        "selector": ".table-link-inline-action",
+        "prop": "transition"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 613,
+        "selector": ".orientation-link",
+        "prop": "transition"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 565,
+        "selector": ".workflow-card",
+        "prop": "transition"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 565,
+        "selector": ".verification-card",
+        "prop": "transition"
+      }
+    ]
+  },
+  "color|#f8fbff": {
+    "category": "color",
+    "value": "#f8fbff",
+    "files": [
+      "app/static/clustering.css",
+      "app/static/css/layout.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/clustering.css",
+        "line": 144,
+        "selector": ".cluster-badge",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 68,
+        "selector": ".sidebar-dismiss",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 36,
+        "selector": ".status-line strong",
+        "prop": "color"
+      }
+    ]
+  },
+  "z-index|12": {
+    "category": "z-index",
+    "value": "12",
+    "files": [
+      "app/static/css/base.css",
+      "app/static/css/layout.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/base.css",
+        "line": 82,
+        "selector": ".skip-link",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 6,
+        "selector": ".sidebar-toggle",
+        "prop": "z-index"
+      }
+    ]
+  },
+  "color|#fffdf8": {
+    "category": "color",
+    "value": "#fffdf8",
+    "files": [
+      "app/static/css/base.css",
+      "app/static/css/layout.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 4,
+    "examples": [
+      {
+        "file": "app/static/css/base.css",
+        "line": 82,
+        "selector": ".skip-link",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 6,
+        "selector": ".sidebar-toggle",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 488,
+        "selector": ".sidebar :is(button, .sidebar-link)",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 488,
+        "selector": ".secondary-action",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#f4f8ff": {
+    "category": "color",
+    "value": "#f4f8ff",
+    "files": [
+      "app/static/css/layout.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/layout.css",
+        "line": 2,
+        "selector": ".sidebar",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 197,
+        "selector": ".trend-flat",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#d8e5fb": {
+    "category": "color",
+    "value": "#d8e5fb",
+    "files": [
+      "app/static/css/layout.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/layout.css",
+        "line": 64,
+        "selector": ".brand-block p",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 19,
+        "selector": ".status-line",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|#ffffff": {
+    "category": "color",
+    "value": "#ffffff",
+    "files": [
+      "app/static/css/layout.css",
+      "app/static/css/shared-components.css",
+      "app/static/profiling.css"
+    ],
+    "count": 4,
+    "examples": [
+      {
+        "file": "app/static/css/layout.css",
+        "line": 99,
+        "selector": ".sidebar :is(button, .sidebar-link).is-active",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/layout.css",
+        "line": 99,
+        "selector": ".sidebar :is(button, .sidebar-link)[aria-current=\"page\"]",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 394,
+        "selector": ".filter-field select option",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/profiling.css",
+        "line": 368,
+        "selector": ".table-select:focus",
+        "prop": "background"
+      }
+    ]
+  },
+  "transition|transform 0.18s ease, background-color 0.18s ease, opacity 0.18s ease": {
+    "category": "transition",
+    "value": "transform 0.18s ease, background-color 0.18s ease, opacity 0.18s ease",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 88,
+        "selector": ".danger-action",
+        "prop": "transition"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 407,
+        "selector": ".primary-action",
+        "prop": "transition"
+      }
+    ]
+  },
+  "color|#eef5ff": {
+    "category": "color",
+    "value": "#eef5ff",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 5,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 115,
+        "selector": ".table-action-status",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 135,
+        "selector": ".table-action-status[data-tone=\"info\"]",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 160,
+        "selector": ".table-selection-button",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 189,
+        "selector": ".trend-up",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 440,
+        "selector": ".filter-summary",
+        "prop": "background"
+      }
+    ]
+  },
+  "border-radius|12px": {
+    "category": "border-radius",
+    "value": "12px",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/profiling.css"
+    ],
+    "count": 7,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 160,
+        "selector": ".table-selection-button",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 239,
+        "selector": ".table-link-inline-action",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 461,
+        "selector": ".column-search-control select",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 461,
+        "selector": ".column-search-control input",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 595,
+        "selector": ".column-search-button-compact",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/profiling.css",
+        "line": 375,
+        "selector": ".selection-note",
+        "prop": "border-radius"
+      },
+      {
+        "file": "app/static/profiling.css",
+        "line": 407,
+        "selector": ".status-banner",
+        "prop": "border-radius"
+      }
+    ]
+  },
+  "color|rgba(37, 99, 235, 0.24)": {
+    "category": "color",
+    "value": "rgba(37, 99, 235, 0.24)",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 175,
+        "selector": ".table-selection-button:hover",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 254,
+        "selector": ".table-link-inline-action:hover",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 379,
+        "selector": ".filter-field :is(select, input):hover",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "z-index|1": {
+    "category": "z-index",
+    "value": "1",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 6,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 345,
+        "selector": ".data-table-panel .data-table th",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 389,
+        "selector": ".preview-table th",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 408,
+        "selector": ":is(.data-table, .preview-table).table-sticky-first :is(th, td):first-child",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 481,
+        "selector": ".data-table th",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 553,
+        "selector": ".preview-table th",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 572,
+        "selector": ":is(.data-table, .preview-table).table-sticky-first :is(th, td):first-child",
+        "prop": "z-index"
+      }
+    ]
+  },
+  "z-index|2": {
+    "category": "z-index",
+    "value": "2",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 414,
+        "selector": ":is(.data-table, .preview-table).table-sticky-first th:first-child",
+        "prop": "z-index"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 578,
+        "selector": ":is(.data-table, .preview-table).table-sticky-first th:first-child",
+        "prop": "z-index"
+      }
+    ]
+  },
+  "color|#edf5ff": {
+    "category": "color",
+    "value": "#edf5ff",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/css/shared-components.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 423,
+        "selector": ":is(.data-table, .preview-table).table-sticky-first tbody tr:hover td:first-child",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 587,
+        "selector": ":is(.data-table, .preview-table).table-sticky-first tbody tr:hover td:first-child",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|rgba(217, 93, 57, 0.28)": {
+    "category": "color",
+    "value": "rgba(217, 93, 57, 0.28)",
+    "files": [
+      "app/static/css/page-misc.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/css/page-misc.css",
+        "line": 498,
+        "selector": ".column-search-status.is-error",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 670,
+        "selector": ".quality-score-card.tone-fire",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 985,
+        "selector": ".forecast-feature-card.status-missing",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|1px solid rgba(189, 205, 231, 0.42)": {
+    "category": "color",
+    "value": "1px solid rgba(189, 205, 231, 0.42)",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/dashboard.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 9,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 613,
+        "selector": ".orientation-link",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/dashboard.css",
+        "line": 384,
+        "selector": ".executive-action-item",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 518,
+        "selector": ".risk-territory-meta span",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 565,
+        "selector": ".workflow-card",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 565,
+        "selector": ".verification-card",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 638,
+        "selector": ".quality-score-card",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 689,
+        "selector": ".quality-stat-card",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 861,
+        "selector": ".risk-recommendation-item",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 861,
+        "selector": ".risk-weight-card",
+        "prop": "border"
+      }
+    ]
+  },
+  "color|rgba(71, 120, 214, 0.32)": {
+    "category": "color",
+    "value": "rgba(71, 120, 214, 0.32)",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 6,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 627,
+        "selector": ".orientation-link:hover",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 627,
+        "selector": ".orientation-link:focus-visible",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 580,
+        "selector": ".workflow-card:hover",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 580,
+        "selector": ".workflow-card:focus-visible",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 580,
+        "selector": ".verification-card:hover",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 580,
+        "selector": ".verification-card:focus-visible",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|#20486a": {
+    "category": "color",
+    "value": "#20486a",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 653,
+        "selector": ".orientation-kicker",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 602,
+        "selector": ".workflow-step",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 602,
+        "selector": ".verification-kicker",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|rgba(71, 120, 214, 0.22)": {
+    "category": "color",
+    "value": "rgba(71, 120, 214, 0.22)",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 679,
+        "selector": ".orientation-link.is-scenario",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 737,
+        "selector": ".workflow-card-scenario",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|rgba(47, 122, 95, 0.24)": {
+    "category": "color",
+    "value": "rgba(47, 122, 95, 0.24)",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 688,
+        "selector": ".orientation-link.is-ml",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 746,
+        "selector": ".workflow-card-ml",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|#eef8f2": {
+    "category": "color",
+    "value": "#eef8f2",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 688,
+        "selector": ".orientation-link.is-ml",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 746,
+        "selector": ".workflow-card-ml",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#1f5d47": {
+    "category": "color",
+    "value": "#1f5d47",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 693,
+        "selector": ".orientation-link.is-ml .orientation-kicker",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 751,
+        "selector": ".workflow-card-ml .workflow-step",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|rgba(217, 93, 57, 0.2)": {
+    "category": "color",
+    "value": "rgba(217, 93, 57, 0.2)",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 698,
+        "selector": ".orientation-link.is-decision",
+        "prop": "border-color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 756,
+        "selector": ".workflow-card-decision",
+        "prop": "border-color"
+      }
+    ]
+  },
+  "color|#fff2ee": {
+    "category": "color",
+    "value": "#fff2ee",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 698,
+        "selector": ".orientation-link.is-decision",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 756,
+        "selector": ".workflow-card-decision",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|#9f2d1f": {
+    "category": "color",
+    "value": "#9f2d1f",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 703,
+        "selector": ".orientation-link.is-decision .orientation-kicker",
+        "prop": "color"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 761,
+        "selector": ".workflow-card-decision .workflow-step",
+        "prop": "color"
+      }
+    ]
+  },
+  "color|transparent": {
+    "category": "color",
+    "value": "transparent",
+    "files": [
+      "app/static/css/shared-components.css",
+      "app/static/profiling.css"
+    ],
+    "count": 4,
+    "examples": [
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 2,
+        "selector": ":is(.data-table, .preview-table).table-stack-mobile",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/css/shared-components.css",
+        "line": 28,
+        "selector": ":is(.data-table, .preview-table).table-stack-mobile td",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/profiling.css",
+        "line": 2,
+        "selector": ".details-table.table-stack-mobile",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/profiling.css",
+        "line": 27,
+        "selector": ".details-table.table-stack-mobile td",
+        "prop": "background"
+      }
+    ]
+  },
+  "color|1px solid rgba(71, 120, 214, 0.14)": {
+    "category": "color",
+    "value": "1px solid rgba(71, 120, 214, 0.14)",
+    "files": [
+      "app/static/dashboard.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 2,
+    "examples": [
+      {
+        "file": "app/static/dashboard.css",
+        "line": 273,
+        "selector": ".executive-territory-action",
+        "prop": "border"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 483,
+        "selector": ".risk-territory-callout",
+        "prop": "border"
+      }
+    ]
+  },
+  "color|#f0f6ff": {
+    "category": "color",
+    "value": "#f0f6ff",
+    "files": [
+      "app/static/dashboard.css",
+      "app/static/forecasting.css"
+    ],
+    "count": 3,
+    "examples": [
+      {
+        "file": "app/static/dashboard.css",
+        "line": 273,
+        "selector": ".executive-territory-action",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 84,
+        "selector": ".risk-lead",
+        "prop": "background"
+      },
+      {
+        "file": "app/static/forecasting.css",
+        "line": 483,
+        "selector": ".risk-territory-callout",
+        "prop": "background"
+      }
+    ]
+  }
+}

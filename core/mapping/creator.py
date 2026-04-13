@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -18,42 +18,42 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTemplateMixin, MapCreatorExportMixin):
-    """РЎРѕР·РґР°РЅРёРµ РёРЅС‚РµСЂР°РєС‚РёРІРЅРѕР№ РєР°СЂС‚С‹ СЃ С„РёР»СЊС‚СЂР°РјРё"""
+    """Создание интерактивной карты с фильтрами"""
 
     CATEGORY_STYLES = {
         "deaths": MarkerStyle(
             color="rgba(255, 0, 0, 0.8)",
             stroke="darkred",
-            icon="рџ”ґ",
-            label="Р•СЃС‚СЊ РїРѕРіРёР±С€РёРµ",
+            icon="🔴",
+            label="Есть погибшие",
             radius=8
         ),
         "injured": MarkerStyle(
             color="rgba(255, 165, 0, 0.8)",
             stroke="orange",
-            icon="рџџ ",
-            label="Р•СЃС‚СЊ С‚СЂР°РІРјРёСЂРѕРІР°РЅРЅС‹Рµ",
+            icon="🟠",
+            label="Есть травмированные",
             radius=8
         ),
         "children": MarkerStyle(
             color="rgba(173, 216, 230, 0.8)",
             stroke="blue",
-            icon="рџ”µ",
-            label="Р•СЃС‚СЊ РґРµС‚Рё",
+            icon="🔵",
+            label="Есть дети",
             radius=8
         ),
         "evacuated": MarkerStyle(
             color="rgba(0, 255, 0, 0.6)",
             stroke="green",
-            icon="рџџў",
-            label="Р•СЃС‚СЊ СЌРІР°РєСѓРёСЂРѕРІР°РЅРЅС‹Рµ",
+            icon="🟢",
+            label="Есть эвакуированные",
             radius=8
         ),
         "other": MarkerStyle(
             color="rgba(128, 128, 128, 0.5)",
             stroke="gray",
-            icon="вљЄ",
-            label="Р”СЂСѓРіРёРµ РїРѕР¶Р°СЂС‹",
+            icon="⚪",
+            label="Другие пожары",
             radius=6
         )
     }
@@ -69,22 +69,22 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         self.cleaner = cleaner or DataCleaner()
 
     def _prepare_table_data(self, df: pd.DataFrame, table_name: str) -> Optional[Dict]:
-        """РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµС‚ РґР°РЅРЅС‹Рµ РѕРґРЅРѕР№ С‚Р°Р±Р»РёС†С‹"""
+        """Подготавливает данные одной таблицы"""
         lat_col = self.finder.find(df, self.config.lat_names)
         lon_col = self.finder.find(df, self.config.lon_names)
         
         if not lat_col or not lon_col:
-            logger.warning(f"РўР°Р±Р»РёС†Р° {table_name}: РЅРµ РЅР°Р№РґРµРЅС‹ РєРѕР»РѕРЅРєРё РєРѕРѕСЂРґРёРЅР°С‚")
+            logger.warning(f"Таблица {table_name}: не найдены колонки координат")
             return None
         
         source_record_count = len(df)
         df = self.cleaner.clean_coordinates(df, lat_col, lon_col)
         
         if len(df) > self.config.max_records_per_table:
-            logger.info(f"РўР°Р±Р»РёС†Р° {table_name}: РѕРіСЂР°РЅРёС‡РµРЅРёРµ {self.config.max_records_per_table} Р·Р°РїРёСЃРµР№")
+            logger.info(f"Таблица {table_name}: ограничение {self.config.max_records_per_table} записей")
             df = df.head(self.config.max_records_per_table)
 
-        # РџРѕРёСЃРє РІСЃРµС… РЅРµРѕР±С…РѕРґРёРјС‹С… РєРѕР»РѕРЅРѕРє
+        # Поиск всех необходимых колонок
         column_names = {
             'date': self.config.date_names,
             'address': self.config.address_names,
@@ -182,10 +182,10 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         ]
 
         if not features:
-            logger.warning(f"РўР°Р±Р»РёС†Р° {table_name}: РЅРµС‚ РІР°Р»РёРґРЅС‹С… С‚РѕС‡РµРє")
+            logger.warning(f"Таблица {table_name}: нет валидных точек")
             return None
         
-        # Р Р°СЃС‡РµС‚ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ РІРёРґР° РєР°СЂС‚С‹
+        # Расчет стартового вида карты
         center, initial_zoom = self._calculate_initial_view(features)
 
         return {
@@ -204,9 +204,9 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
     # CREATE MAP
     # =====================================================
     def create_map(self, tables_data: Dict[str, pd.DataFrame]) -> Optional[Path]:
-        """РЎРѕР·РґР°РµС‚ HTML-РєР°СЂС‚Сѓ СЃ РІРєР»Р°РґРєР°РјРё РґР»СЏ РІСЃРµС… С‚Р°Р±Р»РёС†"""
+        """Создает HTML-карту с вкладками для всех таблиц"""
         
-        # РџРѕРґРіРѕС‚РѕРІРєР° РґР°РЅРЅС‹С… РґР»СЏ РІСЃРµС… С‚Р°Р±Р»РёС†
+        # Подготовка данных для всех таблиц
         prepared_tables = []
         total_categories = {cat: 0 for cat in self.CATEGORY_STYLES}
         
@@ -221,10 +221,10 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
                     total_categories[cat] += count
         
         if not prepared_tables:
-            logger.error("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ")
+            logger.error("Нет данных для отображения")
             return None
         
-        # Р“РµРЅРµСЂР°С†РёСЏ HTML
+        # Генерация HTML
         html_content = self._generate_html(prepared_tables, total_categories)
         
         output_file = self.config.output_dir / "fires_map.html"
@@ -239,7 +239,7 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         analysis_md_file = self.config.output_dir / "fires_map_analysis.md"
         analysis_md_file.write_text(self._build_analysis_markdown(prepared_tables), encoding="utf-8")
         
-        logger.info(f"РљР°СЂС‚Р° СЃРѕС…СЂР°РЅРµРЅР°: {output_file}")
+        logger.info(f"Карта сохранена: {output_file}")
         logger.info(f"Spatial analytics JSON: {analysis_json_file}")
         logger.info(f"Spatial analytics Markdown: {analysis_md_file}")
         return output_file

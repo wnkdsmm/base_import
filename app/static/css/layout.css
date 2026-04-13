@@ -43,7 +43,7 @@
     display: inline-block;
     margin-bottom: 10px;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     letter-spacing: 0.08em;
     font-size: 12px;
     text-transform: uppercase;
@@ -158,15 +158,15 @@
         position: fixed;
         top: 16px;
         left: 24px;
-        z-index: 12;
+        z-index: var(--z-overlay);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-height: 48px;
         padding: 0 16px;
         border: 0;
-        border-radius: 999px;
-        color: #fffdf8;
+        border-radius: var(--radius-pill);
+        color: var(--text-inverse-soft);
         background: var(--accent);
         cursor: pointer;
         text-decoration: none;
@@ -222,7 +222,7 @@
         justify-content: center;
         min-height: 40px;
         padding: 0 14px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 1px solid rgba(219, 234, 254, 0.22);
         color: #f8fbff;
         background: rgba(255, 255, 255, 0.08);

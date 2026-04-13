@@ -6,6 +6,7 @@
     var byId = shared.byId;
     var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
+    var renderMetricCards = shared.renderMetricCards;
     var runProgressSequence = shared.runProgressSequence;
     var setHref = shared.setHref;
     var setSectionHidden = shared.setSectionHidden;
@@ -129,27 +130,6 @@
             + '<strong class="stat-value">' + escapeHtml(summary.elevated_risk_days_display || '0') + '</strong>'
             + '<span class="stat-foot">Количество дней, где риск-индекс не ниже 75/100.</span>'
             + '</article>';
-    }
-
-    function renderMetricCards(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">' + escapeHtml(emptyMessage) + '</div>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
-            return ''
-                + '<article class="stat-card">'
-                + '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>'
-                + '<strong class="stat-value">' + escapeHtml(item.value || '-') + '</strong>'
-                + '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>'
-                + '</article>';
-        }).join('');
     }
 
     function renderOptionalMetricCards(sectionId, containerId, items, emptyMessage) {

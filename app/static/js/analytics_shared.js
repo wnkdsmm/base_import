@@ -131,6 +131,104 @@
         return true;
     }
 
+    function renderPlotlyInContainer(chart, containerId, options) {
+        var container = byId(containerId);
+        var settings = options || {};
+        var emptyClass = settings.emptyClass || 'chart-empty';
+        var defaultMessage = settings.emptyMessage || 'Interactive chart is unavailable.';
+
+        if (!container) {
+            return false;
+        }
+
+        var figure = chart && chart.plotly;
+        if (!figure || !window.Plotly) {
+            container.innerHTML = '<div class="' + escapeHtml(emptyClass) + '">'
+                + escapeHtml(chart && chart.empty_message ? chart.empty_message : defaultMessage)
+                + '</div>';
+            return false;
+        }
+
+        var plotlyApi = window.Plotly;
+        var renderChart = typeof plotlyApi.newPlot === 'function'
+            ? plotlyApi.newPlot.bind(plotlyApi)
+            : plotlyApi.react.bind(plotlyApi);
+        var data = Array.isArray(figure.data) ? figure.data : [];
+        var layout = figure.layout || {};
+        var config = figure.config || { responsive: true };
+
+        try {
+            if (typeof plotlyApi.purge === 'function') {
+                plotlyApi.purge(container);
+            }
+            container.innerHTML = '';
+            var renderPromise = renderChart(container, data, layout, config);
+            if (renderPromise && typeof renderPromise.catch === 'function') {
+                renderPromise.catch(function () {
+                    container.innerHTML = '<div class="' + escapeHtml(emptyClass) + '">'
+                        + escapeHtml(chart && chart.empty_message ? chart.empty_message : defaultMessage)
+                        + '</div>';
+                });
+            }
+        } catch (error) {
+            container.innerHTML = '<div class="' + escapeHtml(emptyClass) + '">'
+                + escapeHtml(chart && chart.empty_message ? chart.empty_message : defaultMessage)
+                + '</div>';
+            return false;
+        }
+
+        return true;
+    }
+
+    function renderMetricCards(containerId, items, emptyMessage) {
+        var container = byId(containerId);
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = '<div class="mini-empty">' + escapeHtml(emptyMessage) + '</div>';
+            return;
+        }
+
+        container.innerHTML = items.map(function (item) {
+            return ''
+                + '<article class="stat-card">'
+                + '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>'
+                + '<strong class="stat-value">' + escapeHtml(item.value || '-') + '</strong>'
+                + '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>'
+                + '</article>';
+        }).join('');
+    }
+
+    function renderListItems(containerId, items, emptyMessage, options) {
+        var container = byId(containerId);
+        var settings = options || {};
+        var safeItems = Array.isArray(items) ? items : [];
+        if (!container) {
+            return false;
+        }
+
+        if (settings.filterEmpty) {
+            safeItems = safeItems.filter(function (item) {
+                return String(item == null ? '' : item).trim().length > 0;
+            });
+        }
+        if (settings.limit && settings.limit > 0) {
+            safeItems = safeItems.slice(0, settings.limit);
+        }
+
+        if (!safeItems.length) {
+            container.innerHTML = '<li>' + escapeHtml(emptyMessage || '') + '</li>';
+            return false;
+        }
+
+        container.innerHTML = safeItems.map(function (item) {
+            return '<li>' + escapeHtml(item) + '</li>';
+        }).join('');
+        return true;
+    }
+
     function applyToneClass(node, tone) {
         if (!node) {
             return;
@@ -300,7 +398,10 @@
         getErrorMessage: getErrorMessage,
         normalizePercent: normalizePercent,
         normalizeCssColor: normalizeCssColor,
+        renderListItems: renderListItems,
+        renderMetricCards: renderMetricCards,
         renderPlotlyFigure: renderPlotlyFigure,
+        renderPlotlyInContainer: renderPlotlyInContainer,
         runProgressSequence: runProgressSequence,
         setHref: setHref,
         setSectionHidden: setSectionHidden,

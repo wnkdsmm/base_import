@@ -1,7 +1,7 @@
 from datetime import date
 
 import app.services.forecasting.sql as forecasting_sql
-from app.services.ml_model.training_result import _empty_ml_result
+from app.services.ml_model.training.training_result import _empty_ml_result
 from tests.forecasting_sql_support import (
     ForecastingSqlSupport,
     forecasting_data,

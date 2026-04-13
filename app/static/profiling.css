@@ -140,7 +140,7 @@
 .info-note-card {
     padding: 18px;
     border: 1px solid var(--profiling-border);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: var(--profiling-surface);
 }
 
@@ -199,7 +199,7 @@
 .mandatory-card {
     padding: 16px;
     border: 1px solid var(--profiling-border);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: var(--profiling-surface);
 }
 
@@ -283,7 +283,7 @@
     min-height: 116px;
     padding: 18px 18px;
     border: 1px solid var(--profiling-border);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: var(--profiling-surface-strong);
     grid-template-columns: minmax(0, 1fr) minmax(5.75rem, var(--threshold-control-width));
     grid-template-areas:
@@ -351,7 +351,7 @@
     min-height: 54px;
     padding: 12px 16px;
     border: 1px solid var(--profiling-border);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: var(--profiling-surface-strong);
     color: var(--ink);
     font-size: 17px;
@@ -375,7 +375,7 @@
 .selection-note {
     margin-top: 12px;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: var(--radius-sm);
     background: var(--profiling-accent-soft);
     color: var(--accent-deep);
     font-weight: 600;
@@ -408,7 +408,7 @@
     margin-top: 16px;
     padding: 14px 18px;
     border: 1px solid transparent;
-    border-radius: 12px;
+    border-radius: var(--radius-sm);
     line-height: 1.5;
     font-size: 15px;
     overflow-wrap: anywhere;
@@ -447,7 +447,7 @@
 .log-run-card {
     padding: 12px 14px;
     border: 1px solid var(--profiling-border);
-    border-radius: 14px;
+    border-radius: var(--radius-control);
     background: var(--profiling-surface-strong);
 }
 
@@ -534,7 +534,7 @@
     width: 100%;
     padding: 13px 14px;
     border: 1px solid var(--profiling-border);
-    border-radius: 14px;
+    border-radius: var(--radius-control);
     background: var(--profiling-surface);
 }
 
@@ -561,7 +561,7 @@
     align-items: center;
     max-width: 100%;
     padding: 8px 12px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--profiling-accent-soft);
     color: var(--accent-deep);
     font-size: 13px;
@@ -633,7 +633,7 @@
     max-width: 100%;
     overflow: auto;
     border: 1px solid var(--profiling-border);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
 }
 
 .details-table {
@@ -677,7 +677,7 @@
     margin-top: 16px;
     padding: 18px 20px;
     border: 1px solid var(--accent-border);
-    border-radius: 14px;
+    border-radius: var(--radius-control);
     background: rgba(239, 246, 255, 0.94);
     color: var(--accent-deep);
 }
@@ -713,7 +713,7 @@
         gap: 10px;
         padding: 14px;
         border: 1px solid var(--profiling-border);
-        border-radius: 16px;
+        border-radius: var(--radius-md);
         background: var(--profiling-surface-strong);
     }
 

@@ -1,11 +1,4 @@
 /* Dashboard */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
 .stat-card {
     padding: 20px;
 }
@@ -70,7 +63,7 @@
 
 .dashboard-overview-column .filters-grid-dashboard .filter-actions {
     padding: 14px 14px 12px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-panel);
 }
@@ -189,7 +182,7 @@
 .executive-brief-card {
     min-height: 100%;
     padding: 18px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-soft);
 }
@@ -233,7 +226,7 @@
 
 .executive-territory-card {
     padding: 18px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-soft);
     box-shadow: none;
@@ -275,7 +268,7 @@
     gap: 6px;
     margin-top: 14px;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: var(--radius-control);
     border: 1px solid rgba(71, 120, 214, 0.14);
     background: #f0f6ff;
 }
@@ -305,7 +298,7 @@
 
 .executive-side-card {
     padding: 18px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-soft);
 }
@@ -316,7 +309,7 @@
     gap: 18px;
     align-items: center;
     padding: 20px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-panel-accent);
 }
@@ -325,7 +318,7 @@
     display: grid;
     gap: 14px;
     padding: 20px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: #f5f9ff;
 }
@@ -385,8 +378,8 @@
     display: grid;
     gap: 6px;
     padding: 14px 16px;
-    border-radius: 16px;
-    border: 1px solid rgba(189, 205, 231, 0.42);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line-soft);
     background: var(--paper-strong);
 }
 
@@ -450,7 +443,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 16px;
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--line);
     background: var(--surface-soft);
 }

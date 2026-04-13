@@ -3,20 +3,15 @@
     var byId = shared.byId;
     var escapeHtml = shared.escapeHtml;
     var renderChart = shared.renderPlotlyFigure;
+    var renderListItems = shared.renderListItems;
+    var setSectionHidden = shared.setSectionHidden;
     var setSelectOptions = shared.setSelectOptions;
     var setText = shared.setText;
-
-    function setAsyncVisible(visible) {
-        var node = byId('accessPointsAsyncState');
-        if (node) {
-            node.classList.toggle('is-hidden', !visible);
-        }
-    }
 
     function showLoading(message) {
         var loadingNode = byId('accessPointsLoadingState');
         var errorNode = byId('accessPointsErrorState');
-        setAsyncVisible(true);
+        setSectionHidden('accessPointsAsyncState', false);
         setText('accessPointsLoadingLead', 'Готовим рейтинг проблемных точек');
         setText(
             'accessPointsLoadingMessage',
@@ -37,13 +32,13 @@
             loadingNode.classList.add('is-hidden');
             loadingNode.classList.remove('is-pending');
         }
-        setAsyncVisible(false);
+        setSectionHidden('accessPointsAsyncState', true);
     }
 
     function showError(message) {
         var loadingNode = byId('accessPointsLoadingState');
         var errorNode = byId('accessPointsErrorState');
-        setAsyncVisible(true);
+        setSectionHidden('accessPointsAsyncState', false);
         if (loadingNode) {
             loadingNode.classList.add('is-hidden');
         }
@@ -333,21 +328,6 @@
         }).join('');
     }
 
-    function renderNoteList(id, items, emptyMessage) {
-        var node = byId(id);
-        var safeItems = Array.isArray(items) ? items : [];
-        if (!node) {
-            return;
-        }
-        if (!safeItems.length) {
-            node.innerHTML = '<li>' + escapeHtml(emptyMessage) + '</li>';
-            return;
-        }
-        node.innerHTML = safeItems.map(function (item) {
-            return '<li>' + escapeHtml(item) + '</li>';
-        }).join('');
-    }
-
     function renderFeaturePicker(filters) {
         var container = byId('accessPointsFeaturePicker');
         if (!container) {
@@ -414,8 +394,8 @@
         renderScoreDistribution(data);
         renderReasonBreakdown(data);
         renderIncomplete(data);
-        renderNoteList('accessPointsUncertaintyNotes', data.uncertainty_notes, 'Здесь появятся пояснения по uncertainty penalty и low support.');
-        renderNoteList('accessPointsNotes', data.notes, 'Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.');
+        renderListItems('accessPointsUncertaintyNotes', data.uncertainty_notes, 'Здесь появятся пояснения по uncertainty penalty и low support.');
+        renderListItems('accessPointsNotes', data.notes, 'Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.');
         hideLoading();
     }
 

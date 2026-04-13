@@ -16,7 +16,7 @@ from app.services.job_support import (
 )
 from app.state import job_store
 
-from .core import _CLUSTERING_CACHE, _build_clustering_request_state, get_clustering_data
+from .core_runner import _CLUSTERING_CACHE, _build_clustering_request_state, get_clustering_data
 
 _CLUSTERING_JOB_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="clustering")
 _CLUSTERING_JOB_LOCK = RLock()

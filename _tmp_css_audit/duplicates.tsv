@@ -1,0 +1,32 @@
+selector	status	files	variants	occurrences
+.chart-empty	different	2	2	2
+.chart-panel .panel-head	identical	2	1	2
+.eyebrow	different	2	2	2
+.filter-hint	identical	2	1	2
+.hidden-file-input	identical	2	1	2
+.mini-empty	different	2	2	2
+.notice-list	different	2	2	2
+.preview-table	identical	2	1	2
+.preview-table td	identical	2	1	2
+.preview-table th	different	2	2	4
+.ranking-meta	different	2	3	3
+.risk-badge.tone-fire	identical	2	1	2
+.risk-badge.tone-high	identical	2	1	2
+.risk-badge.tone-low	identical	2	1	2
+.risk-badge.tone-medium	identical	2	1	2
+.risk-badge.tone-sand	identical	2	1	2
+.risk-badge.tone-sky	identical	2	1	2
+.sidebar :is(button, .sidebar-link)	different	2	2	2
+.stat-card	different	2	4	4
+.stats-grid	identical	2	1	2
+.table-preview-wrap	identical	2	1	2
+.table-scroll	different	3	2	3
+.table-scroll.is-dragging	identical	2	1	2
+.table-stack-mobile td::before	identical	2	1	2
+100%	different	2	2	2
+:is(.data-table, .preview-table).table-sticky-first :is(th, td):first-child	identical	2	1	2
+:is(.data-table, .preview-table).table-sticky-first tbody tr:hover td:first-child	identical	2	1	2
+:is(.data-table, .preview-table).table-sticky-first td:first-child	identical	2	1	2
+:is(.data-table, .preview-table).table-sticky-first th:first-child	identical	2	1	2
+:is(.data-table-shell, .table-scroll, .table-shell)	identical	2	1	2
+:is(.data-table-shell, .table-scroll, .table-shell) > table	identical	2	1	2

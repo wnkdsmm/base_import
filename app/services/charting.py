@@ -744,43 +744,43 @@ def build_dashboard_finalize_chart(
     plotly: Dict[str, Any] | None = None,
     description: str = "",
 ) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _finalize_chart
+    from app.services.shared.dashboard_charts import _finalize_chart
 
     return _finalize_chart(title, list(items), empty_message, plotly=plotly, description=description)
 
 
 def build_dashboard_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_empty_plotly_chart
+    from app.services.shared.dashboard_charts import _build_empty_plotly_chart
 
     return _build_empty_plotly_chart(title, empty_message)
 
 
 def build_dashboard_yearly_plotly(title: str, items: Sequence[Dict[str, Any]], metric: str, empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_yearly_plotly
+    from app.services.shared.dashboard_charts import _build_yearly_plotly
 
     return _build_yearly_plotly(title, list(items), metric, empty_message)
 
 
 def build_dashboard_wrap_plotly_label(value: Any, max_width: int = 34, max_lines: int = 3) -> str:
-    from app.dashboard.charts_impl import _wrap_plotly_label
+    from app.services.shared.dashboard_charts import _wrap_plotly_label
 
     return _wrap_plotly_label(value, max_width=max_width, max_lines=max_lines)
 
 
 def build_dashboard_cause_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_cause_plotly
+    from app.services.shared.dashboard_charts import _build_cause_plotly
 
     return _build_cause_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_distribution_pie_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_distribution_pie_plotly
+    from app.services.shared.dashboard_charts import _build_distribution_pie_plotly
 
     return _build_distribution_pie_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_distribution_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_distribution_plotly
+    from app.services.shared.dashboard_charts import _build_distribution_plotly
 
     return _build_distribution_plotly(title, list(items), empty_message)
 
@@ -790,49 +790,49 @@ def build_dashboard_combined_impact_timeline_plotly(
     items: Sequence[Dict[str, Any]],
     empty_message: str,
 ) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_combined_impact_timeline_plotly
+    from app.services.shared.dashboard_charts import _build_combined_impact_timeline_plotly
 
     return _build_combined_impact_timeline_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_overview_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_damage_overview_plotly
+    from app.services.shared.dashboard_charts import _build_damage_overview_plotly
 
     return _build_damage_overview_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_pairs_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_damage_pairs_plotly
+    from app.services.shared.dashboard_charts import _build_damage_pairs_plotly
 
     return _build_damage_pairs_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_standalone_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_damage_standalone_plotly
+    from app.services.shared.dashboard_charts import _build_damage_standalone_plotly
 
     return _build_damage_standalone_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_share_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_damage_share_plotly
+    from app.services.shared.dashboard_charts import _build_damage_share_plotly
 
     return _build_damage_share_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_table_breakdown_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_table_breakdown_plotly
+    from app.services.shared.dashboard_charts import _build_table_breakdown_plotly
 
     return _build_table_breakdown_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_monthly_profile_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_monthly_profile_plotly
+    from app.services.shared.dashboard_charts import _build_monthly_profile_plotly
 
     return _build_monthly_profile_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_area_bucket_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_area_bucket_plotly
+    from app.services.shared.dashboard_charts import _build_area_bucket_plotly
 
     return _build_area_bucket_plotly(title, list(items), empty_message)
 
@@ -844,12 +844,12 @@ def build_dashboard_sql_widget_bar_plotly(
     color_key: str,
     value_label: str,
 ) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_sql_widget_bar_plotly
+    from app.services.shared.dashboard_charts import _build_sql_widget_bar_plotly
 
     return _build_sql_widget_bar_plotly(title, list(items), empty_message, color_key, value_label)
 
 
 def build_dashboard_sql_widget_season_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
-    from app.dashboard.charts_impl import _build_sql_widget_season_plotly
+    from app.services.shared.dashboard_charts import _build_sql_widget_season_plotly
 
     return _build_sql_widget_season_plotly(title, list(items), empty_message)

@@ -16,8 +16,10 @@ from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, N
 
 from .page_common import (
     ANALYTICS_PAGE_ASSETS,
+    COLUMN_SEARCH_ASSETS,
     DASHBOARD_ONLY_ASSETS,
-    PAGE_MISC_ASSETS,
+    FIRE_MAP_ASSETS,
+    TABLES_ASSETS,
     TABLE_VIEW_ASSETS,
     asset_versions,
     cached_text_response,
@@ -296,7 +298,7 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
         selected_table=selected_table,
         initial_query=query,
         **asset_versions(
-            **PAGE_MISC_ASSETS,
+            **COLUMN_SEARCH_ASSETS,
             column_search_js_version="js/column_search.js",
         ),
     )
@@ -310,7 +312,7 @@ def fire_map_page(request: Request, table_name: str = ""):
         "fire_map.html",
         context_name="fire_map",
         context_value=fire_map,
-        asset_files={**DASHBOARD_ONLY_ASSETS, **PAGE_MISC_ASSETS},
+        asset_files={**DASHBOARD_ONLY_ASSETS, **FIRE_MAP_ASSETS},
     )
 
 
@@ -325,7 +327,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
             "fire_map_error.html",
             message="Выберите существующую таблицу для построения карты.",
             status_code=400,
-            **asset_versions(**PAGE_MISC_ASSETS),
+            **asset_versions(**FIRE_MAP_ASSETS),
         )
 
     try:
@@ -336,7 +338,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
                 "fire_map_error.html",
                 message="Для выбранной таблицы не удалось собрать карту. Проверьте координаты, даты и наличие записей.",
                 status_code=422,
-                **asset_versions(**PAGE_MISC_ASSETS),
+                **asset_versions(**FIRE_MAP_ASSETS),
             )
         return HTMLResponse(map_html)
     except Exception as exc:
@@ -345,7 +347,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
             "fire_map_error.html",
             message=str(exc),
             status_code=500,
-            **asset_versions(**PAGE_MISC_ASSETS),
+            **asset_versions(**FIRE_MAP_ASSETS),
         )
 
 
@@ -357,7 +359,7 @@ async def list_tables(request: Request):
         "tables.html",
         tables=tables,
         **asset_versions(
-            **PAGE_MISC_ASSETS,
+            **TABLES_ASSETS,
             import_js_version="js/import.js",
             tables_js_version="js/tables.js",
         ),

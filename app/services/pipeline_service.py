@@ -263,60 +263,6 @@ def _load_profile_summary(
     }
 
 
-def invalidate_runtime_caches(on_warning: Callable[[str], None] | None = None) -> None:
-    def warn(message: str) -> None:
-        if on_warning is not None:
-            on_warning(message)
-
-    try:
-        from app.db_metadata import invalidate_db_metadata_cache
-
-        invalidate_db_metadata_cache()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша метаданных БД: {exc}")
-
-    try:
-        from app.dashboard.cache import _invalidate_dashboard_caches
-
-        _invalidate_dashboard_caches()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша панели: {exc}")
-
-    try:
-        from app.services.ml_model.core import clear_ml_model_cache
-
-        clear_ml_model_cache()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша ML-блока: {exc}")
-
-    try:
-        from app.services.forecasting.core import clear_forecasting_cache
-
-        clear_forecasting_cache()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша прогнозирования: {exc}")
-
-    try:
-        from app.services.clustering.core import clear_clustering_cache
-
-        clear_clustering_cache()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша кластеризации: {exc}")
-
-    try:
-        from app.services.access_points.core import clear_access_points_cache
-
-        clear_access_points_cache()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша проблемных точек: {exc}")
-
-    try:
-        from app.services.fire_map_service import clear_fire_map_cache
-
-        clear_fire_map_cache()
-    except Exception as exc:
-        warn(f"Предупреждение при обновлении кэша карты пожаров: {exc}")
-
 invalidate_runtime_caches = shared_invalidate_runtime_caches
 
 
