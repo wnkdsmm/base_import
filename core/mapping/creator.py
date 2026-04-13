@@ -83,6 +83,37 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         if len(df) > self.config.max_records_per_table:
             logger.info(f"РўР°Р±Р»РёС†Р° {table_name}: РѕРіСЂР°РЅРёС‡РµРЅРёРµ {self.config.max_records_per_table} Р·Р°РїРёСЃРµР№")
             df = df.head(self.config.max_records_per_table)
+
+        # РџРѕРёСЃРє РІСЃРµС… РЅРµРѕР±С…РѕРґРёРјС‹С… РєРѕР»РѕРЅРѕРє
+        column_names = {
+            'date': self.config.date_names,
+            'address': self.config.address_names,
+            'deaths': self.config.deaths_names,
+            'injured': self.config.injured_names,
+            'evacuated': self.config.evacuated_names,
+            'children_saved': self.config.children_saved_names,
+            'children_evacuated': self.config.children_evacuated_names,
+            'fire_cause_general': self.config.fire_cause_general_names,
+            'fire_cause_open': self.config.fire_cause_open_names,
+            'fire_cause_building': self.config.fire_cause_building_names,
+            'building_category': self.config.building_category_names,
+            'object_category': self.config.object_category_names,
+            'object_area': self.config.object_area_names,
+            'district': self.config.district_names,
+            'territory_label': self.config.territory_names,
+            'settlement_type': self.config.settlement_type_names,
+            'fire_station_distance': self.config.fire_station_distance_names,
+            'report_time': self.config.report_time_names,
+            'arrival_time': self.config.arrival_time_names
+        }
+
+        columns = {
+            key: self.finder.find(df, names)
+            for key, names in column_names.items()
+        }
+
+        spatial_records = self._collect_spatial_records(df, lat_col, lon_col, columns)
+        spatial_analytics = self._build_spatial_analytics(table_name, spatial_records, source_record_count)
         
         # Создание GeoJSON
         category_counts = {cat: 0 for cat in self.CATEGORY_STYLES}
