@@ -45,14 +45,16 @@ def _scenario_reference_forecast(
         if not pd.isna(candidate):
             temperature_value = float(candidate)
 
-    train_history = [
-        {
-            'date': pd.Timestamp(row.date),
-            'count': float(row.count),
-            'avg_temperature': None if (not temperature_usable or pd.isna(row.avg_temperature)) else float(row.avg_temperature),
-        }
-        for row in train[['date', 'count', 'avg_temperature']].itertuples(index=False)
-    ]
+    history_frame = train.loc[:, ['date', 'count', 'avg_temperature']].copy()
+    history_frame['date'] = pd.to_datetime(history_frame['date'])
+    history_frame['count'] = pd.to_numeric(history_frame['count'], errors='coerce').fillna(0.0).astype(float)
+    if temperature_usable:
+        avg_temperature = pd.to_numeric(history_frame['avg_temperature'], errors='coerce')
+        history_frame['avg_temperature'] = avg_temperature.where(avg_temperature.notna(), None)
+    else:
+        history_frame['avg_temperature'] = None
+    train_history = history_frame.to_dict(orient='records')
+
     forecast_rows = _build_scenario_forecast_rows(train_history, 1, temperature_value)
     if not forecast_rows:
         target_date = pd.Timestamp(test['date'].iloc[0])

@@ -102,7 +102,7 @@ class CreateCleanTableStep(PipelineStep):
                 clean_df = resolved_source_df.loc[:, keep_columns].copy()
 
         if clean_df is None:
-            clean_df = pd.read_sql(f'SELECT * FROM "{new_table}"', engine)
+            clean_df = pd.read_sql(f'SELECT {columns_sql} FROM "{new_table}"', engine)
 
         clean_df.to_excel(export_file, index=False, engine="openpyxl")
 

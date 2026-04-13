@@ -43,14 +43,15 @@ class _RecursiveForecastSeed:
 
 
 def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = True) -> List[Dict[str, Any]]:
-    return [
-        {
-            'date': pd.Timestamp(row.date),
-            'count': float(row.count),
-            'avg_temperature': None if (not temperature_usable or pd.isna(row.avg_temperature)) else float(row.avg_temperature),
-        }
-        for row in frame[['date', 'count', 'avg_temperature']].itertuples(index=False)
-    ]
+    history_frame = frame.loc[:, ['date', 'count', 'avg_temperature']].copy()
+    history_frame['date'] = pd.to_datetime(history_frame['date'])
+    history_frame['count'] = pd.to_numeric(history_frame['count'], errors='coerce').fillna(0.0).astype(float)
+    if temperature_usable:
+        avg_temperature = pd.to_numeric(history_frame['avg_temperature'], errors='coerce')
+        history_frame['avg_temperature'] = avg_temperature.where(avg_temperature.notna(), None)
+    else:
+        history_frame['avg_temperature'] = None
+    return history_frame.to_dict(orient='records')
 
 
 def _build_recursive_forecast_seed(

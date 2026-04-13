@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
@@ -35,47 +35,82 @@ except Exception:  # pragma: no cover - graceful fallback when sklearn is unavai
 
 class MapCreatorAnalyticsMixin:
     def _collect_spatial_records(self, df: pd.DataFrame, lat_col: str, lon_col: str, columns: Dict[str, Optional[str]]) -> List[Dict[str, Any]]:
-        records: List[Dict[str, Any]] = []
-        for _, row in df.iterrows():
-            latitude = self._to_float(row.get(lat_col))
-            longitude = self._to_float(row.get(lon_col))
-            if latitude is None or longitude is None:
-                continue
+        latitudes = pd.to_numeric(df[lat_col], errors='coerce')
+        longitudes = pd.to_numeric(df[lon_col], errors='coerce')
+        valid_mask = latitudes.notna() & longitudes.notna()
+        if not valid_mask.any():
+            return []
 
-            event_date = self._parse_date(self.cleaner.safe_get(row, columns.get('date'), ''))
-            district = self._clean_text(self.cleaner.safe_get(row, columns.get('district'), ''))
-            territory_label = self._clean_text(self.cleaner.safe_get(row, columns.get('territory_label'), district)) or district or 'Территория не указана'
-            settlement_type = self._clean_text(self.cleaner.safe_get(row, columns.get('settlement_type'), ''))
-            address = self._clean_text(self.cleaner.safe_get(row, columns.get('address'), ''))
-            deaths = self._to_float(self.cleaner.safe_get(row, columns.get('deaths'), 0)) or 0.0
-            injured = self._to_float(self.cleaner.safe_get(row, columns.get('injured'), 0)) or 0.0
-            evacuated = self._to_float(self.cleaner.safe_get(row, columns.get('evacuated'), 0)) or 0.0
-            children = (self._to_float(self.cleaner.safe_get(row, columns.get('children_saved'), 0)) or 0.0) + (self._to_float(self.cleaner.safe_get(row, columns.get('children_evacuated'), 0)) or 0.0)
-            response_minutes = self._calculate_response_minutes(
-                self.cleaner.safe_get(row, columns.get('report_time'), ''),
-                self.cleaner.safe_get(row, columns.get('arrival_time'), ''),
-                event_date,
+        frame = df.loc[valid_mask].copy()
+        latitudes = latitudes.loc[valid_mask].round(6)
+        longitudes = longitudes.loc[valid_mask].round(6)
+
+        def _series_for(field_name: str, default: Any = "") -> pd.Series:
+            column_name = columns.get(field_name)
+            if column_name and column_name in frame.columns:
+                return frame[column_name]
+            return pd.Series([default] * len(frame), index=frame.index)
+
+        date_values = _series_for('date', '').map(self._parse_date)
+        district_values = _series_for('district', '').map(self._clean_text).fillna("")
+        territory_values = _series_for('territory_label', '').map(self._clean_text).fillna("")
+        territory_values = territory_values.where(territory_values.ne(""), district_values)
+        territory_values = territory_values.where(territory_values.ne(""), 'Территория не указана')
+        settlement_values = _series_for('settlement_type', '').map(self._clean_text).fillna("")
+        address_values = _series_for('address', '').map(self._clean_text).fillna("")
+        cause_values = _series_for('fire_cause_general', '').map(self._clean_text).fillna("")
+        object_category_values = _series_for('object_category', '').map(self._clean_text).fillna("")
+
+        deaths_values = pd.to_numeric(_series_for('deaths', 0), errors='coerce').fillna(0.0)
+        injured_values = pd.to_numeric(_series_for('injured', 0), errors='coerce').fillna(0.0)
+        evacuated_values = pd.to_numeric(_series_for('evacuated', 0), errors='coerce').fillna(0.0)
+        children_values = (
+            pd.to_numeric(_series_for('children_saved', 0), errors='coerce').fillna(0.0)
+            + pd.to_numeric(_series_for('children_evacuated', 0), errors='coerce').fillna(0.0)
+        )
+
+        response_minutes = [
+            self._calculate_response_minutes(report_time, arrival_time, event_date)
+            for report_time, arrival_time, event_date in zip(
+                _series_for('report_time', '').tolist(),
+                _series_for('arrival_time', '').tolist(),
+                date_values.tolist(),
             )
-            station_distance = self._to_float(self.cleaner.safe_get(row, columns.get('fire_station_distance'), ''))
-            severity_raw = 1.0 + deaths * 2.4 + injured * 1.6 + evacuated * 0.08 + children * 0.2
-            records.append({
-                'latitude': round(latitude, 6),
-                'longitude': round(longitude, 6),
-                'date': event_date,
-                'district': district,
-                'territory_label': territory_label,
-                'settlement_type': settlement_type,
-                'address': address,
-                'cause': self._clean_text(self.cleaner.safe_get(row, columns.get('fire_cause_general'), '')),
-                'object_category': self._clean_text(self.cleaner.safe_get(row, columns.get('object_category'), '')),
+        ]
+
+        station_distance_raw = pd.to_numeric(_series_for('fire_station_distance', None), errors='coerce')
+        station_distance_values = station_distance_raw.astype(object).where(station_distance_raw.notna(), None)
+        severity_values = 1.0 + deaths_values * 2.4 + injured_values * 1.6 + evacuated_values * 0.08 + children_values * 0.2
+        rural_flags = [
+            self._is_rural_label(territory_label, settlement_type, address)
+            for territory_label, settlement_type, address in zip(
+                territory_values.tolist(),
+                settlement_values.tolist(),
+                address_values.tolist(),
+            )
+        ]
+
+        records_frame = pd.DataFrame(
+            {
+                'latitude': latitudes,
+                'longitude': longitudes,
+                'date': date_values,
+                'district': district_values,
+                'territory_label': territory_values,
+                'settlement_type': settlement_values,
+                'address': address_values,
+                'cause': cause_values,
+                'object_category': object_category_values,
                 'response_minutes': response_minutes,
-                'fire_station_distance': station_distance,
-                'severity_raw': severity_raw,
-                'has_victims': (deaths + injured) > 0,
-                'weight': severity_raw,
-                'rural_flag': self._is_rural_label(territory_label, settlement_type, address),
-            })
-        return records
+                'fire_station_distance': station_distance_values,
+                'severity_raw': severity_values,
+                'has_victims': (deaths_values + injured_values) > 0,
+                'weight': severity_values,
+                'rural_flag': rural_flags,
+            },
+            index=frame.index,
+        )
+        return records_frame.to_dict(orient='records')
 
     def _build_spatial_analytics(self, table_name: str, records: List[Dict[str, Any]], source_record_count: int) -> Dict[str, Any]:
         if not records:
@@ -117,7 +152,7 @@ class MapCreatorAnalyticsMixin:
                 build_circle_polygon=self._build_circle_polygon,
             )
             if risk_zones:
-                notes.append('Основные зоны риска построены по центроидам приоритетных территорий, потому что hotspot/DBSCAN дали слабый сигнал.')
+                notes.append('РћСЃРЅРѕРІРЅС‹Рµ Р·РѕРЅС‹ СЂРёСЃРєР° РїРѕСЃС‚СЂРѕРµРЅС‹ РїРѕ С†РµРЅС‚СЂРѕРёРґР°Рј РїСЂРёРѕСЂРёС‚РµС‚РЅС‹С… С‚РµСЂСЂРёС‚РѕСЂРёР№, РїРѕС‚РѕРјСѓ С‡С‚Рѕ hotspot/DBSCAN РґР°Р»Рё СЃР»Р°Р±С‹Р№ СЃРёРіРЅР°Р».')
                 priority_territories = build_priority_territories(
                     records,
                     risk_zones,
@@ -157,3 +192,4 @@ class MapCreatorAnalyticsMixin:
     # =====================================================
 
 __all__ = ["MapCreatorAnalyticsMixin", "SKLEARN_AVAILABLE"]
+

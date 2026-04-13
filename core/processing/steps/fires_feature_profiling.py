@@ -104,8 +104,8 @@ class FiresFeatureProfilingStep(PipelineStep):
         string_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
         df_norm = pd.DataFrame(index=df.index)
         if string_cols:
-            df_norm = df[string_cols].copy()
-            df_norm = df_norm.apply(lambda col: col.astype(str).str.strip().str.lower())
+            normalized_values = np.char.lower(np.char.strip(df[string_cols].astype(str).to_numpy(dtype=str)))
+            df_norm = pd.DataFrame(normalized_values, index=df.index, columns=string_cols)
 
         report_rows = []
         for col in df.columns:
@@ -155,13 +155,11 @@ class FiresFeatureProfilingStep(PipelineStep):
             | profile_df["almost_constant"]
         )
         reason_ids = [reason_id for reason_id, _label, _description in reason_definitions]
+        reason_labels = [label for _reason_id, label, _description in reason_definitions]
+        reason_matrix = profile_df.loc[:, reason_ids].to_numpy(dtype=bool, copy=False)
         profile_df["drop_reasons"] = [
-            [
-                label
-                for reason_id, label, _description in reason_definitions
-                if bool(getattr(row, reason_id))
-            ]
-            for row in profile_df[reason_ids].itertuples(index=False, name="ProfilingFlags")
+            [label for label, enabled in zip(reason_labels, row_flags) if enabled]
+            for row_flags in reason_matrix
         ]
         profile_df["profiling_candidate_to_drop"] = profile_df["candidate_to_drop"]
         profile_df["mandatory_feature_detected"] = False
@@ -194,19 +192,19 @@ class FiresFeatureProfilingStep(PipelineStep):
             for reason_id, label, description in reason_definitions
         ]
 
-        candidate_details = []
-        for row in candidates_df.itertuples(index=False):
-            candidate_details.append(
-                {
-                    "column": row.column,
-                    "dtype": row.dtype,
-                    "null_ratio": float(row.null_ratio),
-                    "dominant_ratio": float(row.dominant_ratio),
-                    "unique_count": int(row.unique_count),
-                    "variance": float(row.variance),
-                    "reasons": row.drop_reasons,
-                }
-            )
+        candidate_export_frame = pd.DataFrame(index=candidates_df.index)
+        candidate_export_frame["column"] = candidates_df["column"].astype("string").fillna("").astype(object)
+        candidate_export_frame["dtype"] = candidates_df["dtype"].astype("string").fillna("").astype(object)
+        candidate_export_frame["null_ratio"] = pd.to_numeric(candidates_df["null_ratio"], errors="coerce").fillna(0.0).astype(float)
+        candidate_export_frame["dominant_ratio"] = pd.to_numeric(candidates_df["dominant_ratio"], errors="coerce").fillna(0.0).astype(float)
+        candidate_export_frame["unique_count"] = pd.to_numeric(candidates_df["unique_count"], errors="coerce").fillna(0).astype(int)
+        candidate_export_frame["variance"] = pd.to_numeric(candidates_df["variance"], errors="coerce").fillna(0.0).astype(float)
+        candidate_export_frame["reasons"] = (
+            candidates_df["drop_reasons"]
+            if "drop_reasons" in candidates_df.columns
+            else [[] for _ in range(len(candidates_df))]
+        )
+        candidate_details = candidate_export_frame.to_dict(orient="records")
 
         logger.info("Профилирование завершено.")
         logger.info("Отчёт CSV: %s", output_csv)

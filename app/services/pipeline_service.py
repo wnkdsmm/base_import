@@ -167,36 +167,86 @@ def _load_profile_summary(
         updated_item["count"] = count
         reason_summary.append(updated_item)
 
-    candidate_details = []
-    for _, row in candidates_df.iterrows():
-        reasons = [label for reason_id, label in reason_labels.items() if reason_id in candidates_df.columns and bool(row.get(reason_id))]
-        candidate_details.append(
-            {
-                "column": row.get("column", ""),
-                "dtype": row.get("dtype", ""),
-                "null_ratio": _safe_float(row.get("null_ratio")),
-                "dominant_ratio": _safe_float(row.get("dominant_ratio")),
-                "unique_count": _safe_int(row.get("unique_count")),
-                "variance": _safe_float(row.get("variance")),
-                "reasons": reasons,
-            }
-        )
+    reason_columns = [reason_id for reason_id in reason_labels if reason_id in candidates_df.columns]
+    reason_names = [reason_labels[reason_id] for reason_id in reason_columns]
+    if reason_columns:
+        reason_matrix = candidates_df.loc[:, reason_columns].fillna(False).astype(bool).to_numpy(dtype=bool)
+        reasons_by_row = [
+            [label for label, enabled in zip(reason_names, row_flags) if enabled]
+            for row_flags in reason_matrix
+        ]
+    else:
+        reasons_by_row = [[] for _ in range(len(candidates_df))]
 
-    protected_details = []
-    for _, row in protected_df.iterrows():
-        protected_details.append(
-            {
-                "column": row.get("column", ""),
-                "feature_id": row.get("protected_feature_id", ""),
-                "feature_label": row.get("protected_feature_label", ""),
-                "mandatory_feature_detected": bool(row.get("mandatory_feature_detected")),
-                "protection_scope": row.get("protection_scope", ""),
-                "protection_rule": row.get("protection_rule", ""),
-                "protection_match": row.get("protection_match", ""),
-                "protection_reason": row.get("protection_reason", ""),
-                "drop_reasons": row.get("drop_reasons", ""),
-            }
-        )
+    candidate_export_frame = pd.DataFrame(index=candidates_df.index)
+    candidate_export_frame["column"] = candidates_df["column"].astype("string").fillna("").astype(object) if "column" in candidates_df.columns else ""
+    candidate_export_frame["dtype"] = candidates_df["dtype"].astype("string").fillna("").astype(object) if "dtype" in candidates_df.columns else ""
+    candidate_export_frame["null_ratio"] = (
+        pd.to_numeric(candidates_df["null_ratio"], errors="coerce").fillna(0.0).astype(float)
+        if "null_ratio" in candidates_df.columns
+        else 0.0
+    )
+    candidate_export_frame["dominant_ratio"] = (
+        pd.to_numeric(candidates_df["dominant_ratio"], errors="coerce").fillna(0.0).astype(float)
+        if "dominant_ratio" in candidates_df.columns
+        else 0.0
+    )
+    candidate_export_frame["unique_count"] = (
+        pd.to_numeric(candidates_df["unique_count"], errors="coerce").fillna(0).astype(int)
+        if "unique_count" in candidates_df.columns
+        else 0
+    )
+    candidate_export_frame["variance"] = (
+        pd.to_numeric(candidates_df["variance"], errors="coerce").fillna(0.0).astype(float)
+        if "variance" in candidates_df.columns
+        else 0.0
+    )
+    candidate_export_frame["reasons"] = reasons_by_row
+    candidate_details = candidate_export_frame.to_dict(orient="records")
+
+    protected_export_frame = pd.DataFrame(index=protected_df.index)
+    protected_export_frame["column"] = (
+        protected_df["column"].astype("string").fillna("").astype(object)
+        if "column" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["feature_id"] = (
+        protected_df["protected_feature_id"].astype("string").fillna("").astype(object)
+        if "protected_feature_id" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["feature_label"] = (
+        protected_df["protected_feature_label"].astype("string").fillna("").astype(object)
+        if "protected_feature_label" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["mandatory_feature_detected"] = (
+        protected_df["mandatory_feature_detected"].fillna(False).astype(bool)
+        if "mandatory_feature_detected" in protected_df.columns
+        else False
+    )
+    protected_export_frame["protection_scope"] = (
+        protected_df["protection_scope"].astype("string").fillna("").astype(object)
+        if "protection_scope" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["protection_rule"] = (
+        protected_df["protection_rule"].astype("string").fillna("").astype(object)
+        if "protection_rule" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["protection_match"] = (
+        protected_df["protection_match"].astype("string").fillna("").astype(object)
+        if "protection_match" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["protection_reason"] = (
+        protected_df["protection_reason"].astype("string").fillna("").astype(object)
+        if "protection_reason" in protected_df.columns
+        else ""
+    )
+    protected_export_frame["drop_reasons"] = protected_df["drop_reasons"] if "drop_reasons" in protected_df.columns else ""
+    protected_details = protected_export_frame.to_dict(orient="records")
 
     return {
         "profile_df": profile_df,

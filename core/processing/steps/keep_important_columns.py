@@ -989,40 +989,60 @@ class KeepImportantColumnsStep(PipelineStep):
         profile_df["mandatory_feature_detected"] = self._coerce_bool_series(profile_df["mandatory_feature_detected"])
         profile_df["protected_from_drop"] = self._coerce_bool_series(profile_df["protected_from_drop"])
 
-        protected_columns: List[Dict[str, Any]] = []
-        for idx, row in profile_df.iterrows():
-            column_name = str(row.get("column") or "").strip()
-            if not column_name:
-                continue
+        column_names = profile_df["column"].astype("string").fillna("").str.strip()
+        matches: List[Optional[Dict[str, Any]]] = [
+            self.matcher.match_column_metadata(column_name) if column_name else None
+            for column_name in column_names.tolist()
+        ]
+        match_mask = pd.Series([bool(match) for match in matches], index=profile_df.index)
+        mandatory_values = pd.Series([bool((match or {}).get("mandatory")) for match in matches], index=profile_df.index)
+        feature_id_values = pd.Series([str((match or {}).get("feature_id") or "") for match in matches], index=profile_df.index)
+        feature_label_values = pd.Series([str((match or {}).get("feature_label") or "") for match in matches], index=profile_df.index)
+        protection_scope_values = pd.Series([str((match or {}).get("scope") or "") for match in matches], index=profile_df.index)
+        protection_rule_values = pd.Series([str((match or {}).get("rule_id") or "") for match in matches], index=profile_df.index)
+        protection_match_values = pd.Series([str((match or {}).get("matched_value") or "") for match in matches], index=profile_df.index)
+        protection_reason_values = pd.Series([str((match or {}).get("reason") or "") for match in matches], index=profile_df.index)
 
-            match = self.matcher.match_column_metadata(column_name)
-            if not match:
-                continue
+        profile_df.loc[match_mask, "mandatory_feature_detected"] = mandatory_values.loc[match_mask]
+        profile_df.loc[match_mask, "protected_feature_id"] = feature_id_values.loc[match_mask]
+        profile_df.loc[match_mask, "protected_feature_label"] = feature_label_values.loc[match_mask]
+        profile_df.loc[match_mask, "protection_scope"] = protection_scope_values.loc[match_mask]
+        profile_df.loc[match_mask, "protection_rule"] = protection_rule_values.loc[match_mask]
+        profile_df.loc[match_mask, "protection_match"] = protection_match_values.loc[match_mask]
+        profile_df.loc[match_mask, "protection_reason"] = protection_reason_values.loc[match_mask]
 
-            profile_df.at[idx, "mandatory_feature_detected"] = bool(match.get("mandatory"))
-            profile_df.at[idx, "protected_feature_id"] = str(match.get("feature_id") or "")
-            profile_df.at[idx, "protected_feature_label"] = str(match.get("feature_label") or "")
-            profile_df.at[idx, "protection_scope"] = str(match.get("scope") or "")
-            profile_df.at[idx, "protection_rule"] = str(match.get("rule_id") or "")
-            profile_df.at[idx, "protection_match"] = str(match.get("matched_value") or "")
-            profile_df.at[idx, "protection_reason"] = str(match.get("reason") or "")
+        protected_mask = match_mask & profile_df["profiling_candidate_to_drop"]
+        profile_df.loc[protected_mask, "candidate_to_drop"] = False
+        profile_df.loc[protected_mask, "protected_from_drop"] = True
 
-            if bool(profile_df.at[idx, "profiling_candidate_to_drop"]):
-                profile_df.at[idx, "candidate_to_drop"] = False
-                profile_df.at[idx, "protected_from_drop"] = True
-                protected_columns.append(
-                    {
-                        "column": column_name,
-                        "protected_feature_id": str(match.get("feature_id") or ""),
-                        "protected_feature_label": str(match.get("feature_label") or ""),
-                        "mandatory_feature_detected": bool(match.get("mandatory")),
-                        "protection_scope": str(match.get("scope") or ""),
-                        "protection_rule": str(match.get("rule_id") or ""),
-                        "protection_match": str(match.get("matched_value") or ""),
-                        "protection_reason": str(match.get("reason") or ""),
-                        "drop_reasons": row.get("drop_reasons", []),
-                    }
-                )
+        protected_export = pd.DataFrame(index=profile_df.index)
+        protected_export["column"] = column_names.astype(object)
+        protected_export["protected_feature_id"] = feature_id_values.astype(object)
+        protected_export["protected_feature_label"] = feature_label_values.astype(object)
+        protected_export["mandatory_feature_detected"] = mandatory_values.astype(bool)
+        protected_export["protection_scope"] = protection_scope_values.astype(object)
+        protected_export["protection_rule"] = protection_rule_values.astype(object)
+        protected_export["protection_match"] = protection_match_values.astype(object)
+        protected_export["protection_reason"] = protection_reason_values.astype(object)
+        protected_export["drop_reasons"] = (
+            profile_df["drop_reasons"]
+            if "drop_reasons" in profile_df.columns
+            else [[] for _ in range(len(profile_df))]
+        )
+        protected_columns: List[Dict[str, Any]] = protected_export.loc[
+            protected_mask,
+            [
+                "column",
+                "protected_feature_id",
+                "protected_feature_label",
+                "mandatory_feature_detected",
+                "protection_scope",
+                "protection_rule",
+                "protection_match",
+                "protection_reason",
+                "drop_reasons",
+            ],
+        ].to_dict(orient="records")
 
         profile_df_sorted = profile_df.sort_values(
             by=["protected_from_drop", "candidate_to_drop", "null_ratio", "dominant_ratio"],
