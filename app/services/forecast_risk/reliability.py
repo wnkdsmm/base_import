@@ -106,6 +106,9 @@ def _ranking_confidence_state(score: int) -> tuple[str, str, str]:
     return "Ограниченная", "fire", "Вывод стоит использовать как сигнал к дополнительной проверке"
 
 
+# intentionally separate from access_points/presentation.py::_build_summary_cards and
+# table_summary.py::_build_summary_cards:
+# forecast-risk cards combine ranking reliability, calibration and quality signals.
 def _build_summary_cards(
     territories: Sequence[Dict[str, Any]],
     weight_profile: Dict[str, Any],

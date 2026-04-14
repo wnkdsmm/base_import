@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import textwrap
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, TypedDict
 
 from app.services.charting import (
     build_empty_chart_bundle,
@@ -28,6 +28,52 @@ from app.services.chart_utils import (
 from app.statistics_constants import PLOTLY_PALETTE
 
 
+class ChartData(TypedDict):
+    """Standard dashboard chart item with label and numeric value."""
+
+    label: str
+    value: int | float
+    value_display: str
+
+
+class ImpactTimelineData(TypedDict):
+    """Timeline point for combined impact chart metrics."""
+
+    date_value: str
+    label: str
+    deaths: int | float
+    injuries: int | float
+    evacuated_adults: int | float
+    evacuated_children: int | float
+    rescued_children: int | float
+
+
+class DamagePairData(TypedDict):
+    """Damage comparison item with destroyed and damaged counters."""
+
+    label: str
+    destroyed: int | float
+    damaged: int | float
+
+
+class PlotlyPayload(TypedDict, total=False):
+    """Plotly payload container used by dashboard chart builders."""
+
+    data: List[Any]
+    layout: Dict[str, Any]
+    frames: List[Any]
+
+
+class ChartResult(TypedDict, total=False):
+    """Dashboard chart bundle returned to presentation layer."""
+
+    title: str
+    items: List[ChartData]
+    empty_message: str
+    plotly: PlotlyPayload
+    description: str
+
+
 def build_dashboard_plotly_layout(
     yaxis_title: str = "",
     *,
@@ -39,7 +85,7 @@ def build_dashboard_plotly_layout(
     margin_bottom: int = 48,
     hover_bgcolor: str = "#fffaf5",
     bargap: float = 0.45,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return build_plotly_layout(
         yaxis_title,
         height=height,
@@ -59,11 +105,11 @@ def build_dashboard_plotly_layout(
 
 def _finalize_chart(
     title: str,
-    items: List[Dict[str, Any]],
+    items: List[ChartData],
     empty_message: str,
-    plotly: Optional[Dict[str, Any]] = None,
+    plotly: Optional[PlotlyPayload] = None,
     description: str = "",
-) -> Dict[str, Any]:
+) -> ChartResult:
     return build_item_chart_bundle(
         title,
         items,
@@ -74,7 +120,7 @@ def _finalize_chart(
     )
 
 
-def _build_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
+def _build_empty_plotly_chart(title: str, empty_message: str) -> PlotlyPayload:
     return build_empty_chart_bundle(
         title,
         empty_message,
@@ -82,11 +128,11 @@ def _build_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
     )["plotly"]
 
 
-def _empty_plotly_payload(empty_message: str) -> Dict[str, Any]:
+def _empty_plotly_payload(empty_message: str) -> PlotlyPayload:
     return build_empty_plotly_payload(empty_message, annotation_color="#7b6a5a")
 
 
-def _build_yearly_plotly(title: str, items: List[Dict[str, Any]], metric: str, empty_message: str) -> Dict[str, Any]:
+def _build_yearly_plotly(title: str, items: List[ChartData], metric: str, empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
 
@@ -135,7 +181,7 @@ def _wrap_plotly_label(value: Any, max_width: int = 34, max_lines: int = 3) -> s
     return "<br>".join(lines)
 
 
-def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_cause_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     ordered_items = list(reversed(items))
@@ -159,7 +205,7 @@ def _build_cause_plotly(title: str, items: List[Dict[str, Any]], empty_message: 
     )
 
 
-def _build_distribution_pie_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_distribution_pie_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_pie_payload(
@@ -172,7 +218,7 @@ def _build_distribution_pie_plotly(title: str, items: List[Dict[str, Any]], empt
     )
 
 
-def _build_distribution_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_distribution_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     ordered_items = list(reversed(items))
@@ -194,7 +240,9 @@ def _build_distribution_plotly(title: str, items: List[Dict[str, Any]], empty_me
     )
 
 
-def _build_combined_impact_timeline_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_combined_impact_timeline_plotly(
+    title: str, items: List[ImpactTimelineData], empty_message: str
+) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
 
@@ -258,7 +306,7 @@ def _build_combined_impact_timeline_plotly(title: str, items: List[Dict[str, Any
         ),
     )
 
-def _build_damage_overview_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_damage_overview_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     ordered_items = list(reversed(items))
@@ -280,7 +328,7 @@ def _build_damage_overview_plotly(title: str, items: List[Dict[str, Any]], empty
     )
 
 
-def _build_damage_pairs_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_damage_pairs_plotly(title: str, items: List[DamagePairData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
 
@@ -315,7 +363,7 @@ def _build_damage_pairs_plotly(title: str, items: List[Dict[str, Any]], empty_me
     )
 
 
-def _build_damage_standalone_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_damage_standalone_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     normalized_items = [
@@ -343,7 +391,7 @@ def _build_damage_standalone_plotly(title: str, items: List[Dict[str, Any]], emp
         layout_updates=merge_plotly_layout(xaxis={"automargin": True}),
     )
 
-def _build_damage_share_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_damage_share_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_pie_payload(
@@ -366,7 +414,7 @@ def _build_damage_share_plotly(title: str, items: List[Dict[str, Any]], empty_me
         margin={"l": 24, "r": 24, "t": 12, "b": 12},
     )
 
-def _build_table_breakdown_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_table_breakdown_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     ordered_items = list(reversed(items))
@@ -380,7 +428,7 @@ def _build_table_breakdown_plotly(title: str, items: List[Dict[str, Any]], empty
     )
 
 
-def _build_monthly_profile_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_monthly_profile_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_vertical_bar_payload(
@@ -406,7 +454,7 @@ def _build_monthly_profile_plotly(title: str, items: List[Dict[str, Any]], empty
     )
 
 
-def _build_area_bucket_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_area_bucket_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_pie_payload(
@@ -429,11 +477,11 @@ def _build_area_bucket_plotly(title: str, items: List[Dict[str, Any]], empty_mes
 
 def _build_sql_widget_bar_plotly(
     title: str,
-    items: List[Dict[str, Any]],
+    items: List[ChartData],
     empty_message: str,
     color_key: str,
     value_label: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     ordered_items = list(reversed(items))
@@ -458,7 +506,7 @@ def _build_sql_widget_bar_plotly(
     )
 
 
-def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def _build_sql_widget_season_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_vertical_bar_payload(
@@ -471,31 +519,31 @@ def _build_sql_widget_season_plotly(title: str, items: List[Dict[str, Any]], emp
     )
 
 
-def _plotly_layout(yaxis_title: str, showlegend: bool) -> Dict[str, Any]:
+def _plotly_layout(yaxis_title: str, showlegend: bool) -> PlotlyPayload:
     return build_dashboard_plotly_layout(yaxis_title, showlegend=showlegend)
 
 
 def build_dashboard_finalize_chart(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
     *,
-    plotly: Dict[str, Any] | None = None,
+    plotly: PlotlyPayload | None = None,
     description: str = "",
-) -> Dict[str, Any]:
+) -> ChartResult:
     return _finalize_chart(title, list(items), empty_message, plotly=plotly, description=description)
 
 
-def build_dashboard_empty_plotly_chart(title: str, empty_message: str) -> Dict[str, Any]:
+def build_dashboard_empty_plotly_chart(title: str, empty_message: str) -> PlotlyPayload:
     return _build_empty_plotly_chart(title, empty_message)
 
 
 def build_dashboard_yearly_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     metric: str,
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_yearly_plotly(title, list(items), metric, empty_message)
 
 
@@ -503,71 +551,71 @@ def build_dashboard_wrap_plotly_label(value: Any, max_width: int = 34, max_lines
     return _wrap_plotly_label(value, max_width=max_width, max_lines=max_lines)
 
 
-def build_dashboard_cause_plotly(title: str, items: Sequence[Dict[str, Any]], empty_message: str) -> Dict[str, Any]:
+def build_dashboard_cause_plotly(title: str, items: Sequence[ChartData], empty_message: str) -> PlotlyPayload:
     return _build_cause_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_distribution_pie_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_distribution_pie_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_distribution_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_distribution_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_combined_impact_timeline_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ImpactTimelineData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_combined_impact_timeline_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_overview_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_damage_overview_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_pairs_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[DamagePairData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_damage_pairs_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_standalone_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_damage_standalone_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_damage_share_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_damage_share_plotly(title, list(items), empty_message)
 
 
 def build_dashboard_table_breakdown_plotly(
     title: str,
-    items: Sequence[Dict[str, Any]],
+    items: Sequence[ChartData],
     empty_message: str,
-) -> Dict[str, Any]:
+) -> PlotlyPayload:
     return _build_table_breakdown_plotly(title, list(items), empty_message)
 
 

@@ -1,7 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, List, Sequence
 
+from .types import (
+    FeatureCard,
+    FeatureSource,
+    GeoSummary,
+    QualityPassport,
+    RiskPresentation,
+    RiskProfile,
+    RiskScore,
+    TopConfidence,
+)
 from .utils import _format_integer, _scan_columns
 
 
@@ -12,11 +22,11 @@ def _table_scope_label(count: int) -> str:
     return f"В {count_display} таблицах"
 
 
-def _compact_feature_sources(sources: Sequence[Dict[str, Any]]) -> str:
+def _compact_feature_sources(sources: Sequence[FeatureSource]) -> str:
     if not sources:
         return "Не найдена"
 
-    grouped_sources: List[Dict[str, Any]] = []
+    grouped_sources: List[dict[str, Any]] = []
     for item in sources:
         columns = tuple(item.get("columns") or ())
         if not columns:
@@ -44,7 +54,7 @@ def _compact_feature_sources(sources: Sequence[Dict[str, Any]]) -> str:
     return "; ".join(parts)
 
 
-def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_feature_cards(metadata_items: Sequence[dict[str, Any]]) -> List[FeatureCard]:
     if not metadata_items:
         return []
     feature_config = [
@@ -124,11 +134,11 @@ def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[
         },
     ]
     total_tables = len(metadata_items)
-    cards: List[Dict[str, Any]] = []
+    cards: List[FeatureCard] = []
     for feature in feature_config:
         full_tables = 0
         partial_tables = 0
-        sources: List[Dict[str, Any]] = []
+        sources: List[FeatureSource] = []
         for item in metadata_items:
             found_columns: List[str] = []
             for key in feature.get("resolved_keys", []):
@@ -168,9 +178,9 @@ def _build_feature_cards(metadata_items: Sequence[Dict[str, Any]]) -> List[Dict[
 
 
 def _build_quality_passport(
-    feature_cards: Sequence[Dict[str, Any]],
-    metadata_items: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
+    feature_cards: Sequence[FeatureCard],
+    metadata_items: Sequence[dict[str, Any]],
+) -> QualityPassport:
     used_labels = [item["label"] for item in feature_cards if item.get("status") == "used"]
     partial_labels = [item["label"] for item in feature_cards if item.get("status") == "partial"]
     missing_labels = [item["label"] for item in feature_cards if item.get("status") == "missing"]
@@ -252,7 +262,7 @@ def _build_quality_passport(
     }
 
 
-def _build_geo_summary(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
+def _build_geo_summary(geo_prediction: dict[str, Any]) -> GeoSummary:
     hotspots = [
         {
             "label": item.get("short_label") or item.get("location_label") or "Зона",
@@ -298,15 +308,15 @@ def _build_empty_decision_support_payload(
     title: str,
     model_description: str,
     coverage_display: str,
-    quality_passport: Dict[str, Any],
-    top_confidence: Dict[str, Any],
-    feature_cards: Sequence[Dict[str, Any]],
-    weight_profile: Dict[str, Any],
-    historical_validation: Dict[str, Any],
+    quality_passport: QualityPassport,
+    top_confidence: TopConfidence,
+    feature_cards: Sequence[FeatureCard],
+    weight_profile: RiskProfile,
+    historical_validation: dict[str, Any],
     notes: Sequence[str],
-    geo_summary: Dict[str, Any],
-    geo_prediction: Dict[str, Any],
-) -> Dict[str, Any]:
+    geo_summary: GeoSummary,
+    geo_prediction: dict[str, Any],
+) -> RiskPresentation:
     return {
         "has_data": False,
         "title": title,
@@ -335,19 +345,19 @@ def _build_decision_support_payload_response(
     title: str,
     model_description: str,
     coverage_display: str,
-    quality_passport: Dict[str, Any],
-    summary_cards: Sequence[Dict[str, Any]],
+    quality_passport: QualityPassport,
+    summary_cards: Sequence[dict[str, Any]],
     top_territory_label: str,
     top_territory_explanation: str,
-    top_confidence: Dict[str, Any],
-    territories: Sequence[Dict[str, Any]],
-    feature_cards: Sequence[Dict[str, Any]],
-    weight_profile: Dict[str, Any],
-    historical_validation: Dict[str, Any],
+    top_confidence: TopConfidence,
+    territories: Sequence[RiskScore],
+    feature_cards: Sequence[FeatureCard],
+    weight_profile: RiskProfile,
+    historical_validation: dict[str, Any],
     notes: Sequence[str],
-    geo_summary: Dict[str, Any],
-    geo_prediction: Dict[str, Any],
-) -> Dict[str, Any]:
+    geo_summary: GeoSummary,
+    geo_prediction: dict[str, Any],
+) -> RiskPresentation:
     return {
         "has_data": bool(territories),
         "title": title,

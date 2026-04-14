@@ -164,6 +164,11 @@
     gap: 12px;
 }
 
+#tableList[data-has-items="true"] + #tableListEmpty,
+#tableListEmpty[hidden] {
+    display: none !important;
+}
+
 .table-link-item {
     min-width: 0;
 }

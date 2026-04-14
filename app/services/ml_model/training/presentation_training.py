@@ -121,6 +121,9 @@ def _build_importance_chart(feature_importance: List[Dict[str, Any]], note: str 
     }
 
 
+# intentionally separate from access_points/presentation.py::_build_summary and
+# forecasting/presentation.py::_build_summary:
+# ML-training summary exposes model diagnostics/backtest/event-probability details.
 def _build_summary(
     selected_table: str,
     selected_cause: str,

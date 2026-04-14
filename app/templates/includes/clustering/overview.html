@@ -77,7 +77,7 @@
                 <div class="cluster-feature-grid">
                     {% for feature in filters.available_features %}
                     <label class="cluster-feature-option">
-                        <input type="checkbox" name="feature_columns" value="{{ feature.name }}" {% if feature.is_selected or not filters.feature_columns %}checked{% endif %}>
+                                <input type="checkbox" name="feature_columns" value="{{ feature.name }}" checked>
                         <span class="cluster-feature-copy">
                             <strong class="cluster-feature-name">{{ feature.name }}</strong>
                             <span class="cluster-feature-meta">{{ feature.description }} Заполненность: {{ feature.coverage_display }} | Дисперсия: {{ feature.variance_display }}</span>

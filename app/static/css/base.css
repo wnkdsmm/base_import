@@ -55,6 +55,14 @@
     --panel-hover-bg: #edf5ff;
     --line-soft: rgba(189, 205, 231, 0.42);
     --surface-accent-tint: rgba(37, 99, 235, 0.12);
+    --color-border-blue-12: rgba(46, 83, 140, 0.12);
+    --color-border-blue-16: rgba(46, 83, 140, 0.16);
+    --color-accent-10: rgba(37, 99, 235, 0.1);
+    --color-accent-14: rgba(37, 99, 235, 0.14);
+    --color-accent-20: rgba(37, 99, 235, 0.2);
+    --color-accent-30: rgba(37, 99, 235, 0.3);
+    --color-text-muted-82: rgba(93, 112, 135, 0.82);
+    --color-overlay-dark: rgba(16, 31, 58, 0.42);
     --transition-fast: 0.18s;
     --transition-interactive: transform var(--transition-fast) ease, border-color var(--transition-fast) ease, background-color var(--transition-fast) ease;
     --transition-interactive-opacity: transform var(--transition-fast) ease, background-color var(--transition-fast) ease, opacity var(--transition-fast) ease;
@@ -65,6 +73,8 @@
     --sidebar-end: #144a97;
     --sidebar-surface: #24569f;
     --sidebar-border: #4c79be;
+    --color-sidebar-border: rgba(219, 234, 254, 0.22);
+    --color-sidebar-bg-light: rgba(255, 255, 255, 0.08);
 
     /* Status badges */
     --color-bg-page: #f4f8ff;

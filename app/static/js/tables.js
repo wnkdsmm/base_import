@@ -94,14 +94,27 @@
 
         if (!Array.isArray(tableNames) || !tableNames.length) {
             list.innerHTML = '';
+            list.dataset.hasItems = 'false';
             list.classList.add('is-hidden');
+            list.hidden = true;
             emptyState.classList.remove('is-hidden');
+            emptyState.hidden = false;
             return;
         }
 
         list.innerHTML = tableNames.map(buildTableCard).join('');
+        list.dataset.hasItems = 'true';
         list.classList.remove('is-hidden');
+        list.hidden = false;
         emptyState.classList.add('is-hidden');
+        emptyState.hidden = true;
+    }
+
+    function getRenderedTableNames() {
+        return Array.prototype.slice
+            .call(document.querySelectorAll('#tableList [data-table-row][data-table-name]'))
+            .map(function (row) { return String(row.getAttribute('data-table-name') || '').trim(); })
+            .filter(function (tableName) { return !!tableName; });
     }
 
     function getSelectionInputs() {
@@ -258,6 +271,6 @@
         };
 
         bindSelectionActions();
-        refreshSelectionState();
+        applyTableState(getRenderedTableNames());
     });
 })();

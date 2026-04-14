@@ -189,7 +189,7 @@ def forecasting_page(
         context_value=forecast,
         asset_files={
             **ANALYTICS_PAGE_ASSETS,
-            "forecasting_css_version": "forecasting.css",
+            "forecasting_css_version": "css/forecasting.css",
             "forecasting_js_version": "js/forecasting.js",
         },
     )
@@ -222,7 +222,7 @@ def ml_model_page(
         context_value=ml_model,
         asset_files={
             **ANALYTICS_PAGE_ASSETS,
-            "ml_model_css_version": "ml_model.css",
+            "ml_model_css_version": "css/ml_model.css",
             "ml_model_js_version": "js/ml_model.js",
         },
     )
@@ -252,7 +252,7 @@ def clustering_page(
         context_value=clustering,
         asset_files={
             **ANALYTICS_PAGE_ASSETS,
-            "clustering_css_version": "clustering.css",
+            "clustering_css_version": "css/clustering.css",
             "clustering_js_version": "js/clustering.js",
         },
     )
@@ -281,7 +281,7 @@ def access_points_page(
         context_value=access_points,
         asset_files={
             **ANALYTICS_PAGE_ASSETS,
-            "access_points_css_version": "access_points.css",
+            "access_points_css_version": "css/access_points.css",
             "access_points_js_version": "js/access_points.js",
         },
     )
@@ -407,7 +407,7 @@ def select_table(request: Request):
         mandatory_feature_catalog=get_mandatory_feature_catalog(),
         profiling_defaults=PROFILING_DEFAULTS,
         **asset_versions(
-            profiling_css_version="profiling.css",
+            profiling_css_version="css/profiling.css",
             select_table_js_version="js/select_table.js",
         ),
     )

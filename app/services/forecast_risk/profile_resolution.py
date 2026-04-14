@@ -5,6 +5,13 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile
 from .scoring import _build_territory_rows
+from .types import (
+    CalibrationComparison,
+    CalibrationEntry,
+    CalibrationMetrics,
+    RiskProfile,
+    WeightCandidate,
+)
 from .utils import _format_decimal, _format_integer, _format_probability, _unique_non_empty
 
 MIN_CALIBRATION_WINDOWS = 4
@@ -15,13 +22,13 @@ MIN_CALIBRATION_IMPROVEMENT = 0.015
 
 
 def resolve_weight_profile_for_records(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[dict[str, Any]],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
     *,
     enable_calibration: bool = True,
     disabled_summary: str = "",
-) -> Dict[str, Any]:
+) -> RiskProfile:
     requested_profile = get_risk_weight_profile(weight_mode)
     if not enable_calibration:
         return _build_uncalibrated_profile(
@@ -60,8 +67,8 @@ def resolve_weight_profile_for_records(
         expert_profile,
     )
     candidates = _generate_weight_candidates(expert_profile)
-    evaluations: List[Dict[str, Any]] = []
-    expert_entry: Optional[Dict[str, Any]] = None
+    evaluations: List[CalibrationEntry] = []
+    expert_entry: Optional[CalibrationEntry] = None
 
     for candidate in candidates:
         candidate_profile = _profile_with_weights(requested_profile, expert_profile, candidate["weights"])
@@ -133,9 +140,9 @@ def resolve_weight_profile_for_records(
 
 def _build_uncalibrated_profile(
     *,
-    requested_profile: Dict[str, Any],
+    requested_profile: RiskProfile,
     summary: str,
-) -> Dict[str, Any]:
+) -> RiskProfile:
     profile = deepcopy(requested_profile)
     calibration = deepcopy(profile.get("calibration") or {})
     calibration.update(
@@ -152,10 +159,10 @@ def _build_uncalibrated_profile(
     return profile
 
 
-def _generate_weight_candidates(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _generate_weight_candidates(profile: RiskProfile) -> List[WeightCandidate]:
     base_weights = {key: float(value) for key, value in (profile.get("component_weights") or {}).items()}
     component_order = list(profile.get("component_order") or base_weights.keys())
-    candidates: List[Dict[str, Any]] = []
+    candidates: List[WeightCandidate] = []
     seen = set()
 
     def add_candidate(key: str, label: str, weights: Dict[str, float]) -> None:
@@ -213,10 +220,10 @@ def _normalize_component_weights(
 
 
 def _prepare_evaluation_windows(
-    windows: Sequence[Dict[str, Any]],
-    profile: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    prepared: List[Dict[str, Any]] = []
+    windows: Sequence[dict[str, Any]],
+    profile: RiskProfile,
+) -> List[dict[str, Any]]:
+    prepared: List[dict[str, Any]] = []
     for window in windows:
         prepared_window = dict(window)
         prepared_window["predicted_rows"] = _build_territory_rows(
@@ -233,7 +240,10 @@ def _weight_distance(candidate_weights: Dict[str, float], base_weights: Dict[str
     return sum(abs(float(candidate_weights.get(key, 0.0)) - float(base_weights.get(key, 0.0))) for key in base_weights)
 
 
-def _build_metric_comparison(selected_metrics: Dict[str, Any], expert_metrics: Dict[str, Any]) -> Dict[str, Any]:
+def _build_metric_comparison(
+    selected_metrics: CalibrationMetrics,
+    expert_metrics: CalibrationMetrics,
+) -> CalibrationComparison:
     comparison = {
         "top1_hit_delta": float(selected_metrics.get("top1_hit_rate") or 0.0)
         - float(expert_metrics.get("top1_hit_rate") or 0.0),
@@ -255,10 +265,10 @@ def _build_metric_comparison(selected_metrics: Dict[str, Any], expert_metrics: D
 
 
 def _profile_with_weights(
-    requested_profile: Dict[str, Any],
-    expert_profile: Dict[str, Any],
+    requested_profile: RiskProfile,
+    expert_profile: RiskProfile,
     component_weights: Dict[str, float],
-) -> Dict[str, Any]:
+) -> RiskProfile:
     profile = deepcopy(requested_profile)
     profile["component_weights"] = dict(component_weights)
     profile["expert_component_weights"] = deepcopy(expert_profile.get("component_weights") or {})
@@ -271,11 +281,11 @@ def _profile_with_weights(
 
 
 def _build_expert_fallback_profile(
-    requested_profile: Dict[str, Any],
-    expert_profile: Dict[str, Any],
-    windows_bundle: Dict[str, Any],
+    requested_profile: RiskProfile,
+    expert_profile: RiskProfile,
+    windows_bundle: dict[str, Any],
     reason: str,
-) -> Dict[str, Any]:
+) -> RiskProfile:
     profile = _profile_with_weights(requested_profile, expert_profile, expert_profile.get("component_weights") or {})
     profile["status_label"] = "Экспертный fallback"
     profile["status_tone"] = "sand"
@@ -306,12 +316,12 @@ def _build_expert_fallback_profile(
 
 
 def _build_expert_retained_profile(
-    requested_profile: Dict[str, Any],
-    expert_profile: Dict[str, Any],
-    expert_entry: Dict[str, Any],
+    requested_profile: RiskProfile,
+    expert_profile: RiskProfile,
+    expert_entry: CalibrationEntry,
     candidate_count: int,
     improvement: float,
-) -> Dict[str, Any]:
+) -> RiskProfile:
     profile = _profile_with_weights(requested_profile, expert_profile, expert_profile.get("component_weights") or {})
     profile["status_label"] = "Экспертные веса удержаны"
     profile["status_tone"] = "sky"
@@ -352,13 +362,13 @@ def _build_expert_retained_profile(
 
 
 def _build_calibrated_profile(
-    requested_profile: Dict[str, Any],
-    expert_profile: Dict[str, Any],
-    selected_entry: Dict[str, Any],
-    expert_entry: Dict[str, Any],
+    requested_profile: RiskProfile,
+    expert_profile: RiskProfile,
+    selected_entry: CalibrationEntry,
+    expert_entry: CalibrationEntry,
     candidate_count: int,
     improvement: float,
-) -> Dict[str, Any]:
+) -> RiskProfile:
     profile = _profile_with_weights(requested_profile, expert_profile, selected_entry.get("weights") or {})
     profile["status_label"] = "Калиброван по истории"
     profile["status_tone"] = "forest"

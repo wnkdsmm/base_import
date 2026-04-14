@@ -1,12 +1,30 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, List, Sequence
 
 from .constants import (
     CLUSTER_COUNT_OPTIONS,
     LOW_SUPPORT_TERRITORY_THRESHOLD,
     RATE_SMOOTHING_PRIOR_STRENGTH,
     STABILITY_RESAMPLE_RATIO,
+)
+from .types import (
+    ClusterCountGuidance,
+    ClusterCountGuidanceContext,
+    ClusterCountRecommendationMessages,
+    ClusterLabel,
+    ClusterMethod,
+    ClusterMetrics,
+    ClusteringQualityAssessment,
+    FeatureAblationRow,
+    FeatureSelectionReport,
+    MethodComparisonRow,
+    QualityConfigurationContext,
+    QualityDiagnostics,
+    QualityLabelContext,
+    QualityNoteContext,
+    QualityScore,
+    SupportSummary,
 )
 from .utils import _format_integer, _format_number, _format_percent
 
@@ -17,7 +35,7 @@ __all__ = [
 ]
 
 
-def _format_configuration_label(configuration: Dict[str, Any] | None) -> str:
+def _format_configuration_label(configuration: ClusterMethod | None) -> str:
     if not configuration:
         return "—"
     method_label = str(configuration.get("method_label") or "Метод")
@@ -27,7 +45,7 @@ def _format_configuration_label(configuration: Dict[str, Any] | None) -> str:
     return method_label
 
 
-def _empty_clustering_quality_assessment() -> Dict[str, Any]:
+def _empty_clustering_quality_assessment() -> ClusteringQualityAssessment:
     return {
         "ready": False,
         "title": "Оценка качества кластеризации",
@@ -40,8 +58,8 @@ def _empty_clustering_quality_assessment() -> Dict[str, Any]:
 
 
 def _build_configuration_recommendation_note(
-    working_configuration: Dict[str, Any] | None,
-    recommended_configuration: Dict[str, Any] | None,
+    working_configuration: ClusterMethod | None,
+    recommended_configuration: ClusterMethod | None,
     *,
     cluster_count_is_explicit: bool,
 ) -> str:
@@ -64,10 +82,10 @@ def _build_configuration_recommendation_note(
 
 def _resolve_quality_configuration_context(
     *,
-    method_comparison: Sequence[Dict[str, Any]],
-    diagnostics: Dict[str, Any] | None,
+    method_comparison: Sequence[ClusterMethod],
+    diagnostics: QualityDiagnostics | None,
     cluster_count: int,
-) -> Dict[str, Any]:
+) -> QualityConfigurationContext:
     diagnostics = diagnostics or {}
     recommended_configuration = dict(diagnostics.get("best_configuration") or {})
     recommended_k = int(recommended_configuration.get("cluster_count") or diagnostics.get("best_quality_k") or cluster_count)
@@ -94,8 +112,8 @@ def _resolve_quality_configuration_context(
 
 
 def _build_feature_selection_quality_label_context(
-    feature_selection_report: Dict[str, Any] | None,
-) -> Dict[str, Any]:
+    feature_selection_report: FeatureSelectionReport | None,
+) -> QualityLabelContext:
     report = feature_selection_report or {}
     return {
         "mode_label": str(report.get("volume_role_label") or "Профиль территории"),
@@ -107,7 +125,7 @@ def _build_feature_selection_quality_label_context(
     }
 
 
-def _build_ablation_warning_note(ablation_rows: Sequence[Dict[str, Any]]) -> str:
+def _build_ablation_warning_note(ablation_rows: Sequence[FeatureAblationRow]) -> str:
     negative_adds = [
         row for row in ablation_rows if row.get("direction") == "add" and float(row.get("delta_score") or 0.0) < 0.0
     ]
@@ -121,7 +139,7 @@ def _build_ablation_warning_note(ablation_rows: Sequence[Dict[str, Any]]) -> str
     )
 
 
-def _format_quality_method_selection_label(row: Dict[str, Any]) -> str:
+def _format_quality_method_selection_label(row: ClusterMethod) -> str:
     if row.get("is_selected") and row.get("is_recommended"):
         return "Рабочий и лучший на текущем k"
     if row.get("is_selected"):
@@ -132,8 +150,8 @@ def _format_quality_method_selection_label(row: Dict[str, Any]) -> str:
 
 
 def _build_quality_method_comparison_rows(
-    method_comparison: Sequence[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    method_comparison: Sequence[ClusterMethod],
+) -> List[MethodComparisonRow]:
     return [
         {
             "method_label": row.get("method_label", "Метод"),
@@ -151,7 +169,7 @@ def _build_quality_dissertation_points(
     *,
     segmentation_note: str,
     method_note: str,
-    cluster_count_guidance: Dict[str, Any],
+    cluster_count_guidance: ClusterCountGuidance,
     recommended_config_label: str,
     working_config_label: str,
     recommended_k: int | None,
@@ -202,18 +220,18 @@ def _build_quality_dissertation_points(
 
 def _build_quality_note_context(
     *,
-    clustering: Dict[str, Any],
-    selected_method: Dict[str, Any] | None,
-    working_configuration: Dict[str, Any],
-    effective_recommended_configuration: Dict[str, Any],
-    recommended_method: Dict[str, Any],
+    clustering: ClusterMetrics,
+    selected_method: ClusterMethod | None,
+    working_configuration: ClusterMethod,
+    effective_recommended_configuration: ClusterMethod,
+    recommended_method: ClusterMethod,
     cluster_count: int,
     recommended_k: int | None,
-    method_comparison: Sequence[Dict[str, Any]],
-    feature_selection_report: Dict[str, Any] | None,
+    method_comparison: Sequence[ClusterMethod],
+    feature_selection_report: FeatureSelectionReport | None,
     resample_share_label: str,
     cluster_count_is_explicit: bool,
-) -> Dict[str, Any]:
+) -> QualityNoteContext:
     segmentation_summary = _summarize_segmentation_strength(
         clustering,
         selected_method=selected_method,
@@ -237,7 +255,7 @@ def _build_quality_note_context(
     }
 
 
-def _build_quality_metric_cards(clustering: Dict[str, Any], resample_share_label: str) -> List[Dict[str, Any]]:
+def _build_quality_metric_cards(clustering: ClusterMetrics, resample_share_label: str) -> List[QualityScore]:
     return [
         {
             "label": "Насколько кластеры отделены",
@@ -274,7 +292,7 @@ def _build_quality_metric_cards(clustering: Dict[str, Any], resample_share_label
 def _build_quality_methodology_items(
     *,
     selected_features: Sequence[str],
-    selected_method: Dict[str, Any] | None,
+    selected_method: ClusterMethod | None,
     working_config_label: str,
     recommended_config_label: str,
     segmentation_label: str,
@@ -283,7 +301,7 @@ def _build_quality_methodology_items(
     weighting_meta: str,
     low_support_display: str,
     explained_variance: Any,
-) -> List[Dict[str, Any]]:
+) -> List[QualityScore]:
     return [
         {
             "label": "Текущая настройка",
@@ -334,18 +352,18 @@ def _build_quality_methodology_items(
 
 
 def _build_clustering_quality_assessment(
-    clustering: Dict[str, Any],
-    method_comparison: Sequence[Dict[str, Any]],
+    clustering: ClusterMetrics,
+    method_comparison: Sequence[ClusterMethod],
     cluster_count: int,
     selected_features: Sequence[str],
-    diagnostics: Dict[str, Any] | None = None,
-    support_summary: Dict[str, Any] | None = None,
-    feature_selection_report: Dict[str, Any] | None = None,
+    diagnostics: QualityDiagnostics | None = None,
+    support_summary: SupportSummary | None = None,
+    feature_selection_report: FeatureSelectionReport | None = None,
     requested_cluster_count: int | None = None,
     resolved_requested_cluster_count: int | None = None,
     cluster_count_is_explicit: bool = False,
-    cluster_count_guidance: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    cluster_count_guidance: ClusterCountGuidance | None = None,
+) -> ClusteringQualityAssessment:
     if clustering.get("silhouette") is None:
         payload = _empty_clustering_quality_assessment()
         payload["dissertation_points"] = ["В текущем срезе кластеризация построена, но внутренних метрик пока недостаточно для устойчивой интерпретации качества."]
@@ -439,10 +457,10 @@ def _build_clustering_quality_assessment(
 def _build_cluster_count_guidance_context(
     requested_cluster_count: int,
     current_cluster_count: int,
-    diagnostics: Dict[str, Any] | None = None,
+    diagnostics: QualityDiagnostics | None = None,
     adjusted_requested_cluster_count: int | None = None,
     cluster_count_is_explicit: bool = False,
-) -> Dict[str, Any]:
+) -> ClusterCountGuidanceContext:
     raw_recommended_k = (diagnostics or {}).get("best_quality_k")
     best_silhouette_k = (diagnostics or {}).get("best_silhouette_k")
     requested_cluster_count = int(requested_cluster_count)
@@ -477,7 +495,7 @@ def _initial_cluster_count_recommendation_messages(
     current_cluster_count: int,
     *,
     cluster_count_is_explicit: bool,
-) -> Dict[str, str]:
+) -> ClusterCountRecommendationMessages:
     return {
         "suggested_label": _cluster_count_suggested_label(cluster_count_is_explicit),
         "suggested_note": "Рекомендация по числу групп появится, когда хватит данных для сравнения нескольких вариантов.",
@@ -489,10 +507,10 @@ def _initial_cluster_count_recommendation_messages(
 
 
 def _recommended_cluster_count_messages(
-    context: Dict[str, Any],
+    context: ClusterCountGuidanceContext,
     *,
     cluster_count_is_explicit: bool,
-) -> Dict[str, str]:
+) -> ClusterCountRecommendationMessages:
     recommended_k = context["recommended_k"]
     current_cluster_count = context["current_cluster_count"]
     adjusted_requested_cluster_count = context["adjusted_requested_cluster_count"]
@@ -565,10 +583,10 @@ def _recommended_cluster_count_messages(
 
 
 def _build_cluster_count_recommendation_context(
-    context: Dict[str, Any],
+    context: ClusterCountGuidanceContext,
     *,
     cluster_count_is_explicit: bool,
-) -> Dict[str, str]:
+) -> ClusterCountRecommendationMessages:
     current_cluster_count = context["current_cluster_count"]
     messages = _initial_cluster_count_recommendation_messages(
         current_cluster_count,
@@ -587,9 +605,9 @@ def _build_cluster_count_recommendation_context(
 
 
 def _apply_cluster_count_adjustment_warning(
-    context: Dict[str, Any],
-    messages: Dict[str, str],
-) -> Dict[str, str]:
+    context: ClusterCountGuidanceContext,
+    messages: ClusterCountRecommendationMessages,
+) -> ClusterCountRecommendationMessages:
     if not context["request_adjusted"]:
         return messages
 
@@ -615,10 +633,10 @@ def _apply_cluster_count_adjustment_warning(
 def _build_cluster_count_guidance(
     requested_cluster_count: int,
     current_cluster_count: int,
-    diagnostics: Dict[str, Any] | None = None,
+    diagnostics: QualityDiagnostics | None = None,
     adjusted_requested_cluster_count: int | None = None,
     cluster_count_is_explicit: bool = False,
-) -> Dict[str, Any]:
+) -> ClusterCountGuidance:
     guidance_context = _build_cluster_count_guidance_context(
         requested_cluster_count=requested_cluster_count,
         current_cluster_count=current_cluster_count,
@@ -650,12 +668,12 @@ def _build_cluster_count_guidance(
 
 
 def _summarize_segmentation_strength(
-    clustering: Dict[str, Any],
-    selected_method: Dict[str, Any] | None = None,
-    recommended_method: Dict[str, Any] | None = None,
+    clustering: ClusterMetrics,
+    selected_method: ClusterMethod | None = None,
+    recommended_method: ClusterMethod | None = None,
     cluster_count: int | None = None,
     recommended_k: int | None = None,
-) -> Dict[str, str]:
+) -> ClusterLabel:
     silhouette = float(clustering.get("silhouette") or 0.0)
     davies_bouldin = float(clustering.get("davies_bouldin") or 0.0)
     balance_ratio = float(clustering.get("cluster_balance_ratio") or 0.0)
@@ -707,7 +725,7 @@ def _summarize_segmentation_strength(
     }
 
 
-def _build_stability_note(clustering: Dict[str, Any], resample_share_label: str) -> str:
+def _build_stability_note(clustering: ClusterMetrics, resample_share_label: str) -> str:
     stability_ari = clustering.get("stability_ari")
     initialization_ari = clustering.get("initialization_ari")
     if stability_ari is None:
@@ -733,8 +751,8 @@ def _build_stability_note(clustering: Dict[str, Any], resample_share_label: str)
 
 
 def _build_method_recommendation_note(
-    selected_method: Dict[str, Any] | None,
-    recommended_method: Dict[str, Any] | None,
+    selected_method: ClusterMethod | None,
+    recommended_method: ClusterMethod | None,
 ) -> str:
     selected_label = str((selected_method or {}).get("method_label") or "KMeans")
     recommended_label = str((recommended_method or {}).get("method_label") or selected_label)
@@ -752,7 +770,7 @@ def _build_method_recommendation_note(
     return f"{selected_label} остаётся предпочтительным методом: альтернативы не дают более сильного качества без ухудшения размеров кластеров."
 
 
-def _build_method_comparison_scope_note(method_comparison: Sequence[Dict[str, Any]]) -> str:
+def _build_method_comparison_scope_note(method_comparison: Sequence[ClusterMethod]) -> str:
     selected_method = next((row for row in method_comparison if row.get("is_selected")), None)
     if not selected_method:
         return ""
@@ -773,13 +791,13 @@ def _build_method_comparison_scope_note(method_comparison: Sequence[Dict[str, An
     )
 
 
-def _resolve_method_algorithm_key(method_row: Dict[str, Any] | None) -> str:
+def _resolve_method_algorithm_key(method_row: ClusterMethod | None) -> str:
     if not method_row:
         return ""
     return str(method_row.get("algorithm_key") or method_row.get("method_key") or "")
 
 
-def _build_cluster_shape_note(clustering: Dict[str, Any]) -> str:
+def _build_cluster_shape_note(clustering: ClusterMetrics) -> str:
     smallest_cluster_size = int(clustering.get("smallest_cluster_size") or 0)
     largest_cluster_size = int(clustering.get("largest_cluster_size") or 0)
     balance_ratio = float(clustering.get("cluster_balance_ratio") or 0.0)

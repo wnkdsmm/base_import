@@ -20,29 +20,29 @@ _DEFAULT_TEMPLATE_ASSETS = {
 }
 
 ANALYTICS_PAGE_ASSETS = {
-    "analytics_css_version": "analytics.css",
-    "dashboard_css_version": "dashboard.css",
+    "analytics_css_version": "css/analytics.css",
+    "dashboard_css_version": "css/dashboard.css",
 }
 
 DASHBOARD_ONLY_ASSETS = {
-    "dashboard_css_version": "dashboard.css",
+    "dashboard_css_version": "css/dashboard.css",
 }
 
 COLUMN_SEARCH_ASSETS = {
-    "column_search_css_version": "column_search.css",
+    "column_search_css_version": "css/column_search.css",
 }
 
 FIRE_MAP_ASSETS = {
-    "fire_map_css_version": "fire_map.css",
+    "fire_map_css_version": "css/fire_map.css",
 }
 
 TABLES_ASSETS = {
-    "tables_css_version": "tables.css",
+    "tables_css_version": "css/tables.css",
 }
 
 TABLE_VIEW_ASSETS = {
-    "analytics_css_version": "analytics.css",
-    "tables_css_version": "tables.css",
+    "analytics_css_version": "css/analytics.css",
+    "tables_css_version": "css/tables.css",
 }
 
 

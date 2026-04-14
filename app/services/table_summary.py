@@ -333,6 +333,9 @@ def _first_found(feature_stats: Dict[str, Dict[str, Any]], feature_ids: Sequence
     return None
 
 
+# intentionally separate from access_points/presentation.py::_build_summary_cards and
+# forecast_risk/reliability.py::_build_summary_cards:
+# table-summary cards describe schema/coverage readiness, not risk prioritization.
 def _build_summary_cards(
     row_count: int,
     column_count: int,

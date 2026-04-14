@@ -81,16 +81,10 @@ function syncClusteringAsyncContainer() {
         }
 
         var items = Array.isArray(filters.available_features) ? filters.available_features : [];
-        var selectedValues = Array.isArray(filters.feature_columns)
-            ? filters.feature_columns.map(function (item) { return String(item); })
-            : [];
-
-        var hasExplicitSelection = selectedValues.length > 0;
         var body;
         if (items.length) {
             body = '<div class="cluster-feature-grid">' + items.map(function (feature) {
-                var shouldCheckByDefault = !hasExplicitSelection && !feature.is_selected;
-                var checked = feature.is_selected || selectedValues.indexOf(String(feature.name)) >= 0 || shouldCheckByDefault ? ' checked' : '';
+                var checked = ' checked';
                 return ''
                     + '<label class="cluster-feature-option">'
                     + '<input type="checkbox" name="feature_columns" value="' + escapeHtml(feature.name) + '"' + checked + '>'

@@ -4,7 +4,7 @@ import re
 from typing import Any, Callable, Dict, List, Set
 
 def _normalize_column_text(value: str) -> str:
-    text = str(value).lower().replace("С‘", "Рµ")
+    text = str(value).lower().replace("ё", "е")
     text = re.sub(r"[_/#-]+", " ", text)
     text = re.sub(r"[^\w\s]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()

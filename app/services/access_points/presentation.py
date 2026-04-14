@@ -40,6 +40,9 @@ def _build_top_point_lead(top_point: Dict[str, Any] | None) -> str:
     return f"{label} получает {severity_band} риск со score {score_display} из 100 и попадает в верх рейтинга как {typology_label}."
 
 
+# intentionally separate from forecasting/presentation.py::_build_summary and
+# ml_model/training/presentation_training.py::_build_summary:
+# access-points summary has its own point-risk and verification semantics.
 def _build_summary(
     rows: Sequence[Dict[str, Any]],
     *,
@@ -80,6 +83,9 @@ def _build_summary(
     }
 
 
+# intentionally separate from forecast_risk/reliability.py::_build_summary_cards and
+# table_summary.py::_build_summary_cards:
+# access-points cards are incident-point prioritization widgets.
 def _build_summary_cards(
     rows: Sequence[Dict[str, Any]],
     *,

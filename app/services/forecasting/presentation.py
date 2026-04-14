@@ -18,6 +18,9 @@ from .utils import (
 )
 
 
+# intentionally separate from access_points/presentation.py::_build_summary and
+# ml_model/training/presentation_training.py::_build_summary:
+# forecasting summary is scenario-level (time-series probability) and lightweight.
 def _build_summary(
     selected_table: str,
     selected_district: str,

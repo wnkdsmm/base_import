@@ -93,7 +93,7 @@
     max-width: min(100%, 56rem);
     padding: var(--space-token-12);
     border-radius: var(--radius-md);
-    border: 1px solid rgba(46, 83, 140, 0.12);
+    border: 1px solid var(--color-border-blue-12);
     background: var(--paper-strong);
     color: var(--color-token-04);
     font-size: var(--font-size-token-08);
@@ -105,7 +105,7 @@
     max-width: min(100%, 58rem);
     padding: var(--space-token-16);
     border-radius: var(--radius-card);
-    border: 1px solid rgba(46, 83, 140, 0.12);
+    border: 1px solid var(--color-border-blue-12);
     background: var(--surface-panel);
     color: var(--color-text-dark);
     line-height: 1.65;
@@ -142,7 +142,7 @@
     padding: var(--space-token-33);
     border-radius: 22px;
     background: var(--surface-panel-strong);
-    border: 1px solid rgba(46, 83, 140, 0.12);
+    border: 1px solid var(--color-border-blue-12);
 }
 
 .hero-stat-label,
@@ -291,7 +291,7 @@
     align-items: center;
     padding: var(--space-token-26);
     border-radius: var(--radius-pill);
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--color-accent-10);
     color: var(--accent-deep);
     font-size: var(--font-size-token-07);
     font-weight: 700;
@@ -318,7 +318,7 @@
     margin: 12px 0 22px;
     padding: var(--space-token-19);
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(37, 99, 235, 0.14);
+    border: 1px solid var(--color-accent-14);
     background: var(--surface-panel-accent);
 }
 
@@ -419,7 +419,7 @@
 }
 
 .filter-field input::placeholder {
-    color: rgba(93, 112, 135, 0.82);
+    color: var(--color-text-muted-82);
 }
 
 .filter-field select option {
@@ -668,7 +668,7 @@ td {
 }
 
 .orientation-link.is-primary {
-    border-color: rgba(37, 99, 235, 0.2);
+    border-color: var(--color-accent-20);
     background: var(--surface-panel-accent);
 }
 
@@ -708,7 +708,7 @@ td {
 
 .orientation-link.is-current,
 .orientation-link[aria-current="page"] {
-    border-color: rgba(37, 99, 235, 0.3);
+    border-color: var(--color-accent-30);
 }
 
 .orientation-link.is-current .orientation-cta,
@@ -858,7 +858,7 @@ td {
     text-align: center;
     border-radius: var(--radius-md);
     background: var(--surface-soft);
-    border: 1px dashed rgba(46, 83, 140, 0.16);
+    border: 1px dashed var(--color-border-blue-16);
 }
 
 .notice-list {

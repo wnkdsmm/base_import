@@ -7,8 +7,8 @@ from app.statistics_constants import IMPACT_METRIC_CONFIG
 
 
 MOJIBAKE_TOKEN_RE = re.compile(
-    r"[Р РЎ][\u00A0\u00B5\u0400-\u040F\u0450-\u045F\u0490\u0491"
-    r"\u201A-\u203A\u2122]|Р’В°"
+    r"[РС][\u00A0\u00B5\u0400-\u040F\u0450-\u045F\u0490\u0491"
+    r"\u201A-\u203A\u2122]|В°"
 )
 
 
@@ -43,8 +43,8 @@ class _DashboardConnection:
         self.queries = []
         self.params = []
         self.distribution_rows = distribution_rows or [
-            {"label": "Р–РёР»РѕРµ", "fire_count": 2},
-            {"label": "РЎРєР»Р°Рґ", "fire_count": 1},
+            {"label": "Жилое", "fire_count": 2},
+            {"label": "Склад", "fire_count": 1},
         ]
 
     def __enter__(self):
@@ -60,26 +60,26 @@ class _DashboardConnection:
 
         if "GROUPING SETS" in query_text and "'cause'" in query_text:
             rows = [
-                {"metric_kind": "cause", "label": "Р­Р»РµРєС‚СЂРёРєР°", "fire_count": 2},
-                {"metric_kind": "cause", "label": "РќРµРѕСЃС‚РѕСЂРѕР¶РЅРѕСЃС‚СЊ", "fire_count": 1},
-                {"metric_kind": "district", "label": "Р¦РµРЅС‚СЂР°Р»СЊРЅС‹Р№", "fire_count": 2},
-                {"metric_kind": "district", "label": "РЎРµРІРµСЂРЅС‹Р№", "fire_count": 1},
+                {"metric_kind": "cause", "label": "Электрика", "fire_count": 2},
+                {"metric_kind": "cause", "label": "Неосторожность", "fire_count": 1},
+                {"metric_kind": "district", "label": "Центральный", "fire_count": 2},
+                {"metric_kind": "district", "label": "Северный", "fire_count": 1},
                 {"metric_kind": "month", "label": "1", "fire_count": 2},
                 {"metric_kind": "month", "label": "2", "fire_count": 1},
             ]
             if "'area_bucket'" in query_text:
                 rows.extend(
                     [
-                        {"metric_kind": "area_bucket", "label": "Р”Рѕ 1 РіР°", "fire_count": 1},
-                        {"metric_kind": "area_bucket", "label": "5-20 РіР°", "fire_count": 1},
-                        {"metric_kind": "area_bucket", "label": "РќРµ СѓРєР°Р·Р°РЅРѕ", "fire_count": 1},
+                        {"metric_kind": "area_bucket", "label": "До 1 га", "fire_count": 1},
+                        {"metric_kind": "area_bucket", "label": "5-20 га", "fire_count": 1},
+                        {"metric_kind": "area_bucket", "label": "Не указано", "fire_count": 1},
                     ]
                 )
             if "'distribution'" in query_text:
                 rows.extend(
                     [
-                        {"metric_kind": "distribution", "label": "Р–РёР»РѕРµ", "fire_count": 2},
-                        {"metric_kind": "distribution", "label": "РЎРєР»Р°Рґ", "fire_count": 1},
+                        {"metric_kind": "distribution", "label": "Жилое", "fire_count": 2},
+                        {"metric_kind": "distribution", "label": "Склад", "fire_count": 1},
                     ]
                 )
             if "'impact_timeline'" in query_text:
@@ -217,7 +217,7 @@ class _DashboardAggregationConnection:
         if "GROUPING SETS" in query_text:
             return _DashboardQueryResult(
                 [
-                    {"metric_kind": "cause", "label": "Р­Р»РµРєС‚СЂРёРєР°", "fire_count": 3},
+                    {"metric_kind": "cause", "label": "Электрика", "fire_count": 3},
                     {"metric_kind": "month", "label": "1", "fire_count": 3},
                     {
                         "metric_kind": "positive_column_bundle",

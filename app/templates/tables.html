@@ -7,7 +7,7 @@
 {% block title %}Таблицы в базе{% endblock %}
 
 {% block page_styles %}
-<link rel="stylesheet" href="/static/tables.css?v={{ tables_css_version }}">
+<link rel="stylesheet" href="/static/css/tables.css?v={{ tables_css_version }}">
 {% endblock %}
 
 {% block sidebar_status %}
@@ -88,7 +88,7 @@
 
         <div id="tableActionStatus" class="table-action-status is-hidden" aria-live="polite"></div>
 
-        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="В базе пока нет таблиц.">
+        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="В базе пока нет таблиц." data-has-items="{% if tables %}true{% else %}false{% endif %}" {% if not tables %}hidden{% endif %}>
             {% for table in tables %}
             <li class="table-link-item" data-table-row data-table-name="{{ table }}">
                 <article class="table-link-card table-link-record">
@@ -105,7 +105,7 @@
             </li>
             {% endfor %}
         </ul>
-        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}">В базе пока нет таблиц.</div>
+        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}" {% if tables %}hidden{% endif %}>В базе пока нет таблиц.</div>
     </section>
 </main>
 <input type="file" id="fileInput" class="hidden-file-input">
