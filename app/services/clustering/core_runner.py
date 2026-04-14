@@ -29,10 +29,23 @@ from .core_dataset import (
     _prepare_clustering_feature_selection,
 )
 from .core_results import _build_clustering_quality_stage, _build_clustering_success_payload
+from .types import (
+    ClusterCountGuidance,
+    ClusteringBaseState,
+    ClusteringDatasetBundle,
+    ClusteringFeatureSelectionContext,
+    ClusteringLoadStageResult,
+    ClusteringModelBundle,
+    ClusteringModelStageInputs,
+    ClusteringModelStageResult,
+    ClusteringPayload,
+    ClusteringSummary,
+    FeatureSelectionReport,
+)
 
 def _load_clustering_stage(
     *,
-    base: Dict[str, Any],
+    base: ClusteringBaseState,
     selected_table: str,
     requested_sample_limit: int,
     selected_sampling_strategy: str,
@@ -40,7 +53,7 @@ def _load_clustering_stage(
     requested_cluster_count: int,
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
-) -> Dict[str, Any]:
+) -> ClusteringLoadStageResult:
     try:
         dataset = _load_clustering_dataset_for_request(
             selected_table=selected_table,
@@ -90,16 +103,16 @@ def _load_clustering_stage(
 
 def _build_clustering_model_stage_context(
     *,
-    base: Dict[str, Any],
-    summary: Dict[str, Any],
-    dataset: Dict[str, Any],
-    feature_selection_report: Dict[str, Any],
+    base: ClusteringBaseState,
+    summary: ClusteringSummary,
+    dataset: ClusteringDatasetBundle,
+    feature_selection_report: FeatureSelectionReport,
     selected_features: Sequence[str],
     requested_cluster_count: int,
     cluster_count_is_explicit: bool,
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
-) -> Dict[str, Any]:
+) -> ClusteringModelStageResult:
     model_inputs = _build_clustering_model_inputs(
         summary=summary,
         dataset=dataset,
@@ -151,18 +164,18 @@ def _build_clustering_model_stage_context(
 
 def _render_clustering_payload_stage(
     *,
-    base: Dict[str, Any],
-    dataset: Dict[str, Any],
-    feature_selection: Dict[str, Any],
-    model_inputs: Dict[str, Any],
-    model_bundle: Dict[str, Any],
-    cluster_count_guidance: Dict[str, Any],
+    base: ClusteringBaseState,
+    dataset: ClusteringDatasetBundle,
+    feature_selection: ClusteringFeatureSelectionContext,
+    model_inputs: ClusteringModelStageInputs,
+    model_bundle: ClusteringModelBundle,
+    cluster_count_guidance: ClusterCountGuidance,
     requested_cluster_count: int,
     cluster_count_is_explicit: bool,
     cache_key: Tuple[str, ...],
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
-) -> Dict[str, Any]:
+) -> ClusteringPayload:
     _emit_clustering_progress(
         progress_callback,
         "clustering.render",
@@ -218,7 +231,7 @@ def get_clustering_data(
     feature_columns: Sequence[str] | None = None,
     cluster_count_is_explicit: bool = False,
     progress_callback: Callable[[str, str], None] | None = None,
-) -> Dict[str, Any]:
+) -> ClusteringPayload:
     perf = current_perf_trace()
     request_state = _build_clustering_request_state(
         table_name=table_name,

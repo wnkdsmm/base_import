@@ -32,11 +32,20 @@ from .summary_logic import (
     _build_dashboard_summary_metrics,
     _build_dashboard_summary_series,
 )
+from .types import (
+    DashboardAggregation,
+    DashboardContext,
+    DashboardMetadata,
+    DashboardOption,
+    DashboardPayload,
+    DashboardRequestState,
+    DashboardTableRef,
+)
 from .utils import _find_option_label, _format_datetime
 
 
 def _build_dashboard_cache_key(
-    metadata: Dict[str, Any],
+    metadata: DashboardMetadata,
     table_name: str,
     year: str,
     normalized_group_column: str,
@@ -50,7 +59,7 @@ def _build_dashboard_cache_key(
 
 
 def _build_resolved_dashboard_cache_key(
-    metadata: Dict[str, Any],
+    metadata: DashboardMetadata,
     selected_table_name: str,
     selected_year: Optional[int],
     selected_group_column: str,
@@ -65,14 +74,14 @@ def _build_resolved_dashboard_cache_key(
 
 def _build_dashboard_context_payload(
     *,
-    metadata: Dict[str, Any],
-    initial_data: Dict[str, Any],
-    available_years: list[Dict[str, Any]],
-    available_group_columns: list[Dict[str, Any]],
+    metadata: DashboardMetadata,
+    initial_data: DashboardPayload,
+    available_years: list[DashboardOption],
+    available_group_columns: list[DashboardOption],
     errors: list[str],
     plotly_js: str,
     has_data: bool | None = None,
-) -> Dict[str, Any]:
+) -> DashboardContext:
     return {
         "generated_at": _format_datetime(datetime.now()),
         "filters": {
@@ -88,9 +97,9 @@ def _build_dashboard_context_payload(
 
 
 def _resolve_shell_group_columns(
-    metadata: Dict[str, Any],
-    filter_state: Dict[str, Any],
-) -> tuple[list[Dict[str, Any]], str]:
+    metadata: DashboardMetadata,
+    filter_state: DashboardRequestState,
+) -> tuple[list[DashboardOption], str]:
     resolved_group_columns = filter_state["available_group_columns"]
     available_group_columns = resolved_group_columns or _collect_group_column_options(metadata["tables"])
     selected_group_column = filter_state["selected_group_column"]
@@ -102,9 +111,9 @@ def _resolve_shell_group_columns(
 
 
 def _build_dashboard_shell_initial_data(
-    metadata: Dict[str, Any],
-    filter_state: Dict[str, Any],
-) -> tuple[Dict[str, Any], list[Dict[str, Any]]]:
+    metadata: DashboardMetadata,
+    filter_state: DashboardRequestState,
+) -> tuple[DashboardPayload, list[DashboardOption]]:
     available_group_columns, selected_group_column = _resolve_shell_group_columns(metadata, filter_state)
     initial_data = _empty_dashboard_data()
     initial_data["bootstrap_mode"] = "deferred"
@@ -131,23 +140,23 @@ def _build_dashboard_shell_initial_data(
 
 
 def _resolve_requested_dashboard_cache(
-    metadata: Dict[str, Any],
+    metadata: DashboardMetadata,
     table_name: str,
     year: str,
     group_column: str,
-) -> tuple[str, tuple[Any, ...], Optional[Dict[str, Any]]]:
+) -> tuple[str, tuple[Any, ...], Optional[DashboardPayload]]:
     normalized_group_column = group_column or metadata["default_group_column"]
     cache_key = _build_dashboard_cache_key(metadata, table_name, year, normalized_group_column)
     return normalized_group_column, cache_key, _get_dashboard_cache(cache_key)
 
 
 def _build_dashboard_request_state(
-    metadata: Dict[str, Any],
+    metadata: DashboardMetadata,
     *,
     table_name: str,
     year: str,
     normalized_group_column: str,
-) -> Dict[str, Any]:
+) -> DashboardRequestState:
     filter_state = _resolve_dashboard_filters(
         metadata=metadata,
         table_name=table_name,
@@ -168,9 +177,9 @@ def _build_dashboard_request_state(
 def _update_dashboard_filter_metrics(
     perf: Any,
     *,
-    metadata: Dict[str, Any],
-    request_state: Dict[str, Any],
-    cached_payload: Optional[Dict[str, Any]],
+    metadata: DashboardMetadata,
+    request_state: DashboardRequestState,
+    cached_payload: Optional[DashboardPayload],
     cache_hit: bool,
 ) -> None:
     perf.update(
@@ -189,7 +198,7 @@ def build_dashboard_context(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
-) -> Dict[str, Any]:
+) -> DashboardContext:
     metadata = _collect_dashboard_metadata_cached()
     initial_data = get_dashboard_data(
         table_name=table_name,
@@ -207,7 +216,7 @@ def build_dashboard_context(
     )
 
 
-def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -> Dict[str, Any]:
+def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -> DashboardContext:
     return {
         "generated_at": _format_datetime(datetime.now()),
         "filters": {
@@ -226,7 +235,7 @@ def get_dashboard_page_context(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
-) -> Dict[str, Any]:
+ ) -> DashboardContext:
     try:
         return build_dashboard_context(table_name=table_name, year=year, group_column=group_column)
     except Exception as exc:
@@ -239,7 +248,7 @@ def get_dashboard_shell_context(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
-) -> Dict[str, Any]:
+ ) -> DashboardContext:
     try:
         metadata = _collect_dashboard_metadata_cached()
         filter_state = _resolve_dashboard_filters(
@@ -263,14 +272,14 @@ def get_dashboard_shell_context(
 
 def _build_dashboard_aggregation(
     *,
-    metadata: Dict[str, Any],
-    selected_tables: list[dict[str, Any]],
+    metadata: DashboardMetadata,
+    selected_tables: list[DashboardTableRef],
     selected_year: Optional[int],
     selected_group_column: str,
     selected_table_name: str,
-    available_years: list[Dict[str, Any]],
-    available_group_columns: list[Dict[str, Any]],
-) -> Dict[str, Any]:
+    available_years: list[DashboardOption],
+    available_group_columns: list[DashboardOption],
+) -> DashboardAggregation:
     summary_series = _build_dashboard_summary_series(selected_tables, selected_year)
     summary = summary_series["summary"]
     yearly_fires_series = summary_series["yearly_fires_series"]
@@ -360,15 +369,15 @@ def _build_dashboard_aggregation(
 
 def _build_dashboard_payload(
     *,
-    metadata: Dict[str, Any],
-    aggregation: Dict[str, Any],
-    selected_tables: list[dict[str, Any]],
+    metadata: DashboardMetadata,
+    aggregation: DashboardAggregation,
+    selected_tables: list[DashboardTableRef],
     selected_table_name: str,
     selected_year: Optional[int],
     selected_group_column: str,
-    available_years: list[Dict[str, Any]],
-    available_group_columns: list[Dict[str, Any]],
-) -> Dict[str, Any]:
+    available_years: list[DashboardOption],
+    available_group_columns: list[DashboardOption],
+) -> DashboardPayload:
     summary = aggregation["summary"]
     scope = aggregation["scope"]
     trend = aggregation["trend"]
@@ -427,9 +436,9 @@ def get_dashboard_data(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[DashboardMetadata] = None,
     allow_fallback: bool = True,
-) -> Dict[str, Any]:
+) -> DashboardPayload:
     ensure_sqlalchemy_timing(engine)
     with perf_trace(
         "dashboard",
@@ -521,7 +530,7 @@ def get_dashboard_data(
             return _empty_dashboard_data(str(exc))
 
 
-def _empty_dashboard_data(error_message: str = "") -> Dict[str, Any]:
+def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
     return {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,

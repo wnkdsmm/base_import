@@ -53,17 +53,31 @@ from .constants import (
     WATER_SUPPLY_COUNT_COLUMN_CANDIDATES,
     WATER_SUPPLY_DETAILS_COLUMN_CANDIDATES,
 )
+from .types import (
+    RawPointRow,
+    AccessPointInput,
+    AccessPointMetadata,
+    AccessPointsDataPayload,
+    AccessPointsSummary,
+    ConsequenceSummary,
+    OptionItem,
+    PointRecord,
+    PriorityRow,
+    ResolvedColumns,
+    ResponseSummary,
+    WaterSupplySummary,
+)
 
 
-def _build_access_points_table_options() -> List[Dict[str, str]]:
+def _build_access_points_table_options() -> List[OptionItem]:
     return [{"value": "all", "label": "\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"}, *get_user_table_options()]
 
 
-def _resolve_selected_table(table_options: Sequence[Dict[str, str]], table_name: str) -> str:
+def _resolve_selected_table(table_options: Sequence[OptionItem], table_name: str) -> str:
     return resolve_selected_table_value(table_options, table_name, fallback_value="all")
 
 
-def _selected_source_tables(table_options: Sequence[Dict[str, str]], selected_table: str) -> List[str]:
+def _selected_source_tables(table_options: Sequence[OptionItem], selected_table: str) -> List[str]:
     concrete_tables = [str(option.get("value") or "") for option in table_options if option.get("value") and option.get("value") != "all"]
     if selected_table == "all":
         return concrete_tables
@@ -80,7 +94,7 @@ def _parse_limit(value: str) -> int:
     return min(ACCESS_POINT_LIMIT_OPTIONS, key=lambda item: abs(item - parsed))
 
 
-def _resolve_option_value(options: Sequence[Dict[str, str]], selected_value: object, default: str = "all") -> str:
+def _resolve_option_value(options: Sequence[OptionItem], selected_value: object, default: str = "all") -> str:
     normalized = str(selected_value or "").strip() or default
     available = {str(option.get("value") or "") for option in options}
     if normalized in available:
@@ -88,7 +102,7 @@ def _resolve_option_value(options: Sequence[Dict[str, str]], selected_value: obj
     return str(options[0].get("value") or default) if options else default
 
 
-def _load_table_metadata(table_name: str) -> Dict[str, Any]:
+def _load_table_metadata(table_name: str) -> AccessPointMetadata:
     try:
         columns = get_table_columns_cached(table_name)
     except ValueError as exc:
@@ -138,7 +152,7 @@ def _optional_numeric_expression(column_name: Optional[str], fallback: str = "NU
     )
 
 
-def _build_source_sql(table_name: str, resolved_columns: Dict[str, Optional[str]]) -> str:
+def _build_source_sql(table_name: str, resolved_columns: ResolvedColumns) -> str:
     district_expr = _optional_text_expression(resolved_columns["district"], fallback="''")
     settlement_expr = _optional_text_expression(resolved_columns["settlement"], fallback="''")
     settlement_type_expr = _optional_text_expression(resolved_columns["settlement_type"], fallback="''")
@@ -194,7 +208,7 @@ def _build_source_sql(table_name: str, resolved_columns: Dict[str, Optional[str]
     """
 
 
-def _normalize_record(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _normalize_record(row: RawPointRow) -> Optional[PointRecord]:
     district = _clean_text(row.get("district"))
     territory_label = _clean_text(row.get("territory_label"))
     settlement = _clean_text(row.get("settlement"))
@@ -251,7 +265,7 @@ def _normalize_record(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
-def _collect_source_records(table_name: str) -> List[Dict[str, Any]]:
+def _collect_source_records(table_name: str) -> List[PointRecord]:
     metadata = _load_table_metadata(table_name)
     query = text(_build_source_sql(metadata["table_name"], metadata["resolved_columns"]))
     with engine.connect() as conn:
@@ -266,11 +280,11 @@ def _collect_source_records(table_name: str) -> List[Dict[str, Any]]:
 
 
 def _filter_source_records(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[PointRecord],
     *,
     district: str = "all",
     year: str = "all",
-) -> List[Dict[str, Any]]:
+) -> List[PointRecord]:
     normalized_district = str(district or "").strip().lower()
     normalized_year = str(year or "").strip()
 
@@ -288,12 +302,12 @@ def _filter_source_records(
     return filtered
 
 
-def _collect_available_districts(records: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
+def _collect_available_districts(records: Sequence[PointRecord]) -> List[OptionItem]:
     districts = sorted({record["district"] for record in records if _clean_text(record.get("district"))})
     return [{"value": "all", "label": "Все районы"}, *({"value": district, "label": district} for district in districts)]
 
 
-def _collect_available_years(records: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
+def _collect_available_years(records: Sequence[PointRecord]) -> List[OptionItem]:
     years = sorted(
         {
             str(record["event_date"].year)
@@ -305,7 +319,7 @@ def _collect_available_years(records: Sequence[Dict[str, Any]]) -> List[Dict[str
     return [{"value": "all", "label": "Все годы"}, *({"value": year, "label": year} for year in years)]
 
 
-def _summarize_consequences(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _summarize_consequences(records: Sequence[PointRecord]) -> ConsequenceSummary:
     fires_with_consequences = sum(
         1
         for record in records
@@ -321,7 +335,7 @@ def _summarize_consequences(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]
     }
 
 
-def _summarize_water_supply(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _summarize_water_supply(records: Sequence[PointRecord]) -> WaterSupplySummary:
     flags = [
         _parse_water_supply_flag(record.get("water_supply_count"), _clean_text(record.get("water_supply_details")))
         for record in records
@@ -334,7 +348,7 @@ def _summarize_water_supply(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]
     }
 
 
-def _summarize_response(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _summarize_response(records: Sequence[PointRecord]) -> ResponseSummary:
     response_minutes = [
         minutes
         for minutes in (
@@ -355,7 +369,7 @@ def _summarize_response(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _build_priority_rows(records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_priority_rows(records: Sequence[PointRecord]) -> List[PriorityRow]:
     grouped: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
     for record in records:
         key = (record.get("district") or "", record.get("territory_label") or "")
@@ -402,7 +416,7 @@ def get_access_points_data(
     year: str = "all",
     limit: str = "25",
     feature_columns: Sequence[str] | None = None,
-) -> Dict[str, Any]:
+) -> AccessPointsDataPayload:
     del feature_columns
 
     table_options = _build_access_points_table_options()
@@ -452,7 +466,7 @@ def get_access_points_data(
     }
 
 
-def _collect_access_point_metadata(source_tables: Sequence[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+def _collect_access_point_metadata(source_tables: Sequence[str]) -> Tuple[List[AccessPointMetadata], List[str]]:
     metadata_items: List[Dict[str, Any]] = []
     notes: List[str] = []
     for table_name in source_tables:
@@ -468,7 +482,7 @@ def _collect_access_point_metadata(source_tables: Sequence[str]) -> Tuple[List[D
     return metadata_items, notes
 
 
-def _record_to_access_point_input(record: Dict[str, Any], *, source_table: str) -> Dict[str, Any]:
+def _record_to_access_point_input(record: PointRecord, *, source_table: str) -> AccessPointInput:
     event_date = record.get("event_date")
     response_minutes = _calculate_response_minutes(
         record.get("report_time") or record.get("detection_time"),
@@ -506,8 +520,8 @@ def _collect_access_point_inputs(
     *,
     district: str = "all",
     selected_year: Optional[int] = None,
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Tuple[List[Dict[str, Any]], List[str]]:
+    metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
+) -> Tuple[List[AccessPointInput], List[str]]:
     del metadata_items
     records: List[Dict[str, Any]] = []
     notes: List[str] = []
@@ -530,8 +544,8 @@ def _collect_access_point_inputs(
 def _build_option_catalog(
     source_tables: Sequence[str],
     *,
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, List[Dict[str, str]]]:
+    metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
+) -> Dict[str, List[OptionItem]]:
     del metadata_items
     records, _notes = _collect_access_point_inputs(source_tables)
     return {

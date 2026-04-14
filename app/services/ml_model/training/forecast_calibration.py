@@ -12,6 +12,7 @@ from ..ml_model_types import (
     MIN_INTERVAL_BIN_RESIDUALS,
     MIN_INTERVAL_CALIBRATION_WINDOWS,
     MIN_INTERVAL_EVALUATION_WINDOWS,
+    PredictionIntervalCalibration,
     PREDICTION_INTERVAL_BLOCKED_CV_LABEL,
     PREDICTION_INTERVAL_CALIBRATION_FRACTION,
     PREDICTION_INTERVAL_FIXED_CHRONO_LABEL,
@@ -20,6 +21,12 @@ from ..ml_model_types import (
     PREDICTION_INTERVAL_METHOD_LABEL,
     PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL,
     PREDICTION_INTERVAL_TARGET_BINS,
+)
+from .types import (
+    PredictionIntervalBacktestEvaluation,
+    PredictionIntervalBinsResult,
+    PredictionIntervalCandidate,
+    PredictionIntervalStabilitySummary,
 )
 
 
@@ -41,7 +48,7 @@ def _build_prediction_interval_bins(
     residuals: np.ndarray,
     level: float,
     global_quantile: float,
-) -> Dict[str, Any]:
+ ) -> PredictionIntervalBinsResult:
     prediction_values = np.asarray(predictions, dtype=float)
     residual_values = np.asarray(residuals, dtype=float)
     residual_count = int(residual_values.size)
@@ -114,7 +121,7 @@ def _build_prediction_interval_calibration(
     predictions: np.ndarray,
     level: float = PREDICTION_INTERVAL_LEVEL,
     method_label: str = PREDICTION_INTERVAL_METHOD_LABEL,
-) -> Dict[str, Any]:
+ ) -> PredictionIntervalCalibration:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)
     residuals = np.abs(actual_values - prediction_values)
@@ -136,10 +143,10 @@ def _build_prediction_interval_calibration(
 
 
 def _copy_prediction_interval_calibration(
-    calibration: Dict[str, Any],
+    calibration: PredictionIntervalCalibration,
     *,
     method_label: str,
-) -> Dict[str, Any]:
+) -> PredictionIntervalCalibration:
     copied = dict(calibration)
     copied['method_label'] = method_label
     copied['adaptive_bin_edges'] = list(calibration.get('adaptive_bin_edges') or [])
@@ -152,9 +159,9 @@ class _PredictionIntervalCalibrationCache:
         self._actuals = np.asarray(actuals, dtype=float)
         self._predictions = np.asarray(predictions, dtype=float)
         self._level = float(level)
-        self._by_prefix: Dict[int, Dict[str, Any]] = {}
+        self._by_prefix: Dict[int, PredictionIntervalCalibration] = {}
 
-    def for_prefix(self, prefix_windows: int, *, method_label: str) -> Dict[str, Any]:
+    def for_prefix(self, prefix_windows: int, *, method_label: str) -> PredictionIntervalCalibration:
         prefix = max(0, min(int(prefix_windows), self._actuals.size, self._predictions.size))
         calibration = self._by_prefix.get(prefix)
         if calibration is None:
@@ -231,7 +238,7 @@ def _prediction_interval_range_labels(
 def _prediction_interval_coverage_flags(
     actuals: np.ndarray,
     predictions: np.ndarray,
-    calibration: Dict[str, Any],
+    calibration: PredictionIntervalCalibration,
 ) -> List[bool]:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)
@@ -245,7 +252,7 @@ def _prediction_interval_coverage_flags(
 def _prediction_interval_stability_summary(
     covered_flags: List[bool],
     level: float,
-) -> Dict[str, Any]:
+) -> PredictionIntervalStabilitySummary:
     flag_values = np.asarray(covered_flags, dtype=float)
     if flag_values.size == 0:
         return {
@@ -287,7 +294,7 @@ def _build_prediction_interval_candidate(
     covered_flags: List[bool],
     calibration_refresh_count: int,
     validation_block_count: int,
-) -> Dict[str, Any]:
+) -> PredictionIntervalCandidate:
     summary = _prediction_interval_stability_summary(covered_flags, level)
     return {
         'scheme_key': scheme_key,
@@ -315,7 +322,7 @@ def _evaluate_fixed_chrono_prediction_interval(
     calibration_windows: int,
     level: float,
     calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
-) -> Dict[str, Any]:
+) -> PredictionIntervalCandidate:
     calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
         window_dates,
         calibration_windows,
@@ -353,7 +360,7 @@ def _evaluate_blocked_prediction_interval(
     calibration_windows: int,
     level: float,
     calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
-) -> Dict[str, Any]:
+) -> PredictionIntervalCandidate:
     calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
         window_dates,
         calibration_windows,
@@ -396,7 +403,7 @@ def _evaluate_rolling_prediction_interval(
     calibration_windows: int,
     level: float,
     calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
-) -> Dict[str, Any]:
+) -> PredictionIntervalCandidate:
     calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
         window_dates,
         calibration_windows,
@@ -431,7 +438,7 @@ def _evaluate_rolling_prediction_interval(
     )
 
 
-def _prediction_interval_candidate_sort_key(candidate: Dict[str, Any]) -> Tuple[float, float, float, int]:
+def _prediction_interval_candidate_sort_key(candidate: PredictionIntervalCandidate) -> Tuple[float, float, float, int]:
     preference_rank = 0 if candidate.get('scheme_key') == 'rolling_split_conformal' else 1
     return (
         float(candidate.get('stability_score', float('inf'))),
@@ -449,9 +456,9 @@ def _prediction_interval_horizon_prefix(horizon_days: Optional[int]) -> str:
 
 
 def _build_prediction_interval_validation_explanation(
-    selected_candidate: Dict[str, Any],
-    runner_up_candidate: Optional[Dict[str, Any]],
-    reference_candidate: Optional[Dict[str, Any]],
+    selected_candidate: PredictionIntervalCandidate,
+    runner_up_candidate: Optional[PredictionIntervalCandidate],
+    reference_candidate: Optional[PredictionIntervalCandidate],
     horizon_days: Optional[int] = None,
 ) -> str:
     selected_label = selected_candidate.get('scheme_label') or PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL
@@ -491,7 +498,7 @@ def _evaluate_prediction_interval_backtest(
     window_dates: List[Any],
     level: float = PREDICTION_INTERVAL_LEVEL,
     horizon_days: Optional[int] = None,
-) -> Dict[str, Any]:
+) -> PredictionIntervalBacktestEvaluation:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)
     normalized_dates = list(window_dates)

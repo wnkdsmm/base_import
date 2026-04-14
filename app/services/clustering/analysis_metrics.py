@@ -36,6 +36,13 @@ from .constants import (
     WEIGHTING_STRATEGY_UNIFORM,
     WEIGHTING_STRATEGY_UNIFORM_LABEL,
 )
+from .types import (
+    ClusteringDiagnosticsResult,
+    ClusteringMethodCandidate,
+    ClusteringMethodRow,
+    ClusteringRunResult,
+    FeatureSelectionReport,
+)
 from .utils import _format_integer, _format_number, _format_percent
 
 
@@ -43,7 +50,7 @@ def _primary_method_key(weighting_strategy: str) -> str:
     return f"kmeans_{weighting_strategy}"
 
 
-def _build_method_candidates(weighting_strategy: str) -> List[Dict[str, Any]]:
+def _build_method_candidates(weighting_strategy: str) -> List[ClusteringMethodCandidate]:
     candidates = [
         {
             "method_key": _primary_method_key(weighting_strategy),
@@ -90,7 +97,7 @@ def _run_clustering(
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
     algorithm_key: str = "kmeans",
     method_key: str | None = None,
-) -> Dict[str, Any]:
+) -> ClusteringRunResult:
     _, scaled_points, scaler, transformed_columns, sample_weights = _prepare_model_inputs(
         cluster_frame,
         entity_frame,
@@ -159,7 +166,7 @@ def _evaluate_cluster_counts(
     cluster_frame: pd.DataFrame,
     entity_frame: pd.DataFrame,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
-) -> Dict[str, Any]:
+) -> ClusteringDiagnosticsResult:
     if len(cluster_frame) < 3:
         return {"rows": [], "best_silhouette_k": None, "best_quality_k": None, "elbow_k": None}
     available_ks = [
@@ -168,8 +175,8 @@ def _evaluate_cluster_counts(
         if 2 <= cluster_count <= min(MAX_K_DIAGNOSTICS, len(cluster_frame) - 1)
     ]
 
-    rows: List[Dict[str, Any]] = []
-    method_rows_by_cluster_count: Dict[int, List[Dict[str, Any]]] = {}
+    rows: List[ClusteringMethodRow] = []
+    method_rows_by_cluster_count: Dict[int, List[ClusteringMethodRow]] = {}
     for cluster_count in available_ks:
         method_rows = _compare_clustering_methods(
             cluster_frame,
@@ -201,7 +208,7 @@ def _evaluate_cluster_counts(
     }
 
 
-def _diagnostics_row_sort_key(result: Dict[str, Any]) -> tuple[float, float, float, float, float]:
+def _diagnostics_row_sort_key(result: ClusteringMethodRow) -> tuple[float, float, float, float, float]:
     davies_bouldin = result.get("davies_bouldin", float("inf"))
     davies_value = float("inf") if davies_bouldin is None else float(davies_bouldin)
     return (
@@ -219,17 +226,17 @@ def _compare_clustering_methods(
     cluster_count: int,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
     selected_method_key: str | None = None,
-) -> List[Dict[str, Any]]:
+) -> List[ClusteringMethodRow]:
     _, scaled_points, _, _, _ = _prepare_model_inputs(
         cluster_frame,
         entity_frame,
         weighting_strategy=weighting_strategy,
     )
-    rows: List[Dict[str, Any]] = []
+    rows: List[ClusteringMethodRow] = []
     row_count = len(cluster_frame)
     primary_method_key = selected_method_key or _primary_method_key(weighting_strategy)
 
-    def _append_method_row(candidate: Dict[str, Any]) -> None:
+    def _append_method_row(candidate: ClusteringMethodCandidate) -> None:
         try:
             row_weighting_strategy = str(candidate.get("weighting_strategy") or WEIGHTING_STRATEGY_NOT_APPLICABLE)
             sample_weights = _build_sample_weights(entity_frame, weighting_strategy=row_weighting_strategy)
@@ -285,7 +292,7 @@ def _build_kmeans_method_label(weighting_strategy: str, selected_weighting_strat
     return f"KMeans ({WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL.lower()})"
 
 
-def _select_recommended_method_row(method_rows: Sequence[Dict[str, Any]]) -> Dict[str, Any] | None:
+def _select_recommended_method_row(method_rows: Sequence[ClusteringMethodRow]) -> ClusteringMethodRow | None:
     if not method_rows:
         return None
     current_row = next((row for row in method_rows if row.get("is_selected")), None)
@@ -419,13 +426,13 @@ def _build_notes(
     cluster_profiles: Sequence[Dict[str, str]],
     silhouette: float | None,
     selected_features: Sequence[str],
-    diagnostics: Dict[str, Any],
+    diagnostics: ClusteringDiagnosticsResult,
     total_incidents: int,
     total_entities: int,
     sampled_entities: int,
     support_summary: Dict[str, float] | None = None,
     stability_ari: float | None = None,
-    feature_selection_report: Dict[str, Any] | None = None,
+    feature_selection_report: FeatureSelectionReport | None = None,
 ) -> List[str]:
     notes = [
         f"Кластеризация построена по { _format_integer(sampled_entities) } территориям/населённым пунктам, агрегированным из { _format_integer(total_incidents) } пожаров.",

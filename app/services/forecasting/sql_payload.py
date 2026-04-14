@@ -3,13 +3,14 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from app.perf import current_perf_trace
 
 from .selection import _canonicalize_source_tables, _normalize_filter_value
 from .sql_aggregations import AggregationQueryBuilder, QueryBuilder
 from .sql_sources import SourceQueryBuilder
+from .types import ForecastingOptionCatalog, ForecastingTableMetadata, SqlRow, TableOption
 
 
 @dataclass
@@ -32,7 +33,7 @@ class PayloadQueryBuilder(QueryBuilder):
         self._aggregations = aggregations
         self._sources = sources
 
-    def _build_options_from_counter(self, counter: Counter, default_label: str) -> List[Dict[str, str]]:
+    def _build_options_from_counter(self, counter: Counter, default_label: str) -> list[TableOption]:
         options = [{"value": "all", "label": default_label}]
         for value, count in sorted(counter.items(), key=lambda item: (-item[1], item[0].lower()))[:200]:
             options.append({"value": value, "label": f"{value} ({count})"})
@@ -42,8 +43,8 @@ class PayloadQueryBuilder(QueryBuilder):
         self,
         source_tables: Sequence[str],
         history_window: str = "all",
-        metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-    ) -> Dict[str, List[Dict[str, str]]]:
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    ) -> ForecastingOptionCatalog:
         from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
         normalized_tables = _canonicalize_source_tables(source_tables)[0]
@@ -148,7 +149,7 @@ class PayloadQueryBuilder(QueryBuilder):
         cache_key: tuple[Any, ...],
         count_cache_key: tuple[Any, ...],
         perf: Any,
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> Optional[list[SqlRow]]:
         cached_history = self.cache.get(cache_key)
         if cached_history is None:
             return None
@@ -167,8 +168,8 @@ class PayloadQueryBuilder(QueryBuilder):
         self,
         normalized_tables: Sequence[str],
         history_window: str,
-        metadata_items: Optional[Sequence[Dict[str, Any]]],
-    ) -> tuple[List[Dict[str, Any]], Optional[int]]:
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]],
+    ) -> tuple[list[ForecastingTableMetadata], Optional[int]]:
         from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
         local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
@@ -176,14 +177,14 @@ class PayloadQueryBuilder(QueryBuilder):
 
     def _load_daily_history_union_fast_path(
         self,
-        metadata_items: Sequence[Dict[str, Any]],
+        metadata_items: Sequence[ForecastingTableMetadata],
         trace: _DailyHistoryLoadTrace,
         *,
         district: str,
         cause: str,
         object_category: str,
         min_year: Optional[int],
-    ) -> Optional[Dict[date, Dict[str, Any]]]:
+    ) -> Optional[dict[date, SqlRow]]:
         trace.union_fast_path_attempted = len(metadata_items) > 1
         if not trace.union_fast_path_attempted:
             return None
@@ -207,7 +208,7 @@ class PayloadQueryBuilder(QueryBuilder):
 
         trace.used_union_fast_path = True
         trace.union_fast_path_rows = len(union_rows)
-        merged_rows: Dict[date, Dict[str, Any]] = {}
+        merged_rows: dict[date, SqlRow] = {}
         self._aggregations._merge_daily_history_rows(merged_rows, union_rows)
         return merged_rows
 
@@ -219,8 +220,8 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str,
         cause: str,
         object_category: str,
-        metadata_items: Optional[Sequence[Dict[str, Any]]],
-    ) -> tuple[List[Dict[str, Any]], _DailyHistoryLoadTrace, int]:
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]],
+    ) -> tuple[list[SqlRow], _DailyHistoryLoadTrace, int]:
         local_metadata_items, min_year = self._load_daily_history_metadata_and_min_year(
             normalized_tables,
             history_window,
@@ -254,12 +255,12 @@ class PayloadQueryBuilder(QueryBuilder):
         self,
         cache_key: tuple[Any, ...],
         count_cache_key: tuple[Any, ...],
-        history: List[Dict[str, Any]],
+        history: list[SqlRow],
         *,
         perf: Any,
         trace: _DailyHistoryLoadTrace,
         table_count: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[SqlRow]:
         total_count = self._aggregations._daily_history_total_count(history)
         self.cache.set(count_cache_key, total_count)
         self._record_daily_history_perf(
@@ -279,8 +280,8 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-    ) -> List[Dict[str, Any]]:
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    ) -> list[SqlRow]:
         perf_getter = self._resolve_hook("current_perf_trace", current_perf_trace)
         perf = perf_getter()
         normalized_tables = _canonicalize_source_tables(source_tables)[0]
@@ -319,7 +320,7 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
     ) -> int:
         from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 

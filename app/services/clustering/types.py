@@ -294,3 +294,225 @@ class ClusteringPayload(TypedDict, total=False):
     charts: ClusteringCharts
     notes: list[str]
     filters: ClusteringFilters
+
+
+class ClusteringTableOption(TypedDict):
+    """Selectable table option for clustering page filters."""
+
+    value: str
+    label: str
+
+
+class CandidateFeatureOption(TypedDict, total=False):
+    """Candidate feature row with quality metadata for selection UI."""
+
+    name: str
+    description: str
+    coverage: float
+    coverage_display: str
+    variance: float
+    variance_display: str
+    is_default: bool
+    is_selected: bool
+    score: float
+
+
+class ClusteringBaseState(TypedDict, total=False):
+    """Mutable base payload scaffold used during clustering pipeline stages."""
+
+    has_data: bool
+    model_description: str
+    summary: ClusteringSummary
+    quality_assessment: ClusteringQualityAssessment
+    cluster_profiles: list[dict[str, Any]]
+    centroid_columns: list[dict[str, Any]]
+    centroid_rows: list[dict[str, Any]]
+    representative_columns: list[dict[str, Any]]
+    representative_rows: list[dict[str, Any]]
+    charts: ClusteringCharts
+    notes: list[str]
+    filters: ClusteringFilters
+
+
+class TerritoryRecord(TypedDict, total=False):
+    """Incident-level record used to aggregate territory-level features."""
+
+    territory_label: str
+    district: str
+    settlement_type: str
+    fire_area: float | None
+    response_minutes: float | None
+    long_arrival: bool
+    severe_consequence: bool
+    night_incident: bool
+    heating_season: bool
+    has_water_supply: bool | None
+    fire_station_distance: float | None
+
+
+class TerritoryBucket(TypedDict, total=False):
+    """Mutable territory aggregate bucket with counters and sums."""
+
+    label: str
+    incidents: int
+    districts: Any
+    settlement_types: Any
+    area_sum: float
+    area_count: int
+    night_incidents: int
+    response_sum: float
+    response_count: int
+    long_arrivals: int
+    severe: int
+    water_known: int
+    water_available: int
+    distance_sum: float
+    distance_count: int
+    heating_incidents: int
+
+
+class TerritorySupportSummary(TypedDict):
+    """Support-level summary metrics across aggregated territories."""
+
+    territory_count: float
+    low_support_share: float
+    single_incident_share: float
+    median_incidents: float
+
+
+class TerritoryGlobalStats(TypedDict, total=False):
+    """Global prior means/rates used for territory feature shrinkage."""
+
+    area_mean: float | None
+    response_mean: float | None
+    distance_mean: float | None
+    night_rate: float | None
+    severe_rate: float | None
+    heating_rate: float | None
+    response_coverage_rate: float | None
+    water_coverage_rate: float | None
+    long_arrival_rate: float | None
+    no_water_rate: float | None
+
+
+class ClusteringDatasetBundle(TypedDict, total=False):
+    """Loaded/aggregated dataset bundle for clustering pipeline stages."""
+
+    entity_frame: Any
+    feature_frame: Any
+    candidate_features: list[CandidateFeatureOption]
+    total_incidents: int
+    total_entities: int
+    sampled_entities: int
+    support_summary: TerritorySupportSummary
+    sampling_note: str
+    notes: list[str]
+
+
+class ClusteringFeatureSelectionContext(TypedDict, total=False):
+    """Prepared feature-selection context used before model training stage."""
+
+    summary: ClusteringSummary
+    candidate_features: list[CandidateFeatureOption]
+    selected_features: list[str]
+    feature_selection_report: FeatureSelectionReport
+    selection_note: str
+
+
+class ClusteringModelStageInputs(TypedDict, total=False):
+    """Prepared model-stage inputs with filtered frames and cluster counts."""
+
+    cluster_frame: Any
+    entity_frame: Any
+    excluded_entities: int
+    requested_working_cluster_count: int
+    actual_cluster_count: int
+
+
+class ClusteringMethodRow(TypedDict, total=False):
+    """Single method-comparison row with metrics and selection flags."""
+
+    method_key: str
+    algorithm_key: str
+    method_label: str
+    is_selected: bool
+    is_recommended: bool
+    weighting_strategy: str
+    cluster_count: int
+    inertia: float | None
+    silhouette: float | None
+    davies_bouldin: float | None
+    calinski_harabasz: float | None
+    cluster_balance_ratio: float | None
+    smallest_cluster_size: int | None
+    largest_cluster_size: int | None
+    quality_score: float
+    shape_penalty: float
+    has_microclusters: bool
+    has_balance_warning: bool
+    best_quality_k: int | None
+    best_silhouette_k: int | None
+
+
+class ClusteringMethodCandidate(TypedDict, total=False):
+    """Candidate method definition used before metric evaluation."""
+
+    method_key: str
+    algorithm_key: str
+    method_label: str
+    weighting_strategy: str
+
+
+class ClusteringDiagnosticsResult(TypedDict, total=False):
+    """Diagnostics summary across cluster-count sweep and method comparisons."""
+
+    rows: list[ClusteringMethodRow]
+    method_rows_by_cluster_count: dict[int, list[ClusteringMethodRow]]
+    best_silhouette_k: int | None
+    best_quality_k: int | None
+    best_configuration: ClusteringMethodRow | None
+    elbow_k: int | None
+
+
+class ClusteringRunResult(TypedDict, total=False):
+    """Single-run clustering result with labels, centers, and metrics."""
+
+    labels: Any
+    scaled_points: Any
+    scaled_centers: Any
+    raw_centers: Any
+    silhouette: float | None
+    davies_bouldin: float | None
+    calinski_harabasz: float | None
+    cluster_balance_ratio: float | None
+    smallest_cluster_size: int | None
+    largest_cluster_size: int | None
+    quality_score: float
+    shape_penalty: float
+    has_microclusters: bool
+    has_balance_warning: bool
+    microcluster_threshold: int | None
+    stability_ari: float | None
+    initialization_ari: float | None
+    inertia: float | None
+    pca_points: Any
+    explained_variance: float | None
+    algorithm_key: str
+    method_key: str
+    weighting_strategy: str
+
+
+class ClusteringLoadStageResult(TypedDict, total=False):
+    """Result of dataset/feature loading stage or early error payload."""
+
+    dataset: ClusteringDatasetBundle
+    feature_selection: ClusteringFeatureSelectionContext
+    error_payload: ClusteringBaseState
+
+
+class ClusteringModelStageResult(TypedDict, total=False):
+    """Result of model-stage setup or early error payload."""
+
+    model_inputs: ClusteringModelStageInputs
+    model_bundle: ClusteringModelBundle
+    error_payload: ClusteringBaseState

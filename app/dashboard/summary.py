@@ -17,6 +17,17 @@ from .data_access import (
     _resolve_years_in_scope,
     _year_expression,
 )
+from .types import (
+    DashboardMetadata,
+    DashboardOption,
+    DashboardSection,
+    DashboardTableRef,
+    DistributionResult,
+    SummaryBundle,
+    SummaryCard,
+    SummaryResult,
+    SummaryRow,
+)
 from .utils import (
     _format_number,
     _format_percentage,
@@ -27,9 +38,9 @@ from .utils import (
 
 
 def _collect_summary_table_rows(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
-) -> List[Dict[str, Any]]:
+) -> List[SummaryRow]:
     summary_rows: List[Dict[str, Any]] = []
 
     with engine.connect() as conn:
@@ -78,9 +89,9 @@ def _sql_string_literal(value: Any) -> str:
 
 
 def _collect_dashboard_summary_bundle(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
-) -> Dict[str, Any]:
+) -> SummaryBundle:
     summary_rows: List[Dict[str, Any]] = []
     yearly_grouped: Dict[int, Dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
     query_parts: List[str] = []
@@ -185,11 +196,11 @@ def _collect_dashboard_summary_bundle(
 
 
 def _build_summary(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    summary_rows: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    summary_rows: Optional[Sequence[SummaryRow]] = None,
+) -> SummaryResult:
     fires_count = 0
     total_area = 0.0
     area_values_count = 0
@@ -253,12 +264,12 @@ def _build_summary(
 
 
 def _build_yearly_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     metric: str,
     *,
     yearly_grouped: Optional[Dict[int, Dict[str, float]]] = None,
     include_plotly: bool = True,
-) -> Dict[str, Any]:
+) -> DistributionResult:
     grouped: Dict[int, Dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
 
     if yearly_grouped is not None:
@@ -300,12 +311,12 @@ def _build_yearly_chart(
 
 
 def _build_scope(
-    summary: Dict[str, Any],
-    metadata: Dict[str, Any],
+    summary: SummaryResult,
+    metadata: DashboardMetadata,
     selected_table_label: str,
     selected_group_label: str,
-    available_years: List[Dict[str, str]],
-) -> Dict[str, Any]:
+    available_years: List[DashboardOption],
+) -> DashboardSection:
     available_years_count = len(available_years)
     database_tables_count = len(metadata["tables"])
     return {
@@ -322,7 +333,7 @@ def _build_scope(
     }
 
 
-def _build_trend(yearly_fires: Dict[str, Any]) -> Dict[str, Any]:
+def _build_trend(yearly_fires: DistributionResult) -> DashboardSection:
     items = yearly_fires["items"]
     if not items:
         return {
@@ -362,10 +373,10 @@ def _build_trend(yearly_fires: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_highlights(
-    summary: Dict[str, Any],
-    yearly_fires: Dict[str, Any],
-    cause_chart: Dict[str, Any],
-) -> List[Dict[str, str]]:
+    summary: SummaryResult,
+    yearly_fires: DistributionResult,
+    cause_chart: DistributionResult,
+) -> List[SummaryCard]:
     peak_fire = max(yearly_fires["items"], key=lambda item: item["value"], default=None)
     dominant_cause = cause_chart["items"][0] if cause_chart["items"] else None
 

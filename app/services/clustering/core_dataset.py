@@ -16,6 +16,15 @@ from .data import (
     _prepare_cluster_frame,
     _resolve_selected_features,
 )
+from .types import (
+    ClusterCountGuidance,
+    ClusteringBaseState,
+    ClusteringDatasetBundle,
+    ClusteringFeatureSelectionContext,
+    ClusteringModelStageInputs,
+    ClusteringSummary,
+    FeatureSelectionReport,
+)
 
 def _emit_clustering_progress(
     progress_callback: Callable[[str, str], None] | None,
@@ -28,12 +37,12 @@ def _emit_clustering_progress(
 
 def _prepare_clustering_feature_selection(
     *,
-    base: Dict[str, Any],
-    dataset: Dict[str, Any],
+    base: ClusteringBaseState,
+    dataset: ClusteringDatasetBundle,
     normalized_feature_columns: Sequence[str],
     selected_sampling_strategy: str,
     requested_cluster_count: int,
-) -> Dict[str, Any]:
+) -> ClusteringFeatureSelectionContext:
     sampling_strategy_label = next(
         (item["label"] for item in SAMPLING_STRATEGY_OPTIONS if item["value"] == selected_sampling_strategy),
         SAMPLING_STRATEGY_OPTIONS[0]["label"],
@@ -79,8 +88,8 @@ def _prepare_clustering_feature_selection(
     }
 
 def _append_clustering_feature_notes(
-    base: Dict[str, Any],
-    dataset: Dict[str, Any],
+    base: ClusteringBaseState,
+    dataset: ClusteringDatasetBundle,
     selection_note: str,
 ) -> None:
     base["notes"].extend(dataset["notes"])
@@ -96,7 +105,7 @@ def _load_clustering_dataset_for_request(
     selected_sampling_strategy: str,
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
-) -> Dict[str, Any]:
+) -> ClusteringDatasetBundle:
     _emit_clustering_progress(
         progress_callback,
         "clustering.loading",
@@ -115,14 +124,14 @@ def _load_clustering_dataset_for_request(
 
 def _build_clustering_feature_context(
     *,
-    base: Dict[str, Any],
-    dataset: Dict[str, Any],
+    base: ClusteringBaseState,
+    dataset: ClusteringDatasetBundle,
     normalized_feature_columns: Sequence[str] | None,
     selected_sampling_strategy: str,
     requested_cluster_count: int,
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
-) -> Dict[str, Any]:
+) -> ClusteringFeatureSelectionContext:
     _emit_clustering_progress(
         progress_callback,
         "clustering.aggregation",
@@ -147,13 +156,13 @@ def _build_clustering_feature_context(
 
 def _build_clustering_model_inputs(
     *,
-    summary: Dict[str, Any],
-    dataset: Dict[str, Any],
+    summary: ClusteringSummary,
+    dataset: ClusteringDatasetBundle,
     selected_features: Sequence[str],
     requested_cluster_count: int,
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
-) -> Dict[str, Any]:
+) -> ClusteringModelStageInputs:
     _emit_clustering_progress(
         progress_callback,
         "clustering.training",
@@ -181,8 +190,8 @@ def _build_clustering_model_inputs(
 
 def _build_clustering_model_description(
     *,
-    cluster_count_guidance: Dict[str, Any],
-    runtime_feature_context: Dict[str, Any],
+    cluster_count_guidance: ClusterCountGuidance,
+    runtime_feature_context: FeatureSelectionReport,
 ) -> str:
     return " ".join(
         part

@@ -6,9 +6,10 @@ from app.services.shared.data_utils import _clean_text, _unique_non_empty
 from app.services.shared.formatting import _format_integer
 
 from .constants import ACCESS_POINTS_DESCRIPTION, ACCESS_POINTS_TITLE, MAX_NOTES
+from .types import AccessPointCard, AccessPointFilters, AccessPointPresentation, OptionItem, PointData, PresentationSummary
 
 
-def _selection_label(options: Sequence[Dict[str, str]], selected_value: str, fallback: str) -> str:
+def _selection_label(options: Sequence[OptionItem], selected_value: str, fallback: str) -> str:
     normalized = str(selected_value or "").strip()
     for option in options:
         if str(option.get("value") or "") == normalized:
@@ -25,7 +26,7 @@ def _build_filter_description(selected_table_label: str, selected_district_label
     return " | ".join(parts)
 
 
-def _build_top_point_lead(top_point: Dict[str, Any] | None) -> str:
+def _build_top_point_lead(top_point: PointData | None) -> str:
     if not top_point:
         return "Недостаточно данных, чтобы выделить проблемную точку."
 
@@ -44,15 +45,15 @@ def _build_top_point_lead(top_point: Dict[str, Any] | None) -> str:
 # ml_model/training/presentation_training.py::_build_summary:
 # access-points summary has its own point-risk and verification semantics.
 def _build_summary(
-    rows: Sequence[Dict[str, Any]],
+    rows: Sequence[PointData],
     *,
     selected_table_label: str,
     selected_district_label: str,
     selected_year_label: str,
     limit: int,
     total_incidents: int,
-    incomplete_points: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
+    incomplete_points: Sequence[PointData],
+) -> PresentationSummary:
     top_point = rows[0] if rows else None
     critical_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == "critical")
     high_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") in {"high", "critical"})
@@ -87,11 +88,11 @@ def _build_summary(
 # table_summary.py::_build_summary_cards:
 # access-points cards are incident-point prioritization widgets.
 def _build_summary_cards(
-    rows: Sequence[Dict[str, Any]],
+    rows: Sequence[PointData],
     *,
     total_incidents: int,
-    incomplete_points: Sequence[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    incomplete_points: Sequence[PointData],
+) -> List[AccessPointCard]:
     top_point = rows[0] if rows else None
     high_or_above_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") in {"high", "critical"})
     critical_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == "critical")
@@ -127,8 +128,8 @@ def _build_summary_cards(
 def _build_notes(
     metadata_notes: Sequence[str],
     input_notes: Sequence[str],
-    rows: Sequence[Dict[str, Any]],
-    incomplete_points: Sequence[Dict[str, Any]],
+    rows: Sequence[PointData],
+    incomplete_points: Sequence[PointData],
 ) -> List[str]:
     notes: List[str] = []
     if rows:
@@ -169,11 +170,11 @@ def _build_notes(
 
 def _empty_access_points_data(
     *,
-    filters: Dict[str, Any],
-    summary: Dict[str, Any],
+    filters: AccessPointFilters,
+    summary: PresentationSummary,
     notes: Sequence[str] | None = None,
     bootstrap_mode: str = "resolved",
-) -> Dict[str, Any]:
+) -> AccessPointPresentation:
     resolved_notes = _unique_non_empty(
         list(notes or []) or ["Недостаточно данных для построения рейтинга проблемных точек."]
     )[:MAX_NOTES]

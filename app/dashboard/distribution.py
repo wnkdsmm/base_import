@@ -48,6 +48,12 @@ from .charts import (
     _finalize_chart,
 )
 from .data_access import _build_year_filter_clause, _numeric_expression_for_column, _resolve_table_column_name
+from .types import (
+    DashboardTableRef,
+    DistributionItem,
+    DistributionResult,
+    SummaryRow,
+)
 from .utils import _format_number, _quote_identifier
 
 _DAMAGE_THEME_COLUMNS = {
@@ -95,44 +101,44 @@ def _damage_count_columns() -> List[str]:
     )
 
 
-def _collect_damage_counts(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, int]:
+def _collect_damage_counts(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> Dict[str, int]:
     damage_columns = _damage_count_columns()
     return _collect_positive_column_counts(selected_tables, selected_year, damage_columns)
 
 
 def _resolve_damage_chart_items(
-    items: Optional[Sequence[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+    items: Optional[Sequence[DistributionItem]],
+) -> List[DistributionItem]:
     return items if isinstance(items, list) else list(items or [])
 
 
 def _resolve_damage_category_items(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
-    items: Optional[Sequence[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+    items: Optional[Sequence[DistributionItem]],
+) -> List[DistributionItem]:
     if items is not None:
         return _resolve_damage_chart_items(items)
     return _build_damage_category_items(selected_tables, selected_year)
 
 
 def _resolve_damage_theme_items(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
-    items: Optional[Sequence[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+    items: Optional[Sequence[DistributionItem]],
+) -> List[DistributionItem]:
     if items is not None:
         return _resolve_damage_chart_items(items)
     return _build_damage_theme_items(selected_tables, selected_year)
 
 
 def _build_distribution_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     group_column: str,
     *,
     grouped_counts: Optional[Dict[str, int]] = None,
-) -> Dict[str, Any]:
+) -> DistributionResult:
     if not group_column:
         empty_message = "Нет доступных колонок для распределения."
         return _finalize_chart(
@@ -181,7 +187,7 @@ def _build_distribution_chart(
 
 
 def _collect_positive_column_counts(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     columns: Sequence[str],
 ) -> Dict[str, int]:
@@ -239,11 +245,11 @@ def _collect_positive_column_counts(
 
 
 def _build_damage_category_items(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
     counts: Optional[Dict[str, int]] = None,
-) -> List[Dict[str, Any]]:
+) -> List[DistributionItem]:
     counts = counts if counts is not None else _collect_damage_counts(selected_tables, selected_year)
     items: List[Dict[str, Any]] = []
     used_columns = set()
@@ -298,11 +304,11 @@ def _build_damage_category_items(
 
 
 def _build_damage_theme_items(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
     counts: Optional[Dict[str, int]] = None,
-) -> List[Dict[str, Any]]:
+) -> List[DistributionItem]:
     counts = counts if counts is not None else _collect_damage_counts(selected_tables, selected_year)
     items: List[Dict[str, Any]] = []
 
@@ -323,11 +329,11 @@ def _build_damage_theme_items(
 
 
 def _build_damage_overview_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    items: Optional[Sequence[DistributionItem]] = None,
+) -> DistributionResult:
     items = _resolve_damage_category_items(selected_tables, selected_year, items)
     top_items = items[:12]
     title = "Ущерб: что страдает чаще всего"
@@ -343,11 +349,11 @@ def _build_damage_overview_chart(
 
 
 def _build_damage_pairs_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    items: Optional[Sequence[DistributionItem]] = None,
+) -> DistributionResult:
     items = _resolve_damage_category_items(selected_tables, selected_year, items)
     items = [item for item in items if "destroyed" in item or "damaged" in item]
     title = "Ущерб: уничтожено и повреждено"
@@ -363,11 +369,11 @@ def _build_damage_pairs_chart(
 
 
 def _build_damage_standalone_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    items: Optional[Sequence[DistributionItem]] = None,
+) -> DistributionResult:
     items = _resolve_damage_theme_items(selected_tables, selected_year, items)
     title = "Ущерб: направления потерь"
     empty_message = "Нет данных по укрупненным направлениям ущерба."
@@ -382,11 +388,11 @@ def _build_damage_standalone_chart(
 
 
 def _build_damage_share_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    items: Optional[Sequence[DistributionItem]] = None,
+) -> DistributionResult:
     items = _resolve_damage_theme_items(selected_tables, selected_year, items)
     pie_items = [
         {
@@ -410,12 +416,12 @@ def _build_damage_share_chart(
 
 
 def _build_table_breakdown_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    summary_rows: Optional[Sequence[Dict[str, Any]]] = None,
+    summary_rows: Optional[Sequence[SummaryRow]] = None,
     include_plotly: bool = True,
-) -> Dict[str, Any]:
+) -> DistributionResult:
     items = []
     if summary_rows is not None:
         for row in summary_rows:
@@ -466,10 +472,10 @@ def _build_table_breakdown_chart(
 
 
 def _build_rankings(
-    distribution: Dict[str, Any],
-    table_breakdown: Dict[str, Any],
-    yearly_fires: Dict[str, Any],
-) -> Dict[str, List[Dict[str, Any]]]:
+    distribution: DistributionResult,
+    table_breakdown: DistributionResult,
+    yearly_fires: DistributionResult,
+) -> Dict[str, List[DistributionItem]]:
     return {
         "top_distribution": distribution["items"][:5],
         "top_tables": table_breakdown["items"][:5],

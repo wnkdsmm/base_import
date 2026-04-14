@@ -10,6 +10,16 @@ from app.services.shared.data_utils import _clean_text, _is_rural_label, _normal
 from .constants import GENERIC_OBJECT_TOKENS, MIN_ACCESS_POINT_SUPPORT, POINT_FEATURE_COLUMNS
 from .data import _collect_access_point_inputs
 from .numeric import _finite_numeric_columns, _normalize_coordinate, _safe_mean, _share
+from .types import (
+    AccessPointInput,
+    AccessPointMetadata,
+    PointBucket,
+    PointData,
+    PointDataset,
+    PointIdentity,
+    PointPriors,
+    PointRecord,
+)
 
 
 def _normalize_identity_token(value: Any) -> str:
@@ -32,7 +42,7 @@ def _smooth_share(successes: int, observations: int, prior_mean: float, minimum_
     return (successes + (prior_mean * support_gap)) / float(observations + support_gap)
 
 
-def _resolve_point_identity(record: Dict[str, Any]) -> Dict[str, Any]:
+def _resolve_point_identity(record: PointRecord) -> PointIdentity:
     address = _clean_text(record.get("address"))
     address_comment = _clean_text(record.get("address_comment"))
     object_name = _clean_text(record.get("object_name"))
@@ -122,7 +132,7 @@ def _resolve_point_identity(record: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _new_point_bucket(identity: Dict[str, Any]) -> Dict[str, Any]:
+def _new_point_bucket(identity: PointIdentity) -> PointBucket:
     return {
         **identity,
         "incident_count": 0,
@@ -152,7 +162,7 @@ def _new_point_bucket(identity: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, Any]) -> None:
+def _update_point_bucket_from_record(bucket: PointBucket, record: AccessPointInput) -> None:
     bucket["incident_count"] += 1
     bucket["years"][int(record.get("year") or record["date"].year)] += 1
 
@@ -219,7 +229,7 @@ def _update_point_bucket_from_record(bucket: Dict[str, Any], record: Dict[str, A
         bucket["longitude_values"].append(longitude)
 
 
-def _build_point_priors(buckets: Dict[str, Dict[str, Any]], total_incidents: int) -> Dict[str, float]:
+def _build_point_priors(buckets: Dict[str, PointBucket], total_incidents: int) -> PointPriors:
     total_response_count = 0
     total_long_arrivals = 0
     total_known_water = 0
@@ -254,12 +264,12 @@ def _build_point_priors(buckets: Dict[str, Dict[str, Any]], total_incidents: int
 
 
 def _build_smoothed_bucket_shares(
-    bucket: Dict[str, Any],
+    bucket: PointBucket,
     *,
     incident_count: int,
     response_count: int,
     known_water_count: int,
-    priors: Dict[str, float],
+    priors: PointPriors,
     resolved_support: int,
 ) -> Dict[str, float]:
     return {
@@ -314,8 +324,8 @@ def _build_smoothed_bucket_shares(
     }
 
 
-def _aggregate_point_buckets(records: Sequence[Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], int]:
-    buckets: Dict[str, Dict[str, Any]] = {}
+def _aggregate_point_buckets(records: Sequence[AccessPointInput]) -> Tuple[Dict[str, PointBucket], int]:
+    buckets: Dict[str, PointBucket] = {}
     total_incidents = 0
     for record in records:
         identity = _resolve_point_identity(record)
@@ -355,11 +365,11 @@ def _point_location_parts(
 
 
 def _build_point_bucket_row(
-    bucket: Dict[str, Any],
+    bucket: PointBucket,
     *,
-    priors: Dict[str, float],
+    priors: PointPriors,
     resolved_support: int,
-) -> Dict[str, Any]:
+) -> PointData:
     incident_count = int(bucket["incident_count"])
     response_count = int(bucket["response_count"])
     distance_count = int(bucket["distance_count"])
@@ -459,7 +469,7 @@ def _build_point_feature_frame(entity_frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_point_entity_frames(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[AccessPointInput],
     *,
     minimum_support: int = MIN_ACCESS_POINT_SUPPORT,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -492,9 +502,9 @@ def _load_access_point_dataset(
     *,
     district: str = "all",
     selected_year: Optional[int] = None,
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+    metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
     minimum_support: int = MIN_ACCESS_POINT_SUPPORT,
-) -> Dict[str, Any]:
+) -> PointDataset:
     records, notes = _collect_access_point_inputs(
         source_tables,
         district=district,

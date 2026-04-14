@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
-from typing import Any, Callable, Dict
+from typing import Callable
 
 from app.perf import current_perf_trace, profiled
 from app.plotly_bundle import get_plotly_bundle
@@ -65,7 +65,14 @@ from .presentation import (
     _build_summary,
 )
 from .quality import _build_scenario_quality_assessment, _run_scenario_backtesting
-from .types import ForecastingContext, ForecastingPayload
+from .types import (
+    ForecastPayload,
+    ForecastingContext,
+    ForecastingDeps,
+    ForecastingPayload,
+    ForecastingRequestState,
+    TableOption,
+)
 from .utils import (
     _format_datetime,
     _format_float_for_input,
@@ -86,10 +93,10 @@ def clear_forecasting_cache() -> None:
 
 
 def _build_forecasting_context(
-    initial_data: Dict[str, Any],
+    initial_data: ForecastPayload,
     *,
     plotly_js: str,
-) -> Dict[str, Any]:
+) -> ForecastingContext:
     return {
         "generated_at": _format_datetime(datetime.now()),
         "initial_data": initial_data,
@@ -99,11 +106,11 @@ def _build_forecasting_context(
 
 
 def _build_forecasting_page_fallback_initial_data(
-    request_state: Dict[str, Any],
+    request_state: ForecastingRequestState,
     *,
     temperature: str,
     exc: Exception,
-) -> Dict[str, Any]:
+) -> ForecastPayload:
     return _empty_forecasting_data(
         request_state["table_options"],
         request_state["selected_table"],
@@ -114,13 +121,13 @@ def _build_forecasting_page_fallback_initial_data(
 
 
 def _resolve_cached_forecasting_shell_payload(
-    request_state: Dict[str, Any],
+    request_state: ForecastingRequestState,
     *,
     district: str,
     cause: str,
     object_category: str,
     temperature: str,
-) -> Dict[str, Any] | None:
+) -> ForecastPayload | None:
     source_tables = request_state["source_tables"]
     if not source_tables:
         return None
@@ -157,14 +164,14 @@ def _resolve_cached_forecasting_shell_payload(
 
 def _build_forecasting_shell_fallback_initial_data(
     *,
-    table_options: list[Dict[str, Any]],
+    table_options: list[TableOption],
     selected_table: str,
     days_ahead: int,
     temperature: str,
     selected_history_window: str,
     source_tables: list[str],
     exc: Exception,
-) -> Dict[str, Any]:
+) -> ForecastPayload:
     initial_data = _empty_forecasting_data(
         table_options,
         selected_table,
@@ -193,7 +200,7 @@ def _build_forecasting_shell_fallback_initial_data(
     return initial_data
 
 
-def _finalize_metadata_without_sources(metadata_payload: Dict[str, Any]) -> Dict[str, Any]:
+def _finalize_metadata_without_sources(metadata_payload: ForecastPayload) -> ForecastPayload:
     metadata_payload["metadata_pending"] = False
     metadata_payload["metadata_ready"] = False
     metadata_payload["metadata_error"] = False
@@ -206,10 +213,10 @@ def _finalize_metadata_without_sources(metadata_payload: Dict[str, Any]) -> Dict
 
 
 def _build_no_source_forecasting_payload(
-    base_data: Dict[str, Any],
+    base_data: ForecastPayload,
     *,
     include_decision_support: bool,
-) -> Dict[str, Any]:
+) -> ForecastPayload:
     base_data["notes"].append("\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0442\u0430\u0431\u043b\u0438\u0446 \u0434\u043b\u044f \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f.")
     base_data["bootstrap_mode"] = "full"
     base_data["loading"] = False
@@ -237,7 +244,7 @@ def _build_forecasting_request_state(
     forecast_days: str = "14",
     history_window: str = "all",
     include_decision_support: bool = False,
-) -> Dict[str, Any]:
+) -> ForecastingRequestState:
     return _build_forecasting_request_state_impl(
         table_name=table_name,
         district=district,
@@ -264,7 +271,7 @@ def _build_forecasting_shell_data(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-) -> Dict[str, Any]:
+) -> ForecastPayload:
     return _build_forecasting_shell_data_impl(
         table_name=table_name,
         district=district,
@@ -686,7 +693,7 @@ def get_forecasting_decision_support_data(
     return payload
 
 
-def _forecasting_assembly_dependencies() -> Dict[str, Callable[..., Any] | Any]:
+def _forecasting_assembly_dependencies() -> ForecastingDeps:
     return {
         "build_decision_support_followup_message": _build_decision_support_followup_message,
         "build_decision_support_payload": build_decision_support_payload,

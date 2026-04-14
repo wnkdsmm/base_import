@@ -18,6 +18,7 @@ from . import training_result as _result
 from . import training_selection as _selection
 from . import training_temperature as _temperature
 from ..ml_model_types import (
+    BacktestSuccess,
     COUNT_MODEL_KEYS,
     COUNT_MODEL_LABELS,
     EXPLAINABLE_COUNT_MODEL_KEY,
@@ -27,6 +28,14 @@ from ..ml_model_types import (
     MIN_FEATURE_ROWS,
     _emit_progress,
     coerce_backtest_result,
+)
+from .types import (
+    TrainingFeatureImportanceRow,
+    TrainingForecastRow,
+    TrainingHistoryRecord,
+    TrainingModelArtifact,
+    TrainingResultPayload,
+    TrainingTemperatureStats,
 )
 
 # Compatibility exports for tests and legacy imports.
@@ -116,12 +125,12 @@ sm = _models.sm
 class _TrainingArtifacts:
     final_frame: Any
     final_dataset: Any
-    final_temperature_stats: Dict[str, Any]
+    final_temperature_stats: TrainingTemperatureStats
     backtest: Any
-    final_count_model: Optional[Dict[str, Any]]
-    final_event_model: Optional[Dict[str, Any]]
+    final_count_model: Optional[TrainingModelArtifact]
+    final_event_model: Optional[TrainingModelArtifact]
     selected_count_model_key: str
-    feature_importance: List[Dict[str, Any]]
+    feature_importance: List[TrainingFeatureImportanceRow]
     feature_importance_source_key: Optional[str]
     feature_importance_source_label: Optional[str]
     feature_importance_note: Optional[str]
@@ -129,7 +138,7 @@ class _TrainingArtifacts:
 
 @dataclass
 class _TrainingSeedData:
-    history_tail: List[Dict[str, Any]]
+    history_tail: List[TrainingHistoryRecord]
     frame: Any
     dataset: Any
 
@@ -138,17 +147,17 @@ class _TrainingSeedData:
 class _FinalTrainingModels:
     final_frame: Any
     final_dataset: Any
-    final_temperature_stats: Dict[str, Any]
+    final_temperature_stats: TrainingTemperatureStats
     feature_columns: List[str]
     backtest: Any
     selected_count_model_key: str
-    final_count_model: Optional[Dict[str, Any]]
-    final_event_model: Optional[Dict[str, Any]]
+    final_count_model: Optional[TrainingModelArtifact]
+    final_event_model: Optional[TrainingModelArtifact]
 
 
 @dataclass
 class _FeatureImportanceArtifacts:
-    rows: List[Dict[str, Any]]
+    rows: List[TrainingFeatureImportanceRow]
     source_key: Optional[str]
     source_label: Optional[str]
     note: Optional[str]
@@ -180,7 +189,7 @@ def _signature_float(value: Any) -> Optional[float]:
     return numeric_value
 
 
-def _daily_history_signature(daily_history: List[Dict[str, Any]]) -> Tuple[Tuple[Any, ...], ...]:
+def _daily_history_signature(daily_history: List[TrainingHistoryRecord]) -> Tuple[Tuple[Any, ...], ...]:
     return tuple(
         (
             _signature_date(item.get('date')),
@@ -192,7 +201,7 @@ def _daily_history_signature(daily_history: List[Dict[str, Any]]) -> Tuple[Tuple
 
 
 def _training_artifact_cache_key(
-    daily_history: List[Dict[str, Any]],
+    daily_history: List[TrainingHistoryRecord],
     forecast_days: int,
 ) -> Tuple[int, Tuple[Tuple[Any, ...], ...]]:
     return (int(forecast_days), _daily_history_signature(daily_history))
@@ -223,7 +232,7 @@ def _forecast_rows_from_training_artifacts(
     *,
     forecast_days: int,
     scenario_temperature: Optional[float],
-) -> List[Dict[str, Any]]:
+) -> List[TrainingForecastRow]:
     return _forecast_intervals._build_future_forecast_rows(
         frame=artifacts.final_frame,
         selected_count_model_key=artifacts.selected_count_model_key,
@@ -242,8 +251,8 @@ def _forecast_rows_from_training_artifacts(
 
 def _assemble_training_artifacts_result(
     artifacts: _TrainingArtifacts,
-    forecast_rows: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    forecast_rows: List[TrainingForecastRow],
+) -> TrainingResultPayload:
     return _result._assemble_training_result(
         backtest=artifacts.backtest,
         forecast_rows=forecast_rows,
@@ -258,7 +267,7 @@ def _assemble_training_artifacts_result(
 
 
 def _build_training_seed(
-    daily_history: List[Dict[str, Any]],
+    daily_history: List[TrainingHistoryRecord],
     *,
     perf: Any,
 ) -> _TrainingSeedData:
@@ -270,7 +279,7 @@ def _build_training_seed(
     return _TrainingSeedData(history_tail=history_tail, frame=frame, dataset=dataset)
 
 
-def _ensure_min_feature_rows(dataset: Any, message: str) -> Optional[Dict[str, Any]]:
+def _ensure_min_feature_rows(dataset: Any, message: str) -> Optional[TrainingResultPayload]:
     if len(dataset) >= MIN_FEATURE_ROWS:
         return None
     return _empty_ml_result(message.format(rows=len(dataset)))
@@ -298,9 +307,9 @@ def _run_training_backtest(
 def _fit_final_training_models(
     seed: _TrainingSeedData,
     *,
-    backtest: Any,
+    backtest: BacktestSuccess,
     progress_callback: MlProgressCallback,
-) -> _FinalTrainingModels | Dict[str, Any]:
+) -> _FinalTrainingModels | TrainingResultPayload:
     final_frame, final_dataset, final_temperature_stats = _prepare_training_dataset(
         seed.frame,
         frame_is_prepared=True,
@@ -427,7 +436,7 @@ def _train_ml_model(
     forecast_days: int,
     scenario_temperature: Optional[float],
     progress_callback: MlProgressCallback = None,
-) -> Dict[str, Any]:
+ ) -> TrainingResultPayload:
     perf = current_perf_trace()
     if len(daily_history) < MIN_DAILY_HISTORY or forecast_days <= 0:
         return _empty_ml_result(
