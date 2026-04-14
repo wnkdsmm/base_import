@@ -1,6 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Callable, List
 
 from app.services.forecast_risk.geo import _build_geo_prediction
 
@@ -11,7 +11,7 @@ def build_hotspot_payloads(
     geo_prediction: GeoPredictionPayload,
     risk_level: Callable[[float], tuple[str, str]],
 ) -> List[HotspotPayload]:
-    hotspots: List[Dict[str, Any]] = []
+    hotspots: List[HotspotPayload] = []
     for rank, item in enumerate((geo_prediction.get('hotspots') or [])[:8], start=1):
         risk_score = float(item.get('risk_score') or 0.0)
         risk_label, risk_tone = risk_level(risk_score)
@@ -26,7 +26,7 @@ def build_hotspot_payloads(
             'risk_score_display': item.get('risk_display') or f'{risk_score:.1f} / 100',
             'risk_label': risk_label,
             'risk_tone': risk_tone,
-            'explanation': item.get('explanation') or 'Локальная концентрация пожаров выше среднего.',
+            'explanation': item.get('explanation') or 'Р›РѕРєР°Р»СЊРЅР°СЏ РєРѕРЅС†РµРЅС‚СЂР°С†РёСЏ РїРѕР¶Р°СЂРѕРІ РІС‹С€Рµ СЃСЂРµРґРЅРµРіРѕ.',
         })
     return hotspots
 
@@ -40,9 +40,9 @@ def build_hotspots_from_dated_records(
     if len(dated_records) >= 3:
         geo_prediction = _build_geo_prediction(dated_records, planning_horizon_days=30)
     elif dated_records:
-        notes.append('Для hotspot-анализа дат пока мало, поэтому акцент смещён на тепловую карту и приоритетные территории.')
+        notes.append('Р”Р»СЏ hotspot-Р°РЅР°Р»РёР·Р° РґР°С‚ РїРѕРєР° РјР°Р»Рѕ, РїРѕСЌС‚РѕРјСѓ Р°РєС†РµРЅС‚ СЃРјРµС‰С‘РЅ РЅР° С‚РµРїР»РѕРІСѓСЋ РєР°СЂС‚Сѓ Рё РїСЂРёРѕСЂРёС‚РµС‚РЅС‹Рµ С‚РµСЂСЂРёС‚РѕСЂРёРё.')
     else:
-        notes.append('Даты пожаров отсутствуют, поэтому hotspot-анализ отключён и заменён резервным пространственным режимом.')
+        notes.append('Р”Р°С‚С‹ РїРѕР¶Р°СЂРѕРІ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚, РїРѕСЌС‚РѕРјСѓ hotspot-Р°РЅР°Р»РёР· РѕС‚РєР»СЋС‡С‘РЅ Рё Р·Р°РјРµРЅС‘РЅ СЂРµР·РµСЂРІРЅС‹Рј РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅС‹Рј СЂРµР¶РёРјРѕРј.')
     return build_hotspot_payloads(geo_prediction, risk_level)
 
 

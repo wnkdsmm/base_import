@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
@@ -19,7 +19,7 @@ def _build_access_point_rows_from_entity_frame(
     entity_frame: pd.DataFrame,
     feature_frame: pd.DataFrame | None = None,
     selected_features: Sequence[str] | None = None,
-) -> List[Dict[str, Any]]:
+) -> List[dict[str, Any]]:
     if entity_frame is None or entity_frame.empty:
         return []
 
@@ -31,7 +31,7 @@ def _build_access_point_rows_from_entity_frame(
     precomputed = row_context["precomputed"]
     record_columns = _frame_column_values(working_frame, ACCESS_POINT_PAYLOAD_OVERWRITE_COLUMNS)
 
-    normalized_rows: List[Dict[str, Any]] = []
+    normalized_rows: List[dict[str, Any]] = []
     for row_index in range(len(working_frame)):
         record = _record_from_column_values(record_columns, row_index)
         normalized_rows.append(
@@ -62,18 +62,18 @@ def _build_access_point_rows_from_entity_frame(
 
 
 def _build_access_point_rows(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[dict[str, Any]],
     selected_features: Sequence[str] | None = None,
-) -> List[Dict[str, Any]]:
+) -> List[dict[str, Any]]:
     entity_frame, _feature_frame = _build_point_entity_frames(records)
     return _build_access_point_rows_from_entity_frame(entity_frame, selected_features=selected_features)
 
 
-def _select_top_points(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _select_top_points(rows: Sequence[dict[str, Any]]) -> List[dict[str, Any]]:
     return [dict(row) for row in list(rows)[:TOP_POINT_CARD_COUNT]]
 
 
-def _select_incomplete_points(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _select_incomplete_points(rows: Sequence[dict[str, Any]]) -> List[dict[str, Any]]:
     candidates = [
         dict(row)
         for row in rows

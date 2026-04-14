@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -41,7 +41,7 @@ class _BacktestSelection:
     count_metrics: Dict[str, CountMetrics]
     selected_count_model_key: str
     selected_metrics: CountMetrics
-    selection_details: Dict[str, Any]
+    selection_details: dict[str, Any]  # one-off
     overdispersion_ratio: float
     validation_evaluation_data: _HorizonEvaluationData
 
@@ -69,7 +69,7 @@ class _EventMetricMaskContext:
 class _EventMetricSelection:
     selected_model_key: str
     selected_model_label: str
-    selected_metrics: Dict[str, Any]
+    selected_metrics: dict[str, Any]  # one-off
     selected_roc_auc: Optional[float]
     selected_log_loss: Optional[float]
     comparison_rows: List[EventComparisonRow]
@@ -77,7 +77,7 @@ class _EventMetricSelection:
 
 @dataclass
 class _EventProbabilityScores:
-    heuristic_metrics: Dict[str, Any]
+    heuristic_metrics: dict[str, Any]  # one-off
     baseline_roc_auc: Optional[float]
     heuristic_roc_auc: Optional[float]
     baseline_log_loss: Optional[float]
@@ -97,9 +97,9 @@ class _EventMetricContext:
 class _BacktestEvaluationArtifacts:
     selection: _BacktestSelection
     selected_count_model_key: str
-    interval_calibration_by_horizon: Dict[int, Dict[str, Any]]
+    interval_calibration_by_horizon: dict[int, dict[str, Any]]  # one-off
     horizon_summaries: Dict[str, HorizonSummary]
-    prediction_interval_calibration: Dict[str, Any]
+    prediction_interval_calibration: dict[str, Any]  # one-off
     validation_summary: HorizonSummary
     backtest_rows: List[BacktestEvaluationRow]
     event_metrics: EventMetrics
@@ -133,13 +133,13 @@ class _BacktestWindow:
     model_train_design: pd.DataFrame
     count_targets: np.ndarray
     event_targets: np.ndarray
-    temperature_stats: Dict[str, Any]
+    temperature_stats: dict[str, Any]  # one-off
 
 
 @dataclass
 class _WindowCandidateFits:
-    event_bundle: Optional[Dict[str, Any]]
-    forecast_paths: Dict[str, Optional[List[Dict[str, Any]]]]
+    event_bundle: Optional[dict[str, Any]]  # one-off
+    forecast_paths: dict[str, Optional[List[BacktestWindowRow]]]  # one-off
 
 
 @dataclass

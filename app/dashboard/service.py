@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -126,15 +126,15 @@ def _build_dashboard_shell_initial_data(
     initial_data["scope"]["table_label"] = _find_option_label(
         metadata["table_options"],
         filter_state["selected_table_name"],
-        "Все таблицы",
+        "Р’СЃРµ С‚Р°Р±Р»РёС†С‹",
     )
     initial_data["scope"]["year_label"] = (
-        str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "Все годы"
+        str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "Р’СЃРµ РіРѕРґС‹"
     )
     initial_data["scope"]["group_label"] = _find_option_label(
         available_group_columns,
         selected_group_column,
-        "Нет данных",
+        "РќРµС‚ РґР°РЅРЅС‹С…",
     )
     return initial_data, available_group_columns
 
@@ -220,7 +220,7 @@ def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -
     return {
         "generated_at": _format_datetime(datetime.now()),
         "filters": {
-            "tables": [{"value": "all", "label": "Все таблицы"}],
+            "tables": [{"value": "all", "label": "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"}],
             "years": [],
             "group_columns": [],
         },
@@ -387,7 +387,7 @@ def _build_dashboard_payload(
     yearly_area_chart = aggregation["yearly_area_chart"]
     monthly_profile = aggregation["monthly_profile"]
     area_buckets = aggregation["area_buckets"]
-    scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
+    scope_label = f"РўР°Р±Р»РёС†Р°: {scope['table_label']} | Р“РѕРґ: {scope['year_label']} | Р Р°Р·СЂРµР·: {scope['group_label']}"
 
     export_text = compose_executive_brief_text(
         management.get("brief"),
@@ -400,7 +400,7 @@ def _build_dashboard_payload(
 
     notes = list(metadata["errors"][:5])
     if not PLOTLY_AVAILABLE:
-        notes.append("Библиотека Plotly не найдена в окружении. Интерактивные графики не будут показаны.")
+        notes.append("Р‘РёР±Р»РёРѕС‚РµРєР° Plotly РЅРµ РЅР°Р№РґРµРЅР° РІ РѕРєСЂСѓР¶РµРЅРёРё. РРЅС‚РµСЂР°РєС‚РёРІРЅС‹Рµ РіСЂР°С„РёРєРё РЅРµ Р±СѓРґСѓС‚ РїРѕРєР°Р·Р°РЅС‹.")
 
     return {
         "generated_at": _format_datetime(datetime.now()),
@@ -549,8 +549,8 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "area_fill_rate_display": "0%",
             "years_covered": 0,
             "years_covered_display": "0",
-            "period_label": "Нет данных",
-            "year_label": "Все годы",
+            "period_label": "РќРµС‚ РґР°РЅРЅС‹С…",
+            "year_label": "Р’СЃРµ РіРѕРґС‹",
             "deaths": 0,
             "deaths_display": "0",
             "injuries": 0,
@@ -571,25 +571,25 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "children_total_display": "0",
         },
         "scope": {
-            "table_label": "Все таблицы",
-            "year_label": "Все годы",
-            "group_label": "Нет данных",
+            "table_label": "Р’СЃРµ С‚Р°Р±Р»РёС†С‹",
+            "year_label": "Р’СЃРµ РіРѕРґС‹",
+            "group_label": "РќРµС‚ РґР°РЅРЅС‹С…",
             "table_count": 0,
             "table_count_display": "0",
             "database_tables_count": 0,
             "database_tables_count_display": "0",
             "available_years_count": 0,
             "available_years_count_display": "0",
-            "period_label": "Нет данных",
+            "period_label": "РќРµС‚ РґР°РЅРЅС‹С…",
         },
         "trend": {
-            "title": "Динамика последнего года",
+            "title": "Р”РёРЅР°РјРёРєР° РїРѕСЃР»РµРґРЅРµРіРѕ РіРѕРґР°",
             "current_year": "-",
             "current_value_display": "0",
             "previous_year": "",
-            "delta_display": "Нет базы сравнения",
+            "delta_display": "РќРµС‚ Р±Р°Р·С‹ СЃСЂР°РІРЅРµРЅРёСЏ",
             "direction": "flat",
-            "description": "Недостаточно данных для сравнения по годам.",
+            "description": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СЃСЂР°РІРЅРµРЅРёСЏ РїРѕ РіРѕРґР°Рј.",
         },
         "management": _empty_management_snapshot(),
         "highlights": [],
@@ -599,23 +599,23 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "recent_years": [],
         },
         "widgets": {
-            "causes": _finalize_chart("SQL-виджет: причины", [], "Нет данных по причинам возгорания."),
-            "districts": _finalize_chart("SQL-виджет: районы", [], "В выбранных таблицах не найдено колонок района."),
-            "seasons": _finalize_chart("SQL-виджет: сезоны", [], "Нет данных для сезонного SQL-виджета."),
+            "causes": _finalize_chart("SQL-РІРёРґР¶РµС‚: РїСЂРёС‡РёРЅС‹", [], "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїСЂРёС‡РёРЅР°Рј РІРѕР·РіРѕСЂР°РЅРёСЏ."),
+            "districts": _finalize_chart("SQL-РІРёРґР¶РµС‚: СЂР°Р№РѕРЅС‹", [], "Р’ РІС‹Р±СЂР°РЅРЅС‹С… С‚Р°Р±Р»РёС†Р°С… РЅРµ РЅР°Р№РґРµРЅРѕ РєРѕР»РѕРЅРѕРє СЂР°Р№РѕРЅР°."),
+            "seasons": _finalize_chart("SQL-РІРёРґР¶РµС‚: СЃРµР·РѕРЅС‹", [], "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃРµР·РѕРЅРЅРѕРіРѕ SQL-РІРёРґР¶РµС‚Р°."),
         },
         "charts": {
-            "yearly_fires": _finalize_chart("Причины возгораний", [], "Нет данных по причинам возгорания."),
-            "yearly_area": _finalize_chart("Последствия, эвакуация и дети", [], "Нет данных по погибшим, травмам и эвакуации."),
-            "distribution": _finalize_chart("Распределение по колонке", [], "Нет данных для графика."),
+            "yearly_fires": _finalize_chart("РџСЂРёС‡РёРЅС‹ РІРѕР·РіРѕСЂР°РЅРёР№", [], "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїСЂРёС‡РёРЅР°Рј РІРѕР·РіРѕСЂР°РЅРёСЏ."),
+            "yearly_area": _finalize_chart("РџРѕСЃР»РµРґСЃС‚РІРёСЏ, СЌРІР°РєСѓР°С†РёСЏ Рё РґРµС‚Рё", [], "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїРѕРіРёР±С€РёРј, С‚СЂР°РІРјР°Рј Рё СЌРІР°РєСѓР°С†РёРё."),
+            "distribution": _finalize_chart("Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕ РєРѕР»РѕРЅРєРµ", [], "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РіСЂР°С„РёРєР°."),
             "table_breakdown": _finalize_chart("", [], ""),
-            "monthly_profile": _finalize_chart("Сезонность по месяцам", [], "Нет данных для сезонного профиля."),
-            "area_buckets": _finalize_chart("Структура по площади пожара", [], "Нет данных по площади пожара."),
+            "monthly_profile": _finalize_chart("РЎРµР·РѕРЅРЅРѕСЃС‚СЊ РїРѕ РјРµСЃСЏС†Р°Рј", [], "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃРµР·РѕРЅРЅРѕРіРѕ РїСЂРѕС„РёР»СЏ."),
+            "area_buckets": _finalize_chart("РЎС‚СЂСѓРєС‚СѓСЂР° РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°", [], "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°."),
         },
         "filters": {
             "table_name": "all",
             "year": "",
             "group_column": "",
-            "available_tables": [{"value": "all", "label": "Все таблицы"}],
+            "available_tables": [{"value": "all", "label": "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"}],
             "available_years": [],
             "available_group_columns": [],
 

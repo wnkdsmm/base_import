@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Iterable, List, Sequence
 
 import pandas as pd
 
@@ -12,36 +12,36 @@ from app.domain.column_matching import MANDATORY_FEATURE_REGISTRY
 FEATURE_GROUPS = [
     {
         "id": "time",
-        "label": "Время",
+        "label": "Р’СЂРµРјСЏ",
         "feature_ids": ["fire_date", "report_time", "arrival_time"],
     },
     {
         "id": "territory",
-        "label": "Территория",
+        "label": "РўРµСЂСЂРёС‚РѕСЂРёСЏ",
         "feature_ids": ["district", "locality", "settlement_type", "coordinates"],
     },
     {
         "id": "incident",
-        "label": "Причина и объект",
+        "label": "РџСЂРёС‡РёРЅР° Рё РѕР±СЉРµРєС‚",
         "feature_ids": ["cause", "object_category"],
     },
     {
         "id": "response",
-        "label": "Реагирование",
+        "label": "Р РµР°РіРёСЂРѕРІР°РЅРёРµ",
         "feature_ids": ["distance_to_fire_station", "water_supply"],
     },
     {
         "id": "consequences",
-        "label": "Последствия",
+        "label": "РџРѕСЃР»РµРґСЃС‚РІРёСЏ",
         "feature_ids": ["fatalities", "injuries", "damage"],
     },
 ]
 
-_EMPTY_TEXT_VALUES = {"", "nan", "nat", "none", "null", "n/a", "na", "-", "—"}
+_EMPTY_TEXT_VALUES = {"", "nan", "nat", "none", "null", "n/a", "na", "-", "вЂ”"}
 
 
 def _normalize_text(value: Any) -> str:
-    text = str(value or "").lower().replace("ё", "е")
+    text = str(value or "").lower().replace("С‘", "Рµ")
     text = re.sub(r"[_/#-]+", " ", text)
     text = re.sub(r"[^\w\s]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -76,9 +76,9 @@ def _format_percent(ratio: float) -> str:
 def _format_compact_number(value: float) -> str:
     absolute = abs(float(value or 0.0))
     if absolute >= 1_000_000:
-        return f"{value / 1_000_000:.1f} млн".replace(".", ",")
+        return f"{value / 1_000_000:.1f} РјР»РЅ".replace(".", ",")
     if absolute >= 1_000:
-        return f"{value / 1_000:.1f} тыс".replace(".", ",")
+        return f"{value / 1_000:.1f} С‚С‹СЃ".replace(".", ",")
     if float(value).is_integer():
         return _format_int(int(value))
     return f"{value:.1f}".replace(".", ",")
@@ -101,7 +101,7 @@ def _contains_fragment(normalized_name: str, words: Sequence[str], fragment: str
     )
 
 
-def _column_matches_feature(column_name: str, feature: Dict[str, Any]) -> bool:
+def _column_matches_feature(column_name: str, feature: dict[str, Any]) -> bool:  # one-off
     normalized_name = _normalize_text(column_name)
     words = _extract_words(normalized_name)
     exclude_tokens = [_normalize_text(token) for token in feature.get("exclude_tokens", []) if token]
@@ -131,8 +131,8 @@ def _column_matches_feature(column_name: str, feature: Dict[str, Any]) -> bool:
     return False
 
 
-def _match_mandatory_features(columns: Sequence[str]) -> Dict[str, Dict[str, Any]]:
-    matched: Dict[str, Dict[str, Any]] = {}
+def _match_mandatory_features(columns: Sequence[str]) -> dict[str, dict[str, Any]]:  # one-off
+    matched: dict[str, dict[str, Any]] = {}
     for feature in MANDATORY_FEATURE_REGISTRY:
         feature_id = str(feature["id"])
         matched_columns = [column_name for column_name in columns if _column_matches_feature(column_name, feature)]
@@ -188,13 +188,13 @@ def _summarize_date_range(values: Sequence[Any]) -> str:
 
 
 def _build_feature_stat(
-    feature: Dict[str, Any],
+    feature: dict[str, Any],  # one-off
     columns: Sequence[str],
     rows: Sequence[Sequence[Any]],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:  # one-off
     row_count = len(rows)
     matched_columns = list(feature.get("columns") or [])
-    label = str(feature.get("label") or "Критерий")
+    label = str(feature.get("label") or "РљСЂРёС‚РµСЂРёР№")
 
     if not matched_columns:
         return {
@@ -204,10 +204,10 @@ def _build_feature_stat(
             "columns": [],
             "coverage": 0.0,
             "coverage_display": "0%",
-            "highlight": "Не распознано",
-            "summary": f"{label}: колонка не распознана в текущей таблице.",
-            "card_value": "Нет",
-            "card_meta": f"{label} не распознан в структуре таблицы.",
+            "highlight": "РќРµ СЂР°СЃРїРѕР·РЅР°РЅРѕ",
+            "summary": f"{label}: РєРѕР»РѕРЅРєР° РЅРµ СЂР°СЃРїРѕР·РЅР°РЅР° РІ С‚РµРєСѓС‰РµР№ С‚Р°Р±Р»РёС†Рµ.",
+            "card_value": "РќРµС‚",
+            "card_meta": f"{label} РЅРµ СЂР°СЃРїРѕР·РЅР°РЅ РІ СЃС‚СЂСѓРєС‚СѓСЂРµ С‚Р°Р±Р»РёС†С‹.",
             "unique_count": 0,
             "sum_value": 0.0,
             "positive_count": 0,
@@ -246,7 +246,7 @@ def _build_feature_stat(
     coverage_display = _format_percent(coverage)
     columns_display = ", ".join(matched_columns[:2])
     if len(matched_columns) > 2:
-        columns_display += f" и ещё {_format_int(len(matched_columns) - 2)}"
+        columns_display += f" Рё РµС‰С‘ {_format_int(len(matched_columns) - 2)}"
 
     top_value = ""
     top_share = ""
@@ -258,55 +258,55 @@ def _build_feature_stat(
     date_range = _summarize_date_range(observed_values) if feature["id"] == "fire_date" else ""
     average_number = (numeric_sum / numeric_count) if numeric_count else 0.0
 
-    highlight = f"{coverage_display} заполнено"
-    summary = f"Колонки: {columns_display}. Заполнено {coverage_display} строк."
+    highlight = f"{coverage_display} Р·Р°РїРѕР»РЅРµРЅРѕ"
+    summary = f"РљРѕР»РѕРЅРєРё: {columns_display}. Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
     card_value = coverage_display
-    card_meta = f"{label}: заполнено {coverage_display} строк."
+    card_meta = f"{label}: Р·Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
 
     if feature["id"] == "fire_date" and date_range:
         highlight = date_range
-        summary = f"Период: {date_range}. Заполнено {coverage_display} строк."
+        summary = f"РџРµСЂРёРѕРґ: {date_range}. Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
         card_value = date_range
-        card_meta = f"Дата пожара распознана. Заполненность: {coverage_display}."
+        card_meta = f"Р”Р°С‚Р° РїРѕР¶Р°СЂР° СЂР°СЃРїРѕР·РЅР°РЅР°. Р—Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ: {coverage_display}."
     elif feature["id"] in {"district", "locality", "settlement_type", "cause", "object_category"} and top_value:
         highlight = top_value
-        summary = f"Чаще всего встречается «{top_value}» ({top_share}). Заполнено {coverage_display} строк."
+        summary = f"Р§Р°С‰Рµ РІСЃРµРіРѕ РІСЃС‚СЂРµС‡Р°РµС‚СЃСЏ В«{top_value}В» ({top_share}). Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
         card_value = top_value
-        unique_meta = f"{_format_int(unique_count)} уник." if unique_count else "без разбивки"
-        card_meta = f"{unique_meta}; заполнено {coverage_display} строк."
+        unique_meta = f"{_format_int(unique_count)} СѓРЅРёРє." if unique_count else "Р±РµР· СЂР°Р·Р±РёРІРєРё"
+        card_meta = f"{unique_meta}; Р·Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
     elif feature["id"] == "coordinates":
-        highlight = f"{_format_int(len(matched_columns))} колон."
-        summary = f"Найдено {len(matched_columns)} колонок координат. Заполнено {coverage_display} строк."
-        card_value = f"{_format_int(len(matched_columns))} колон."
-        card_meta = f"Координаты распознаны. Заполненность: {coverage_display}."
+        highlight = f"{_format_int(len(matched_columns))} РєРѕР»РѕРЅ."
+        summary = f"РќР°Р№РґРµРЅРѕ {len(matched_columns)} РєРѕР»РѕРЅРѕРє РєРѕРѕСЂРґРёРЅР°С‚. Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
+        card_value = f"{_format_int(len(matched_columns))} РєРѕР»РѕРЅ."
+        card_meta = f"РљРѕРѕСЂРґРёРЅР°С‚С‹ СЂР°СЃРїРѕР·РЅР°РЅС‹. Р—Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ: {coverage_display}."
     elif feature["id"] == "water_supply" and top_value:
         highlight = coverage_display
-        summary = f"Признак водоснабжения найден. Частое значение: «{top_value}». Заполнено {coverage_display} строк."
+        summary = f"РџСЂРёР·РЅР°Рє РІРѕРґРѕСЃРЅР°Р±Р¶РµРЅРёСЏ РЅР°Р№РґРµРЅ. Р§Р°СЃС‚РѕРµ Р·РЅР°С‡РµРЅРёРµ: В«{top_value}В». Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
         card_value = coverage_display
-        card_meta = f"Водоснабжение распознано. Заполненность: {coverage_display}."
+        card_meta = f"Р’РѕРґРѕСЃРЅР°Р±Р¶РµРЅРёРµ СЂР°СЃРїРѕР·РЅР°РЅРѕ. Р—Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ: {coverage_display}."
     elif feature["id"] in {"report_time", "arrival_time"}:
         highlight = coverage_display
-        summary = f"{label}: заполнено {coverage_display} строк."
+        summary = f"{label}: Р·Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
         card_value = coverage_display
-        card_meta = f"{label}: данные присутствуют в {coverage_display} строк."
+        card_meta = f"{label}: РґР°РЅРЅС‹Рµ РїСЂРёСЃСѓС‚СЃС‚РІСѓСЋС‚ РІ {coverage_display} СЃС‚СЂРѕРє."
     elif feature["id"] == "distance_to_fire_station" and numeric_count:
         highlight = _format_compact_number(average_number)
-        summary = f"Среднее расстояние: {_format_compact_number(average_number)}. Заполнено {coverage_display} строк."
+        summary = f"РЎСЂРµРґРЅРµРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ: {_format_compact_number(average_number)}. Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
         card_value = _format_compact_number(average_number)
-        card_meta = f"Удалённость до пожарной части. Заполненность: {coverage_display}."
+        card_meta = f"РЈРґР°Р»С‘РЅРЅРѕСЃС‚СЊ РґРѕ РїРѕР¶Р°СЂРЅРѕР№ С‡Р°СЃС‚Рё. Р—Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ: {coverage_display}."
     elif feature["id"] in {"fatalities", "injuries"} and numeric_count:
         highlight = _format_int(int(round(numeric_sum)))
         summary = (
-            f"Суммарно: {_format_int(int(round(numeric_sum)))}. "
-            f"В {_format_int(positive_count)} строках есть ненулевые значения."
+            f"РЎСѓРјРјР°СЂРЅРѕ: {_format_int(int(round(numeric_sum)))}. "
+            f"Р’ {_format_int(positive_count)} СЃС‚СЂРѕРєР°С… РµСЃС‚СЊ РЅРµРЅСѓР»РµРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ."
         )
         card_value = _format_int(int(round(numeric_sum)))
-        card_meta = f"{label}: ненулевые значения в {_format_int(positive_count)} строках."
+        card_meta = f"{label}: РЅРµРЅСѓР»РµРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РІ {_format_int(positive_count)} СЃС‚СЂРѕРєР°С…."
     elif feature["id"] == "damage" and numeric_count:
         highlight = _format_compact_number(numeric_sum)
-        summary = f"Суммарный ущерб: {_format_compact_number(numeric_sum)}. Заполнено {coverage_display} строк."
+        summary = f"РЎСѓРјРјР°СЂРЅС‹Р№ СѓС‰РµСЂР±: {_format_compact_number(numeric_sum)}. Р—Р°РїРѕР»РЅРµРЅРѕ {coverage_display} СЃС‚СЂРѕРє."
         card_value = _format_compact_number(numeric_sum)
-        card_meta = f"Ущерб распознан. Заполненность: {coverage_display}."
+        card_meta = f"РЈС‰РµСЂР± СЂР°СЃРїРѕР·РЅР°РЅ. Р—Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ: {coverage_display}."
 
     return {
         "id": feature["id"],
@@ -325,7 +325,7 @@ def _build_feature_stat(
     }
 
 
-def _first_found(feature_stats: Dict[str, Dict[str, Any]], feature_ids: Sequence[str]) -> Dict[str, Any] | None:
+def _first_found(feature_stats: dict[str, dict[str, Any]], feature_ids: Sequence[str]) -> dict[str, Any] | None:  # one-off
     for feature_id in feature_ids:
         stat = feature_stats.get(feature_id)
         if stat and stat["found"]:
@@ -339,7 +339,7 @@ def _first_found(feature_stats: Dict[str, Dict[str, Any]], feature_ids: Sequence
 def _build_summary_cards(
     row_count: int,
     column_count: int,
-    feature_stats: Dict[str, Dict[str, Any]],
+    feature_stats: dict[str, dict[str, Any]],  # one-off
 ) -> List[Dict[str, str]]:
     mandatory_total = len(MANDATORY_FEATURE_REGISTRY)
     found_total = sum(1 for item in feature_stats.values() if item["found"])
@@ -347,19 +347,19 @@ def _build_summary_cards(
 
     cards: List[Dict[str, str]] = [
         {
-            "label": "Размер",
+            "label": "Р Р°Р·РјРµСЂ",
             "value": f"{_format_int(row_count)} x {_format_int(column_count)}",
-            "meta": "Строки x колонки в текущем просмотре таблицы.",
+            "meta": "РЎС‚СЂРѕРєРё x РєРѕР»РѕРЅРєРё РІ С‚РµРєСѓС‰РµРј РїСЂРѕСЃРјРѕС‚СЂРµ С‚Р°Р±Р»РёС†С‹.",
         },
         {
-            "label": "Обязательные критерии",
+            "label": "РћР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ РєСЂРёС‚РµСЂРёРё",
             "value": f"{_format_int(found_total)} / {_format_int(mandatory_total)}",
-            "meta": "Критерии из сценария очистки, которые удалось распознать в этой таблице.",
+            "meta": "РљСЂРёС‚РµСЂРёРё РёР· СЃС†РµРЅР°СЂРёСЏ РѕС‡РёСЃС‚РєРё, РєРѕС‚РѕСЂС‹Рµ СѓРґР°Р»РѕСЃСЊ СЂР°СЃРїРѕР·РЅР°С‚СЊ РІ СЌС‚РѕР№ С‚Р°Р±Р»РёС†Рµ.",
         },
         {
-            "label": "Заполненность ключевых полей",
+            "label": "Р—Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ РєР»СЋС‡РµРІС‹С… РїРѕР»РµР№",
             "value": _format_percent(average_fill),
-            "meta": "Средняя заполненность распознанных обязательных критериев.",
+            "meta": "РЎСЂРµРґРЅСЏСЏ Р·Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ СЂР°СЃРїРѕР·РЅР°РЅРЅС‹С… РѕР±СЏР·Р°С‚РµР»СЊРЅС‹С… РєСЂРёС‚РµСЂРёРµРІ.",
         },
     ]
 
@@ -367,7 +367,7 @@ def _build_summary_cards(
     if date_stat:
         cards.append(
             {
-                "label": "Период",
+                "label": "РџРµСЂРёРѕРґ",
                 "value": date_stat["card_value"],
                 "meta": date_stat["card_meta"],
             }
@@ -377,7 +377,7 @@ def _build_summary_cards(
     if territory_stat:
         cards.append(
             {
-                "label": "Территория",
+                "label": "РўРµСЂСЂРёС‚РѕСЂРёСЏ",
                 "value": territory_stat["card_value"],
                 "meta": territory_stat["card_meta"],
             }
@@ -387,7 +387,7 @@ def _build_summary_cards(
     if cause_stat:
         cards.append(
             {
-                "label": "Причина / объект",
+                "label": "РџСЂРёС‡РёРЅР° / РѕР±СЉРµРєС‚",
                 "value": cause_stat["card_value"],
                 "meta": cause_stat["card_meta"],
             }
@@ -396,7 +396,7 @@ def _build_summary_cards(
     return cards
 
 
-def _build_group_cards(feature_stats: Dict[str, Dict[str, Any]]) -> List[Dict[str, str]]:
+def _build_group_cards(feature_stats: dict[str, dict[str, Any]]) -> List[Dict[str, str]]:  # one-off
     cards: List[Dict[str, str]] = []
     for group in FEATURE_GROUPS:
         group_stats = [feature_stats[feature_id] for feature_id in group["feature_ids"] if feature_id in feature_stats]
@@ -407,10 +407,10 @@ def _build_group_cards(feature_stats: Dict[str, Dict[str, Any]]) -> List[Dict[st
         if found_stats:
             highlights = [f"{item['label']}: {item['highlight']}" for item in found_stats[:2]]
             if len(found_stats) > 2:
-                highlights.append(f"Ещё {_format_int(len(found_stats) - 2)} критерия распознано.")
+                highlights.append(f"Р•С‰С‘ {_format_int(len(found_stats) - 2)} РєСЂРёС‚РµСЂРёСЏ СЂР°СЃРїРѕР·РЅР°РЅРѕ.")
             meta = " ".join(highlights)
         else:
-            meta = "Критерии этой группы пока не распознаны в структуре таблицы."
+            meta = "РљСЂРёС‚РµСЂРёРё СЌС‚РѕР№ РіСЂСѓРїРїС‹ РїРѕРєР° РЅРµ СЂР°СЃРїРѕР·РЅР°РЅС‹ РІ СЃС‚СЂСѓРєС‚СѓСЂРµ С‚Р°Р±Р»РёС†С‹."
 
         cards.append(
             {
@@ -422,7 +422,7 @@ def _build_group_cards(feature_stats: Dict[str, Dict[str, Any]]) -> List[Dict[st
     return cards
 
 
-def build_table_summary(table_name: str, columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> Dict[str, Any]:
+def build_table_summary(table_name: str, columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> dict[str, Any]:  # one-off
     del table_name
 
     column_list = [str(column) for column in (columns or [])]
@@ -438,12 +438,12 @@ def build_table_summary(table_name: str, columns: Sequence[str], rows: Sequence[
     average_fill = _average(item["coverage"] for item in feature_stats.values() if item["found"])
 
     lead = (
-        f"Распознано {_format_int(found_total)} из {_format_int(mandatory_total)} обязательных критериев очистки. "
-        f"Средняя заполненность ключевых полей: {_format_percent(average_fill)}."
+        f"Р Р°СЃРїРѕР·РЅР°РЅРѕ {_format_int(found_total)} РёР· {_format_int(mandatory_total)} РѕР±СЏР·Р°С‚РµР»СЊРЅС‹С… РєСЂРёС‚РµСЂРёРµРІ РѕС‡РёСЃС‚РєРё. "
+        f"РЎСЂРµРґРЅСЏСЏ Р·Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ РєР»СЋС‡РµРІС‹С… РїРѕР»РµР№: {_format_percent(average_fill)}."
     )
     criteria_lead = (
-        "Сначала коротко видно, какие обязательные критерии реально есть в таблице, "
-        "а уже потом можно уходить в полный просмотр строк."
+        "РЎРЅР°С‡Р°Р»Р° РєРѕСЂРѕС‚РєРѕ РІРёРґРЅРѕ, РєР°РєРёРµ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ РєСЂРёС‚РµСЂРёРё СЂРµР°Р»СЊРЅРѕ РµСЃС‚СЊ РІ С‚Р°Р±Р»РёС†Рµ, "
+        "Р° СѓР¶Рµ РїРѕС‚РѕРј РјРѕР¶РЅРѕ СѓС…РѕРґРёС‚СЊ РІ РїРѕР»РЅС‹Р№ РїСЂРѕСЃРјРѕС‚СЂ СЃС‚СЂРѕРє."
     )
 
     return {
@@ -461,21 +461,21 @@ def build_table_page_summary(
     total_rows: int,
     page_row_start: int,
     page_row_end: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:  # one-off
     summary = build_table_summary(table_name, columns, rows)
     displayed_rows = len(rows or [])
 
     if total_rows <= 0:
-        scope_note = "В таблице пока нет строк."
+        scope_note = "Р’ С‚Р°Р±Р»РёС†Рµ РїРѕРєР° РЅРµС‚ СЃС‚СЂРѕРє."
     elif total_rows <= displayed_rows:
-        scope_note = "Сводка рассчитана по всей таблице."
+        scope_note = "РЎРІРѕРґРєР° СЂР°СЃСЃС‡РёС‚Р°РЅР° РїРѕ РІСЃРµР№ С‚Р°Р±Р»РёС†Рµ."
     elif displayed_rows:
         scope_note = (
-            f"Эта сводка относится только к текущей странице предпросмотра: "
-            f"строки {page_row_start}-{page_row_end} из { _format_int(total_rows) }."
+            f"Р­С‚Р° СЃРІРѕРґРєР° РѕС‚РЅРѕСЃРёС‚СЃСЏ С‚РѕР»СЊРєРѕ Рє С‚РµРєСѓС‰РµР№ СЃС‚СЂР°РЅРёС†Рµ РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂР°: "
+            f"СЃС‚СЂРѕРєРё {page_row_start}-{page_row_end} РёР· { _format_int(total_rows) }."
         )
     else:
-        scope_note = f"В таблице найдено { _format_int(total_rows) } строк."
+        scope_note = f"Р’ С‚Р°Р±Р»РёС†Рµ РЅР°Р№РґРµРЅРѕ { _format_int(total_rows) } СЃС‚СЂРѕРє."
 
     summary["scope_note"] = scope_note
     return summary

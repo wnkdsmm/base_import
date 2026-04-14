@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -28,7 +28,7 @@ class ClusteringDataLoader(DataLoader):
     def parse_sampling_strategy(self, value: str) -> str:
         return _impl._parse_sampling_strategy(value)
 
-    def load_territory_dataset(self, table_name: str, sample_limit: int, sampling_strategy: str) -> Dict[str, Any]:
+    def load_territory_dataset(self, table_name: str, sample_limit: int, sampling_strategy: str) -> dict[str, Any]:
         return _impl._load_territory_dataset(table_name, sample_limit, sampling_strategy)
 
     def resolve_selected_features(
@@ -47,7 +47,7 @@ class ClusteringDataLoader(DataLoader):
             cluster_count=cluster_count,
         )
 
-    def build_feature_options(self, candidate_features: Sequence[Dict[str, Any]], selected_features: Sequence[str]) -> List[Dict[str, Any]]:
+    def build_feature_options(self, candidate_features: Sequence[dict[str, Any]], selected_features: Sequence[str]) -> List[dict[str, Any]]:
         return _impl._build_feature_options(candidate_features, selected_features)
 
     def prepare_cluster_frame(
@@ -82,7 +82,7 @@ def _parse_sampling_strategy(value: str) -> str:
     return _LOADER.parse_sampling_strategy(value)
 
 
-def _load_territory_dataset(table_name: str, sample_limit: int, sampling_strategy: str) -> Dict[str, Any]:
+def _load_territory_dataset(table_name: str, sample_limit: int, sampling_strategy: str) -> dict[str, Any]:
     return _LOADER.load_territory_dataset(table_name, sample_limit, sampling_strategy)
 
 
@@ -102,7 +102,7 @@ def _resolve_selected_features(
     )
 
 
-def _build_feature_options(candidate_features: Sequence[Dict[str, Any]], selected_features: Sequence[str]) -> List[Dict[str, Any]]:
+def _build_feature_options(candidate_features: Sequence[dict[str, Any]], selected_features: Sequence[str]) -> List[dict[str, Any]]:
     return _LOADER.build_feature_options(candidate_features, selected_features)
 
 
@@ -113,7 +113,7 @@ def _prepare_cluster_frame(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, int]:
     return _LOADER.prepare_cluster_frame(feature_frame, entity_frame, selected_features)
 
-def _aggregate_territory_frame(records: Sequence[Dict[str, Any]]) -> pd.DataFrame:
+def _aggregate_territory_frame(records: Sequence[dict[str, Any]]) -> pd.DataFrame:
     return _impl._aggregate_territory_frame(records)
 
 

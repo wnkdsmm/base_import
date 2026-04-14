@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from functools import lru_cache
@@ -17,7 +17,7 @@ except Exception:
     PLOTLY_AVAILABLE = False
 
 
-DEFAULT_PLOTLY_CONFIG: Dict[str, Any] = {
+DEFAULT_PLOTLY_CONFIG: dict[str, Any] = {
     "responsive": True,
     "displaylogo": False,
     "modeBarButtonsToRemove": [
@@ -39,8 +39,8 @@ def get_plotly_bundle() -> str:
         return "window.Plotly = window.Plotly || undefined;"
 
 
-def empty_plotly_payload(empty_message: str = "") -> Dict[str, Any]:
-    payload: Dict[str, Any] = {
+def empty_plotly_payload(empty_message: str = "") -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "data": [],
         "layout": {},
         "config": dict(DEFAULT_PLOTLY_CONFIG),
@@ -50,7 +50,7 @@ def empty_plotly_payload(empty_message: str = "") -> Dict[str, Any]:
     return payload
 
 
-def serialize_plotly_figure(figure: Any) -> Dict[str, Any]:
+def serialize_plotly_figure(figure: Any) -> dict[str, Any]:
     if not PLOTLY_AVAILABLE or PlotlyJSONEncoder is None:
         return empty_plotly_payload()
 
@@ -70,7 +70,7 @@ def build_empty_plotly_figure_payload(
     plot_bgcolor: str = "rgba(255,255,255,0)",
     margin: Dict[str, int] | None = None,
     use_plotly: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if not use_plotly:
         return empty_plotly_payload()
     if not PLOTLY_AVAILABLE or go is None:

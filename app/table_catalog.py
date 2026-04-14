@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Dict, List, Sequence
 
 from app.db_metadata import get_table_names_cached
 from app.statistics_constants import EXCLUDED_TABLE_PREFIXES
 
-_ALL_TABLES_LABEL = "Все таблицы"
+_ALL_TABLES_LABEL = "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"
 
 
 def is_user_table_name(table_name: str) -> bool:

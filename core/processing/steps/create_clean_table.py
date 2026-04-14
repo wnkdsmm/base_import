@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 
 import pandas as pd
@@ -21,7 +21,7 @@ def _coerce_bool_series(series: pd.Series) -> pd.Series:
 
 class CreateCleanTableStep(PipelineStep):
     def __init__(self):
-        super().__init__("Создание очищенной таблицы")
+        super().__init__("РЎРѕР·РґР°РЅРёРµ РѕС‡РёС‰РµРЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹")
 
     def _resolve_profile_df(self, settings, profile_df: pd.DataFrame | None, profile_csv: str) -> pd.DataFrame:
         if isinstance(profile_df, pd.DataFrame):
@@ -32,7 +32,7 @@ class CreateCleanTableStep(PipelineStep):
             return cached_profile_df.copy()
 
         if not os.path.exists(profile_csv):
-            raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
+            raise FileNotFoundError(f"РќРµ РЅР°Р№РґРµРЅ РѕС‚С‡С‘С‚ РїСЂРѕС„РёР»РёСЂРѕРІР°РЅРёСЏ: {profile_csv}")
         return pd.read_csv(profile_csv)
 
     def _resolve_source_df(self, settings, source_df: pd.DataFrame | None) -> pd.DataFrame | None:
@@ -67,22 +67,22 @@ class CreateCleanTableStep(PipelineStep):
         if os.path.exists(updated_profile_csv):
             profile_csv = updated_profile_csv
 
-        logger.info("Создаём очищенную таблицу для: %s", table_name)
-        logger.info("Используем отчёт: %s", profile_csv)
+        logger.info("РЎРѕР·РґР°С‘Рј РѕС‡РёС‰РµРЅРЅСѓСЋ С‚Р°Р±Р»РёС†Сѓ РґР»СЏ: %s", table_name)
+        logger.info("РСЃРїРѕР»СЊР·СѓРµРј РѕС‚С‡С‘С‚: %s", profile_csv)
 
         resolved_profile_df = self._resolve_profile_df(settings, profile_df, profile_csv)
         if "candidate_to_drop" not in resolved_profile_df.columns:
-            raise KeyError("В отчёте отсутствует колонка 'candidate_to_drop'")
+            raise KeyError("Р’ РѕС‚С‡С‘С‚Рµ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ РєРѕР»РѕРЅРєР° 'candidate_to_drop'")
 
         candidate_mask = _coerce_bool_series(resolved_profile_df["candidate_to_drop"])
         keep_columns = resolved_profile_df.loc[~candidate_mask, "column"].dropna().tolist()
         removed_columns = resolved_profile_df.loc[candidate_mask, "column"].dropna().tolist()
 
         if not keep_columns:
-            raise ValueError("После профилирования не осталось колонок для сохранения.")
+            raise ValueError("РџРѕСЃР»Рµ РїСЂРѕС„РёР»РёСЂРѕРІР°РЅРёСЏ РЅРµ РѕСЃС‚Р°Р»РѕСЃСЊ РєРѕР»РѕРЅРѕРє РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ.")
 
-        logger.info("Колонок останется: %s", len(keep_columns))
-        logger.info("Колонок будет исключено: %s", len(removed_columns))
+        logger.info("РљРѕР»РѕРЅРѕРє РѕСЃС‚Р°РЅРµС‚СЃСЏ: %s", len(keep_columns))
+        logger.info("РљРѕР»РѕРЅРѕРє Р±СѓРґРµС‚ РёСЃРєР»СЋС‡РµРЅРѕ: %s", len(removed_columns))
 
         columns_sql = ", ".join(f'"{col}"' for col in keep_columns)
         create_table_query = f'CREATE TABLE "{new_table}" AS SELECT {columns_sql} FROM "{source_table}"'
@@ -91,7 +91,7 @@ class CreateCleanTableStep(PipelineStep):
             conn.execute(text(f'DROP TABLE IF EXISTS "{new_table}"'))
             conn.execute(text(create_table_query))
 
-        logger.info("Таблица создана: %s", new_table)
+        logger.info("РўР°Р±Р»РёС†Р° СЃРѕР·РґР°РЅР°: %s", new_table)
 
         export_file = os.path.join(output_folder, f"{new_table}.xlsx")
         resolved_source_df = self._resolve_source_df(settings, source_df)
@@ -106,9 +106,9 @@ class CreateCleanTableStep(PipelineStep):
 
         clean_df.to_excel(export_file, index=False, engine="openpyxl")
 
-        logger.info("Excel-файл очищенной таблицы: %s", export_file)
-        logger.info("Строк в очищенной таблице: %s", len(clean_df))
-        logger.info("Колонок в очищенной таблице: %s", len(clean_df.columns))
+        logger.info("Excel-С„Р°Р№Р» РѕС‡РёС‰РµРЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹: %s", export_file)
+        logger.info("РЎС‚СЂРѕРє РІ РѕС‡РёС‰РµРЅРЅРѕР№ С‚Р°Р±Р»РёС†Рµ: %s", len(clean_df))
+        logger.info("РљРѕР»РѕРЅРѕРє РІ РѕС‡РёС‰РµРЅРЅРѕР№ С‚Р°Р±Р»РёС†Рµ: %s", len(clean_df.columns))
 
         settings._pipeline_clean_df = clean_df
 

@@ -1,4 +1,4 @@
-"""Backtesting subpackage re-export facade."""
+﻿"""Backtesting subpackage re-export facade."""
 
 from __future__ import annotations
 

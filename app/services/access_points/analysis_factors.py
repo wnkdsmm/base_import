@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, NamedTuple, Sequence
 
@@ -366,7 +366,7 @@ def _prepare_access_point_row_context(
     entity_frame: pd.DataFrame,
     feature_frame: pd.DataFrame | None,
     selected_features: Sequence[str] | None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     normalized_selected_features, active_reason_codes, normalized_factor_weights = _resolve_access_point_weight_context(
         selected_features
     )
@@ -390,5 +390,5 @@ def _frame_column_values(
     return {column: frame[column].to_numpy(copy=False) for column in frame.columns if column not in excluded_columns}
 
 
-def _record_from_column_values(column_values: Dict[str, Sequence[Any]], row_index: int) -> Dict[str, Any]:
+def _record_from_column_values(column_values: Dict[str, Sequence[Any]], row_index: int) -> dict[str, Any]:
     return {column: values[row_index] for column, values in column_values.items()}

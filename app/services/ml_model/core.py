@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
@@ -67,7 +67,7 @@ def _build_ml_deferred_shell_data(
     )
     initial_data['bootstrap_mode'] = 'deferred'
     initial_data['charts']['importance']['empty_message'] = (
-        'Собираем драйверы прогноза: блок заполнится после фонового расчёта.'
+        'РЎРѕР±РёСЂР°РµРј РґСЂР°Р№РІРµСЂС‹ РїСЂРѕРіРЅРѕР·Р°: Р±Р»РѕРє Р·Р°РїРѕР»РЅРёС‚СЃСЏ РїРѕСЃР»Рµ С„РѕРЅРѕРІРѕРіРѕ СЂР°СЃС‡С‘С‚Р°.'
     )
     initial_data['notes'].extend(request_state['source_table_notes'])
     initial_data['notes'] = _compact_ui_notes(initial_data['notes'])

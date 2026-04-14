@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, Dict, Sequence
 
@@ -167,7 +167,7 @@ def _load_forecasting_metadata_bundle(
     source_tables: Sequence[str],
     selected_history_window: str,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache_key = _metadata_bundle_cache_key(
         source_tables,
         selected_history_window,

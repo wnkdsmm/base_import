@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
 from app.services.job_support import (
     JobLaunchBundle,
@@ -20,7 +20,7 @@ from .core_runner import _CLUSTERING_CACHE, _build_clustering_request_state, get
 
 _CLUSTERING_JOB_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="clustering")
 _CLUSTERING_JOB_LOCK = RLock()
-_CLUSTERING_JOB_IDS_BY_CACHE_KEY: Dict[Tuple[str, str], str] = {}
+_CLUSTERING_JOB_IDS_BY_CACHE_KEY: dict[Tuple[str, str], str] = {}
 
 
 def start_clustering_job(
@@ -31,7 +31,7 @@ def start_clustering_job(
     sampling_strategy: str = "stratified",
     feature_columns: list[str] | None = None,
     cluster_count_is_explicit: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:  # one-off
     request_state = _build_clustering_request_state(
         table_name=table_name,
         cluster_count=cluster_count,
@@ -83,14 +83,14 @@ def start_clustering_job(
     )
 
 
-def get_clustering_job_status(session_id: str, job_id: str) -> Dict[str, Any]:
+def get_clustering_job_status(session_id: str, job_id: str) -> dict[str, Any]:  # one-off
     return build_standard_job_status_payload(session_id, job_id, reused=False)
 
 
 def _run_clustering_job(
     session_id: str,
     job_id: str,
-    params_payload: Dict[str, Any],
+    params_payload: dict[str, Any],
     cache_key_token: str,
 ) -> None:
     reporter = StageTrackingJobProgressReporter(
@@ -135,7 +135,7 @@ def _create_clustering_job_bundle(
     *,
     session_id: str,
     cache_key_token: str,
-    params_payload: Dict[str, Any],
+    params_payload: dict[str, Any],
     cache_hit: bool,
 ) -> JobLaunchBundle:
     job = job_store.create_or_reset_job(session_id=session_id, kind="clustering")
@@ -174,7 +174,7 @@ def _handle_cached_clustering_payload(
     *,
     session_id: str,
     bundle: JobLaunchBundle,
-    cached_payload: Dict[str, Any],
+    cached_payload: dict[str, Any],
 ) -> None:
     job_store.complete_job(
         session_id,
@@ -192,7 +192,7 @@ def _submit_clustering_job(
     *,
     session_id: str,
     bundle: JobLaunchBundle,
-    params_payload: Dict[str, Any],
+    params_payload: dict[str, Any],
     cache_key_token: str,
 ) -> None:
     _CLUSTERING_JOB_EXECUTOR.submit(
@@ -217,7 +217,7 @@ def _finalize_clustering_job_success(
     *,
     session_id: str,
     job_id: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> None:
     job_store.complete_job(
         session_id,
@@ -253,7 +253,7 @@ def _build_params_payload(
     sampling_strategy: str,
     feature_columns: list[str] | None,
     cluster_count_is_explicit: bool,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:  # one-off
     return {
         "table_name": str(table_name or ""),
         "cluster_count": str(cluster_count or "4"),

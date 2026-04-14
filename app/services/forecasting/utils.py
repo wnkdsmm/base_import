@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from datetime import date, datetime, timedelta
@@ -77,7 +77,7 @@ def _history_window_label(value: str) -> str:
     return "\u0412\u0441\u0435 \u0433\u043e\u0434\u044b"
 
 
-def _apply_history_window(records: List[Dict[str, Any]], history_window: str) -> List[Dict[str, Any]]:
+def _apply_history_window(records: List[dict[str, Any]], history_window: str) -> List[dict[str, Any]]:
     if not records or history_window == "all":
         return records
 
@@ -176,14 +176,14 @@ def _scenario_color(tone: str) -> str:
     return palette.get(tone, PLOTLY_PALETTE["sky"])
 
 
-def _forecast_stability_hint(daily_history: List[Dict[str, Any]]) -> Tuple[str, str]:
+def _forecast_stability_hint(daily_history: List[dict[str, Any]]) -> Tuple[str, str]:
     total_days = len(daily_history)
     active_days = sum(1 for item in daily_history if float(item["count"]) > 0)
     if total_days >= 180 and active_days >= 45:
-        return "Выше средней", "истории достаточно, поэтому прогноз обычно стабильнее"
+        return "Р’С‹С€Рµ СЃСЂРµРґРЅРµР№", "РёСЃС‚РѕСЂРёРё РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ, РїРѕСЌС‚РѕРјСѓ РїСЂРѕРіРЅРѕР· РѕР±С‹С‡РЅРѕ СЃС‚Р°Р±РёР»СЊРЅРµРµ"
     if total_days >= 60 and active_days >= 15:
-        return "Средняя", "истории хватает для ориентировочного сценария"
-    return "Ниже средней", "данных мало или они слишком редкие, поэтому важнее смотреть на общий тренд"
+        return "РЎСЂРµРґРЅСЏСЏ", "РёСЃС‚РѕСЂРёРё С…РІР°С‚Р°РµС‚ РґР»СЏ РѕСЂРёРµРЅС‚РёСЂРѕРІРѕС‡РЅРѕРіРѕ СЃС†РµРЅР°СЂРёСЏ"
+    return "РќРёР¶Рµ СЃСЂРµРґРЅРµР№", "РґР°РЅРЅС‹С… РјР°Р»Рѕ РёР»Рё РѕРЅРё СЃР»РёС€РєРѕРј СЂРµРґРєРёРµ, РїРѕСЌС‚РѕРјСѓ РІР°Р¶РЅРµРµ СЃРјРѕС‚СЂРµС‚СЊ РЅР° РѕР±С‰РёР№ С‚СЂРµРЅРґ"
 
 
 def _probability_from_expected_count(value: float) -> float:
@@ -197,29 +197,29 @@ def _format_probability(value: float) -> str:
 def _forecast_level_label(value: float, reference: float) -> Tuple[str, str]:
     if reference <= 0:
         if value <= 0:
-            return "На уровне нуля", "sky"
-        return "Выше обычного", "fire"
+            return "РќР° СѓСЂРѕРІРЅРµ РЅСѓР»СЏ", "sky"
+        return "Р’С‹С€Рµ РѕР±С‹С‡РЅРѕРіРѕ", "fire"
 
     ratio = value / reference
     if ratio >= 1.2:
-        return "Выше обычного", "fire"
+        return "Р’С‹С€Рµ РѕР±С‹С‡РЅРѕРіРѕ", "fire"
     if ratio <= 0.8:
-        return "Ниже обычного", "forest"
-    return "Около обычного", "sky"
+        return "РќРёР¶Рµ РѕР±С‹С‡РЅРѕРіРѕ", "forest"
+    return "РћРєРѕР»Рѕ РѕР±С‹С‡РЅРѕРіРѕ", "sky"
 
 
 def _format_count_range(lower: float, upper: float) -> str:
     lower_bound = max(0, int(math.floor(lower)))
     upper_bound = max(lower_bound, int(math.ceil(upper)))
-    return f"{_format_integer(lower_bound)}-{_format_integer(upper_bound)} пожара"
+    return f"{_format_integer(lower_bound)}-{_format_integer(upper_bound)} РїРѕР¶Р°СЂР°"
 
 
 def _relative_delta_text(value: float, reference: float, reference_label: str) -> str:
     if reference <= 0:
-        return "нет устойчивой базы для сравнения"
+        return "РЅРµС‚ СѓСЃС‚РѕР№С‡РёРІРѕР№ Р±Р°Р·С‹ РґР»СЏ СЃСЂР°РІРЅРµРЅРёСЏ"
     delta_ratio = (value - reference) / reference
     if abs(delta_ratio) < 0.05:
-        return f"почти без изменений {reference_label}"
+        return f"РїРѕС‡С‚Рё Р±РµР· РёР·РјРµРЅРµРЅРёР№ {reference_label}"
     return f"{_format_signed_percent(delta_ratio)} {reference_label}"
 
 
@@ -228,7 +228,7 @@ def _quote_identifier(identifier: str) -> str:
 
 
 def _normalize_match_text(value: str) -> str:
-    normalized = str(value).lower().replace("ё", "е")
+    normalized = str(value).lower().replace("С‘", "Рµ")
     normalized = " ".join(normalized.replace("/", " ").replace("-", " ").split())
     return normalized
 

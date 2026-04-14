@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
@@ -39,7 +39,7 @@ def start_ml_model_job(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     request_state = _build_ml_request_state(
         table_name=table_name,
         cause=cause,
@@ -91,7 +91,7 @@ def start_ml_model_job(
     )
 
 
-def get_ml_job_status(session_id: str, job_id: str) -> Dict[str, Any]:
+def get_ml_job_status(session_id: str, job_id: str) -> dict[str, Any]:
     return _build_job_status_payload(session_id, job_id, reused=False)
 
 
@@ -202,7 +202,7 @@ def _handle_cached_ml_payload(
     *,
     session_id: str,
     bundle: JobLaunchBundle,
-    cached_payload: Dict[str, Any],
+    cached_payload: dict[str, Any],
 ) -> None:
     backtest_job_id = bundle.related_job_ids["backtest"]
     job_store.complete_job(
@@ -260,7 +260,7 @@ def _finalize_ml_job_success(
     session_id: str,
     main_job_id: str,
     backtest_job_id: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> None:
     job_store.complete_job(
         session_id,
@@ -313,7 +313,7 @@ def _finalize_ml_job_failure(
     )
 
 
-def _build_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> Dict[str, Any]:
+def _build_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> dict[str, Any]:
     return build_linked_job_status_payload(
         session_id,
         job_id,
@@ -342,7 +342,7 @@ def _build_params_payload(
     }
 
 
-def _extract_backtest_result(payload: Dict[str, Any]) -> Dict[str, Any]:
+def _extract_backtest_result(payload: dict[str, Any]) -> dict[str, Any]:
     quality_assessment = payload.get("quality_assessment") or {}
     summary = payload.get("summary") or {}
     return {

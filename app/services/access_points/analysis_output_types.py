@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, NamedTuple, Sequence
 
@@ -26,12 +26,12 @@ def _format_coordinate(value: float | None) -> str:
 
 def _status_for_score(score: float) -> tuple[str, str]:
     if score >= CRITICAL_THRESHOLD:
-        return "critical", "Критический приоритет"
+        return "critical", "РљСЂРёС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚"
     if score >= HIGH_THRESHOLD:
-        return "warning", "Повышенный приоритет"
+        return "warning", "РџРѕРІС‹С€РµРЅРЅС‹Р№ РїСЂРёРѕСЂРёС‚РµС‚"
     if score >= MEDIUM_THRESHOLD:
-        return "watch", "Наблюдение"
-    return "normal", "Контроль"
+        return "watch", "РќР°Р±Р»СЋРґРµРЅРёРµ"
+    return "normal", "РљРѕРЅС‚СЂРѕР»СЊ"
 
 def _component_tone(score: float) -> str:
     if score >= 65.0:
@@ -45,24 +45,24 @@ def _component_tone(score: float) -> str:
 def _severity_band_descriptor(score: float) -> Dict[str, str]:
     tone, label = _status_for_score(score)
     if tone == "critical":
-        return {"severity_band_code": "critical", "severity_band": "критический", "priority_label": label, "tone": tone}
+        return {"severity_band_code": "critical", "severity_band": "РєСЂРёС‚РёС‡РµСЃРєРёР№", "priority_label": label, "tone": tone}
     if tone == "warning":
-        return {"severity_band_code": "high", "severity_band": "высокий", "priority_label": label, "tone": tone}
+        return {"severity_band_code": "high", "severity_band": "РІС‹СЃРѕРєРёР№", "priority_label": label, "tone": tone}
     if tone == "watch":
-        return {"severity_band_code": "medium", "severity_band": "средний", "priority_label": label, "tone": tone}
-    return {"severity_band_code": "low", "severity_band": "низкий", "priority_label": label, "tone": tone}
+        return {"severity_band_code": "medium", "severity_band": "СЃСЂРµРґРЅРёР№", "priority_label": label, "tone": tone}
+    return {"severity_band_code": "low", "severity_band": "РЅРёР·РєРёР№", "priority_label": label, "tone": tone}
 
 def _factor_label(reason_code: str) -> str:
     return {
-        DISTANCE_CODE: "Удалённость до ПЧ",
-        RESPONSE_CODE: "Среднее время прибытия",
-        LONG_ARRIVAL_CODE: "Доля долгих прибытий",
-        WATER_CODE: "Отсутствие воды",
-        SEVERITY_CODE: "Тяжёлые последствия",
-        RECURRENCE_CODE: "Повторяемость пожаров",
-        NIGHT_CODE: "Ночной профиль",
-        HEATING_CODE: "Отопительный сезон",
-        UNCERTAINTY_CODE: "Неполнота данных",
+        DISTANCE_CODE: "РЈРґР°Р»С‘РЅРЅРѕСЃС‚СЊ РґРѕ РџР§",
+        RESPONSE_CODE: "РЎСЂРµРґРЅРµРµ РІСЂРµРјСЏ РїСЂРёР±С‹С‚РёСЏ",
+        LONG_ARRIVAL_CODE: "Р”РѕР»СЏ РґРѕР»РіРёС… РїСЂРёР±С‹С‚РёР№",
+        WATER_CODE: "РћС‚СЃСѓС‚СЃС‚РІРёРµ РІРѕРґС‹",
+        SEVERITY_CODE: "РўСЏР¶С‘Р»С‹Рµ РїРѕСЃР»РµРґСЃС‚РІРёСЏ",
+        RECURRENCE_CODE: "РџРѕРІС‚РѕСЂСЏРµРјРѕСЃС‚СЊ РїРѕР¶Р°СЂРѕРІ",
+        NIGHT_CODE: "РќРѕС‡РЅРѕР№ РїСЂРѕС„РёР»СЊ",
+        HEATING_CODE: "РћС‚РѕРїРёС‚РµР»СЊРЅС‹Р№ СЃРµР·РѕРЅ",
+        UNCERTAINTY_CODE: "РќРµРїРѕР»РЅРѕС‚Р° РґР°РЅРЅС‹С…",
     }.get(reason_code, reason_code)
 
 def _make_decomposition_item(
@@ -73,7 +73,7 @@ def _make_decomposition_item(
     contribution_points: float,
     value_display: str,
     is_penalty: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "code": code,
         "label": _factor_label(code),
@@ -89,15 +89,15 @@ def _make_decomposition_item(
     }
 
 def _distance_value_display(value: Any) -> str:
-    return "н/д" if value is None else f"{_format_number(value)} км"
+    return "РЅ/Рґ" if value is None else f"{_format_number(value)} РєРј"
 
 def _response_value_display(value: Any) -> str:
-    return "н/д" if value is None else f"{_format_number(value)} мин"
+    return "РЅ/Рґ" if value is None else f"{_format_number(value)} РјРёРЅ"
 
 def _share_value_display(value: float) -> str:
     return _format_percent(value * 100.0)
 
-def _build_component_score_item(key: str, label: str, score: float) -> Dict[str, Any]:
+def _build_component_score_item(key: str, label: str, score: float) -> dict[str, Any]:
     return {
         "key": key,
         "label": label,
@@ -113,16 +113,16 @@ def _build_component_scores_from_values(
     severity_score: float,
     recurrence_score: float,
     data_gap_score: float,
-) -> List[Dict[str, Any]]:
+) -> List[dict[str, Any]]:
     return [
-        _build_component_score_item("access", "Доступность ПЧ", access_score),
-        _build_component_score_item("water", "Водоснабжение", water_score),
-        _build_component_score_item("severity", "Последствия", severity_score),
-        _build_component_score_item("recurrence", "Частота и контекст", recurrence_score),
-        _build_component_score_item("data_gap", "Неполнота данных", data_gap_score),
+        _build_component_score_item("access", "Р”РѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РџР§", access_score),
+        _build_component_score_item("water", "Р’РѕРґРѕСЃРЅР°Р±Р¶РµРЅРёРµ", water_score),
+        _build_component_score_item("severity", "РџРѕСЃР»РµРґСЃС‚РІРёСЏ", severity_score),
+        _build_component_score_item("recurrence", "Р§Р°СЃС‚РѕС‚Р° Рё РєРѕРЅС‚РµРєСЃС‚", recurrence_score),
+        _build_component_score_item("data_gap", "РќРµРїРѕР»РЅРѕС‚Р° РґР°РЅРЅС‹С…", data_gap_score),
     ]
 
-def _build_reason_details(score_decomposition: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_reason_details(score_decomposition: Sequence[dict[str, Any]]) -> List[dict[str, Any]]:
     ranked = sorted(
         ((item, float(item.get("contribution_points") or 0.0)) for item in score_decomposition),
         key=lambda pair: pair[1],
@@ -146,25 +146,25 @@ def _build_human_readable_explanation(
     label: str,
     severity_band: str,
     total_score_display: str,
-    reason_details: Sequence[Dict[str, Any]],
+    reason_details: Sequence[dict[str, Any]],
     uncertainty_flag: bool,
     low_support: bool,
     uncertainty_penalty_display: str,
 ) -> str:
     details = list(reason_details)
     if not details:
-        return "Точка включена в рейтинг по сумме факторов риска."
+        return "РўРѕС‡РєР° РІРєР»СЋС‡РµРЅР° РІ СЂРµР№С‚РёРЅРі РїРѕ СЃСѓРјРјРµ С„Р°РєС‚РѕСЂРѕРІ СЂРёСЃРєР°."
 
-    lead = f"{label or 'Точка'} получает {severity_band or 'средний'} риск {total_score_display or '0'} из 100."
+    lead = f"{label or 'РўРѕС‡РєР°'} РїРѕР»СѓС‡Р°РµС‚ {severity_band or 'СЃСЂРµРґРЅРёР№'} СЂРёСЃРє {total_score_display or '0'} РёР· 100."
     drivers = [item for item in details if item["code"] != UNCERTAINTY_CODE][:2]
     if drivers:
-        lead += " Основной вклад дали " + ", ".join(
+        lead += " РћСЃРЅРѕРІРЅРѕР№ РІРєР»Р°Рґ РґР°Р»Рё " + ", ".join(
             f"{item['label'].lower()} ({item['contribution_display']})" for item in drivers
         ) + "."
     if uncertainty_flag:
-        lead += f" Неопределённость добавляет {uncertainty_penalty_display or '0'} п. и требует верификации."
+        lead += f" РќРµРѕРїСЂРµРґРµР»С‘РЅРЅРѕСЃС‚СЊ РґРѕР±Р°РІР»СЏРµС‚ {uncertainty_penalty_display or '0'} Рї. Рё С‚СЂРµР±СѓРµС‚ РІРµСЂРёС„РёРєР°С†РёРё."
     elif low_support:
-        lead += " Точка низкой опоры: долевые признаки сглажены, а итоговый score ослаблен."
+        lead += " РўРѕС‡РєР° РЅРёР·РєРѕР№ РѕРїРѕСЂС‹: РґРѕР»РµРІС‹Рµ РїСЂРёР·РЅР°РєРё СЃРіР»Р°Р¶РµРЅС‹, Р° РёС‚РѕРіРѕРІС‹Р№ score РѕСЃР»Р°Р±Р»РµРЅ."
     return lead
 
 def _typology_for_score_values(
@@ -177,7 +177,7 @@ def _typology_for_score_values(
     recurrence_score: float,
 ) -> tuple[str, str]:
     if uncertainty_flag and severity_band_code in {"low", "medium"}:
-        return "needs_data", "Данные неполные"
+        return "needs_data", "Р”Р°РЅРЅС‹Рµ РЅРµРїРѕР»РЅС‹Рµ"
     components = {
         "access": access_score,
         "water": water_score,
@@ -186,14 +186,14 @@ def _typology_for_score_values(
     }
     dominant = max(components, key=components.get)
     if dominant == "access" and components["access"] >= 35.0:
-        return "access", "Дальний выезд"
+        return "access", "Р”Р°Р»СЊРЅРёР№ РІС‹РµР·Рґ"
     if dominant == "water" and components["water"] >= 30.0:
-        return "water", "Дефицит воды"
+        return "water", "Р”РµС„РёС†РёС‚ РІРѕРґС‹"
     if dominant == "severity" and components["severity"] >= 30.0:
-        return "severity", "Тяжёлые последствия"
+        return "severity", "РўСЏР¶С‘Р»С‹Рµ РїРѕСЃР»РµРґСЃС‚РІРёСЏ"
     if dominant == "recurrence" and components["recurrence"] >= 28.0:
-        return "recurrence", "Повторяющийся очаг"
-    return "mixed", "Комбинированный риск"
+        return "recurrence", "РџРѕРІС‚РѕСЂСЏСЋС‰РёР№СЃСЏ РѕС‡Р°Рі"
+    return "mixed", "РљРѕРјР±РёРЅРёСЂРѕРІР°РЅРЅС‹Р№ СЂРёСЃРє"
 
 class _AccessPointRowMetrics(NamedTuple):
     incident_count: int
@@ -229,7 +229,7 @@ class _AccessPointRowMetrics(NamedTuple):
     longitude: float | None
 
 class _AccessPointScoreContext(NamedTuple):
-    score_decomposition: List[Dict[str, Any]]
+    score_decomposition: List[dict[str, Any]]
     total_score: float
     total_score_payload: float
     total_score_display: str
@@ -244,7 +244,7 @@ class _AccessPointScoreContext(NamedTuple):
     severity_score_payload: float
     recurrence_score_payload: float
     data_gap_score_payload: float
-    component_scores: List[Dict[str, Any]]
+    component_scores: List[dict[str, Any]]
 
 class _AccessPointDisplayContext(NamedTuple):
     average_distance_display: str
@@ -266,6 +266,6 @@ class _AccessPointReasonListContext(NamedTuple):
     reason_chips: List[str]
 
 class _AccessPointReasonContext(NamedTuple):
-    reason_details: List[Dict[str, Any]]
+    reason_details: List[dict[str, Any]]
     reason_lists: _AccessPointReasonListContext
     explanation: str

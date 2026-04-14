@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import date, timedelta
@@ -22,9 +22,9 @@ from .utils import (
 
 def _build_option_catalog(records: List[Dict[str, object]]) -> Dict[str, List[Dict[str, str]]]:
     return {
-        "districts": _build_options(records, "district", "Все районы"),
-        "causes": _build_options(records, "cause", "Все причины"),
-        "object_categories": _build_options(records, "object_category", "Все категории"),
+        "districts": _build_options(records, "district", "Р’СЃРµ СЂР°Р№РѕРЅС‹"),
+        "causes": _build_options(records, "cause", "Р’СЃРµ РїСЂРёС‡РёРЅС‹"),
+        "object_categories": _build_options(records, "object_category", "Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё"),
     }
 
 
@@ -291,7 +291,7 @@ def _build_forecast_row_payload(
         "weekday_label": WEEKDAY_LABELS[target_date.weekday()],
         "forecast_value": rounded_estimate,
         "forecast_value_display": _format_number(rounded_estimate),
-        "forecast_value_human_display": f"около {_format_number(rounded_estimate)}",
+        "forecast_value_human_display": f"РѕРєРѕР»Рѕ {_format_number(rounded_estimate)}",
         "fire_probability": round(probabilities["fire"], 4),
         "fire_probability_display": _format_probability(probabilities["fire"]),
         "fire_probability_range_display": f"{_format_probability(probabilities['lower'])} - {_format_probability(probabilities['upper'])}",
@@ -304,10 +304,10 @@ def _build_forecast_row_payload(
         "upper_bound": round(upper_bound, 2),
         "upper_bound_display": _format_number(upper_bound),
         "range_display": _format_count_range(lower_bound, upper_bound),
-        "temperature_display": f"{_format_number(temperature_for_day)} °C" if temperature_for_day is not None else "Сезонная средняя",
+        "temperature_display": f"{_format_number(temperature_for_day)} В°C" if temperature_for_day is not None else "РЎРµР·РѕРЅРЅР°СЏ СЃСЂРµРґРЅСЏСЏ",
         "scenario_label": scenario_label,
         "scenario_tone": scenario_tone,
-        "scenario_hint": _relative_delta_text(estimate, usual_for_day, reference_label="к обычному уровню для такого дня"),
+        "scenario_hint": _relative_delta_text(estimate, usual_for_day, reference_label="Рє РѕР±С‹С‡РЅРѕРјСѓ СѓСЂРѕРІРЅСЋ РґР»СЏ С‚Р°РєРѕРіРѕ РґРЅСЏ"),
     }
 
 

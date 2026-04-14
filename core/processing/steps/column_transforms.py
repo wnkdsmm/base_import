@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
@@ -84,7 +84,7 @@ def apply_match_results(
         if "drop_reasons" in profile_df.columns
         else [[] for _ in range(len(profile_df))]
     )
-    protected_columns: List[Dict[str, Any]] = protected_export.loc[
+    protected_columns: List[ProtectedColumnInfo] = protected_export.loc[
         protected_mask,
         [
             "column",

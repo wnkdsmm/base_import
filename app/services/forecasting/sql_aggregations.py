@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 """Forecasting SQL aggregation builders with shared SQL-level TTL cache."""
 

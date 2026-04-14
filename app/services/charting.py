@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Sequence, TypedDict
 
@@ -134,13 +134,13 @@ def build_plotly_marker(
     line_width: float | None = None,
     extra: PlotlyTrace | None = None,
 ) -> PlotlyTrace:
-    marker: Dict[str, Any] = {"color": color}
+    marker: dict[str, Any] = {"color": color}
     if size is not None:
         marker["size"] = size
     if opacity is not None:
         marker["opacity"] = opacity
 
-    line: Dict[str, Any] = {}
+    line: dict[str, Any] = {}
     if line_color is not None:
         line["color"] = line_color
     if line_width is not None:
@@ -160,7 +160,7 @@ def build_plotly_line(
     dash: str | None = None,
     extra: PlotlyTrace | None = None,
 ) -> PlotlyTrace:
-    line: Dict[str, Any] = {"color": color}
+    line: dict[str, Any] = {"color": color}
     if width is not None:
         line["width"] = width
     if dash is not None:
@@ -224,7 +224,7 @@ def build_plotly_bar_payload(
     hovertemplate: str | None = None,
     layout_updates: PlotlyLayout | None = None,
 ) -> PlotlyTrace:
-    trace_kwargs: Dict[str, Any] = {
+    trace_kwargs: dict[str, Any] = {
         "x": x,
         "y": y,
         "orientation": orientation,
@@ -263,7 +263,7 @@ def build_plotly_scatter_payload(
     hovertemplate: str | None = None,
     layout_updates: PlotlyLayout | None = None,
 ) -> PlotlyTrace:
-    trace_kwargs: Dict[str, Any] = {
+    trace_kwargs: dict[str, Any] = {
         "x": x,
         "y": y,
         "mode": mode,
@@ -301,7 +301,7 @@ def build_plotly_pie_payload(
     hovertemplate: str | None = None,
     layout_updates: PlotlyLayout | None = None,
 ) -> PlotlyTrace:
-    trace_kwargs: Dict[str, Any] = {
+    trace_kwargs: dict[str, Any] = {
         "labels": labels,
         "values": values,
         "hole": hole,

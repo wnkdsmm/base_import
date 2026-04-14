@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 """Dashboard cache orchestration.
 
@@ -15,12 +15,12 @@ from app.statistics_constants import DASHBOARD_CACHE_TTL_SECONDS, METADATA_CACHE
 
 from .metadata import _collect_dashboard_metadata
 
-_DASHBOARD_METADATA_CACHE = CopyingTtlCache[Tuple[str, ...], Dict[str, Any]](
+_DASHBOARD_METADATA_CACHE = CopyingTtlCache[Tuple[str, ...], dict[str, Any]](
     ttl_seconds=METADATA_CACHE_TTL_SECONDS,
     storer=freeze_mutable_payload,
     loader=clone_mutable_payload,
 )
-_DASHBOARD_CACHE = CopyingTtlCache[Tuple[Any, ...], Dict[str, Any]](
+_DASHBOARD_CACHE = CopyingTtlCache[Tuple[Any, ...], dict[str, Any]](
     ttl_seconds=DASHBOARD_CACHE_TTL_SECONDS,
     storer=freeze_mutable_payload,
     loader=clone_mutable_payload,
@@ -31,7 +31,7 @@ def _current_dashboard_table_names() -> Tuple[str, ...]:
     return tuple(sorted(select_user_table_names(list(get_table_signature_cached()))))
 
 
-def _metadata_table_names(metadata: Optional[Dict[str, Any]]) -> Tuple[str, ...]:
+def _metadata_table_names(metadata: Optional[dict[str, Any]]) -> Tuple[str, ...]:
     if not metadata:
         return ()
     cached_signature = metadata.get("table_signature")
@@ -46,7 +46,7 @@ def _invalidate_dashboard_caches() -> None:
     _DASHBOARD_CACHE.clear()
 
 
-def _collect_dashboard_metadata_cached() -> Dict[str, Any]:
+def _collect_dashboard_metadata_cached() -> dict[str, Any]:
     current_table_names = _current_dashboard_table_names()
     cached_value = _DASHBOARD_METADATA_CACHE.get(current_table_names)
     if cached_value is not None and _metadata_table_names(cached_value) == current_table_names:
@@ -59,11 +59,11 @@ def _collect_dashboard_metadata_cached() -> Dict[str, Any]:
     return metadata
 
 
-def _get_dashboard_cache(cache_key: Tuple[Any, ...]) -> Optional[Dict[str, Any]]:
+def _get_dashboard_cache(cache_key: Tuple[Any, ...]) -> Optional[dict[str, Any]]:
     return _DASHBOARD_CACHE.get(cache_key)
 
 
-def _set_dashboard_cache(cache_key: Tuple[Any, ...], value: Dict[str, Any]) -> None:
+def _set_dashboard_cache(cache_key: Tuple[Any, ...], value: dict[str, Any]) -> None:
     _DASHBOARD_CACHE.set(cache_key, value)
 
 

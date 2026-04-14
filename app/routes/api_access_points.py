@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
@@ -31,7 +31,7 @@ def access_points_data_endpoint(
             feature_columns=feature_columns or [],
         ),
         invalid_code="access_points_invalid_request",
-        invalid_message="Некорректные параметры рейтинга проблемных точек.",
+        invalid_message="РќРµРєРѕСЂСЂРµРєС‚РЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ СЂРµР№С‚РёРЅРіР° РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє.",
         failed_code="access_points_failed",
-        failed_message="Не удалось построить рейтинг проблемных точек. Попробуйте повторить запрос.",
+        failed_message="РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕСЃС‚СЂРѕРёС‚СЊ СЂРµР№С‚РёРЅРі РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.",
     )

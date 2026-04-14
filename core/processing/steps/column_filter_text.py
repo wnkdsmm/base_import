@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from typing import Callable, Dict, List, Set
@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Set
 from ...types import CategoryRule, ColumnTermPayload, MandatoryFeatureSpec
 
 def _normalize_column_text(value: str) -> str:
-    text = str(value).lower().replace("ё", "е")
+    text = str(value).lower().replace("С‘", "Рµ")
     text = re.sub(r"[_/#-]+", " ", text)
     text = re.sub(r"[^\w\s]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()

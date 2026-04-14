@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
@@ -43,7 +43,7 @@ def _build_damage_dashboard_item_bundle(
     selected_tables: list[dict[str, Any]],
     selected_year: Optional[int],
     damage_counts: Dict[str, int],
-) -> Dict[str, list[Dict[str, Any]]]:
+) -> Dict[str, list[dict[str, Any]]]:
     return {
         "category_items": _build_damage_category_items(
             selected_tables,
@@ -63,7 +63,7 @@ def _build_damage_dashboard_charts(
     selected_year: Optional[int],
     *,
     damage_counts: Optional[Dict[str, int]] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     damage_counts = damage_counts if damage_counts is not None else _collect_damage_counts(selected_tables, selected_year)
     damage_item_bundle = _build_damage_dashboard_item_bundle(selected_tables, selected_year, damage_counts)
     damage_category_items = damage_item_bundle["category_items"]
@@ -96,8 +96,8 @@ def _build_standard_dashboard_charts(
     selected_tables: list[dict[str, Any]],
     selected_year: Optional[int],
     selected_group_column: str,
-    grouped_counts_bundle: Dict[str, Any],
-) -> Dict[str, Any]:
+    grouped_counts_bundle: dict[str, Any],
+) -> dict[str, Any]:
     distribution_counts = grouped_counts_bundle["distribution_counts"]
     reusable_distribution_counts = (
         distribution_counts
@@ -136,8 +136,8 @@ def _build_standard_dashboard_charts(
 def _build_dashboard_widgets(
     selected_tables: list[dict[str, Any]],
     selected_year: Optional[int],
-    grouped_counts_bundle: Dict[str, Any],
-) -> Dict[str, Any]:
+    grouped_counts_bundle: dict[str, Any],
+) -> dict[str, Any]:
     widgets = _build_sql_widgets(
         selected_tables,
         selected_year,

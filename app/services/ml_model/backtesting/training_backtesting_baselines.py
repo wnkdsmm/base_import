@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from typing import Any, Dict, Optional, Tuple
@@ -33,7 +33,7 @@ def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) 
 def _scenario_reference_forecast(
     train: pd.DataFrame,
     test: pd.DataFrame,
-    temperature_stats: Optional[Dict[str, Any]] = None,
+    temperature_stats: Optional[dict[str, Any]] = None,
 ) -> Tuple[float, Optional[float]]:
     if train.empty:
         return 0.0, None

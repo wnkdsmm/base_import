@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -22,14 +22,14 @@ from .data_access import _fetch_table_years, _resolve_table_column_name
 from .utils import _extract_year_from_name, _parse_year
 
 
-def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> dict[str, Any]:
     resolved_table_names = (
         list(table_names)
         if table_names is not None
         else list(select_user_table_names(list(get_table_signature_cached())))
     )
 
-    tables: List[Dict[str, Any]] = []
+    tables: List[dict[str, Any]] = []
     errors: List[str] = []
 
     with engine.connect() as conn:
@@ -83,18 +83,18 @@ def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> 
     }
 
 
-def _resolve_selected_tables(tables: List[Dict[str, Any]], table_name: str) -> List[Dict[str, Any]]:
+def _resolve_selected_tables(tables: List[dict[str, Any]], table_name: str) -> List[dict[str, Any]]:
     if not table_name or table_name == "all":
         return tables
     return [table for table in tables if table["name"] == table_name]
 
 
-def _collect_year_options(tables: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def _collect_year_options(tables: List[dict[str, Any]]) -> List[Dict[str, str]]:
     years = sorted({year for table in tables for year in table["years"]}, reverse=True)
     return [{"value": str(year), "label": str(year)} for year in years]
 
 
-def _collect_group_column_options(tables: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def _collect_group_column_options(tables: List[dict[str, Any]]) -> List[Dict[str, str]]:
     result = []
     for group_label, columns in DISTRIBUTION_GROUPS:
         if group_label == DAMAGE_GROUP_LABEL:
@@ -133,11 +133,11 @@ def _is_damage_group_selection(group_column: str) -> bool:
 
 
 def _resolve_dashboard_filters(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     table_name: str,
     year: str,
     group_column: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     selected_tables = _resolve_selected_tables(metadata["tables"], table_name)
     available_years = _collect_year_options(selected_tables)
     requested_year = _parse_year(year)

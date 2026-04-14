@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List
@@ -18,7 +18,7 @@ def _empty_forecasting_data(
     forecast_days: int,
     temperature: str,
     history_window: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,

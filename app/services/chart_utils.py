@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Sequence, TypedDict
 
@@ -124,7 +124,7 @@ def build_plotly_annotation(
     bgcolor: str | None = None,
     font: PlotlyTrace | None = None,
 ) -> PlotlyTrace:
-    annotation: Dict[str, Any] = {
+    annotation: dict[str, Any] = {
         "x": x,
         "y": y,
         "text": text,
@@ -189,7 +189,7 @@ def build_component_projection(
 def build_unique_vertical_reference_lines(
     references: Sequence[tuple[Any, str]],
 ) -> list[PlotlyTrace]:
-    lines: list[Dict[str, Any]] = []
+    lines: list[dict[str, Any]] = []
     seen: set[Any] = set()
     for value, color in references:
         if value is None or value in seen:
@@ -210,7 +210,7 @@ def build_reference_annotations(
     font_size: int = 11,
     bgcolor: str = "rgba(255,255,255,0.75)",
 ) -> list[PlotlyTrace]:
-    annotations: list[Dict[str, Any]] = []
+    annotations: list[dict[str, Any]] = []
     for value, text, color in references:
         if value is None:
             continue
@@ -330,7 +330,7 @@ def plotly_layout(
     margin_right: int | None = None,
     hover_bgcolor: str | None = None,
 ) -> PlotlyLayout:
-    kwargs: Dict[str, Any] = {"height": height}
+    kwargs: dict[str, Any] = {"height": height}
     if margin_right is not None:
         kwargs["margin_right"] = margin_right
     if hover_bgcolor is not None:

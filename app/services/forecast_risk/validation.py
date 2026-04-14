@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter
 from copy import deepcopy
@@ -35,31 +35,31 @@ def build_historical_validation_payload(
     profile_override: Optional[RiskProfile] = None,
 ) -> HistoricalValidationPayload:
     profile = deepcopy(profile_override) if profile_override is not None else get_risk_weight_profile(weight_mode)
-    payload = empty_historical_validation_payload(profile.get("mode_label") or "Адаптивные веса")
+    payload = empty_historical_validation_payload(profile.get("mode_label") or "РђРґР°РїС‚РёРІРЅС‹Рµ РІРµСЃР°")
     if not records:
-        payload["summary"] = "Для исторической проверки ранжирования пока нет записей."
+        payload["summary"] = "Р”Р»СЏ РёСЃС‚РѕСЂРёС‡РµСЃРєРѕР№ РїСЂРѕРІРµСЂРєРё СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ РїРѕРєР° РЅРµС‚ Р·Р°РїРёСЃРµР№."
         return payload
 
     windows_bundle = _build_historical_windows(records, planning_horizon_days)
     if not windows_bundle.get("is_ready"):
-        payload["summary"] = windows_bundle.get("reason") or "Истории пока недостаточно для проверки ранжирования на исторических окнах."
+        payload["summary"] = windows_bundle.get("reason") or "РСЃС‚РѕСЂРёРё РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»СЏ РїСЂРѕРІРµСЂРєРё СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С…."
         payload["notes"] = _unique_non_empty(
             [
-                f"Сейчас доступно {_format_integer(windows_bundle.get('history_days') or 0)} дней истории.",
-                f"Для проверки желательно не меньше {_format_integer((windows_bundle.get('min_training_days') or 0) + (windows_bundle.get('horizon_days') or 0))} дней.",
-                "Метрики появятся автоматически, когда накопится достаточно исторических окон.",
+                f"РЎРµР№С‡Р°СЃ РґРѕСЃС‚СѓРїРЅРѕ {_format_integer(windows_bundle.get('history_days') or 0)} РґРЅРµР№ РёСЃС‚РѕСЂРёРё.",
+                f"Р”Р»СЏ РїСЂРѕРІРµСЂРєРё Р¶РµР»Р°С‚РµР»СЊРЅРѕ РЅРµ РјРµРЅСЊС€Рµ {_format_integer((windows_bundle.get('min_training_days') or 0) + (windows_bundle.get('horizon_days') or 0))} РґРЅРµР№.",
+                "РњРµС‚СЂРёРєРё РїРѕСЏРІСЏС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё, РєРѕРіРґР° РЅР°РєРѕРїРёС‚СЃСЏ РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРѕРЅ.",
             ]
         )
         return payload
 
     evaluation = _evaluate_profile_on_windows(profile, windows_bundle.get("windows") or [], DEFAULT_RANKING_K)
     if not evaluation.get("has_metrics"):
-        payload["summary"] = "Окна для проверки есть, но в них пока не удалось собрать устойчивую оценку ranking-качества."
+        payload["summary"] = "РћРєРЅР° РґР»СЏ РїСЂРѕРІРµСЂРєРё РµСЃС‚СЊ, РЅРѕ РІ РЅРёС… РїРѕРєР° РЅРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР±СЂР°С‚СЊ СѓСЃС‚РѕР№С‡РёРІСѓСЋ РѕС†РµРЅРєСѓ ranking-РєР°С‡РµСЃС‚РІР°."
         payload["notes"] = _unique_non_empty(
             [
-                f"Окон без расчётного ранжирования: {_format_integer(evaluation.get('skipped_no_rows') or 0)}.",
-                f"Окон с метриками: {_format_integer(len(evaluation.get('window_metrics') or []))}.",
-                "После расширения истории панель начнет показывать ranking-метрики автоматически.",
+                f"РћРєРѕРЅ Р±РµР· СЂР°СЃС‡С‘С‚РЅРѕРіРѕ СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ: {_format_integer(evaluation.get('skipped_no_rows') or 0)}.",
+                f"РћРєРѕРЅ СЃ РјРµС‚СЂРёРєР°РјРё: {_format_integer(len(evaluation.get('window_metrics') or []))}.",
+                "РџРѕСЃР»Рµ СЂР°СЃС€РёСЂРµРЅРёСЏ РёСЃС‚РѕСЂРёРё РїР°РЅРµР»СЊ РЅР°С‡РЅРµС‚ РїРѕРєР°Р·С‹РІР°С‚СЊ ranking-РјРµС‚СЂРёРєРё Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.",
             ]
         )
         return payload
@@ -69,15 +69,15 @@ def build_historical_validation_payload(
     status_label, status_tone = _validation_status(aggregate)
     recent_windows = [item.get("summary_card") for item in (evaluation.get("window_metrics") or [])[-3:] if item.get("summary_card")][::-1]
     summary = (
-        "Это rolling-origin проверка ranking-блока: сервис строит приоритеты только по прошлой истории окна и смотрит, "
-        f"куда реально пришли пожары в следующие {aggregate.get('horizon_days') or windows_bundle.get('horizon_days') or max(7, int(planning_horizon_days or 14))} дней."
+        "Р­С‚Рѕ rolling-origin РїСЂРѕРІРµСЂРєР° ranking-Р±Р»РѕРєР°: СЃРµСЂРІРёСЃ СЃС‚СЂРѕРёС‚ РїСЂРёРѕСЂРёС‚РµС‚С‹ С‚РѕР»СЊРєРѕ РїРѕ РїСЂРѕС€Р»РѕР№ РёСЃС‚РѕСЂРёРё РѕРєРЅР° Рё СЃРјРѕС‚СЂРёС‚, "
+        f"РєСѓРґР° СЂРµР°Р»СЊРЅРѕ РїСЂРёС€Р»Рё РїРѕР¶Р°СЂС‹ РІ СЃР»РµРґСѓСЋС‰РёРµ {aggregate.get('horizon_days') or windows_bundle.get('horizon_days') or max(7, int(planning_horizon_days or 14))} РґРЅРµР№."
     )
 
     notes = [
-        f"Профиль весов для проверки: {profile.get('mode_label') or 'Адаптивные веса'} ({profile.get('status_label') or 'активен'}).",
-        f"Ключевая метрика ranking-качества: NDCG@{k_value} {_format_decimal(float(aggregate.get('ndcg_at_k') or 0.0))}.",
-        f"Top-{k_value} capture на исторических окнах: {_format_probability(float(aggregate.get('topk_capture_rate') or 0.0))}.",
-        f"Precision@{k_value} на исторических окнах: {_format_probability(float(aggregate.get('precision_at_k') or 0.0))}.",
+        f"РџСЂРѕС„РёР»СЊ РІРµСЃРѕРІ РґР»СЏ РїСЂРѕРІРµСЂРєРё: {profile.get('mode_label') or 'РђРґР°РїС‚РёРІРЅС‹Рµ РІРµСЃР°'} ({profile.get('status_label') or 'Р°РєС‚РёРІРµРЅ'}).",
+        f"РљР»СЋС‡РµРІР°СЏ РјРµС‚СЂРёРєР° ranking-РєР°С‡РµСЃС‚РІР°: NDCG@{k_value} {_format_decimal(float(aggregate.get('ndcg_at_k') or 0.0))}.",
+        f"Top-{k_value} capture РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С…: {_format_probability(float(aggregate.get('topk_capture_rate') or 0.0))}.",
+        f"Precision@{k_value} РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С…: {_format_probability(float(aggregate.get('precision_at_k') or 0.0))}.",
     ]
     calibration_summary = str((profile.get("calibration") or {}).get("summary") or "").strip()
     if calibration_summary:
@@ -92,29 +92,29 @@ def build_historical_validation_payload(
             "summary": summary,
             "metric_cards": [
                 {
-                    "label": "Окон оценено",
+                    "label": "РћРєРѕРЅ РѕС†РµРЅРµРЅРѕ",
                     "value": _format_integer(aggregate.get("windows_count") or 0),
-                    "meta": f"Горизонт: {_format_integer(aggregate.get('horizon_days') or 0)} дней",
+                    "meta": f"Р“РѕСЂРёР·РѕРЅС‚: {_format_integer(aggregate.get('horizon_days') or 0)} РґРЅРµР№",
                 },
                 {
                     "label": "Top-1 hit",
                     "value": _format_probability(float(aggregate.get("top1_hit_rate") or 0.0)),
-                    "meta": "Как часто территория-лидер действительно горела в следующем окне",
+                    "meta": "РљР°Рє С‡Р°СЃС‚Рѕ С‚РµСЂСЂРёС‚РѕСЂРёСЏ-Р»РёРґРµСЂ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ РіРѕСЂРµР»Р° РІ СЃР»РµРґСѓСЋС‰РµРј РѕРєРЅРµ",
                 },
                 {
                     "label": f"Top-{k_value} capture",
                     "value": _format_probability(float(aggregate.get("topk_capture_rate") or 0.0)),
-                    "meta": "Какая доля будущих пожаров попадала в верхнюю часть списка",
+                    "meta": "РљР°РєР°СЏ РґРѕР»СЏ Р±СѓРґСѓС‰РёС… РїРѕР¶Р°СЂРѕРІ РїРѕРїР°РґР°Р»Р° РІ РІРµСЂС…РЅСЋСЋ С‡Р°СЃС‚СЊ СЃРїРёСЃРєР°",
                 },
                 {
                     "label": f"Precision@{k_value}",
                     "value": _format_probability(float(aggregate.get("precision_at_k") or 0.0)),
-                    "meta": "Какая доля территорий в top-k подтверждалась пожаром",
+                    "meta": "РљР°РєР°СЏ РґРѕР»СЏ С‚РµСЂСЂРёС‚РѕСЂРёР№ РІ top-k РїРѕРґС‚РІРµСЂР¶РґР°Р»Р°СЃСЊ РїРѕР¶Р°СЂРѕРј",
                 },
                 {
                     "label": f"NDCG@{k_value}",
                     "value": _format_decimal(float(aggregate.get("ndcg_at_k") or 0.0)),
-                    "meta": "Насколько порядок ранжирования совпадал с фактической концентрацией пожаров",
+                    "meta": "РќР°СЃРєРѕР»СЊРєРѕ РїРѕСЂСЏРґРѕРє СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ СЃРѕРІРїР°РґР°Р» СЃ С„Р°РєС‚РёС‡РµСЃРєРѕР№ РєРѕРЅС†РµРЅС‚СЂР°С†РёРµР№ РїРѕР¶Р°СЂРѕРІ",
                 },
             ],
             "notes": _unique_non_empty(notes),
@@ -134,24 +134,24 @@ def build_historical_validation_payload(
     return payload
 
 
-def empty_historical_validation_payload(mode_label: str = "Адаптивные веса") -> HistoricalValidationPayload:
+def empty_historical_validation_payload(mode_label: str = "РђРґР°РїС‚РёРІРЅС‹Рµ РІРµСЃР°") -> HistoricalValidationPayload:
     return {
-        "title": "Историческая проверка ranking-качества",
+        "title": "РСЃС‚РѕСЂРёС‡РµСЃРєР°СЏ РїСЂРѕРІРµСЂРєР° ranking-РєР°С‡РµСЃС‚РІР°",
         "mode_label": mode_label,
         "has_metrics": False,
-        "status_label": "Пока без проверки",
+        "status_label": "РџРѕРєР° Р±РµР· РїСЂРѕРІРµСЂРєРё",
         "status_tone": "fire",
-        "summary": "После расчёта здесь появится проверка того, насколько верхние территории реально совпадали с будущими очагами на исторических окнах.",
+        "summary": "РџРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РїСЂРѕРІРµСЂРєР° С‚РѕРіРѕ, РЅР°СЃРєРѕР»СЊРєРѕ РІРµСЂС…РЅРёРµ С‚РµСЂСЂРёС‚РѕСЂРёРё СЂРµР°Р»СЊРЅРѕ СЃРѕРІРїР°РґР°Р»Рё СЃ Р±СѓРґСѓС‰РёРјРё РѕС‡Р°РіР°РјРё РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С….",
         "metric_cards": [
-            {"label": "Окон оценено", "value": "0", "meta": "Нет данных"},
-            {"label": "Top-1 hit", "value": "0%", "meta": "Нет данных"},
-            {"label": "Top-3 capture", "value": "0%", "meta": "Нет данных"},
-            {"label": "Precision@3", "value": "0%", "meta": "Нет данных"},
-            {"label": "NDCG@3", "value": "0", "meta": "Нет данных"},
+            {"label": "РћРєРѕРЅ РѕС†РµРЅРµРЅРѕ", "value": "0", "meta": "РќРµС‚ РґР°РЅРЅС‹С…"},
+            {"label": "Top-1 hit", "value": "0%", "meta": "РќРµС‚ РґР°РЅРЅС‹С…"},
+            {"label": "Top-3 capture", "value": "0%", "meta": "РќРµС‚ РґР°РЅРЅС‹С…"},
+            {"label": "Precision@3", "value": "0%", "meta": "РќРµС‚ РґР°РЅРЅС‹С…"},
+            {"label": "NDCG@3", "value": "0", "meta": "РќРµС‚ РґР°РЅРЅС‹С…"},
         ],
         "notes": [
-            "Эта панель показывает rolling-origin проверку ranking-качества на исторических окнах.",
-            "Если истории мало, сервис автоматически остается на экспертном fallback-профиле.",
+            "Р­С‚Р° РїР°РЅРµР»СЊ РїРѕРєР°Р·С‹РІР°РµС‚ rolling-origin РїСЂРѕРІРµСЂРєСѓ ranking-РєР°С‡РµСЃС‚РІР° РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С….",
+            "Р•СЃР»Рё РёСЃС‚РѕСЂРёРё РјР°Р»Рѕ, СЃРµСЂРІРёСЃ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РѕСЃС‚Р°РµС‚СЃСЏ РЅР° СЌРєСЃРїРµСЂС‚РЅРѕРј fallback-РїСЂРѕС„РёР»Рµ.",
         ],
         "recent_windows": [],
         "metrics_raw": {
@@ -174,7 +174,7 @@ def _build_historical_windows(
     if not records:
         return {
             "is_ready": False,
-            "reason": "Для проверки ранжирования пока нет записей.",
+            "reason": "Р”Р»СЏ РїСЂРѕРІРµСЂРєРё СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ РїРѕРєР° РЅРµС‚ Р·Р°РїРёСЃРµР№.",
             "history_days": 0,
             "horizon_days": max(7, int(planning_horizon_days or 14)),
             "min_training_days": 0,
@@ -191,8 +191,8 @@ def _build_historical_windows(
         return {
             "is_ready": False,
             "reason": (
-                "Истории пока недостаточно для проверки ranking-блока на исторических окнах. "
-                "Нужно больше наблюдений или более короткий горизонт."
+                "РСЃС‚РѕСЂРёРё РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»СЏ РїСЂРѕРІРµСЂРєРё ranking-Р±Р»РѕРєР° РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С…. "
+                "РќСѓР¶РЅРѕ Р±РѕР»СЊС€Рµ РЅР°Р±Р»СЋРґРµРЅРёР№ РёР»Рё Р±РѕР»РµРµ РєРѕСЂРѕС‚РєРёР№ РіРѕСЂРёР·РѕРЅС‚."
             ),
             "history_days": history_days,
             "horizon_days": horizon_days,
@@ -231,7 +231,7 @@ def _build_historical_windows(
 
     return {
         "is_ready": len(windows) >= MIN_VALIDATION_WINDOWS,
-        "reason": "" if len(windows) >= MIN_VALIDATION_WINDOWS else "Не удалось собрать достаточное число исторических окон для ranking-проверки.",
+        "reason": "" if len(windows) >= MIN_VALIDATION_WINDOWS else "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР±СЂР°С‚СЊ РґРѕСЃС‚Р°С‚РѕС‡РЅРѕРµ С‡РёСЃР»Рѕ РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРѕРЅ РґР»СЏ ranking-РїСЂРѕРІРµСЂРєРё.",
         "history_days": history_days,
         "horizon_days": horizon_days,
         "min_training_days": min_training_days,
@@ -312,7 +312,7 @@ def _rerank_predicted_rows_for_profile(
         )
         reranked.append(
             {
-                "label": row.get("label") or "Территория",
+                "label": row.get("label") or "РўРµСЂСЂРёС‚РѕСЂРёСЏ",
                 "risk_score": round(risk_score, 1),
                 "history_pressure": float(row.get("history_pressure") or 0.0),
             }
@@ -332,7 +332,7 @@ def _evaluate_ranking_window(
         return None
 
     actual_counts = Counter(
-        (record.get("territory_label") or record.get("district") or "Территория не указана")
+        (record.get("territory_label") or record.get("district") or "РўРµСЂСЂРёС‚РѕСЂРёСЏ РЅРµ СѓРєР°Р·Р°РЅР°")
         for record in future_records
     )
     total_future_incidents = sum(actual_counts.values())
@@ -340,7 +340,7 @@ def _evaluate_ranking_window(
         return None
 
     effective_k = max(1, min(int(ranking_k or DEFAULT_RANKING_K), len(predicted_rows)))
-    top_labels = [row.get("label") or "Территория" for row in predicted_rows[:effective_k]]
+    top_labels = [row.get("label") or "РўРµСЂСЂРёС‚РѕСЂРёСЏ" for row in predicted_rows[:effective_k]]
     top1_label = top_labels[0] if top_labels else "-"
     top1_hit = 1.0 if actual_counts.get(top1_label, 0) > 0 else 0.0
     topk_capture = sum(actual_counts.get(label, 0) for label in top_labels) / total_future_incidents
@@ -356,11 +356,11 @@ def _evaluate_ranking_window(
         "precision_at_k": precision_at_k,
         "ndcg_at_k": ndcg_at_k,
         "summary_card": {
-            "label": f"Окно до {cutoff.strftime('%d.%m.%Y') if cutoff else '-'}",
+            "label": f"РћРєРЅРѕ РґРѕ {cutoff.strftime('%d.%m.%Y') if cutoff else '-'}",
             "risk_display": f"Top-{effective_k}: {_format_probability(topk_capture)}",
             "meta": (
-                f"Top-1: {'да' if top1_hit >= 0.5 else 'нет'} | Precision@{effective_k}: {_format_probability(precision_at_k)} | "
-                f"NDCG@{effective_k}: {_format_decimal(ndcg_at_k)} | будущих пожаров: {_format_integer(total_future_incidents)}"
+                f"Top-1: {'РґР°' if top1_hit >= 0.5 else 'РЅРµС‚'} | Precision@{effective_k}: {_format_probability(precision_at_k)} | "
+                f"NDCG@{effective_k}: {_format_decimal(ndcg_at_k)} | Р±СѓРґСѓС‰РёС… РїРѕР¶Р°СЂРѕРІ: {_format_integer(total_future_incidents)}"
             ),
         },
     }
@@ -408,10 +408,10 @@ def _validation_status(aggregate: ValidationMetricsRaw) -> tuple[str, str]:
     topk_capture = float(aggregate.get("topk_capture_rate") or 0.0)
     ndcg = float(aggregate.get("ndcg_at_k") or 0.0)
     if windows_count >= 4 and topk_capture >= 0.60 and ndcg >= 0.62:
-        return "Исторический сигнал устойчив", "forest"
+        return "РСЃС‚РѕСЂРёС‡РµСЃРєРёР№ СЃРёРіРЅР°Р» СѓСЃС‚РѕР№С‡РёРІ", "forest"
     if windows_count >= 3 and topk_capture >= 0.45 and ndcg >= 0.48:
-        return "Исторический сигнал рабочий", "sky"
-    return "Проверка частичная", "sand"
+        return "РСЃС‚РѕСЂРёС‡РµСЃРєРёР№ СЃРёРіРЅР°Р» СЂР°Р±РѕС‡РёР№", "sky"
+    return "РџСЂРѕРІРµСЂРєР° С‡Р°СЃС‚РёС‡РЅР°СЏ", "sand"
 
 
 def _compute_ndcg_at_k(actual_counts: Counter, ranked_labels: Sequence[str], k_value: int) -> float:

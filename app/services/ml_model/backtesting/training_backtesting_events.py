@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -66,34 +66,34 @@ def _event_probability_note(
     if reason_code == EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS:
         if rows_used > 0:
             return (
-                'Вероятностный блок события пожара скрыт: в rolling-origin backtesting доступно только '
-                f'{rows_used} сопоставимых окон, где можно корректно сравнить вероятности.'
+                'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІ rolling-origin backtesting РґРѕСЃС‚СѓРїРЅРѕ С‚РѕР»СЊРєРѕ '
+                f'{rows_used} СЃРѕРїРѕСЃС‚Р°РІРёРјС‹С… РѕРєРѕРЅ, РіРґРµ РјРѕР¶РЅРѕ РєРѕСЂСЂРµРєС‚РЅРѕ СЃСЂР°РІРЅРёС‚СЊ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё.'
             )
         return (
-            'Вероятностный блок события пожара скрыт: в rolling-origin backtesting слишком мало сопоставимых окон, '
-            'где можно корректно сравнить вероятности.'
+            'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІ rolling-origin backtesting СЃР»РёС€РєРѕРј РјР°Р»Рѕ СЃРѕРїРѕСЃС‚Р°РІРёРјС‹С… РѕРєРѕРЅ, '
+            'РіРґРµ РјРѕР¶РЅРѕ РєРѕСЂСЂРµРєС‚РЅРѕ СЃСЂР°РІРЅРёС‚СЊ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё.'
         )
     if reason_code == EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION:
         class_note = (
-            'только дни с пожаром'
+            'С‚РѕР»СЊРєРѕ РґРЅРё СЃ РїРѕР¶Р°СЂРѕРј'
             if event_rate is not None and event_rate >= 0.5
-            else 'только дни без пожара'
+            else 'С‚РѕР»СЊРєРѕ РґРЅРё Р±РµР· РїРѕР¶Р°СЂР°'
         )
         if rows_used > 0:
             return (
-                'Вероятностный блок события пожара скрыт: '
-                f'все {rows_used} evaluation-окон rolling-origin backtesting относятся к одному классу ({class_note}), '
-                'поэтому вероятностная валидация некорректна.'
+                'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: '
+                f'РІСЃРµ {rows_used} evaluation-РѕРєРѕРЅ rolling-origin backtesting РѕС‚РЅРѕСЃСЏС‚СЃСЏ Рє РѕРґРЅРѕРјСѓ РєР»Р°СЃСЃСѓ ({class_note}), '
+                'РїРѕСЌС‚РѕРјСѓ РІРµСЂРѕСЏС‚РЅРѕСЃС‚РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РЅРµРєРѕСЂСЂРµРєС‚РЅР°.'
             )
         return (
-            'Вероятностный блок события пожара скрыт: в evaluation-окнах rolling-origin backtesting наблюдался '
-            f'только один класс ({class_note}), поэтому вероятностная валидация некорректна.'
+            'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІ evaluation-РѕРєРЅР°С… rolling-origin backtesting РЅР°Р±Р»СЋРґР°Р»СЃСЏ '
+            f'С‚РѕР»СЊРєРѕ РѕРґРёРЅ РєР»Р°СЃСЃ ({class_note}), РїРѕСЌС‚РѕРјСѓ РІРµСЂРѕСЏС‚РЅРѕСЃС‚РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РЅРµРєРѕСЂСЂРµРєС‚РЅР°.'
         )
     if reason_code == EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE and event_rate is not None:
         return (
-            'Вероятность P(>=1 пожара) скрыта: '
-            f'доля события в evaluation-окнах rolling-origin backtesting составила {event_rate * 100.0:.1f}%, '
-            'поэтому событие почти тривиально и неинформативно.'
+            'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ P(>=1 РїРѕР¶Р°СЂР°) СЃРєСЂС‹С‚Р°: '
+            f'РґРѕР»СЏ СЃРѕР±С‹С‚РёСЏ РІ evaluation-РѕРєРЅР°С… rolling-origin backtesting СЃРѕСЃС‚Р°РІРёР»Р° {event_rate * 100.0:.1f}%, '
+            'РїРѕСЌС‚РѕРјСѓ СЃРѕР±С‹С‚РёРµ РїРѕС‡С‚Рё С‚СЂРёРІРёР°Р»СЊРЅРѕ Рё РЅРµРёРЅС„РѕСЂРјР°С‚РёРІРЅРѕ.'
         )
     return None
 
@@ -136,7 +136,7 @@ def _normalized_event_model_label(selected_model_key: Optional[str], fallback_la
 
 
 def _normalize_event_comparison_rows(
-    rows: List[Dict[str, Any] | EventComparisonRow],
+    rows: List[dict[str, Any] | EventComparisonRow],
 ) -> List[EventComparisonRow]:
     normalized_rows: List[EventComparisonRow] = []
     for row in rows:
@@ -246,7 +246,7 @@ def _build_event_metric_inputs_from_arrays(
 
 
 def _event_metric_arrays(
-    rows: List[Dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+    rows: List[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if isinstance(rows, _HorizonEvaluationData):
         return (
@@ -266,7 +266,7 @@ def _event_metric_arrays(
 
 
 def _event_metric_inputs(
-    rows: List[Dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+    rows: List[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> _EventMetricInputs:
     (
         actual_events,
@@ -303,7 +303,7 @@ def _score_event_probability_candidates(
 
 def _initial_event_metric_selection(
     *,
-    heuristic_metrics: Dict[str, Any],
+    heuristic_metrics: dict[str, Any],
     baseline_roc_auc: Optional[float],
     heuristic_roc_auc: Optional[float],
     baseline_log_loss: Optional[float],
@@ -345,7 +345,7 @@ def _with_classifier_event_selection(
     *,
     event_inputs: _EventMetricInputs,
     event_probability_informative: bool,
-    heuristic_metrics: Dict[str, Any],
+    heuristic_metrics: dict[str, Any],
     heuristic_log_loss: Optional[float],
     heuristic_roc_auc: Optional[float],
 ) -> _EventMetricSelection:
@@ -466,7 +466,7 @@ def _build_event_metrics_result(
 
 
 def _compute_event_metrics(
-    rows: List[Dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+    rows: List[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> EventMetrics:
     event_inputs = _event_metric_inputs(rows)
     if event_inputs.common_rows < MIN_BACKTEST_POINTS:

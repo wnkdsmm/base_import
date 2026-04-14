@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
@@ -27,59 +27,59 @@ def _unique_notes(notes: Iterable[Any]) -> List[str]:
     return result
 
 
-def empty_executive_brief() -> Dict[str, Any]:
+def empty_executive_brief() -> dict[str, Any]:
     return {
-        "lead": "После расчета здесь появится краткий территориальный вывод: какая территория идет первой в приоритете, что проверить сначала и насколько надежен этот вывод.",
+        "lead": "РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РєСЂР°С‚РєРёР№ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Р№ РІС‹РІРѕРґ: РєР°РєР°СЏ С‚РµСЂСЂРёС‚РѕСЂРёСЏ РёРґРµС‚ РїРµСЂРІРѕР№ РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ, С‡С‚Рѕ РїСЂРѕРІРµСЂРёС‚СЊ СЃРЅР°С‡Р°Р»Р° Рё РЅР°СЃРєРѕР»СЊРєРѕ РЅР°РґРµР¶РµРЅ СЌС‚РѕС‚ РІС‹РІРѕРґ.",
         "top_territory_label": "-",
-        "priority_reason": "Недостаточно данных, чтобы выделить территорию первого приоритета.",
+        "priority_reason": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С…, С‡С‚РѕР±С‹ РІС‹РґРµР»РёС‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёСЋ РїРµСЂРІРѕРіРѕ РїСЂРёРѕСЂРёС‚РµС‚Р°.",
         "priority_tone": "sky",
-        "why_value": "Недостаточно данных",
-        "why_meta": "Причина приоритета появится после накопления данных.",
-        "action_label": "Плановое наблюдение",
-        "action_detail": "Детализация действия появится после расчета.",
-        "confidence_label": "Ограниченная",
+        "why_value": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С…",
+        "why_meta": "РџСЂРёС‡РёРЅР° РїСЂРёРѕСЂРёС‚РµС‚Р° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ РЅР°РєРѕРїР»РµРЅРёСЏ РґР°РЅРЅС‹С….",
+        "action_label": "РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ",
+        "action_detail": "Р”РµС‚Р°Р»РёР·Р°С†РёСЏ РґРµР№СЃС‚РІРёСЏ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.",
+        "confidence_label": "РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ",
         "confidence_score_display": "0 / 100",
         "confidence_tone": "fire",
-        "confidence_summary": "После расчета здесь появится оценка доверия к данным.",
+        "confidence_summary": "РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РѕС†РµРЅРєР° РґРѕРІРµСЂРёСЏ Рє РґР°РЅРЅС‹Рј.",
         "cards": [
             {
-                "label": "Какая территория первая",
+                "label": "РљР°РєР°СЏ С‚РµСЂСЂРёС‚РѕСЂРёСЏ РїРµСЂРІР°СЏ",
                 "value": "-",
-                "meta": "Недостаточно данных для приоритета.",
+                "meta": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РїСЂРёРѕСЂРёС‚РµС‚Р°.",
                 "tone": "sky",
             },
             {
-                "label": "Почему она выше",
-                "value": "Недостаточно данных",
-                "meta": "Причина приоритета появится после расчета.",
+                "label": "РџРѕС‡РµРјСѓ РѕРЅР° РІС‹С€Рµ",
+                "value": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С…",
+                "meta": "РџСЂРёС‡РёРЅР° РїСЂРёРѕСЂРёС‚РµС‚Р° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.",
                 "tone": "sand",
             },
             {
-                "label": "Насколько надежен приоритет",
-                "value": "Ограниченная",
-                "meta": "0 / 100. После расчета здесь появится оценка доверия к данным.",
+                "label": "РќР°СЃРєРѕР»СЊРєРѕ РЅР°РґРµР¶РµРЅ РїСЂРёРѕСЂРёС‚РµС‚",
+                "value": "РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ",
+                "meta": "0 / 100. РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РѕС†РµРЅРєР° РґРѕРІРµСЂРёСЏ Рє РґР°РЅРЅС‹Рј.",
                 "tone": "fire",
             },
             {
-                "label": "Что сделать первым",
-                "value": "Плановое наблюдение",
-                "meta": "Детализация действия появится после расчета.",
+                "label": "Р§С‚Рѕ СЃРґРµР»Р°С‚СЊ РїРµСЂРІС‹Рј",
+                "value": "РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ",
+                "meta": "Р”РµС‚Р°Р»РёР·Р°С†РёСЏ РґРµР№СЃС‚РІРёСЏ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.",
                 "tone": "forest",
             },
         ],
         "territories": [],
         "notes": [],
-        "export_title": "Коротко для передачи дальше",
-        "export_excerpt": "После расчета здесь появится короткая справка для руководителя, смены или дежурного.",
+        "export_title": "РљРѕСЂРѕС‚РєРѕ РґР»СЏ РїРµСЂРµРґР°С‡Рё РґР°Р»СЊС€Рµ",
+        "export_excerpt": "РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РєРѕСЂРѕС‚РєР°СЏ СЃРїСЂР°РІРєР° РґР»СЏ СЂСѓРєРѕРІРѕРґРёС‚РµР»СЏ, СЃРјРµРЅС‹ РёР»Рё РґРµР¶СѓСЂРЅРѕРіРѕ.",
         "export_text": "",
     }
 
 
 def build_executive_brief_from_risk_payload(
-    risk_payload: Optional[Dict[str, Any]],
+    risk_payload: Optional[dict[str, Any]],
     *,
     notes: Sequence[Any] | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if not risk_payload:
         return empty_executive_brief()
 
@@ -93,25 +93,25 @@ def build_executive_brief_from_risk_payload(
     )
     priority_reason = _safe_text(
         lead.get("ranking_reason") if lead else risk_payload.get("top_territory_explanation"),
-        "Недостаточно данных, чтобы объяснить территорию первого приоритета.",
+        "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С…, С‡С‚РѕР±С‹ РѕР±СЉСЏСЃРЅРёС‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёСЋ РїРµСЂРІРѕРіРѕ РїСЂРёРѕСЂРёС‚РµС‚Р°.",
     )
     top_component = (lead.get("component_scores") or [{}])[0] if lead else {}
-    why_value = _safe_text(top_component.get("label"), "Нет доминирующего фактора")
+    why_value = _safe_text(top_component.get("label"), "РќРµС‚ РґРѕРјРёРЅРёСЂСѓСЋС‰РµРіРѕ С„Р°РєС‚РѕСЂР°")
     why_meta = _safe_text(
         lead.get("drivers_display") if lead else risk_payload.get("top_territory_explanation"),
-        "Причина приоритета появится после накопления данных.",
+        "РџСЂРёС‡РёРЅР° РїСЂРёРѕСЂРёС‚РµС‚Р° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ РЅР°РєРѕРїР»РµРЅРёСЏ РґР°РЅРЅС‹С….",
     )
     action_label = _safe_text(
         lead.get("action_label"),
-        "Плановое наблюдение",
+        "РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ",
     )
     action_detail = _safe_text(
         lead.get("action_hint") or ((lead.get("recommendations") or [{}])[0]).get("detail"),
-        "Сначала проверьте локальную обстановку и подтвердите приоритет на месте.",
+        "РЎРЅР°С‡Р°Р»Р° РїСЂРѕРІРµСЂСЊС‚Рµ Р»РѕРєР°Р»СЊРЅСѓСЋ РѕР±СЃС‚Р°РЅРѕРІРєСѓ Рё РїРѕРґС‚РІРµСЂРґРёС‚Рµ РїСЂРёРѕСЂРёС‚РµС‚ РЅР° РјРµСЃС‚Рµ.",
     )
     confidence_label = _safe_text(
         risk_payload.get("top_territory_confidence_label") or lead.get("ranking_confidence_label") or passport.get("confidence_label"),
-        "Ограниченная",
+        "РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ",
     )
     confidence_score_display = _safe_text(
         risk_payload.get("top_territory_confidence_score_display") or lead.get("ranking_confidence_display") or passport.get("confidence_score_display"),
@@ -123,36 +123,36 @@ def build_executive_brief_from_risk_payload(
     )
     confidence_summary = _safe_text(
         risk_payload.get("top_territory_confidence_note") or lead.get("ranking_confidence_note") or passport.get("validation_summary"),
-        "Пояснение по надежности вывода появится после расчета.",
+        "РџРѕСЏСЃРЅРµРЅРёРµ РїРѕ РЅР°РґРµР¶РЅРѕСЃС‚Рё РІС‹РІРѕРґР° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.",
     )
     priority_tone = _normalize_tone(lead.get("risk_tone"), "sky")
 
     lead_line = (
-        f"Территория первого внимания: {top_territory_label}. {priority_reason} "
-        f"Первое действие: {action_label}. "
-        f"Надежность приоритета: {confidence_label} ({confidence_score_display})."
+        f"РўРµСЂСЂРёС‚РѕСЂРёСЏ РїРµСЂРІРѕРіРѕ РІРЅРёРјР°РЅРёСЏ: {top_territory_label}. {priority_reason} "
+        f"РџРµСЂРІРѕРµ РґРµР№СЃС‚РІРёРµ: {action_label}. "
+        f"РќР°РґРµР¶РЅРѕСЃС‚СЊ РїСЂРёРѕСЂРёС‚РµС‚Р°: {confidence_label} ({confidence_score_display})."
     )
     export_excerpt = (
-        f"{top_territory_label} сейчас идет первой в территориальном приоритете. "
+        f"{top_territory_label} СЃРµР№С‡Р°СЃ РёРґРµС‚ РїРµСЂРІРѕР№ РІ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРј РїСЂРёРѕСЂРёС‚РµС‚Рµ. "
         f"{priority_reason} "
-        f"Рекомендуемое действие: {action_label}. {action_detail} "
-        f"Надежность приоритета: {confidence_label} ({confidence_score_display})."
+        f"Р РµРєРѕРјРµРЅРґСѓРµРјРѕРµ РґРµР№СЃС‚РІРёРµ: {action_label}. {action_detail} "
+        f"РќР°РґРµР¶РЅРѕСЃС‚СЊ РїСЂРёРѕСЂРёС‚РµС‚Р°: {confidence_label} ({confidence_score_display})."
     )
 
     simplified_territories: List[Dict[str, str]] = []
     for item in territories[:3]:
         simplified_territories.append(
             {
-                "label": _safe_text(item.get("label"), "Территория"),
+                "label": _safe_text(item.get("label"), "РўРµСЂСЂРёС‚РѕСЂРёСЏ"),
                 "risk_display": _safe_text(item.get("risk_display"), "0 / 100"),
                 "risk_tone": _normalize_tone(item.get("risk_tone"), "sky"),
-                "priority_label": _safe_text(item.get("priority_label"), "Плановое наблюдение"),
+                "priority_label": _safe_text(item.get("priority_label"), "РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ"),
                 "reason": _safe_text(
                     item.get("ranking_reason") or item.get("drivers_display"),
-                    "Недостаточно данных для объяснения приоритета.",
+                    "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СЉСЏСЃРЅРµРЅРёСЏ РїСЂРёРѕСЂРёС‚РµС‚Р°.",
                 ),
-                "action_label": _safe_text(item.get("action_label"), "Плановое наблюдение"),
-                "action_detail": _safe_text(item.get("action_hint"), "Детализация действия появится после расчета."),
+                "action_label": _safe_text(item.get("action_label"), "РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ"),
+                "action_detail": _safe_text(item.get("action_hint"), "Р”РµС‚Р°Р»РёР·Р°С†РёСЏ РґРµР№СЃС‚РІРёСЏ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°."),
                 "confidence_label": _safe_text(item.get("ranking_confidence_label"), confidence_label),
             }
         )
@@ -174,25 +174,25 @@ def build_executive_brief_from_risk_payload(
         "confidence_summary": confidence_summary,
         "cards": [
             {
-                "label": "Какая территория первая",
+                "label": "РљР°РєР°СЏ С‚РµСЂСЂРёС‚РѕСЂРёСЏ РїРµСЂРІР°СЏ",
                 "value": top_territory_label,
                 "meta": priority_reason,
                 "tone": priority_tone,
             },
             {
-                "label": "Почему она выше",
+                "label": "РџРѕС‡РµРјСѓ РѕРЅР° РІС‹С€Рµ",
                 "value": why_value,
                 "meta": why_meta,
                 "tone": "sand",
             },
             {
-                "label": "Насколько надежен приоритет",
+                "label": "РќР°СЃРєРѕР»СЊРєРѕ РЅР°РґРµР¶РµРЅ РїСЂРёРѕСЂРёС‚РµС‚",
                 "value": confidence_label,
                 "meta": f"{confidence_score_display}. {confidence_summary}",
                 "tone": confidence_tone,
             },
             {
-                "label": "Что сделать первым",
+                "label": "Р§С‚Рѕ СЃРґРµР»Р°С‚СЊ РїРµСЂРІС‹Рј",
                 "value": action_label,
                 "meta": action_detail,
                 "tone": "forest",
@@ -200,14 +200,14 @@ def build_executive_brief_from_risk_payload(
         ],
         "territories": simplified_territories,
         "notes": brief_notes[:3],
-        "export_title": "Коротко для передачи дальше",
+        "export_title": "РљРѕСЂРѕС‚РєРѕ РґР»СЏ РїРµСЂРµРґР°С‡Рё РґР°Р»СЊС€Рµ",
         "export_excerpt": export_excerpt,
         "export_text": "",
     }
 
 
 def compose_executive_brief_text(
-    brief: Optional[Dict[str, Any]],
+    brief: Optional[dict[str, Any]],
     *,
     scope_label: str = "",
     generated_at: str = "",
@@ -216,47 +216,47 @@ def compose_executive_brief_text(
     notes = list(safe_brief.get("notes") or [])
     territories = list(safe_brief.get("territories") or [])
 
-    lines = ["Короткий вывод по территориальному приоритету"]
+    lines = ["РљРѕСЂРѕС‚РєРёР№ РІС‹РІРѕРґ РїРѕ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРјСѓ РїСЂРёРѕСЂРёС‚РµС‚Сѓ"]
     if _safe_text(generated_at):
-        lines.append(f"Сформировано: {_safe_text(generated_at)}")
+        lines.append(f"РЎС„РѕСЂРјРёСЂРѕРІР°РЅРѕ: {_safe_text(generated_at)}")
     if _safe_text(scope_label):
-        lines.append(f"Срез: {_safe_text(scope_label)}")
+        lines.append(f"РЎСЂРµР·: {_safe_text(scope_label)}")
 
     lines.extend(
         [
             "",
-            f"Какая территория первая: {_safe_text(safe_brief.get('top_territory_label'), '-')}",
-            f"Почему она выше: {_safe_text(safe_brief.get('priority_reason'), 'Недостаточно данных для объяснения приоритета.')}",
-            f"Насколько надежен приоритет: {_safe_text(safe_brief.get('confidence_label'), 'Ограниченная')} ({_safe_text(safe_brief.get('confidence_score_display'), '0 / 100')})",
-            f"Почему уровень доверия такой: {_safe_text(safe_brief.get('confidence_summary'), 'Пояснение по надежности вывода появится после расчета.')}",
-            f"Что сделать первым: {_safe_text(safe_brief.get('action_label'), 'Плановое наблюдение')}",
-            f"Деталь действия: {_safe_text(safe_brief.get('action_detail'), 'Детализация действия появится после расчета.')}",
+            f"РљР°РєР°СЏ С‚РµСЂСЂРёС‚РѕСЂРёСЏ РїРµСЂРІР°СЏ: {_safe_text(safe_brief.get('top_territory_label'), '-')}",
+            f"РџРѕС‡РµРјСѓ РѕРЅР° РІС‹С€Рµ: {_safe_text(safe_brief.get('priority_reason'), 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СЉСЏСЃРЅРµРЅРёСЏ РїСЂРёРѕСЂРёС‚РµС‚Р°.')}",
+            f"РќР°СЃРєРѕР»СЊРєРѕ РЅР°РґРµР¶РµРЅ РїСЂРёРѕСЂРёС‚РµС‚: {_safe_text(safe_brief.get('confidence_label'), 'РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ')} ({_safe_text(safe_brief.get('confidence_score_display'), '0 / 100')})",
+            f"РџРѕС‡РµРјСѓ СѓСЂРѕРІРµРЅСЊ РґРѕРІРµСЂРёСЏ С‚Р°РєРѕР№: {_safe_text(safe_brief.get('confidence_summary'), 'РџРѕСЏСЃРЅРµРЅРёРµ РїРѕ РЅР°РґРµР¶РЅРѕСЃС‚Рё РІС‹РІРѕРґР° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.')}",
+            f"Р§С‚Рѕ СЃРґРµР»Р°С‚СЊ РїРµСЂРІС‹Рј: {_safe_text(safe_brief.get('action_label'), 'РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ')}",
+            f"Р”РµС‚Р°Р»СЊ РґРµР№СЃС‚РІРёСЏ: {_safe_text(safe_brief.get('action_detail'), 'Р”РµС‚Р°Р»РёР·Р°С†РёСЏ РґРµР№СЃС‚РІРёСЏ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.')}",
             "",
-            "Коротко для передачи дальше:",
+            "РљРѕСЂРѕС‚РєРѕ РґР»СЏ РїРµСЂРµРґР°С‡Рё РґР°Р»СЊС€Рµ:",
             _safe_text(
                 safe_brief.get("export_excerpt"),
-                "После расчета здесь появится короткая справка для передачи в смену или руководителю.",
+                "РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РєРѕСЂРѕС‚РєР°СЏ СЃРїСЂР°РІРєР° РґР»СЏ РїРµСЂРµРґР°С‡Рё РІ СЃРјРµРЅСѓ РёР»Рё СЂСѓРєРѕРІРѕРґРёС‚РµР»СЋ.",
             ),
         ]
     )
 
     if territories:
         lines.append("")
-        lines.append("Следующие территории в приоритете:")
+        lines.append("РЎР»РµРґСѓСЋС‰РёРµ С‚РµСЂСЂРёС‚РѕСЂРёРё РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ:")
         for index, item in enumerate(territories[:3], start=1):
             lines.append(
-                f"{index}. {_safe_text(item.get('label'), 'Территория')} | "
+                f"{index}. {_safe_text(item.get('label'), 'РўРµСЂСЂРёС‚РѕСЂРёСЏ')} | "
                 f"{_safe_text(item.get('risk_display'), '0 / 100')} | "
-                f"{_safe_text(item.get('priority_label'), 'Плановое наблюдение')}"
+                f"{_safe_text(item.get('priority_label'), 'РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ')}"
             )
 
     lines.append("")
-    lines.append("Ограничения и примечания:")
+    lines.append("РћРіСЂР°РЅРёС‡РµРЅРёСЏ Рё РїСЂРёРјРµС‡Р°РЅРёСЏ:")
     if notes:
         for index, note in enumerate(notes, start=1):
             lines.append(f"{index}. {note}")
     else:
-        lines.append("1. Существенных ограничений в текущем срезе не зафиксировано.")
+        lines.append("1. РЎСѓС‰РµСЃС‚РІРµРЅРЅС‹С… РѕРіСЂР°РЅРёС‡РµРЅРёР№ РІ С‚РµРєСѓС‰РµРј СЃСЂРµР·Рµ РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ.")
 
     return "\r\n".join(lines)
 

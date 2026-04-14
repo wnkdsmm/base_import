@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
@@ -7,7 +7,7 @@ import numpy as np
 from app.services.forecasting.utils import _format_number, _format_percent
 
 
-def _resolve_interval_calibration(interval_calibration: Dict[str, Any], horizon_days: int) -> Dict[str, Any]:
+def _resolve_interval_calibration(interval_calibration: dict[str, Any], horizon_days: int) -> dict[str, Any]:
     if 'absolute_error_quantile' in interval_calibration:
         return interval_calibration
 
@@ -39,11 +39,11 @@ def _resolve_interval_calibration(interval_calibration: Dict[str, Any], horizon_
 
 def _format_ratio_percent(value: Optional[float]) -> str:
     if value is None:
-        return '—'
+        return 'вЂ”'
     return f"{_format_number(float(value) * 100.0)}%"
 
 
-def _forecast_interval_coverage_metadata(calibration: Dict[str, Any]) -> Dict[str, Any]:
+def _forecast_interval_coverage_metadata(calibration: dict[str, Any]) -> dict[str, Any]:
     validated_coverage = calibration.get('validated_coverage')
     return {
         'prediction_interval_coverage_validated': bool(calibration.get('coverage_validated', False)),
@@ -52,7 +52,7 @@ def _forecast_interval_coverage_metadata(calibration: Dict[str, Any]) -> Dict[st
     }
 
 
-def _prediction_interval_margin(prediction: float, calibration: Dict[str, Any]) -> float:
+def _prediction_interval_margin(prediction: float, calibration: dict[str, Any]) -> float:
     center = max(0.0, float(prediction))
     minimum_floor_raw = calibration.get('minimum_absolute_error_quantile')
     minimum_floor = None if minimum_floor_raw is None else max(0.0, float(minimum_floor_raw or 0.0))
@@ -70,7 +70,7 @@ def _prediction_interval_margin(prediction: float, calibration: Dict[str, Any]) 
     return max(minimum_floor, fallback_margin) if minimum_floor is not None else fallback_margin
 
 
-def _count_interval(prediction: float, calibration: Dict[str, Any]) -> Tuple[float, float]:
+def _count_interval(prediction: float, calibration: dict[str, Any]) -> Tuple[float, float]:
     margin = _prediction_interval_margin(prediction, calibration)
     center = max(0.0, float(prediction))
     lower = max(0.0, center - margin)
@@ -81,7 +81,7 @@ def _count_interval(prediction: float, calibration: Dict[str, Any]) -> Tuple[flo
 def _interval_coverage(
     actuals: np.ndarray,
     predictions: np.ndarray,
-    calibration: Dict[str, Any],
+    calibration: dict[str, Any],
 ) -> Optional[float]:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)
@@ -104,14 +104,14 @@ def _risk_index(prediction: float, sorted_history_counts: np.ndarray) -> float:
 
 def _risk_band_from_index(risk_index: float) -> Tuple[str, str]:
     if risk_index >= 90.0:
-        return 'Очень высокий', 'critical'
+        return 'РћС‡РµРЅСЊ РІС‹СЃРѕРєРёР№', 'critical'
     if risk_index >= 75.0:
-        return 'Высокий', 'high'
+        return 'Р’С‹СЃРѕРєРёР№', 'high'
     if risk_index >= 50.0:
-        return 'Средний', 'medium'
+        return 'РЎСЂРµРґРЅРёР№', 'medium'
     if risk_index >= 25.0:
-        return 'Ниже среднего', 'low'
-    return 'Низкий', 'minimal'
+        return 'РќРёР¶Рµ СЃСЂРµРґРЅРµРіРѕ', 'low'
+    return 'РќРёР·РєРёР№', 'minimal'
 
 
 def _bound_probability(value: float) -> float:
@@ -120,5 +120,5 @@ def _bound_probability(value: float) -> float:
 
 def _format_probability(value: Optional[float]) -> str:
     if value is None:
-        return '—'
+        return 'вЂ”'
     return _format_percent(float(value) * 100.0)

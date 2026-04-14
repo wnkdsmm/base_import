@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
@@ -51,12 +51,12 @@ def build_fire_map_html(table_name: str) -> str:
 
 
 
-def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
+def get_fire_map_page_context(table_name: str = "") -> dict[str, Any]:
     generated_at = datetime.now().strftime("%d.%m.%Y %H:%M")
     table_options = get_user_table_options()
     selected_table = resolve_selected_table_value(table_options, table_name)
     brief = empty_executive_brief()
-    risk_prediction: Dict[str, Any] = {
+    risk_prediction: dict[str, Any] = {
         "territories": [],
         "notes": [],
     }
@@ -82,7 +82,7 @@ def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
                 )
             except Exception as exc:
                 brief = empty_executive_brief()
-                brief["notes"] = [f"Территориальный приоритет на карте временно недоступен: {exc}"]
+                brief["notes"] = [f"РўРµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Р№ РїСЂРёРѕСЂРёС‚РµС‚ РЅР° РєР°СЂС‚Рµ РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРµРЅ: {exc}"]
                 risk_prediction = {"territories": [], "notes": list(brief["notes"])}
 
             _FIRE_MAP_BRIEF_CACHE.set(

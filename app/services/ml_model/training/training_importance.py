@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Dict, List
@@ -22,7 +22,7 @@ from ..ml_model_types import FEATURE_LABELS, PERMUTATION_REPEATS
 from .training_dataset import _build_design_matrix
 
 
-def _build_feature_importance(model_bundle: Dict[str, Any], dataset: pd.DataFrame) -> List[Dict[str, Any]]:
+def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFrame) -> List[dict[str, Any]]:
     design = _build_design_matrix(dataset, model_bundle['columns'])
     target = dataset['count'].to_numpy(dtype=float)
     grouped_scores: Dict[str, float] = defaultdict(float)
@@ -81,7 +81,7 @@ def _build_feature_importance(model_bundle: Dict[str, Any], dataset: pd.DataFram
     return items
 
 
-def _fallback_feature_importance(model_bundle: Dict[str, Any]) -> Dict[str, float]:
+def _fallback_feature_importance(model_bundle: dict[str, Any]) -> Dict[str, float]:
     model = model_bundle['model']
     columns = model_bundle['columns']
     if hasattr(model, 'feature_importances_'):

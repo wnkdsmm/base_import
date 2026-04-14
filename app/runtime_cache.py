@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 """Backward-compatible wrapper around :mod:`app.cache`.
 

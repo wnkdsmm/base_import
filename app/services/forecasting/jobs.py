@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
@@ -195,7 +195,7 @@ def _handle_cached_forecasting_payload(
     *,
     session_id: str,
     bundle: JobLaunchBundle,
-    cached_payload: Dict[str, Any],
+    cached_payload: dict[str, Any],
 ) -> None:
     job_store.complete_job(
         session_id,
@@ -239,7 +239,7 @@ def _finalize_forecasting_job_success(
     *,
     session_id: str,
     job_id: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> None:
     job_store.complete_job(
         session_id,

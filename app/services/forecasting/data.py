@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -98,7 +98,7 @@ def _build_forecasting_table_options() -> List[Dict[str, str]]:
     return _LOADER.build_forecasting_table_options()
 
 
-def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
+def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[dict[str, Any]], List[str]]:
     return _LOADER.collect_forecasting_metadata(source_tables)
 
 
@@ -108,7 +108,7 @@ def _collect_forecasting_inputs(
     cause: str = "all",
     object_category: str = "all",
     history_window: str = "all",
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+) -> tuple[List[dict[str, Any]], List[dict[str, Any]], List[str]]:
     return _LOADER.collect_forecasting_inputs(
         source_tables,
         district=district,
@@ -121,7 +121,7 @@ def _collect_forecasting_inputs(
 def _build_option_catalog_sql(
     source_tables: Sequence[str],
     history_window: str = "all",
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+    metadata_items: Optional[Sequence[dict[str, Any]]] = None,
 ) -> Dict[str, List[Dict[str, str]]]:
     return _LOADER.build_option_catalog_sql(
         source_tables,
@@ -136,8 +136,8 @@ def _build_daily_history_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> List[Dict[str, Any]]:
+    metadata_items: Optional[Sequence[dict[str, Any]]] = None,
+) -> List[dict[str, Any]]:
     return _LOADER.build_daily_history_sql(
         source_tables,
         history_window=history_window,
@@ -154,7 +154,7 @@ def _count_forecasting_records_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+    metadata_items: Optional[Sequence[dict[str, Any]]] = None,
 ) -> int:
     return _LOADER.count_forecasting_records_sql(
         source_tables,

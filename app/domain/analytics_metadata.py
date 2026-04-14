@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from app.domain.fire_columns import (
     APARTMENTS_DAMAGED_COLUMN,
@@ -36,7 +36,7 @@ from app.domain.fire_columns import (
 
 DISTRIBUTION_GROUPS = [
     (
-        "Причины",
+        "РџСЂРёС‡РёРЅС‹",
         [
             GENERAL_CAUSE_COLUMN,
             OPEN_AREA_CAUSE_COLUMN,
@@ -44,7 +44,7 @@ DISTRIBUTION_GROUPS = [
         ],
     ),
     (
-        "Объект и локация",
+        "РћР±СЉРµРєС‚ Рё Р»РѕРєР°С†РёСЏ",
         [
             AREA_COLUMN,
             FIRE_STATION_DISTANCE_COLUMN,
@@ -55,7 +55,7 @@ DISTRIBUTION_GROUPS = [
         ],
     ),
     (
-        "Ущерб",
+        "РЈС‰РµСЂР±",
         [
             REGISTERED_DAMAGE_COLUMN,
             BUILDINGS_DESTROYED_COLUMN,
@@ -89,44 +89,44 @@ DISTRIBUTION_COLUMNS = [
 
 IMPACT_METRIC_CONFIG = {
     "deaths": {
-        "label": "Погибшие",
-        "preferred": ["Количество погибших в КУП"],
-        "include_any": [["погибш"], ["смерт"], ["гибел"]],
-        "exclude": ["причин", "место", "момент", "фио", "дата", "возраст", "пол", "уг#", "уг_", "сотрудник"],
+        "label": "РџРѕРіРёР±С€РёРµ",
+        "preferred": ["РљРѕР»РёС‡РµСЃС‚РІРѕ РїРѕРіРёР±С€РёС… РІ РљРЈРџ"],
+        "include_any": [["РїРѕРіРёР±С€"], ["СЃРјРµСЂС‚"], ["РіРёР±РµР»"]],
+        "exclude": ["РїСЂРёС‡РёРЅ", "РјРµСЃС‚Рѕ", "РјРѕРјРµРЅС‚", "С„РёРѕ", "РґР°С‚Р°", "РІРѕР·СЂР°СЃС‚", "РїРѕР»", "СѓРі#", "СѓРі_", "СЃРѕС‚СЂСѓРґРЅРёРє"],
         "tone": "fire",
     },
     "injuries": {
-        "label": "Травмированные",
-        "preferred": ["Количество травмированных в КУП"],
-        "include_any": [["травм"]],
-        "exclude": ["вид", "место", "фио", "дата", "возраст", "пол", "ут#", "ут_", "сотрудник"],
+        "label": "РўСЂР°РІРјРёСЂРѕРІР°РЅРЅС‹Рµ",
+        "preferred": ["РљРѕР»РёС‡РµСЃС‚РІРѕ С‚СЂР°РІРјРёСЂРѕРІР°РЅРЅС‹С… РІ РљРЈРџ"],
+        "include_any": [["С‚СЂР°РІРј"]],
+        "exclude": ["РІРёРґ", "РјРµСЃС‚Рѕ", "С„РёРѕ", "РґР°С‚Р°", "РІРѕР·СЂР°СЃС‚", "РїРѕР»", "СѓС‚#", "СѓС‚_", "СЃРѕС‚СЂСѓРґРЅРёРє"],
         "tone": "sand",
     },
     "evacuated": {
-        "label": "Эвакуировано",
-        "preferred": ["Эвакуировано на пожаре"],
-        "include_any": [["эваку"]],
-        "exclude": ["дет"],
+        "label": "Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ",
+        "preferred": ["Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ РЅР° РїРѕР¶Р°СЂРµ"],
+        "include_any": [["СЌРІР°РєСѓ"]],
+        "exclude": ["РґРµС‚"],
         "tone": "sky",
     },
     "evacuated_children": {
-        "label": "Эвакуировано детей",
-        "preferred": ["Эвакуировано детей"],
-        "include_all": [["эваку", "дет"]],
+        "label": "Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ РґРµС‚РµР№",
+        "preferred": ["Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ РґРµС‚РµР№"],
+        "include_all": [["СЌРІР°РєСѓ", "РґРµС‚"]],
         "exclude": [],
         "tone": "sky",
     },
     "rescued_total": {
-        "label": "Спасено",
-        "preferred": ["Спасено на пожаре"],
-        "include_any": [["спас"]],
-        "exclude": ["дет", "здан", "сооруж", "скот", "техник", "материал", "ценност"],
+        "label": "РЎРїР°СЃРµРЅРѕ",
+        "preferred": ["РЎРїР°СЃРµРЅРѕ РЅР° РїРѕР¶Р°СЂРµ"],
+        "include_any": [["СЃРїР°СЃ"]],
+        "exclude": ["РґРµС‚", "Р·РґР°РЅ", "СЃРѕРѕСЂСѓР¶", "СЃРєРѕС‚", "С‚РµС…РЅРёРє", "РјР°С‚РµСЂРёР°Р»", "С†РµРЅРЅРѕСЃС‚"],
         "tone": "forest",
     },
     "rescued_children": {
-        "label": "Спасено детей",
-        "preferred": ["Спасено детей"],
-        "include_all": [["спас", "дет"]],
+        "label": "РЎРїР°СЃРµРЅРѕ РґРµС‚РµР№",
+        "preferred": ["РЎРїР°СЃРµРЅРѕ РґРµС‚РµР№"],
+        "include_all": [["СЃРїР°СЃ", "РґРµС‚"]],
         "exclude": [],
         "tone": "forest",
     },
@@ -165,19 +165,19 @@ COLUMN_LABELS = {
     DATE_COLUMN: DATE_COLUMN,
 }
 
-DAMAGE_GROUP_LABEL = "Ущерб"
+DAMAGE_GROUP_LABEL = "РЈС‰РµСЂР±"
 DAMAGE_GROUP_OPTION_VALUE = "__group__:damage_overview"
-DAMAGE_GROUP_OPTION_LABEL = "Все показатели ущерба"
+DAMAGE_GROUP_OPTION_LABEL = "Р’СЃРµ РїРѕРєР°Р·Р°С‚РµР»Рё СѓС‰РµСЂР±Р°"
 
 DAMAGE_PAIR_COLUMNS = [
-    ("Здания", BUILDINGS_DESTROYED_COLUMN, BUILDINGS_DAMAGED_COLUMN),
-    ("Квартиры", APARTMENTS_DESTROYED_COLUMN, APARTMENTS_DAMAGED_COLUMN),
-    ("Апартаменты", APART_HOTEL_DESTROYED_COLUMN, APART_HOTEL_DAMAGED_COLUMN),
-    ("Площадь, м2", AREA_DESTROYED_COLUMN, AREA_DAMAGED_COLUMN),
-    ("Техника", VEHICLES_DESTROYED_COLUMN, VEHICLES_DAMAGED_COLUMN),
-    ("Зерновые", GRAIN_DESTROYED_COLUMN, GRAIN_DAMAGED_COLUMN),
-    ("Корма", FEED_DESTROYED_COLUMN, FEED_DAMAGED_COLUMN),
-    ("Техкультуры", TECH_CROPS_DESTROYED_COLUMN, TECH_CROPS_DAMAGED_COLUMN),
+    ("Р—РґР°РЅРёСЏ", BUILDINGS_DESTROYED_COLUMN, BUILDINGS_DAMAGED_COLUMN),
+    ("РљРІР°СЂС‚РёСЂС‹", APARTMENTS_DESTROYED_COLUMN, APARTMENTS_DAMAGED_COLUMN),
+    ("РђРїР°СЂС‚Р°РјРµРЅС‚С‹", APART_HOTEL_DESTROYED_COLUMN, APART_HOTEL_DAMAGED_COLUMN),
+    ("РџР»РѕС‰Р°РґСЊ, Рј2", AREA_DESTROYED_COLUMN, AREA_DAMAGED_COLUMN),
+    ("РўРµС…РЅРёРєР°", VEHICLES_DESTROYED_COLUMN, VEHICLES_DAMAGED_COLUMN),
+    ("Р—РµСЂРЅРѕРІС‹Рµ", GRAIN_DESTROYED_COLUMN, GRAIN_DAMAGED_COLUMN),
+    ("РљРѕСЂРјР°", FEED_DESTROYED_COLUMN, FEED_DAMAGED_COLUMN),
+    ("РўРµС…РєСѓР»СЊС‚СѓСЂС‹", TECH_CROPS_DESTROYED_COLUMN, TECH_CROPS_DAMAGED_COLUMN),
 ]
 
 DAMAGE_STANDALONE_COLUMNS = [
@@ -188,26 +188,26 @@ DAMAGE_STANDALONE_COLUMNS = [
 ]
 
 DAMAGE_OVERVIEW_LABELS = {
-    REGISTERED_DAMAGE_COLUMN: "Зарегистрированный ущерб",
-    BUILDINGS_DESTROYED_COLUMN: "Здания: уничтожено",
-    BUILDINGS_DAMAGED_COLUMN: "Здания: повреждено",
-    APARTMENTS_DESTROYED_COLUMN: "Квартиры: уничтожено",
-    APARTMENTS_DAMAGED_COLUMN: "Квартиры: повреждено",
-    APART_HOTEL_DESTROYED_COLUMN: "Апартаменты: уничтожено",
-    APART_HOTEL_DAMAGED_COLUMN: "Апартаменты: повреждено",
-    AREA_DESTROYED_COLUMN: "Площадь м2: уничтожено",
-    AREA_DAMAGED_COLUMN: "Площадь м2: повреждено",
-    VEHICLES_DESTROYED_COLUMN: "Техника: уничтожено",
-    VEHICLES_DAMAGED_COLUMN: "Техника: повреждено",
-    GRAIN_DESTROYED_COLUMN: "Зерновые: уничтожено",
-    GRAIN_DAMAGED_COLUMN: "Зерновые: повреждено",
-    FEED_DESTROYED_COLUMN: "Корма: уничтожено",
-    FEED_DAMAGED_COLUMN: "Корма: повреждено",
-    TECH_CROPS_DESTROYED_COLUMN: "Техкультуры: уничтожено",
-    TECH_CROPS_DAMAGED_COLUMN: "Техкультуры: повреждено",
-    LARGE_CATTLE_DESTROYED_COLUMN: "Крупный скот",
-    SMALL_CATTLE_DESTROYED_COLUMN: "Мелкий скот",
-    BIRDS_DESTROYED_COLUMN: "Птицы",
+    REGISTERED_DAMAGE_COLUMN: "Р—Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅРЅС‹Р№ СѓС‰РµСЂР±",
+    BUILDINGS_DESTROYED_COLUMN: "Р—РґР°РЅРёСЏ: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    BUILDINGS_DAMAGED_COLUMN: "Р—РґР°РЅРёСЏ: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    APARTMENTS_DESTROYED_COLUMN: "РљРІР°СЂС‚РёСЂС‹: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    APARTMENTS_DAMAGED_COLUMN: "РљРІР°СЂС‚РёСЂС‹: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    APART_HOTEL_DESTROYED_COLUMN: "РђРїР°СЂС‚Р°РјРµРЅС‚С‹: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    APART_HOTEL_DAMAGED_COLUMN: "РђРїР°СЂС‚Р°РјРµРЅС‚С‹: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    AREA_DESTROYED_COLUMN: "РџР»РѕС‰Р°РґСЊ Рј2: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    AREA_DAMAGED_COLUMN: "РџР»РѕС‰Р°РґСЊ Рј2: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    VEHICLES_DESTROYED_COLUMN: "РўРµС…РЅРёРєР°: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    VEHICLES_DAMAGED_COLUMN: "РўРµС…РЅРёРєР°: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    GRAIN_DESTROYED_COLUMN: "Р—РµСЂРЅРѕРІС‹Рµ: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    GRAIN_DAMAGED_COLUMN: "Р—РµСЂРЅРѕРІС‹Рµ: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    FEED_DESTROYED_COLUMN: "РљРѕСЂРјР°: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    FEED_DAMAGED_COLUMN: "РљРѕСЂРјР°: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    TECH_CROPS_DESTROYED_COLUMN: "РўРµС…РєСѓР»СЊС‚СѓСЂС‹: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ",
+    TECH_CROPS_DAMAGED_COLUMN: "РўРµС…РєСѓР»СЊС‚СѓСЂС‹: РїРѕРІСЂРµР¶РґРµРЅРѕ",
+    LARGE_CATTLE_DESTROYED_COLUMN: "РљСЂСѓРїРЅС‹Р№ СЃРєРѕС‚",
+    SMALL_CATTLE_DESTROYED_COLUMN: "РњРµР»РєРёР№ СЃРєРѕС‚",
+    BIRDS_DESTROYED_COLUMN: "РџС‚РёС†С‹",
 }
 
 EXCLUDED_TABLE_PREFIXES = ("final_", "tmp_", "pg_", "sql_", "benchmark_")

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence
@@ -27,14 +27,14 @@ class SourceQuerySqlMixin:
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-    ) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
+    ) -> tuple[Optional[str], list[str], dict[str, Any], bool]:
         date_column = resolved_columns["date"]
         if not date_column:
             return None, [], {}, True
 
         date_expression = _date_expression(date_column)
         conditions = [f"{date_expression} IS NOT NULL"]
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if min_year is not None:
             conditions.append(f"EXTRACT(YEAR FROM {date_expression}) >= :min_year")
             params["min_year"] = min_year
@@ -62,7 +62,7 @@ class SourceQuerySqlMixin:
         cause: str = "all",
         object_category: str = "all",
         min_year: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         date_expression, conditions, params, scope_is_valid = self._build_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -99,7 +99,7 @@ class SourceQuerySqlMixin:
         with engine.connect() as conn:
             rows = conn.execute(query, params).mappings().all()
 
-        records: List[Dict[str, Any]] = []
+        records: List[dict[str, Any]] = []
         for row in rows:
             fire_date = row.get("fire_date")
             if fire_date is None:
@@ -137,7 +137,7 @@ class SourceQuerySqlMixin:
             return counters
 
         query_parts: List[str] = []
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if self._aggregations._daily_aggregate_view_exists(table_name):
             conditions, params, scope_is_valid = self._aggregations._build_materialized_scope_conditions(
                 resolved_columns,
@@ -280,7 +280,7 @@ class SourceQuerySqlMixin:
         cause: str,
         object_category: str,
         min_year: Optional[int],
-    ) -> List[Dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         date_expression, conditions, params, scope_is_valid = self._build_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -308,7 +308,7 @@ class SourceQuerySqlMixin:
         self,
         table_name: str,
         resolved_columns: Dict[str, str],
-        params: Dict[str, Any],
+        params: dict[str, Any],
         *,
         district: str,
         cause: str,
@@ -329,7 +329,7 @@ class SourceQuerySqlMixin:
         self,
         table_name: str,
         resolved_columns: Dict[str, str],
-        params: Dict[str, Any],
+        params: dict[str, Any],
         *,
         district: str,
         cause: str,

@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from itertools import combinations
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 import pandas as pd
 
@@ -37,6 +37,7 @@ from .constants import (
     WEIGHTING_STRATEGY_UNIFORM,
     WEIGHTING_STRATEGY_UNIFORM_LABEL,
 )
+from .types import ClusteringFeatureSelectionContext, ClusteringMethodCandidate, FeatureAblationRow
 
 
 def _weighting_strategy_for_mode(mode_key: str) -> str:
@@ -50,37 +51,37 @@ def _describe_weighting_strategy(mode_label: str, weighting_strategy: str) -> tu
         return (
             WEIGHTING_STRATEGY_NOT_APPLICABLE_LABEL,
             (
-                f"В рабочем выводе используется метод без sample weights: режим '{mode_label}' задаётся набором признаков, "
-                "а центры/границы кластеров не смещаются дополнительным весом по числу пожаров."
+                f"Р’ СЂР°Р±РѕС‡РµРј РІС‹РІРѕРґРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РјРµС‚РѕРґ Р±РµР· sample weights: СЂРµР¶РёРј '{mode_label}' Р·Р°РґР°С‘С‚СЃСЏ РЅР°Р±РѕСЂРѕРј РїСЂРёР·РЅР°РєРѕРІ, "
+                "Р° С†РµРЅС‚СЂС‹/РіСЂР°РЅРёС†С‹ РєР»Р°СЃС‚РµСЂРѕРІ РЅРµ СЃРјРµС‰Р°СЋС‚СЃСЏ РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рј РІРµСЃРѕРј РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ."
             ),
-            "Этот алгоритм не использует отдельные веса территорий: нагрузка может влиять только через сами признаки.",
+            "Р­С‚РѕС‚ Р°Р»РіРѕСЂРёС‚Рј РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚ РѕС‚РґРµР»СЊРЅС‹Рµ РІРµСЃР° С‚РµСЂСЂРёС‚РѕСЂРёР№: РЅР°РіСЂСѓР·РєР° РјРѕР¶РµС‚ РІР»РёСЏС‚СЊ С‚РѕР»СЊРєРѕ С‡РµСЂРµР· СЃР°РјРё РїСЂРёР·РЅР°РєРё.",
         )
     if weighting_strategy == WEIGHTING_STRATEGY_UNIFORM:
         return (
             WEIGHTING_STRATEGY_UNIFORM_LABEL,
-            f"В режиме '{mode_label}' KMeans обучается с равным весом территорий: число пожаров не смещает центры кластеров.",
-            "Все территории влияют на результат одинаково, без дополнительного веса по числу пожаров.",
+            f"Р’ СЂРµР¶РёРјРµ '{mode_label}' KMeans РѕР±СѓС‡Р°РµС‚СЃСЏ СЃ СЂР°РІРЅС‹Рј РІРµСЃРѕРј С‚РµСЂСЂРёС‚РѕСЂРёР№: С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ РЅРµ СЃРјРµС‰Р°РµС‚ С†РµРЅС‚СЂС‹ РєР»Р°СЃС‚РµСЂРѕРІ.",
+            "Р’СЃРµ С‚РµСЂСЂРёС‚РѕСЂРёРё РІР»РёСЏСЋС‚ РЅР° СЂРµР·СѓР»СЊС‚Р°С‚ РѕРґРёРЅР°РєРѕРІРѕ, Р±РµР· РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕРіРѕ РІРµСЃР° РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ.",
         )
     return (
         WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL,
         (
-            f"В режиме '{mode_label}' KMeans использует умеренные log-веса по числу пожаров, "
-            "поэтому территории с большей историей немного сильнее влияют на центры кластеров."
+            f"Р’ СЂРµР¶РёРјРµ '{mode_label}' KMeans РёСЃРїРѕР»СЊР·СѓРµС‚ СѓРјРµСЂРµРЅРЅС‹Рµ log-РІРµСЃР° РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ, "
+            "РїРѕСЌС‚РѕРјСѓ С‚РµСЂСЂРёС‚РѕСЂРёРё СЃ Р±РѕР»СЊС€РµР№ РёСЃС‚РѕСЂРёРµР№ РЅРµРјРЅРѕРіРѕ СЃРёР»СЊРЅРµРµ РІР»РёСЏСЋС‚ РЅР° С†РµРЅС‚СЂС‹ РєР»Р°СЃС‚РµСЂРѕРІ."
         ),
-        "Территории с большей историей пожаров влияют чуть сильнее, но без резкого перекоса в их сторону.",
+        "РўРµСЂСЂРёС‚РѕСЂРёРё СЃ Р±РѕР»СЊС€РµР№ РёСЃС‚РѕСЂРёРµР№ РїРѕР¶Р°СЂРѕРІ РІР»РёСЏСЋС‚ С‡СѓС‚СЊ СЃРёР»СЊРЅРµРµ, РЅРѕ Р±РµР· СЂРµР·РєРѕРіРѕ РїРµСЂРµРєРѕСЃР° РІ РёС… СЃС‚РѕСЂРѕРЅСѓ.",
     )
 
 
 def _build_clustering_mode_context(
     selected_features: Sequence[str],
-    feature_selection_report: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    feature_selection_report: ClusteringFeatureSelectionContext | None = None,
+) -> ClusteringFeatureSelectionContext:
     context = dict(feature_selection_report or {})
     mode_key = str(
         context.get("selected_mode_key")
         or (
             DEFAULT_CLUSTER_MODE_LOAD
-            if "Число пожаров" in selected_features
+            if "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ" in selected_features
             else DEFAULT_CLUSTER_MODE_PROFILE
         )
     )
@@ -97,9 +98,9 @@ def _build_clustering_mode_context(
     volume_note = str(
         context.get("volume_note")
         or (
-            "Выбран режим типологии без компоненты нагрузки: число пожаров не используется ни как признак, ни как скрытый вес территории."
+            "Р’С‹Р±СЂР°РЅ СЂРµР¶РёРј С‚РёРїРѕР»РѕРіРёРё Р±РµР· РєРѕРјРїРѕРЅРµРЅС‚С‹ РЅР°РіСЂСѓР·РєРё: С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РЅРё РєР°Рє РїСЂРёР·РЅР°Рє, РЅРё РєР°Рє СЃРєСЂС‹С‚С‹Р№ РІРµСЃ С‚РµСЂСЂРёС‚РѕСЂРёРё."
             if mode_key == DEFAULT_CLUSTER_MODE_PROFILE
-            else "Выбран режим типологии с компонентой нагрузки: число пожаров может влиять и как признак, и через умеренные веса территории."
+            else "Р’С‹Р±СЂР°РЅ СЂРµР¶РёРј С‚РёРїРѕР»РѕРіРёРё СЃ РєРѕРјРїРѕРЅРµРЅС‚РѕР№ РЅР°РіСЂСѓР·РєРё: С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ РјРѕР¶РµС‚ РІР»РёСЏС‚СЊ Рё РєР°Рє РїСЂРёР·РЅР°Рє, Рё С‡РµСЂРµР· СѓРјРµСЂРµРЅРЅС‹Рµ РІРµСЃР° С‚РµСЂСЂРёС‚РѕСЂРёРё."
         )
     )
     weighting_strategy = str(context.get("weighting_strategy") or _weighting_strategy_for_mode(mode_key))
@@ -122,12 +123,12 @@ def _build_clustering_mode_context(
 
 
 def _build_runtime_clustering_context(
-    feature_selection_report: Dict[str, Any] | None,
+    feature_selection_report: ClusteringFeatureSelectionContext | None,
     *,
     method_label: str,
     algorithm_key: str,
     weighting_strategy: str,
-) -> Dict[str, Any]:
+) -> ClusteringFeatureSelectionContext:
     context = dict(feature_selection_report or {})
     mode_label = str(
         context.get("selected_mode_label")
@@ -138,8 +139,8 @@ def _build_runtime_clustering_context(
     weighting_label, weighting_note, weighting_meta = _describe_weighting_strategy(mode_label, weighting_strategy)
     if base_weighting and base_weighting != weighting_strategy:
         weighting_note = (
-            f"{weighting_note} На текущем срезе рабочий вывод использует именно эту стратегию, "
-            "потому что в честном сравнении на том же наборе признаков она оказалась сильнее базовой стратегии режима."
+            f"{weighting_note} РќР° С‚РµРєСѓС‰РµРј СЃСЂРµР·Рµ СЂР°Р±РѕС‡РёР№ РІС‹РІРѕРґ РёСЃРїРѕР»СЊР·СѓРµС‚ РёРјРµРЅРЅРѕ СЌС‚Сѓ СЃС‚СЂР°С‚РµРіРёСЋ, "
+            "РїРѕС‚РѕРјСѓ С‡С‚Рѕ РІ С‡РµСЃС‚РЅРѕРј СЃСЂР°РІРЅРµРЅРёРё РЅР° С‚РѕРј Р¶Рµ РЅР°Р±РѕСЂРµ РїСЂРёР·РЅР°РєРѕРІ РѕРЅР° РѕРєР°Р·Р°Р»Р°СЃСЊ СЃРёР»СЊРЅРµРµ Р±Р°Р·РѕРІРѕР№ СЃС‚СЂР°С‚РµРіРёРё СЂРµР¶РёРјР°."
         )
     context.update(
         {
@@ -161,7 +162,7 @@ def _build_default_feature_selection_analysis(
     entity_frame: pd.DataFrame,
     available_features: Sequence[str],
     cluster_count: int,
-) -> Dict[str, Any]:
+) -> ClusteringFeatureSelectionContext:
     ordered_features = [
         feature
         for feature in available_features
@@ -179,12 +180,12 @@ def _build_default_feature_selection_analysis(
                 "ablation_rows": [],
                 "volume_role_code": DEFAULT_CLUSTER_MODE_PROFILE,
                 "volume_role_label": DEFAULT_CLUSTER_MODE_PROFILE_LABEL,
-                "volume_note": "Из-за малого числа доступных признаков кластеризация описывает только тот профиль, который удалось собрать из текущего среза.",
-                "selection_note": "Базовый набор признаков собран по короткому пробному сравнению, но в текущем срезе данных слишком мало для полноценного сравнения режимов.",
+                "volume_note": "РР·-Р·Р° РјР°Р»РѕРіРѕ С‡РёСЃР»Р° РґРѕСЃС‚СѓРїРЅС‹С… РїСЂРёР·РЅР°РєРѕРІ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ РѕРїРёСЃС‹РІР°РµС‚ С‚РѕР»СЊРєРѕ С‚РѕС‚ РїСЂРѕС„РёР»СЊ, РєРѕС‚РѕСЂС‹Р№ СѓРґР°Р»РѕСЃСЊ СЃРѕР±СЂР°С‚СЊ РёР· С‚РµРєСѓС‰РµРіРѕ СЃСЂРµР·Р°.",
+                "selection_note": "Р‘Р°Р·РѕРІС‹Р№ РЅР°Р±РѕСЂ РїСЂРёР·РЅР°РєРѕРІ СЃРѕР±СЂР°РЅ РїРѕ РєРѕСЂРѕС‚РєРѕРјСѓ РїСЂРѕР±РЅРѕРјСѓ СЃСЂР°РІРЅРµРЅРёСЋ, РЅРѕ РІ С‚РµРєСѓС‰РµРј СЃСЂРµР·Рµ РґР°РЅРЅС‹С… СЃР»РёС€РєРѕРј РјР°Р»Рѕ РґР»СЏ РїРѕР»РЅРѕС†РµРЅРЅРѕРіРѕ СЃСЂР°РІРЅРµРЅРёСЏ СЂРµР¶РёРјРѕРІ.",
             },
         )
 
-    mode_candidates: List[Dict[str, Any]] = []
+    mode_candidates: List[ClusteringMethodCandidate] = []
     for mode_key, mode_label, excluded_features in [
         (DEFAULT_CLUSTER_MODE_PROFILE, DEFAULT_CLUSTER_MODE_PROFILE_LABEL, PROFILE_MODE_EXCLUDED_FEATURES),
         (DEFAULT_CLUSTER_MODE_LOAD, DEFAULT_CLUSTER_MODE_LOAD_LABEL, set()),
@@ -238,8 +239,8 @@ def _build_default_feature_selection_analysis(
                 "ablation_rows": [],
                 "volume_role_code": DEFAULT_CLUSTER_MODE_PROFILE,
                 "volume_role_label": DEFAULT_CLUSTER_MODE_PROFILE_LABEL,
-                "volume_note": "Сравнить два режима типологии не удалось, поэтому выбран самый устойчивый доступный набор признаков.",
-                "selection_note": "Базовый набор признаков собран по короткому пробному сравнению, но режимы типологии не удалось сопоставить из-за ограниченного числа признаков.",
+                "volume_note": "РЎСЂР°РІРЅРёС‚СЊ РґРІР° СЂРµР¶РёРјР° С‚РёРїРѕР»РѕРіРёРё РЅРµ СѓРґР°Р»РѕСЃСЊ, РїРѕСЌС‚РѕРјСѓ РІС‹Р±СЂР°РЅ СЃР°РјС‹Р№ СѓСЃС‚РѕР№С‡РёРІС‹Р№ РґРѕСЃС‚СѓРїРЅС‹Р№ РЅР°Р±РѕСЂ РїСЂРёР·РЅР°РєРѕРІ.",
+                "selection_note": "Р‘Р°Р·РѕРІС‹Р№ РЅР°Р±РѕСЂ РїСЂРёР·РЅР°РєРѕРІ СЃРѕР±СЂР°РЅ РїРѕ РєРѕСЂРѕС‚РєРѕРјСѓ РїСЂРѕР±РЅРѕРјСѓ СЃСЂР°РІРЅРµРЅРёСЋ, РЅРѕ СЂРµР¶РёРјС‹ С‚РёРїРѕР»РѕРіРёРё РЅРµ СѓРґР°Р»РѕСЃСЊ СЃРѕРїРѕСЃС‚Р°РІРёС‚СЊ РёР·-Р·Р° РѕРіСЂР°РЅРёС‡РµРЅРЅРѕРіРѕ С‡РёСЃР»Р° РїСЂРёР·РЅР°РєРѕРІ.",
             },
         )
 
@@ -259,9 +260,9 @@ def _build_default_feature_selection_analysis(
             "volume_note": volume_role["note"],
             "weighting_strategy": selected_mode.get("weighting_strategy"),
             "selection_note": (
-                "Базовый набор признаков собран по короткому пробному сравнению: сначала сопоставляются режимы "
-                f"'{DEFAULT_CLUSTER_MODE_PROFILE_LABEL}' и '{DEFAULT_CLUSTER_MODE_LOAD_LABEL}', "
-                "после чего в выбранном режиме проверяется, какие признаки лучше разделяют территории."
+                "Р‘Р°Р·РѕРІС‹Р№ РЅР°Р±РѕСЂ РїСЂРёР·РЅР°РєРѕРІ СЃРѕР±СЂР°РЅ РїРѕ РєРѕСЂРѕС‚РєРѕРјСѓ РїСЂРѕР±РЅРѕРјСѓ СЃСЂР°РІРЅРµРЅРёСЋ: СЃРЅР°С‡Р°Р»Р° СЃРѕРїРѕСЃС‚Р°РІР»СЏСЋС‚СЃСЏ СЂРµР¶РёРјС‹ "
+                f"'{DEFAULT_CLUSTER_MODE_PROFILE_LABEL}' Рё '{DEFAULT_CLUSTER_MODE_LOAD_LABEL}', "
+                "РїРѕСЃР»Рµ С‡РµРіРѕ РІ РІС‹Р±СЂР°РЅРЅРѕРј СЂРµР¶РёРјРµ РїСЂРѕРІРµСЂСЏРµС‚СЃСЏ, РєР°РєРёРµ РїСЂРёР·РЅР°РєРё Р»СѓС‡С€Рµ СЂР°Р·РґРµР»СЏСЋС‚ С‚РµСЂСЂРёС‚РѕСЂРёРё."
             ),
         },
     )
@@ -391,7 +392,7 @@ def _choose_features_from_pool(
     return prioritized + remainder
 
 
-def _pick_default_feature_selection_mode(mode_candidates: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _pick_default_feature_selection_mode(mode_candidates: Sequence[ClusteringMethodCandidate]) -> ClusteringMethodCandidate:
     load_mode = next((item for item in mode_candidates if item["mode_key"] == DEFAULT_CLUSTER_MODE_LOAD), None)
     profile_mode = next((item for item in mode_candidates if item["mode_key"] == DEFAULT_CLUSTER_MODE_PROFILE), None)
     if load_mode is None:
@@ -414,7 +415,7 @@ def _build_feature_ablation_rows(
     candidate_features: Sequence[str],
     cluster_count: int,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
-) -> List[Dict[str, Any]]:
+) -> List[FeatureAblationRow]:
     base_result = _evaluate_feature_subset(
         feature_frame,
         entity_frame,
@@ -422,7 +423,7 @@ def _build_feature_ablation_rows(
         cluster_count,
         weighting_strategy=weighting_strategy,
     )
-    rows: List[Dict[str, Any]] = []
+    rows: List[FeatureAblationRow] = []
 
     for feature in selected_features:
         reduced_features = [item for item in selected_features if item != feature]
@@ -472,19 +473,19 @@ def _build_feature_ablation_rows(
     )
 
 
-def _summarize_volume_role(selection_report: Dict[str, Any]) -> Dict[str, str]:
+def _summarize_volume_role(selection_report: ClusteringMethodCandidate) -> Dict[str, str]:
     if selection_report["mode_key"] == DEFAULT_CLUSTER_MODE_PROFILE:
         return {
             "code": DEFAULT_CLUSTER_MODE_PROFILE,
             "label": DEFAULT_CLUSTER_MODE_PROFILE_LABEL,
-            "note": "По умолчанию кластеризация описывает профиль территории без отдельного разбиения по объёму нагрузки: признак 'Число пожаров' не нужен, чтобы сохранить качество на текущем срезе.",
+            "note": "РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ РѕРїРёСЃС‹РІР°РµС‚ РїСЂРѕС„РёР»СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё Р±РµР· РѕС‚РґРµР»СЊРЅРѕРіРѕ СЂР°Р·Р±РёРµРЅРёСЏ РїРѕ РѕР±СЉС‘РјСѓ РЅР°РіСЂСѓР·РєРё: РїСЂРёР·РЅР°Рє 'Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ' РЅРµ РЅСѓР¶РµРЅ, С‡С‚РѕР±С‹ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°С‡РµСЃС‚РІРѕ РЅР° С‚РµРєСѓС‰РµРј СЃСЂРµР·Рµ.",
         }
 
     count_drop = next(
         (
             row
             for row in selection_report["ablation_rows"]
-            if row["direction"] == "drop" and row["feature"] == "Число пожаров"
+            if row["direction"] == "drop" and row["feature"] == "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"
         ),
         None,
     )
@@ -492,7 +493,7 @@ def _summarize_volume_role(selection_report: Dict[str, Any]) -> Dict[str, str]:
         (
             row
             for row in selection_report["ablation_rows"]
-            if row["direction"] == "drop" and row["feature"] != "Число пожаров"
+            if row["direction"] == "drop" and row["feature"] != "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"
         ),
         key=lambda item: float(item["delta_score"]),
         default=None,
@@ -503,12 +504,12 @@ def _summarize_volume_role(selection_report: Dict[str, Any]) -> Dict[str, str]:
         return {
             "code": "load_dominant",
             "label": DEFAULT_CLUSTER_MODE_LOAD_LABEL,
-            "note": "По умолчанию кластеризация описывает профиль территории с сильной компонентой объёма нагрузки: признак 'Число пожаров' даёт самый заметный вклад в качество разбиения.",
+            "note": "РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ РѕРїРёСЃС‹РІР°РµС‚ РїСЂРѕС„РёР»СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё СЃ СЃРёР»СЊРЅРѕР№ РєРѕРјРїРѕРЅРµРЅС‚РѕР№ РѕР±СЉС‘РјР° РЅР°РіСЂСѓР·РєРё: РїСЂРёР·РЅР°Рє 'Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ' РґР°С‘С‚ СЃР°РјС‹Р№ Р·Р°РјРµС‚РЅС‹Р№ РІРєР»Р°Рґ РІ РєР°С‡РµСЃС‚РІРѕ СЂР°Р·Р±РёРµРЅРёСЏ.",
         }
     return {
         "code": "load_aware",
         "label": DEFAULT_CLUSTER_MODE_LOAD_LABEL,
-        "note": "По умолчанию кластеризация описывает профиль территории с учётом объёма нагрузки, но не сводится только к числу пожаров: кроме объёма, кластеризацию удерживают и профильные признаки.",
+        "note": "РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ РѕРїРёСЃС‹РІР°РµС‚ РїСЂРѕС„РёР»СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё СЃ СѓС‡С‘С‚РѕРј РѕР±СЉС‘РјР° РЅР°РіСЂСѓР·РєРё, РЅРѕ РЅРµ СЃРІРѕРґРёС‚СЃСЏ С‚РѕР»СЊРєРѕ Рє С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ: РєСЂРѕРјРµ РѕР±СЉС‘РјР°, РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЋ СѓРґРµСЂР¶РёРІР°СЋС‚ Рё РїСЂРѕС„РёР»СЊРЅС‹Рµ РїСЂРёР·РЅР°РєРё.",
     }
 
 
@@ -555,7 +556,7 @@ def _evaluate_feature_subset(
     }
 
 
-def _subset_result_sort_key(result: Dict[str, float]) -> tuple[float, float, float, float, float]:
+def _subset_result_sort_key(result: dict[str, float]) -> tuple[float, float, float, float, float]:
     davies_bouldin = result.get("davies_bouldin", float("inf"))
     return (
         float(result.get("score", float("-inf"))),

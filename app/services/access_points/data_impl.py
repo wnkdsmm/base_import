@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -304,7 +304,7 @@ def _filter_source_records(
 
 def _collect_available_districts(records: Sequence[PointRecord]) -> List[OptionItem]:
     districts = sorted({record["district"] for record in records if _clean_text(record.get("district"))})
-    return [{"value": "all", "label": "Все районы"}, *({"value": district, "label": district} for district in districts)]
+    return [{"value": "all", "label": "Р’СЃРµ СЂР°Р№РѕРЅС‹"}, *({"value": district, "label": district} for district in districts)]
 
 
 def _collect_available_years(records: Sequence[PointRecord]) -> List[OptionItem]:
@@ -316,7 +316,7 @@ def _collect_available_years(records: Sequence[PointRecord]) -> List[OptionItem]
         },
         reverse=True,
     )
-    return [{"value": "all", "label": "Все годы"}, *({"value": year, "label": year} for year in years)]
+    return [{"value": "all", "label": "Р’СЃРµ РіРѕРґС‹"}, *({"value": year, "label": year} for year in years)]
 
 
 def _summarize_consequences(records: Sequence[PointRecord]) -> ConsequenceSummary:
@@ -370,7 +370,7 @@ def _summarize_response(records: Sequence[PointRecord]) -> ResponseSummary:
 
 
 def _build_priority_rows(records: Sequence[PointRecord]) -> List[PriorityRow]:
-    grouped: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+    grouped: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
     for record in records:
         key = (record.get("district") or "", record.get("territory_label") or "")
         grouped.setdefault(key, []).append(record)
@@ -399,7 +399,7 @@ def _build_priority_rows(records: Sequence[PointRecord]) -> List[PriorityRow]:
                 "without_water_supply": water_supply["without_water_supply"],
                 "heating_season_fires": sum(1 for item in items if _is_heating_season(item.get("event_date"))),
                 "top_object_category": Counter(
-                    _clean_text(item.get("object_category")) or "Не указано"
+                    _clean_text(item.get("object_category")) or "РќРµ СѓРєР°Р·Р°РЅРѕ"
                     for item in items
                 ).most_common(1)[0][0],
             }
@@ -428,17 +428,17 @@ def get_access_points_data(
         return {
             "table_options": table_options,
             "selected_table": selected_table,
-            "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "Все таблицы"),
-            "district_options": [{"value": "all", "label": "Все районы"}],
-            "year_options": [{"value": "all", "label": "Все годы"}],
+            "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"),
+            "district_options": [{"value": "all", "label": "Р’СЃРµ СЂР°Р№РѕРЅС‹"}],
+            "year_options": [{"value": "all", "label": "Р’СЃРµ РіРѕРґС‹"}],
             "selected_district": "all",
             "selected_year": "all",
             "summary": {"total_points": 0, "total_points_display": "0"},
             "points": [],
-            "notes": ["Нет доступных таблиц для анализа проблемных точек."],
+            "notes": ["РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С‚Р°Р±Р»РёС† РґР»СЏ Р°РЅР°Р»РёР·Р° РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє."],
         }
 
-    all_records: List[Dict[str, Any]] = []
+    all_records: List[dict[str, Any]] = []
     for source_table in source_tables:
         all_records.extend(_collect_source_records(source_table))
 
@@ -452,7 +452,7 @@ def get_access_points_data(
     return {
         "table_options": table_options,
         "selected_table": selected_table,
-        "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "Все таблицы"),
+        "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"),
         "district_options": district_options,
         "year_options": year_options,
         "selected_district": selected_district,
@@ -467,7 +467,7 @@ def get_access_points_data(
 
 
 def _collect_access_point_metadata(source_tables: Sequence[str]) -> Tuple[List[AccessPointMetadata], List[str]]:
-    metadata_items: List[Dict[str, Any]] = []
+    metadata_items: List[dict[str, Any]] = []
     notes: List[str] = []
     for table_name in source_tables:
         try:
@@ -523,7 +523,7 @@ def _collect_access_point_inputs(
     metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
 ) -> Tuple[List[AccessPointInput], List[str]]:
     del metadata_items
-    records: List[Dict[str, Any]] = []
+    records: List[dict[str, Any]] = []
     notes: List[str] = []
     for table_name in source_tables:
         try:

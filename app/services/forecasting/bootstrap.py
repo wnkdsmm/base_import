@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
 
@@ -33,7 +33,7 @@ def _build_pending_decision_support_payload(
     history_window: str,
     feature_cards: List[Dict[str, str]],
     message: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     risk_prediction = _empty_forecasting_data(
         table_options=table_options,
         selected_table=selected_table,
@@ -64,7 +64,7 @@ def _build_pending_decision_support_payload(
     return risk_prediction
 
 
-def _build_pending_executive_brief(message: str) -> Dict[str, Any]:
+def _build_pending_executive_brief(message: str) -> dict[str, Any]:
     executive_brief = empty_executive_brief()
     executive_brief["lead"] = message
     executive_brief["top_territory_label"] = "\u041f\u043e\u0434\u0433\u043e\u0442\u0430\u0432\u043b\u0438\u0432\u0430\u0435\u0442\u0441\u044f"
@@ -165,7 +165,7 @@ def _build_shell_risk_prediction(
     history_window: str,
     feature_cards: List[Dict[str, str]],
     message: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     followup_message = (
         "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u044b \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0439, \u043f\u0430\u0441\u043f\u043e\u0440\u0442 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0430 \u0438 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0437\u0430\u043f\u0443\u0441\u0442\u044f\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u0441\u043b\u0435 \u0431\u0430\u0437\u043e\u0432\u043e\u0433\u043e \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430."
     )
@@ -224,7 +224,7 @@ def _build_forecasting_shell_data(
     source_notes_resolver=_selected_source_table_notes,
     forecast_days_parser=_parse_forecast_days,
     history_window_parser=_parse_history_window,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     table_options = table_options_builder()
     selected_table = selection_resolver(table_options, table_name)
     source_tables = source_tables_resolver(table_options, selected_table)

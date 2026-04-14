@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import html
 import json
@@ -14,12 +14,12 @@ from ...types import PopupRow, ProcessedRecord, SpatialPoint
 
 class MapCreatorUtilityMixin:
     def _get_marker_category(self, row: pd.Series, columns: Dict[str, Optional[str]]) -> str:
-        """Определяет категорию маркера по данным строки"""
+        """РћРїСЂРµРґРµР»СЏРµС‚ РєР°С‚РµРіРѕСЂРёСЋ РјР°СЂРєРµСЂР° РїРѕ РґР°РЅРЅС‹Рј СЃС‚СЂРѕРєРё"""
         if self.cleaner.safe_get(row, columns.get('deaths'), 0):
             return "deaths"
         if self.cleaner.safe_get(row, columns.get('injured'), 0):
             return "injured"
-        # Проверяем наличие детей (спасенных или эвакуированных)
+        # РџСЂРѕРІРµСЂСЏРµРј РЅР°Р»РёС‡РёРµ РґРµС‚РµР№ (СЃРїР°СЃРµРЅРЅС‹С… РёР»Рё СЌРІР°РєСѓРёСЂРѕРІР°РЅРЅС‹С…)
         if (self.cleaner.safe_get(row, columns.get('children_saved'), 0) or 
             self.cleaner.safe_get(row, columns.get('children_evacuated'), 0)):
             return "children"
@@ -63,24 +63,24 @@ class MapCreatorUtilityMixin:
     def _build_fire_popup_rows(self, data: Dict[str, str]) -> List[PopupRow]:
         return self._build_popup_rows(
             [
-                ("Дата", data.get("date", "")),
-                ("Адрес", data.get("address", "")),
-                ("Погибшие", data.get("deaths", "")),
-                ("Травмированные", data.get("injured", "")),
-                ("Эвакуировано", data.get("evacuated", "")),
-                ("Спасено детей", data.get("children_saved", "")),
-                ("Эвакуировано детей", data.get("children_evacuated", "")),
-                ("Причина (общая)", data.get("fire_cause_general", "")),
-                ("Причина открытой территории", data.get("fire_cause_open", "")),
-                ("Причина здания", data.get("fire_cause_building", "")),
-                ("Категория здания", data.get("building_category", "")),
-                ("Категория объекта", data.get("object_category", "")),
-                ("Общая площадь", data.get("object_area", "")),
+                ("Р”Р°С‚Р°", data.get("date", "")),
+                ("РђРґСЂРµСЃ", data.get("address", "")),
+                ("РџРѕРіРёР±С€РёРµ", data.get("deaths", "")),
+                ("РўСЂР°РІРјРёСЂРѕРІР°РЅРЅС‹Рµ", data.get("injured", "")),
+                ("Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ", data.get("evacuated", "")),
+                ("РЎРїР°СЃРµРЅРѕ РґРµС‚РµР№", data.get("children_saved", "")),
+                ("Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ РґРµС‚РµР№", data.get("children_evacuated", "")),
+                ("РџСЂРёС‡РёРЅР° (РѕР±С‰Р°СЏ)", data.get("fire_cause_general", "")),
+                ("РџСЂРёС‡РёРЅР° РѕС‚РєСЂС‹С‚РѕР№ С‚РµСЂСЂРёС‚РѕСЂРёРё", data.get("fire_cause_open", "")),
+                ("РџСЂРёС‡РёРЅР° Р·РґР°РЅРёСЏ", data.get("fire_cause_building", "")),
+                ("РљР°С‚РµРіРѕСЂРёСЏ Р·РґР°РЅРёСЏ", data.get("building_category", "")),
+                ("РљР°С‚РµРіРѕСЂРёСЏ РѕР±СЉРµРєС‚Р°", data.get("object_category", "")),
+                ("РћР±С‰Р°СЏ РїР»РѕС‰Р°РґСЊ", data.get("object_area", "")),
             ]
         )
 
     def _calculate_initial_view(self, features: List[Dict]) -> Tuple[Tuple[float, float], int]:
-        """Estimate a robust стартовый центр и зум по координатам."""
+        """Estimate a robust СЃС‚Р°СЂС‚РѕРІС‹Р№ С†РµРЅС‚СЂ Рё Р·СѓРј РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Р°Рј."""
         coords = np.array([feature["geometry"]["coordinates"] for feature in features], dtype=float)
         lons = coords[:, 0]
         lats = coords[:, 1]
@@ -190,10 +190,10 @@ class MapCreatorUtilityMixin:
 
     def _is_rural_label(self, *values: Any) -> bool:
         normalized = ' '.join(
-            self._clean_text(value).lower().replace('ё', 'е').replace('-', ' ')
+            self._clean_text(value).lower().replace('С‘', 'Рµ').replace('-', ' ')
             for value in values if self._clean_text(value)
         )
-        return any(token in normalized for token in ('сель', 'деревн', 'посел', 'село', 'хутор', 'станиц', 'аул', 'снт', 'днп'))
+        return any(token in normalized for token in ('СЃРµР»СЊ', 'РґРµСЂРµРІРЅ', 'РїРѕСЃРµР»', 'СЃРµР»Рѕ', 'С…СѓС‚РѕСЂ', 'СЃС‚Р°РЅРёС†', 'Р°СѓР»', 'СЃРЅС‚', 'РґРЅРї'))
 
     def _dominant_label(self, records: List[ProcessedRecord], key: str, fallback: str) -> str:
         counter = Counter(
@@ -213,12 +213,12 @@ class MapCreatorUtilityMixin:
 
     def _risk_level(self, value: float) -> Tuple[str, str]:
         if value >= 80:
-            return 'Критический', 'critical'
+            return 'РљСЂРёС‚РёС‡РµСЃРєРёР№', 'critical'
         if value >= 60:
-            return 'Высокий', 'high'
+            return 'Р’С‹СЃРѕРєРёР№', 'high'
         if value >= 35:
-            return 'Средний', 'medium'
-        return 'Наблюдение', 'watch'
+            return 'РЎСЂРµРґРЅРёР№', 'medium'
+        return 'РќР°Р±Р»СЋРґРµРЅРёРµ', 'watch'
 
     def _build_circle_polygon(self, lon: float, lat: float, radius_km: float, steps: int = 36) -> List[List[float]]:
         points: List[List[float]] = []

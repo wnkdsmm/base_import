@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 from statistics import mean
@@ -55,7 +55,7 @@ def build_forecasting_metadata_payload(
     selected_cause = metadata_inputs["selected_cause"]
     selected_object_category = metadata_inputs["selected_object_category"]
     feature_cards = metadata_inputs["feature_cards"]
-    base_loading_message = "Фильтры и признаки готовы. Запускаем базовый прогноз."
+    base_loading_message = "Р¤РёР»СЊС‚СЂС‹ Рё РїСЂРёР·РЅР°РєРё РіРѕС‚РѕРІС‹. Р—Р°РїСѓСЃРєР°РµРј Р±Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР·."
     followup_message = deps["build_decision_support_followup_message"]()
 
     metadata_payload["generated_at"] = deps["format_datetime"](datetime.now())
@@ -64,7 +64,7 @@ def build_forecasting_metadata_payload(
     metadata_payload["metadata_pending"] = False
     metadata_payload["metadata_ready"] = True
     metadata_payload["metadata_error"] = False
-    metadata_payload["metadata_status_message"] = "Фильтры и признаки готовы."
+    metadata_payload["metadata_status_message"] = "Р¤РёР»СЊС‚СЂС‹ Рё РїСЂРёР·РЅР°РєРё РіРѕС‚РѕРІС‹."
     metadata_payload["base_forecast_pending"] = True
     metadata_payload["base_forecast_ready"] = False
     metadata_payload["loading_status_message"] = base_loading_message
@@ -80,13 +80,13 @@ def build_forecasting_metadata_payload(
                 selected_cause,
                 selected_object_category,
             ),
-            "history_period_label": "История загружается",
+            "history_period_label": "РСЃС‚РѕСЂРёСЏ Р·Р°РіСЂСѓР¶Р°РµС‚СЃСЏ",
             "history_window_label": deps["history_window_label"](selected_history_window),
         }
     )
     metadata_payload["quality_assessment"]["subtitle"] = (
-        "Фильтры и признаки уже готовы. Теперь рассчитываем базовый прогноз, "
-        "а метрики качества появятся вместе с ним."
+        "Р¤РёР»СЊС‚СЂС‹ Рё РїСЂРёР·РЅР°РєРё СѓР¶Рµ РіРѕС‚РѕРІС‹. РўРµРїРµСЂСЊ СЂР°СЃСЃС‡РёС‚С‹РІР°РµРј Р±Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР·, "
+        "Р° РјРµС‚СЂРёРєРё РєР°С‡РµСЃС‚РІР° РїРѕСЏРІСЏС‚СЃСЏ РІРјРµСЃС‚Рµ СЃ РЅРёРј."
     )
     metadata_payload["quality_assessment"]["dissertation_points"] = [
         metadata_payload["metadata_status_message"],
@@ -188,7 +188,7 @@ def _build_base_forecasting_executive_brief(
 ) -> ForecastingExecutiveBrief:
     executive_brief = deps["build_pending_executive_brief"](
         decision_support_status_message
-        or "Короткий вывод будет доступен после расчета блока поддержки решений."
+        or "РљРѕСЂРѕС‚РєРёР№ РІС‹РІРѕРґ Р±СѓРґРµС‚ РґРѕСЃС‚СѓРїРµРЅ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№."
     )
     if decision_support_ready:
         executive_brief = deps["build_executive_brief_from_risk_payload"](
@@ -198,8 +198,8 @@ def _build_base_forecasting_executive_brief(
     executive_brief["export_text"] = deps["compose_executive_brief_text"](
         executive_brief,
         scope_label=(
-            f"Таблица: {summary['selected_table_label']} | История: {summary['history_window_label']} | "
-            f"Срез: {summary['slice_label']} | Горизонт: {summary['forecast_days_display']} дней"
+            f"РўР°Р±Р»РёС†Р°: {summary['selected_table_label']} | РСЃС‚РѕСЂРёСЏ: {summary['history_window_label']} | "
+            f"РЎСЂРµР·: {summary['slice_label']} | Р“РѕСЂРёР·РѕРЅС‚: {summary['forecast_days_display']} РґРЅРµР№"
         ),
         generated_at=generated_at,
     )
@@ -235,7 +235,7 @@ def _build_base_forecasting_filters(
         "available_causes": option_catalog["causes"],
         "available_object_categories": option_catalog["object_categories"],
         "available_forecast_days": [
-            {"value": str(option), "label": f"{option} дней"}
+            {"value": str(option), "label": f"{option} РґРЅРµР№"}
             for option in deps["forecast_day_options"]
         ],
         "available_history_windows": deps["history_window_options"],
@@ -271,10 +271,10 @@ def _build_base_forecasting_payload_response(
         "metadata_pending": False,
         "metadata_ready": True,
         "metadata_error": False,
-        "metadata_status_message": "Фильтры и признаки готовы.",
+        "metadata_status_message": "Р¤РёР»СЊС‚СЂС‹ Рё РїСЂРёР·РЅР°РєРё РіРѕС‚РѕРІС‹.",
         "base_forecast_pending": False,
         "base_forecast_ready": True,
-        "loading_status_message": "Базовый прогноз готов.",
+        "loading_status_message": "Р‘Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР· РіРѕС‚РѕРІ.",
         "decision_support_pending": decision_support_pending,
         "decision_support_ready": decision_support_ready,
         "decision_support_error": decision_support_error,
@@ -542,7 +542,7 @@ def complete_forecasting_decision_support_payload(
     deps["emit_forecasting_progress"](
         progress_callback,
         "forecasting_decision_support.aggregation",
-        "Собираем ранжирование территорий, паспорт качества и историческую валидацию.",
+        "РЎРѕР±РёСЂР°РµРј СЂР°РЅР¶РёСЂРѕРІР°РЅРёРµ С‚РµСЂСЂРёС‚РѕСЂРёР№, РїР°СЃРїРѕСЂС‚ РєР°С‡РµСЃС‚РІР° Рё РёСЃС‚РѕСЂРёС‡РµСЃРєСѓСЋ РІР°Р»РёРґР°С†РёСЋ.",
     )
     risk_prediction = deps["build_decision_support_payload"](
         source_tables=source_tables,
@@ -556,7 +556,7 @@ def complete_forecasting_decision_support_payload(
     deps["emit_forecasting_progress"](
         progress_callback,
         "forecasting_decision_support.render",
-        "Обновляем короткий вывод, рекомендации и карту риска.",
+        "РћР±РЅРѕРІР»СЏРµРј РєРѕСЂРѕС‚РєРёР№ РІС‹РІРѕРґ, СЂРµРєРѕРјРµРЅРґР°С†РёРё Рё РєР°СЂС‚Сѓ СЂРёСЃРєР°.",
     )
     payload = clone_mutable_payload(base_payload)
     generated_at = deps["format_datetime"](datetime.now())
@@ -570,10 +570,10 @@ def complete_forecasting_decision_support_payload(
     executive_brief["export_text"] = deps["compose_executive_brief_text"](
         executive_brief,
         scope_label=(
-            f"Таблица: {summary.get('selected_table_label') or '-'} | "
-            f"История: {summary.get('history_window_label') or '-'} | "
-            f"Срез: {summary.get('slice_label') or '-'} | "
-            f"Горизонт: {summary.get('forecast_days_display') or '-'} дней"
+            f"РўР°Р±Р»РёС†Р°: {summary.get('selected_table_label') or '-'} | "
+            f"РСЃС‚РѕСЂРёСЏ: {summary.get('history_window_label') or '-'} | "
+            f"РЎСЂРµР·: {summary.get('slice_label') or '-'} | "
+            f"Р“РѕСЂРёР·РѕРЅС‚: {summary.get('forecast_days_display') or '-'} РґРЅРµР№"
         ),
         generated_at=generated_at,
     )
@@ -585,14 +585,14 @@ def complete_forecasting_decision_support_payload(
         metadata_pending=False,
         metadata_ready=True,
         metadata_error=False,
-        metadata_status_message="Фильтры и признаки готовы.",
+        metadata_status_message="Р¤РёР»СЊС‚СЂС‹ Рё РїСЂРёР·РЅР°РєРё РіРѕС‚РѕРІС‹.",
         base_forecast_pending=False,
         base_forecast_ready=True,
-        loading_status_message="Базовый прогноз готов.",
+        loading_status_message="Р‘Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР· РіРѕС‚РѕРІ.",
         decision_support_pending=False,
         decision_support_ready=True,
         decision_support_error=False,
-        decision_support_status_message="Блок поддержки решений и рекомендации готовы.",
+        decision_support_status_message="Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ Рё СЂРµРєРѕРјРµРЅРґР°С†РёРё РіРѕС‚РѕРІС‹.",
         features=risk_prediction.get("feature_cards") or payload.get("features") or [],
         risk_prediction=risk_prediction,
         executive_brief=executive_brief,
@@ -618,7 +618,7 @@ def _build_decision_support_block(
 ) -> tuple[ForecastingRiskPrediction, ForecastingGeoPrediction, bool, bool, bool, str]:
     if not include_decision_support:
         decision_support_status_message = (
-            "Базовый сценарный прогноз уже показан. Приоритеты территорий, паспорт качества и рекомендации догружаются фоном."
+            "Р‘Р°Р·РѕРІС‹Р№ СЃС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· СѓР¶Рµ РїРѕРєР°Р·Р°РЅ. РџСЂРёРѕСЂРёС‚РµС‚С‹ С‚РµСЂСЂРёС‚РѕСЂРёР№, РїР°СЃРїРѕСЂС‚ РєР°С‡РµСЃС‚РІР° Рё СЂРµРєРѕРјРµРЅРґР°С†РёРё РґРѕРіСЂСѓР¶Р°СЋС‚СЃСЏ С„РѕРЅРѕРј."
         )
         risk_prediction = deps["build_pending_decision_support_payload"](
             table_options=table_options,
@@ -648,11 +648,11 @@ def _build_decision_support_block(
             False,
             True,
             False,
-            "Блок поддержки решений и рекомендации готовы.",
+            "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ Рё СЂРµРєРѕРјРµРЅРґР°С†РёРё РіРѕС‚РѕРІС‹.",
         )
     except Exception as exc:
         decision_support_status_message = (
-            "Блок приоритетов территорий временно недоступен. Базовый сценарный прогноз показан без него."
+            "Р‘Р»РѕРє РїСЂРёРѕСЂРёС‚РµС‚РѕРІ С‚РµСЂСЂРёС‚РѕСЂРёР№ РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРµРЅ. Р‘Р°Р·РѕРІС‹Р№ СЃС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· РїРѕРєР°Р·Р°РЅ Р±РµР· РЅРµРіРѕ."
         )
         risk_prediction = deps["build_pending_decision_support_payload"](
             table_options=table_options,
@@ -663,6 +663,6 @@ def _build_decision_support_block(
             feature_cards=feature_cards,
             message=decision_support_status_message,
         )
-        risk_prediction["notes"].append(f"Техническая причина: {exc}")
+        risk_prediction["notes"].append(f"РўРµС…РЅРёС‡РµСЃРєР°СЏ РїСЂРёС‡РёРЅР°: {exc}")
         return risk_prediction, {}, False, False, True, decision_support_status_message
 

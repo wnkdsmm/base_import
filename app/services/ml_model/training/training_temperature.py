@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Dict, List, Optional
 
@@ -43,13 +43,13 @@ def _temperature_quality_note(temperature_stats: Dict[str, object]) -> str:
     coverage_display = _format_percent(coverage * 100.0)
     if temperature_stats.get('usable'):
         return (
-            f'Температурных дней с непустым значением: {non_null_days} из {total_days} '
-            f'({coverage_display}); температурный признак используется в ML.'
+            f'РўРµРјРїРµСЂР°С‚СѓСЂРЅС‹С… РґРЅРµР№ СЃ РЅРµРїСѓСЃС‚С‹Рј Р·РЅР°С‡РµРЅРёРµРј: {non_null_days} РёР· {total_days} '
+            f'({coverage_display}); С‚РµРјРїРµСЂР°С‚СѓСЂРЅС‹Р№ РїСЂРёР·РЅР°Рє РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІ ML.'
         )
     return (
-        f'Температурных дней с непустым значением: {non_null_days} из {total_days} '
-        f'({coverage_display}); это ниже порога {MIN_TEMPERATURE_NON_NULL_DAYS} дней и {int(MIN_TEMPERATURE_COVERAGE * 100)}% покрытия, '
-        'поэтому температурный признак исключён из ML и исторических температурных fallback-статистик.'
+        f'РўРµРјРїРµСЂР°С‚СѓСЂРЅС‹С… РґРЅРµР№ СЃ РЅРµРїСѓСЃС‚С‹Рј Р·РЅР°С‡РµРЅРёРµРј: {non_null_days} РёР· {total_days} '
+        f'({coverage_display}); СЌС‚Рѕ РЅРёР¶Рµ РїРѕСЂРѕРіР° {MIN_TEMPERATURE_NON_NULL_DAYS} РґРЅРµР№ Рё {int(MIN_TEMPERATURE_COVERAGE * 100)}% РїРѕРєСЂС‹С‚РёСЏ, '
+        'РїРѕСЌС‚РѕРјСѓ С‚РµРјРїРµСЂР°С‚СѓСЂРЅС‹Р№ РїСЂРёР·РЅР°Рє РёСЃРєР»СЋС‡С‘РЅ РёР· ML Рё РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… С‚РµРјРїРµСЂР°С‚СѓСЂРЅС‹С… fallback-СЃС‚Р°С‚РёСЃС‚РёРє.'
     )
 
 

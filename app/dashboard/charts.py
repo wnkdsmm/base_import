@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from app.services.shared.dashboard_charts import (
     _build_area_bucket_plotly,

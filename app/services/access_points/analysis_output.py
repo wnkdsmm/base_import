@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from statistics import mean, median
-from typing import Any, Dict, Sequence
+from typing import Any, Sequence
 
 from app.services.shared.data_utils import _clean_text
 from app.services.shared.formatting import _format_integer, _format_number, _format_percent
@@ -110,7 +110,7 @@ def _build_access_point_score_context(
     displays: _AccessPointDisplayContext,
     *,
     active_reason_codes: set[str],
-    normalized_factor_weights: Dict[str, float],
+    normalized_factor_weights: dict[str, float],
 ) -> _AccessPointScoreContext:
     score_decomposition = _build_access_point_score_decomposition(
         metrics,
@@ -233,11 +233,11 @@ def _build_access_point_score_payload(
 def _build_access_point_payload_row(
     *,
     record: AccessPointPayloadRow,
-    precomputed: Dict[str, Sequence[Any]],
+    precomputed: dict[str, Sequence[Any]],
     row_index: int,
     normalized_selected_features: Sequence[str],
     active_reason_codes: set[str],
-    normalized_factor_weights: Dict[str, float],
+    normalized_factor_weights: dict[str, float],
 ) -> AccessPointPayloadRow:
     metrics = _access_point_row_metrics(precomputed, row_index)
     displays = _build_access_point_display_context(metrics)
@@ -254,14 +254,14 @@ def _build_access_point_payload_row(
         or metrics.completeness_share < 0.6
     )
     missing_data_priority = uncertainty_flag and score_context.total_score < HIGH_THRESHOLD
-    label = _clean_text(record.get("label")) or "Точка"
-    location_hint = _clean_text(record.get("location_hint")) or "Локация определена по лучшей доступной сущности"
+    label = _clean_text(record.get("label")) or "РўРѕС‡РєР°"
+    location_hint = _clean_text(record.get("location_hint")) or "Р›РѕРєР°С†РёСЏ РѕРїСЂРµРґРµР»РµРЅР° РїРѕ Р»СѓС‡С€РµР№ РґРѕСЃС‚СѓРїРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё"
     low_support_note = _build_low_support_note(
         low_support=low_support,
         incident_count=metrics.incident_count,
     )
     severity_descriptor = _severity_band_descriptor(score_context.total_score_payload)
-    row: Dict[str, Any] = record
+    row: AccessPointPayloadRow = record
     row.update({"label": label, "location_hint": location_hint})
     row.update(_build_access_point_metric_payload(metrics, displays))
     row.update(
@@ -311,7 +311,7 @@ def _build_typology_rows(rows: Sequence[AccessPointPayloadRow]) -> list[AccessPo
     if not rows:
         return []
 
-    grouped: Dict[str, Dict[str, Any]] = {}
+    grouped: dict[str, AccessPointTypologyRow] = {}
     for row in rows:
         code = str(row.get("typology_code") or "mixed")
         total_score = float(row.get("total_score") or 0.0)
@@ -319,7 +319,7 @@ def _build_typology_rows(rows: Sequence[AccessPointPayloadRow]) -> list[AccessPo
             code,
             {
                 "code": code,
-                "label": row.get("typology_label") or "Комбинированный риск",
+                "label": row.get("typology_label") or "РљРѕРјР±РёРЅРёСЂРѕРІР°РЅРЅС‹Р№ СЂРёСЃРє",
                 "count": 0,
                 "max_score": 0.0,
                 "lead_label": "",
@@ -371,7 +371,7 @@ def _build_score_distribution(rows: Sequence[AccessPointPayloadRow]) -> AccessPo
             bucket_counts[3] += 1
 
     bands = []
-    for code, label in (("low", "Низкий"), ("medium", "Средний"), ("high", "Высокий"), ("critical", "Критический")):
+    for code, label in (("low", "РќРёР·РєРёР№"), ("medium", "РЎСЂРµРґРЅРёР№"), ("high", "Р’С‹СЃРѕРєРёР№"), ("critical", "РљСЂРёС‚РёС‡РµСЃРєРёР№")):
         count = band_counts[code]
         bands.append(
             {
@@ -395,7 +395,7 @@ def _build_score_distribution(rows: Sequence[AccessPointPayloadRow]) -> AccessPo
     }
 
 def _build_reason_breakdown(rows: Sequence[AccessPointPayloadRow]) -> list[AccessPointReasonBreakdownRow]:
-    buckets: Dict[str, Dict[str, Any]] = {}
+    buckets: dict[str, AccessPointReasonBreakdownRow] = {}
     for row in rows:
         for detail in list(row.get("reason_details") or [])[:3]:
             code = str(detail.get("code") or "")
@@ -441,7 +441,7 @@ def _build_reason_breakdown(rows: Sequence[AccessPointPayloadRow]) -> list[Acces
 
 def _build_uncertainty_notes(rows: Sequence[AccessPointPayloadRow]) -> list[str]:
     if not rows:
-        return ["Неопределённость будет оценена после расчёта рейтинга."]
+        return ["РќРµРѕРїСЂРµРґРµР»С‘РЅРЅРѕСЃС‚СЊ Р±СѓРґРµС‚ РѕС†РµРЅРµРЅР° РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° СЂРµР№С‚РёРЅРіР°."]
 
     low_support_count = 0
     uncertainty_count = 0
@@ -454,18 +454,18 @@ def _build_uncertainty_notes(rows: Sequence[AccessPointPayloadRow]) -> list[str]
         if float(row.get("uncertainty_penalty") or 0.0) >= 3.0:
             high_penalty_count += 1
     notes = [
-        "Неполнота данных даёт отдельный penalty, но не является главным драйвером риска: её вклад ограничен 6 баллами.",
+        "РќРµРїРѕР»РЅРѕС‚Р° РґР°РЅРЅС‹С… РґР°С‘С‚ РѕС‚РґРµР»СЊРЅС‹Р№ penalty, РЅРѕ РЅРµ СЏРІР»СЏРµС‚СЃСЏ РіР»Р°РІРЅС‹Рј РґСЂР°Р№РІРµСЂРѕРј СЂРёСЃРєР°: РµС‘ РІРєР»Р°Рґ РѕРіСЂР°РЅРёС‡РµРЅ 6 Р±Р°Р»Р»Р°РјРё.",
     ]
     if low_support_count:
         notes.append(
-            f"Для {_format_integer(low_support_count)} точек опора ниже минимального порога, поэтому долевые признаки сглажены, а итоговый риск ослаблен коэффициентом поддержки."
+            f"Р”Р»СЏ {_format_integer(low_support_count)} С‚РѕС‡РµРє РѕРїРѕСЂР° РЅРёР¶Рµ РјРёРЅРёРјР°Р»СЊРЅРѕРіРѕ РїРѕСЂРѕРіР°, РїРѕСЌС‚РѕРјСѓ РґРѕР»РµРІС‹Рµ РїСЂРёР·РЅР°РєРё СЃРіР»Р°Р¶РµРЅС‹, Р° РёС‚РѕРіРѕРІС‹Р№ СЂРёСЃРє РѕСЃР»Р°Р±Р»РµРЅ РєРѕСЌС„С„РёС†РёРµРЅС‚РѕРј РїРѕРґРґРµСЂР¶РєРё."
         )
     if uncertainty_count:
         notes.append(
-            f"У {_format_integer(uncertainty_count)} точек есть uncertainty flag из-за пропусков по воде, времени прибытия, дистанции до ПЧ или малого числа пожаров."
+            f"РЈ {_format_integer(uncertainty_count)} С‚РѕС‡РµРє РµСЃС‚СЊ uncertainty flag РёР·-Р·Р° РїСЂРѕРїСѓСЃРєРѕРІ РїРѕ РІРѕРґРµ, РІСЂРµРјРµРЅРё РїСЂРёР±С‹С‚РёСЏ, РґРёСЃС‚Р°РЅС†РёРё РґРѕ РџР§ РёР»Рё РјР°Р»РѕРіРѕ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ."
         )
     if high_penalty_count:
         notes.append(
-            f"У {_format_integer(high_penalty_count)} точек penalty за неполноту данных уже заметен и требует управленческой верификации."
+            f"РЈ {_format_integer(high_penalty_count)} С‚РѕС‡РµРє penalty Р·Р° РЅРµРїРѕР»РЅРѕС‚Сѓ РґР°РЅРЅС‹С… СѓР¶Рµ Р·Р°РјРµС‚РµРЅ Рё С‚СЂРµР±СѓРµС‚ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєРѕР№ РІРµСЂРёС„РёРєР°С†РёРё."
         )
     return notes[:4]

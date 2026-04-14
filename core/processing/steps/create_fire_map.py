@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from pathlib import Path
 
 from app.db_metadata import get_table_names_cached
@@ -38,7 +38,7 @@ class CreateFireMapStep:
             )
         except ValueError as exc:
             logger.warning("%s", exc)
-            if "не найдена" in str(exc):
+            if "РЅРµ РЅР°Р№РґРµРЅР°" in str(exc):
                 logger.info("Available tables: %s", get_table_names_cached())
             return None
         except Exception:

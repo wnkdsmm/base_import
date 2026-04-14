@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -112,7 +112,7 @@ def _select_count_method(
     baseline_metrics: Dict[str, Optional[float]] | CountMetrics,
     heuristic_metrics: Dict[str, Optional[float]] | CountMetrics,
     count_metrics: Dict[str, Dict[str, Optional[float]] | CountMetrics],
-) -> Tuple[str, CountMetrics, Dict[str, Any]]:
+) -> Tuple[str, CountMetrics, dict[str, Any]]:
     all_metrics = _all_count_metrics(baseline_metrics, heuristic_metrics, count_metrics)
     ranking = sorted(all_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
     raw_best_key, raw_best_metrics = ranking[0]
@@ -165,56 +165,56 @@ def _build_count_selection_details(
     baseline_delta = selected_metrics.mae_delta_vs_baseline
 
     if selected_count_model_key == 'seasonal_baseline':
-        short_reason = 'Выбран seasonal baseline: на rolling-origin окнах это был лучший рабочий метод среди всех кандидатов.'
+        short_reason = 'Р’С‹Р±СЂР°РЅ seasonal baseline: РЅР° rolling-origin РѕРєРЅР°С… СЌС‚Рѕ Р±С‹Р» Р»СѓС‡С€РёР№ СЂР°Р±РѕС‡РёР№ РјРµС‚РѕРґ СЃСЂРµРґРё РІСЃРµС… РєР°РЅРґРёРґР°С‚РѕРІ.'
         long_reason = (
-            'Seasonal baseline стал рабочим count-методом по результатам rolling-origin backtesting, '
-            'потому что по правилу отбора обошёл heuristic forecast и обучаемые count-model.'
+            'Seasonal baseline СЃС‚Р°Р» СЂР°Р±РѕС‡РёРј count-РјРµС‚РѕРґРѕРј РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј rolling-origin backtesting, '
+            'РїРѕС‚РѕРјСѓ С‡С‚Рѕ РїРѕ РїСЂР°РІРёР»Сѓ РѕС‚Р±РѕСЂР° РѕР±РѕС€С‘Р» heuristic forecast Рё РѕР±СѓС‡Р°РµРјС‹Рµ count-model.'
         )
     elif selected_count_model_key == 'heuristic_forecast' and tie_break_reason == 'heuristic_over_ml' and raw_best_key in COUNT_MODEL_KEYS:
         short_reason = (
-            'Выбран heuristic forecast: он почти не хуже лучшей count-model, '
-            'а explainability tie-break сохраняет более объяснимый метод.'
+            'Р’С‹Р±СЂР°РЅ heuristic forecast: РѕРЅ РїРѕС‡С‚Рё РЅРµ С…СѓР¶Рµ Р»СѓС‡С€РµР№ count-model, '
+            'Р° explainability tie-break СЃРѕС…СЂР°РЅСЏРµС‚ Р±РѕР»РµРµ РѕР±СЉСЏСЃРЅРёРјС‹Р№ РјРµС‚РѕРґ.'
         )
         long_reason = (
-            f'Лучшей обучаемой count-model по метрикам была {COUNT_MODEL_LABELS.get(raw_best_key, raw_best_key)}, '
-            f'но heuristic forecast уступил менее чем на {int(COUNT_MODEL_SELECTION_TOLERANCE * 100)}% '
-            'по Poisson deviance, MAE и RMSE. По explainability tie-break рабочим методом оставлен '
+            f'Р›СѓС‡С€РµР№ РѕР±СѓС‡Р°РµРјРѕР№ count-model РїРѕ РјРµС‚СЂРёРєР°Рј Р±С‹Р»Р° {COUNT_MODEL_LABELS.get(raw_best_key, raw_best_key)}, '
+            f'РЅРѕ heuristic forecast СѓСЃС‚СѓРїРёР» РјРµРЅРµРµ С‡РµРј РЅР° {int(COUNT_MODEL_SELECTION_TOLERANCE * 100)}% '
+            'РїРѕ Poisson deviance, MAE Рё RMSE. РџРѕ explainability tie-break СЂР°Р±РѕС‡РёРј РјРµС‚РѕРґРѕРј РѕСЃС‚Р°РІР»РµРЅ '
             'heuristic forecast.'
         )
     elif selected_count_model_key == 'heuristic_forecast':
-        short_reason = 'Выбран heuristic forecast: на rolling-origin окнах это был лучший рабочий метод среди всех кандидатов.'
+        short_reason = 'Р’С‹Р±СЂР°РЅ heuristic forecast: РЅР° rolling-origin РѕРєРЅР°С… СЌС‚Рѕ Р±С‹Р» Р»СѓС‡С€РёР№ СЂР°Р±РѕС‡РёР№ РјРµС‚РѕРґ СЃСЂРµРґРё РІСЃРµС… РєР°РЅРґРёРґР°С‚РѕРІ.'
         long_reason = (
-            'Heuristic forecast стал рабочим count-методом по результатам rolling-origin backtesting, '
-            'потому что обошёл seasonal baseline и обучаемые count-model по правилу отбора.'
+            'Heuristic forecast СЃС‚Р°Р» СЂР°Р±РѕС‡РёРј count-РјРµС‚РѕРґРѕРј РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј rolling-origin backtesting, '
+            'РїРѕС‚РѕРјСѓ С‡С‚Рѕ РѕР±РѕС€С‘Р» seasonal baseline Рё РѕР±СѓС‡Р°РµРјС‹Рµ count-model РїРѕ РїСЂР°РІРёР»Сѓ РѕС‚Р±РѕСЂР°.'
         )
     elif selected_count_model_key == EXPLAINABLE_COUNT_MODEL_KEY and raw_best_key != selected_count_model_key:
-        short_reason = 'Выбрана регрессия Пуассона: качество близко к лучшей count-model, а интерпретация проще.'
+        short_reason = 'Р’С‹Р±СЂР°РЅР° СЂРµРіСЂРµСЃСЃРёСЏ РџСѓР°СЃСЃРѕРЅР°: РєР°С‡РµСЃС‚РІРѕ Р±Р»РёР·РєРѕ Рє Р»СѓС‡С€РµР№ count-model, Р° РёРЅС‚РµСЂРїСЂРµС‚Р°С†РёСЏ РїСЂРѕС‰Рµ.'
         long_reason = (
-            'Регрессия Пуассона оставлена рабочим count-методом, потому что на rolling-origin backtesting '
-            f'её Poisson deviance, MAE и RMSE отличаются от лидера {COUNT_MODEL_LABELS.get(raw_best_key, raw_best_key)} '
-            f'менее чем на {int(COUNT_MODEL_SELECTION_TOLERANCE * 100)}%, но эта модель проще для интерпретации.'
+            'Р РµРіСЂРµСЃСЃРёСЏ РџСѓР°СЃСЃРѕРЅР° РѕСЃС‚Р°РІР»РµРЅР° СЂР°Р±РѕС‡РёРј count-РјРµС‚РѕРґРѕРј, РїРѕС‚РѕРјСѓ С‡С‚Рѕ РЅР° rolling-origin backtesting '
+            f'РµС‘ Poisson deviance, MAE Рё RMSE РѕС‚Р»РёС‡Р°СЋС‚СЃСЏ РѕС‚ Р»РёРґРµСЂР° {COUNT_MODEL_LABELS.get(raw_best_key, raw_best_key)} '
+            f'РјРµРЅРµРµ С‡РµРј РЅР° {int(COUNT_MODEL_SELECTION_TOLERANCE * 100)}%, РЅРѕ СЌС‚Р° РјРѕРґРµР»СЊ РїСЂРѕС‰Рµ РґР»СЏ РёРЅС‚РµСЂРїСЂРµС‚Р°С†РёРё.'
         )
     elif selected_count_model_key == 'negative_binomial':
-        short_reason = f'Выбрана {selected_label}: ряд пере-дисперсный, и эта модель лучше удерживает deviance.'
+        short_reason = f'Р’С‹Р±СЂР°РЅР° {selected_label}: СЂСЏРґ РїРµСЂРµ-РґРёСЃРїРµСЂСЃРЅС‹Р№, Рё СЌС‚Р° РјРѕРґРµР»СЊ Р»СѓС‡С€Рµ СѓРґРµСЂР¶РёРІР°РµС‚ deviance.'
         long_reason = (
-            f'{selected_label} выбрана как рабочий count-метод, потому что ряд показывает пере-дисперсию '
-            f'(отношение variance/mean = {overdispersion_ratio:.2f}), а на rolling-origin backtesting именно '
-            'эта модель дала наименьшую Poisson deviance при сохранении интерпретируемой GLM-структуры.'
+            f'{selected_label} РІС‹Р±СЂР°РЅР° РєР°Рє СЂР°Р±РѕС‡РёР№ count-РјРµС‚РѕРґ, РїРѕС‚РѕРјСѓ С‡С‚Рѕ СЂСЏРґ РїРѕРєР°Р·С‹РІР°РµС‚ РїРµСЂРµ-РґРёСЃРїРµСЂСЃРёСЋ '
+            f'(РѕС‚РЅРѕС€РµРЅРёРµ variance/mean = {overdispersion_ratio:.2f}), Р° РЅР° rolling-origin backtesting РёРјРµРЅРЅРѕ '
+            'СЌС‚Р° РјРѕРґРµР»СЊ РґР°Р»Р° РЅР°РёРјРµРЅСЊС€СѓСЋ Poisson deviance РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РёРЅС‚РµСЂРїСЂРµС‚РёСЂСѓРµРјРѕР№ GLM-СЃС‚СЂСѓРєС‚СѓСЂС‹.'
         )
     else:
-        short_reason = f'Выбрана {selected_label}: лучший баланс deviance, MAE и RMSE на rolling-origin.'
+        short_reason = f'Р’С‹Р±СЂР°РЅР° {selected_label}: Р»СѓС‡С€РёР№ Р±Р°Р»Р°РЅСЃ deviance, MAE Рё RMSE РЅР° rolling-origin.'
         long_reason = (
-            f'{selected_label} выбрана по результатам rolling-origin backtesting, потому что показала лучший '
-            'результат по Poisson deviance, MAE и RMSE среди всех count-кандидатов.'
+            f'{selected_label} РІС‹Р±СЂР°РЅР° РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј rolling-origin backtesting, РїРѕС‚РѕРјСѓ С‡С‚Рѕ РїРѕРєР°Р·Р°Р»Р° Р»СѓС‡С€РёР№ '
+            'СЂРµР·СѓР»СЊС‚Р°С‚ РїРѕ Poisson deviance, MAE Рё RMSE СЃСЂРµРґРё РІСЃРµС… count-РєР°РЅРґРёРґР°С‚РѕРІ.'
         )
 
     if runner_up_label:
-        long_reason += f' Ближайший альтернативный кандидат: {runner_up_label}.'
+        long_reason += f' Р‘Р»РёР¶Р°Р№С€РёР№ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹Р№ РєР°РЅРґРёРґР°С‚: {runner_up_label}.'
     if baseline_delta is not None:
-        long_reason += f' Изменение MAE относительно seasonal baseline составило {baseline_delta * 100.0:+.1f}%.'
+        long_reason += f' РР·РјРµРЅРµРЅРёРµ MAE РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ seasonal baseline СЃРѕСЃС‚Р°РІРёР»Рѕ {baseline_delta * 100.0:+.1f}%.'
     heuristic_improvement = relative_delta(selected_metrics.mae, heuristic_metrics.mae)
     if heuristic_improvement is not None and selected_count_model_key != 'heuristic_forecast':
-        long_reason += f' Изменение MAE относительно heuristic forecast составило {heuristic_improvement * 100.0:+.1f}%.'
+        long_reason += f' РР·РјРµРЅРµРЅРёРµ MAE РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ heuristic forecast СЃРѕСЃС‚Р°РІРёР»Рѕ {heuristic_improvement * 100.0:+.1f}%.'
 
     return {
         'short': short_reason,
@@ -232,14 +232,14 @@ def _build_count_comparison_rows(
         CountComparisonRow(
             method_key='seasonal_baseline',
             method_label=COUNT_MODEL_LABELS.get('seasonal_baseline', 'Seasonal baseline'),
-            role_label='Базовая модель',
+            role_label='Р‘Р°Р·РѕРІР°СЏ РјРѕРґРµР»СЊ',
             is_selected=selected_count_model_key == 'seasonal_baseline',
             metrics=CountMetrics.coerce(baseline_metrics),
         ),
         CountComparisonRow(
             method_key='heuristic_forecast',
             method_label=COUNT_MODEL_LABELS.get('heuristic_forecast', 'Heuristic forecast'),
-            role_label='Сценарный прогноз',
+            role_label='РЎС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР·',
             is_selected=selected_count_model_key == 'heuristic_forecast',
             metrics=CountMetrics.coerce(heuristic_metrics),
         ),
@@ -252,7 +252,7 @@ def _build_count_comparison_rows(
             CountComparisonRow(
                 method_key=model_key,
                 method_label=COUNT_MODEL_LABELS.get(model_key, model_key),
-                role_label='Интерпретируемая count-модель',
+                role_label='РРЅС‚РµСЂРїСЂРµС‚РёСЂСѓРµРјР°СЏ count-РјРѕРґРµР»СЊ',
                 is_selected=model_key == selected_count_model_key,
                 metrics=CountMetrics.coerce(metrics),
             )

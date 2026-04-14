@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -19,11 +19,16 @@ from .constants import (
 )
 from .selection import _canonicalize_source_tables, _history_window_year_span
 from .sql import _FORECASTING_SQL_CACHE, _build_sql_cache_key, _load_daily_history_rows, _load_forecasting_records
+from .types import (
+    ForecastingInputRecord,
+    ForecastingTableMetadata,
+    ForecastingTemperatureQuality,
+)
 from .utils import _date_expression, _quote_identifier, _resolve_column_name, _to_float_or_none
 
 
-def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
-    metadata_items: List[Dict[str, Any]] = []
+def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[ForecastingTableMetadata], List[str]]:
+    metadata_items: List[ForecastingTableMetadata] = []
     normalized_tables, notes = _canonicalize_source_tables(source_tables)
     for source_table in normalized_tables:
         try:
@@ -40,8 +45,8 @@ def _collect_forecasting_inputs(
     cause: str = "all",
     object_category: str = "all",
     history_window: str = "all",
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
-    records: List[Dict[str, Any]] = []
+) -> tuple[List[ForecastingInputRecord], List[ForecastingTableMetadata], List[str]]:
+    records: List[ForecastingInputRecord] = []
     metadata_items, notes = _collect_forecasting_metadata(source_tables)
     min_year = _resolve_history_window_min_year(metadata_items, history_window)
     for metadata in metadata_items:
@@ -76,7 +81,7 @@ def _collect_forecasting_inputs(
     return records, metadata_items, notes
 
 
-def _build_temperature_quality(non_null_days: int, total_days: int) -> Dict[str, Any]:
+def _build_temperature_quality(non_null_days: int, total_days: int) -> ForecastingTemperatureQuality:
     normalized_non_null_days = max(0, int(non_null_days))
     normalized_total_days = max(0, int(total_days))
     coverage = (float(normalized_non_null_days) / float(normalized_total_days)) if normalized_total_days > 0 else 0.0
@@ -87,13 +92,13 @@ def _build_temperature_quality(non_null_days: int, total_days: int) -> Dict[str,
     )
     if normalized_non_null_days <= 0:
         quality_key = "missing"
-        quality_label = "Нет измерений"
+        quality_label = "РќРµС‚ РёР·РјРµСЂРµРЅРёР№"
     elif usable:
         quality_key = "good"
-        quality_label = "Достаточное покрытие"
+        quality_label = "Р”РѕСЃС‚Р°С‚РѕС‡РЅРѕРµ РїРѕРєСЂС‹С‚РёРµ"
     else:
         quality_key = "sparse"
-        quality_label = "Низкое покрытие"
+        quality_label = "РќРёР·РєРѕРµ РїРѕРєСЂС‹С‚РёРµ"
     return {
         "non_null_days": normalized_non_null_days,
         "total_days": normalized_total_days,
@@ -104,7 +109,7 @@ def _build_temperature_quality(non_null_days: int, total_days: int) -> Dict[str,
     }
 
 
-def _temperature_quality_from_daily_history(daily_history: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _temperature_quality_from_daily_history(daily_history: Sequence[ForecastingInputRecord]) -> ForecastingTemperatureQuality:
     normalized_history = [item for item in daily_history if item]
     total_days = len(normalized_history)
     non_null_days = sum(
@@ -115,7 +120,7 @@ def _temperature_quality_from_daily_history(daily_history: Sequence[Dict[str, An
     return _build_temperature_quality(non_null_days, total_days)
 
 
-def _temperature_quality_from_daily_rows(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _temperature_quality_from_daily_rows(rows: Sequence[ForecastingInputRecord]) -> ForecastingTemperatureQuality:
     normalized_rows = [item for item in rows if item and item.get("date") is not None]
     if not normalized_rows:
         return _build_temperature_quality(0, 0)
@@ -131,7 +136,7 @@ def _temperature_quality_from_daily_rows(rows: Sequence[Dict[str, Any]]) -> Dict
     return _build_temperature_quality(non_null_days, total_days)
 
 
-def _load_temperature_quality(table_name: str, resolved_columns: Dict[str, str]) -> Dict[str, Any]:
+def _load_temperature_quality(table_name: str, resolved_columns: Dict[str, str]) -> ForecastingTemperatureQuality:
     date_column = resolved_columns.get("date")
     temperature_column = resolved_columns.get("temperature")
     if not date_column or not temperature_column:
@@ -150,17 +155,17 @@ def _load_temperature_quality(table_name: str, resolved_columns: Dict[str, str])
     return quality
 
 
-def _load_table_metadata(table_name: str) -> Dict[str, Any]:
+def _load_table_metadata(table_name: str) -> ForecastingTableMetadata:
     try:
         columns = get_table_columns_cached(table_name)
     except ValueError as exc:
-        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.") from exc
+        raise ValueError(f"РўР°Р±Р»РёС†Р° '{table_name}' РЅРµ РЅР°Р№РґРµРЅР° РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С….") from exc
     resolved_columns = {
         "date": _resolve_column_name(columns, [DATE_COLUMN]),
         "district": _resolve_column_name(columns, DISTRICT_COLUMN_CANDIDATES),
         "temperature": _resolve_column_name(columns, TEMPERATURE_COLUMN_CANDIDATES),
         "cause": _resolve_column_name(columns, CAUSE_COLUMN_CANDIDATES),
-        "object_category": _resolve_column_name(columns, [OBJECT_CATEGORY_COLUMN, "Категория объекта пожара"]),
+        "object_category": _resolve_column_name(columns, [OBJECT_CATEGORY_COLUMN, "РљР°С‚РµРіРѕСЂРёСЏ РѕР±СЉРµРєС‚Р° РїРѕР¶Р°СЂР°"]),
         "latitude": _resolve_column_name(columns, LATITUDE_COLUMN_CANDIDATES),
         "longitude": _resolve_column_name(columns, LONGITUDE_COLUMN_CANDIDATES),
     }
@@ -174,7 +179,7 @@ def _load_table_metadata(table_name: str) -> Dict[str, Any]:
     }
 
 
-def _resolve_history_window_min_year(metadata_items: Sequence[Dict[str, Any]], history_window: str) -> Optional[int]:
+def _resolve_history_window_min_year(metadata_items: Sequence[ForecastingTableMetadata], history_window: str) -> Optional[int]:
     year_span = _history_window_year_span(history_window)
     if year_span <= 0 or not metadata_items:
         return None

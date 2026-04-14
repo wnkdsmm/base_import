@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from typing import Any, Callable, Dict, Iterable, List
 
 import numpy as np
 
-from ...types import DbscanResult, ProcessedRecord, SpatialPoint
+from ...types import DbscanCluster, DbscanResult, ProcessedRecord, SpatialPoint
 from .analytics_geometry import group_records_by_cluster_label, nanmean_record_value, project_records_to_local_xy
 
 
@@ -28,12 +28,12 @@ def build_dbscan_cluster_result(
             'eps_km': round(eps_km, 2),
             'min_samples': min_samples,
             'noise_count': noise_count,
-            'availability_note': 'DBSCAN выполнен, но устойчивых кластеров не найдено.',
+            'availability_note': 'DBSCAN РІС‹РїРѕР»РЅРµРЅ, РЅРѕ СѓСЃС‚РѕР№С‡РёРІС‹С… РєР»Р°СЃС‚РµСЂРѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ.',
         }
 
     grouped = group_records_by_cluster_label(records, labels_array)
     max_weight = max(sum(item['weight'] for item in items) for items in grouped.values()) or 1.0
-    clusters: List[Dict[str, Any]] = []
+    clusters: List[DbscanCluster] = []
     for items in grouped.values():
         total_weight = sum(item['weight'] for item in items)
         center_lat = sum(item['latitude'] * item['weight'] for item in items) / max(total_weight, 0.1)
@@ -47,8 +47,8 @@ def build_dbscan_cluster_result(
         avg_response = nanmean_record_value(items, 'response_minutes')
         avg_station_distance = nanmean_record_value(items, 'fire_station_distance')
         clusters.append({
-            'label': dominant_label(items, 'territory_label', 'DBSCAN-кластер'),
-            'district': dominant_label(items, 'district', 'Район не указан'),
+            'label': dominant_label(items, 'territory_label', 'DBSCAN-РєР»Р°СЃС‚РµСЂ'),
+            'district': dominant_label(items, 'district', 'Р Р°Р№РѕРЅ РЅРµ СѓРєР°Р·Р°РЅ'),
             'latitude': round(center_lat, 6),
             'longitude': round(center_lon, 6),
             'incident_count': len(items),
@@ -59,7 +59,7 @@ def build_dbscan_cluster_result(
             'risk_tone': risk_tone,
             'avg_response_minutes': round(avg_response, 1) if avg_response is not None else None,
             'avg_station_distance': round(avg_station_distance, 1) if avg_station_distance is not None else None,
-            'explanation': f"Кластер объединяет {len(items)} пожаров и показывает устойчивое пространственное скопление событий.",
+            'explanation': f"РљР»Р°СЃС‚РµСЂ РѕР±СЉРµРґРёРЅСЏРµС‚ {len(items)} РїРѕР¶Р°СЂРѕРІ Рё РїРѕРєР°Р·С‹РІР°РµС‚ СѓСЃС‚РѕР№С‡РёРІРѕРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅРѕРµ СЃРєРѕРїР»РµРЅРёРµ СЃРѕР±С‹С‚РёР№.",
         })
 
     clusters.sort(key=lambda item: (item['risk_score'], item['incident_count']), reverse=True)
@@ -103,7 +103,7 @@ def build_dbscan_clusters(
     dominant_label: Callable[[List[ProcessedRecord], str, str], str],
 ) -> DbscanResult:
     if len(records) < 8 or not sklearn_available or dbscan_cls is None:
-        return {'clusters': [], 'eps_km': 0.0, 'min_samples': 0, 'noise_count': 0, 'availability_note': 'DBSCAN отключен: наблюдений пока недостаточно.'}
+        return {'clusters': [], 'eps_km': 0.0, 'min_samples': 0, 'noise_count': 0, 'availability_note': 'DBSCAN РѕС‚РєР»СЋС‡РµРЅ: РЅР°Р±Р»СЋРґРµРЅРёР№ РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ.'}
 
     xy = project_records_to_local_xy(records)
     eps_km = estimate_dbscan_eps_km(

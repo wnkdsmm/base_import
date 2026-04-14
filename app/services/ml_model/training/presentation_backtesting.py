@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from typing import Any, Callable, Dict, List, Optional
@@ -25,14 +25,14 @@ from .presentation_meta import (
 )
 
 INTERVAL_SCHEME_LABELS = {
-    'Forward rolling split conformal': 'скользящая проверка по истории',
-    'Blocked forward CV conformal': 'блочная проверка по истории',
-    'Fixed 60/40 chrono split conformal': 'фиксированное хронологическое разбиение 60/40',
-    'Jackknife+ for time series': 'jackknife+ для временного ряда',
-    'validated out-of-sample coverage unavailable': 'проверка покрытия пока недоступна',
+    'Forward rolling split conformal': 'СЃРєРѕР»СЊР·СЏС‰Р°СЏ РїСЂРѕРІРµСЂРєР° РїРѕ РёСЃС‚РѕСЂРёРё',
+    'Blocked forward CV conformal': 'Р±Р»РѕС‡РЅР°СЏ РїСЂРѕРІРµСЂРєР° РїРѕ РёСЃС‚РѕСЂРёРё',
+    'Fixed 60/40 chrono split conformal': 'С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕРµ С…СЂРѕРЅРѕР»РѕРіРёС‡РµСЃРєРѕРµ СЂР°Р·Р±РёРµРЅРёРµ 60/40',
+    'Jackknife+ for time series': 'jackknife+ РґР»СЏ РІСЂРµРјРµРЅРЅРѕРіРѕ СЂСЏРґР°',
+    'validated out-of-sample coverage unavailable': 'РїСЂРѕРІРµСЂРєР° РїРѕРєСЂС‹С‚РёСЏ РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°',
 }
 INTERVAL_METHOD_LABELS = {
-    'Adaptive conformal interval with predicted-count bins': 'Адаптивный конформный интервал по группам ожидаемого числа пожаров',
+    'Adaptive conformal interval with predicted-count bins': 'РђРґР°РїС‚РёРІРЅС‹Р№ РєРѕРЅС„РѕСЂРјРЅС‹Р№ РёРЅС‚РµСЂРІР°Р» РїРѕ РіСЂСѓРїРїР°Рј РѕР¶РёРґР°РµРјРѕРіРѕ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ',
 }
 _FIRST_WINDOWS_RE = re.compile(r'^first (\d+) windows(?: through (.+))?$')
 _LATER_WINDOWS_RE = re.compile(r'^later (\d+) windows(?: from (.+))?$')
@@ -42,7 +42,7 @@ _LEAD_TIME_PREFIX_RE = re.compile(r'^For the (\d+)-day lead, (.+)$')
 
 
 def _selection_label(is_selected: Any) -> str:
-    return 'Рабочий метод' if bool(is_selected) else 'Сравнение'
+    return 'Р Р°Р±РѕС‡РёР№ РјРµС‚РѕРґ' if bool(is_selected) else 'РЎСЂР°РІРЅРµРЅРёРµ'
 
 
 def _sentence_case(text: str) -> str:
@@ -70,25 +70,25 @@ def _translate_interval_method_label(raw_label: Any) -> str:
     if normalized.endswith(unavailable_suffix):
         base_label = normalized[: -len(unavailable_suffix)].strip()
         translated_base = INTERVAL_METHOD_LABELS.get(base_label, base_label)
-        return f'{translated_base}; проверка покрытия на отложенных окнах пока недоступна'
+        return f'{translated_base}; РїСЂРѕРІРµСЂРєР° РїРѕРєСЂС‹С‚РёСЏ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С… РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°'
 
     if '; validated by ' in normalized:
         base_label, scheme_label = normalized.split('; validated by ', 1)
         translated_base = INTERVAL_METHOD_LABELS.get(base_label.strip(), base_label.strip())
         translated_scheme = _translate_interval_scheme_label(scheme_label)
-        return f'{translated_base}; проверка схемой: {translated_scheme}'
+        return f'{translated_base}; РїСЂРѕРІРµСЂРєР° СЃС…РµРјРѕР№: {translated_scheme}'
 
     if '; validation baseline: ' in normalized:
         base_label, scheme_label = normalized.split('; validation baseline: ', 1)
         translated_base = INTERVAL_METHOD_LABELS.get(base_label.strip(), base_label.strip())
         translated_scheme = _translate_interval_scheme_label(scheme_label)
-        return f'{translated_base}; базовая схема проверки: {translated_scheme}'
+        return f'{translated_base}; Р±Р°Р·РѕРІР°СЏ СЃС…РµРјР° РїСЂРѕРІРµСЂРєРё: {translated_scheme}'
 
     if '; validation candidate: ' in normalized:
         base_label, scheme_label = normalized.split('; validation candidate: ', 1)
         translated_base = INTERVAL_METHOD_LABELS.get(base_label.strip(), base_label.strip())
         translated_scheme = _translate_interval_scheme_label(scheme_label)
-        return f'{translated_base}; кандидат проверки: {translated_scheme}'
+        return f'{translated_base}; РєР°РЅРґРёРґР°С‚ РїСЂРѕРІРµСЂРєРё: {translated_scheme}'
 
     return INTERVAL_METHOD_LABELS.get(normalized, normalized)
 
@@ -103,10 +103,10 @@ def _translate_interval_validation_explanation(explanation: Any) -> str:
 
     exact_replacements = {
         'Validated out-of-sample coverage is unavailable because backtesting was not run.': (
-            'Покрытие на отложенных окнах пока недоступно: проверка интервалов на истории ещё не запускалась.'
+            'РџРѕРєСЂС‹С‚РёРµ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С… РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅРѕ: РїСЂРѕРІРµСЂРєР° РёРЅС‚РµСЂРІР°Р»РѕРІ РЅР° РёСЃС‚РѕСЂРёРё РµС‰С‘ РЅРµ Р·Р°РїСѓСЃРєР°Р»Р°СЃСЊ.'
         ),
         'Validated out-of-sample coverage is unavailable because the backtest has too few rolling-origin windows for forward-only interval validation.': (
-            'Покрытие на отложенных окнах пока недоступно: в проверке на истории слишком мало скользящих окон для честной последовательной проверки интервала.'
+            'РџРѕРєСЂС‹С‚РёРµ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С… РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅРѕ: РІ РїСЂРѕРІРµСЂРєРµ РЅР° РёСЃС‚РѕСЂРёРё СЃР»РёС€РєРѕРј РјР°Р»Рѕ СЃРєРѕР»СЊР·СЏС‰РёС… РѕРєРѕРЅ РґР»СЏ С‡РµСЃС‚РЅРѕР№ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕР№ РїСЂРѕРІРµСЂРєРё РёРЅС‚РµСЂРІР°Р»Р°.'
         ),
     }
     lead_time_match = _LEAD_TIME_PREFIX_RE.match(text)
@@ -114,7 +114,7 @@ def _translate_interval_validation_explanation(explanation: Any) -> str:
         lead_days, remainder = lead_time_match.groups()
         translated_remainder = exact_replacements.get(remainder)
         if translated_remainder:
-            return f'Для горизонта {lead_days} дней: {translated_remainder}'
+            return f'Р”Р»СЏ РіРѕСЂРёР·РѕРЅС‚Р° {lead_days} РґРЅРµР№: {translated_remainder}'
     if text in exact_replacements:
         return exact_replacements[text]
 
@@ -122,14 +122,14 @@ def _translate_interval_validation_explanation(explanation: Any) -> str:
         text = text.replace(source, target)
 
     replacements = (
-        (' was selected for validated out-of-sample coverage because ', ' выбрана для проверки покрытия на отложенных окнах, потому что '),
-        ('it was more stable on later windows than ', 'она оказалась стабильнее на поздних окнах, чем '),
-        ('it stayed at least as stable as ', 'она сохранила не меньшую стабильность, чем '),
-        (' while refreshing calibration more often', ', при этом калибровка обновлялась чаще'),
-        ('it gave the most stable forward-only out-of-sample coverage among the available validation schemes', 'она дала самое стабильное покрытие на отложенных окнах среди доступных временных схем проверки'),
-        (' and improved coverage stability versus the previous fixed 60/40 chrono split', ' и улучшила стабильность покрытия по сравнению с прежним фиксированным хронологическим разбиением 60/40'),
-        (' while remaining at least as stable as the previous fixed 60/40 chrono split', ' и при этом осталась не менее стабильной, чем прежнее фиксированное хронологическое разбиение 60/40'),
-        (' was not adopted because an honest time-series variant would require leave-one-block-out refits for every checkpoint.', ' не выбрана, потому что честный вариант для временного ряда потребовал бы переобучения модели с исключением каждого блока по очереди на каждом контрольном шаге.'),
+        (' was selected for validated out-of-sample coverage because ', ' РІС‹Р±СЂР°РЅР° РґР»СЏ РїСЂРѕРІРµСЂРєРё РїРѕРєСЂС‹С‚РёСЏ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С…, РїРѕС‚РѕРјСѓ С‡С‚Рѕ '),
+        ('it was more stable on later windows than ', 'РѕРЅР° РѕРєР°Р·Р°Р»Р°СЃСЊ СЃС‚Р°Р±РёР»СЊРЅРµРµ РЅР° РїРѕР·РґРЅРёС… РѕРєРЅР°С…, С‡РµРј '),
+        ('it stayed at least as stable as ', 'РѕРЅР° СЃРѕС…СЂР°РЅРёР»Р° РЅРµ РјРµРЅСЊС€СѓСЋ СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚СЊ, С‡РµРј '),
+        (' while refreshing calibration more often', ', РїСЂРё СЌС‚РѕРј РєР°Р»РёР±СЂРѕРІРєР° РѕР±РЅРѕРІР»СЏР»Р°СЃСЊ С‡Р°С‰Рµ'),
+        ('it gave the most stable forward-only out-of-sample coverage among the available validation schemes', 'РѕРЅР° РґР°Р»Р° СЃР°РјРѕРµ СЃС‚Р°Р±РёР»СЊРЅРѕРµ РїРѕРєСЂС‹С‚РёРµ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С… СЃСЂРµРґРё РґРѕСЃС‚СѓРїРЅС‹С… РІСЂРµРјРµРЅРЅС‹С… СЃС…РµРј РїСЂРѕРІРµСЂРєРё'),
+        (' and improved coverage stability versus the previous fixed 60/40 chrono split', ' Рё СѓР»СѓС‡С€РёР»Р° СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚СЊ РїРѕРєСЂС‹С‚РёСЏ РїРѕ СЃСЂР°РІРЅРµРЅРёСЋ СЃ РїСЂРµР¶РЅРёРј С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Рј С…СЂРѕРЅРѕР»РѕРіРёС‡РµСЃРєРёРј СЂР°Р·Р±РёРµРЅРёРµРј 60/40'),
+        (' while remaining at least as stable as the previous fixed 60/40 chrono split', ' Рё РїСЂРё СЌС‚РѕРј РѕСЃС‚Р°Р»Р°СЃСЊ РЅРµ РјРµРЅРµРµ СЃС‚Р°Р±РёР»СЊРЅРѕР№, С‡РµРј РїСЂРµР¶РЅРµРµ С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕРµ С…СЂРѕРЅРѕР»РѕРіРёС‡РµСЃРєРѕРµ СЂР°Р·Р±РёРµРЅРёРµ 60/40'),
+        (' was not adopted because an honest time-series variant would require leave-one-block-out refits for every checkpoint.', ' РЅРµ РІС‹Р±СЂР°РЅР°, РїРѕС‚РѕРјСѓ С‡С‚Рѕ С‡РµСЃС‚РЅС‹Р№ РІР°СЂРёР°РЅС‚ РґР»СЏ РІСЂРµРјРµРЅРЅРѕРіРѕ СЂСЏРґР° РїРѕС‚СЂРµР±РѕРІР°Р» Р±С‹ РїРµСЂРµРѕР±СѓС‡РµРЅРёСЏ РјРѕРґРµР»Рё СЃ РёСЃРєР»СЋС‡РµРЅРёРµРј РєР°Р¶РґРѕРіРѕ Р±Р»РѕРєР° РїРѕ РѕС‡РµСЂРµРґРё РЅР° РєР°Р¶РґРѕРј РєРѕРЅС‚СЂРѕР»СЊРЅРѕРј С€Р°РіРµ.'),
     )
     for source, target in replacements:
         text = text.replace(source, target)
@@ -145,29 +145,29 @@ def _translate_interval_range_label(label: Any) -> str:
     if not normalized:
         return ''
     if normalized == 'all available backtest windows':
-        return 'все доступные окна проверки на истории'
+        return 'РІСЃРµ РґРѕСЃС‚СѓРїРЅС‹Рµ РѕРєРЅР° РїСЂРѕРІРµСЂРєРё РЅР° РёСЃС‚РѕСЂРёРё'
     if normalized == 'not available':
-        return 'недоступно'
+        return 'РЅРµРґРѕСЃС‚СѓРїРЅРѕ'
 
     match = _FIRST_WINDOWS_RE.match(normalized)
     if match:
         count, end_date = match.groups()
-        return f'первых {count} окнах до {end_date}' if end_date else f'первых {count} окнах'
+        return f'РїРµСЂРІС‹С… {count} РѕРєРЅР°С… РґРѕ {end_date}' if end_date else f'РїРµСЂРІС‹С… {count} РѕРєРЅР°С…'
 
     match = _LATER_WINDOWS_RE.match(normalized)
     if match:
         count, start_date = match.groups()
-        return f'последних {count} окнах начиная с {start_date}' if start_date else f'последних {count} окнах'
+        return f'РїРѕСЃР»РµРґРЅРёС… {count} РѕРєРЅР°С… РЅР°С‡РёРЅР°СЏ СЃ {start_date}' if start_date else f'РїРѕСЃР»РµРґРЅРёС… {count} РѕРєРЅР°С…'
 
     match = _ROLLING_WINDOWS_RE.match(normalized)
     if match:
         count, start_date = match.groups()
-        return f'{count} окнах скользящей оценки начиная с {start_date}' if start_date else f'{count} окнах скользящей оценки'
+        return f'{count} РѕРєРЅР°С… СЃРєРѕР»СЊР·СЏС‰РµР№ РѕС†РµРЅРєРё РЅР°С‡РёРЅР°СЏ СЃ {start_date}' if start_date else f'{count} РѕРєРЅР°С… СЃРєРѕР»СЊР·СЏС‰РµР№ РѕС†РµРЅРєРё'
 
     match = _BLOCKED_WINDOWS_RE.match(normalized)
     if match:
         count, start_date = match.groups()
-        return f'{count} окнах блочной оценки начиная с {start_date}' if start_date else f'{count} окнах блочной оценки'
+        return f'{count} РѕРєРЅР°С… Р±Р»РѕС‡РЅРѕР№ РѕС†РµРЅРєРё РЅР°С‡РёРЅР°СЏ СЃ {start_date}' if start_date else f'{count} РѕРєРЅР°С… Р±Р»РѕС‡РЅРѕР№ РѕС†РµРЅРєРё'
 
     return normalized
 
@@ -228,7 +228,7 @@ def _comparison_metric_card(
 
 def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
     return {
-        'method_label': row.get('method_label', 'Метод'),
+        'method_label': row.get('method_label', 'РњРµС‚РѕРґ'),
         'role_label': row.get('role_label', ''),
         'selection_label': _selection_label(row.get('is_selected')),
         'mae_display': _format_optional_number(row.get('mae')),
@@ -241,7 +241,7 @@ def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
 
 def _event_comparison_row(row: EventComparisonRow) -> Dict[str, str]:
     return {
-        'method_label': row.get('method_label', 'Метод'),
+        'method_label': row.get('method_label', 'РњРµС‚РѕРґ'),
         'role_label': row.get('role_label', ''),
         'selection_label': _selection_label(row.get('is_selected')),
         'brier_display': _format_optional_number(row.get('brier_score')),
@@ -261,7 +261,7 @@ def _prediction_interval_quality_note(
         if validated_flag is not None
         else interval_coverage_display not in {MISSING_DISPLAY, '-'}
     )
-    scheme_label = _prediction_interval_scheme_label(overview) or 'проверка на истории'
+    scheme_label = _prediction_interval_scheme_label(overview) or 'РїСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё'
     calibration_windows = int(overview.get('prediction_interval_calibration_windows') or 0)
     evaluation_windows = int(overview.get('prediction_interval_evaluation_windows') or 0)
     translated_explanation = _translate_interval_validation_explanation(
@@ -279,23 +279,23 @@ def _prediction_interval_quality_note(
             parts.append(translated_explanation)
         if evaluation_range and calibration_range:
             parts.append(
-                f'Покрытие оценивается только на {evaluation_range} после начальной калибровки на {calibration_range}.'
+                f'РџРѕРєСЂС‹С‚РёРµ РѕС†РµРЅРёРІР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РЅР° {evaluation_range} РїРѕСЃР»Рµ РЅР°С‡Р°Р»СЊРЅРѕР№ РєР°Р»РёР±СЂРѕРІРєРё РЅР° {calibration_range}.'
             )
         elif calibration_windows and evaluation_windows:
             parts.append(
-                f'Покрытие оценивается только на {evaluation_windows} окнах после начальной калибровки на {calibration_windows} окнах.'
+                f'РџРѕРєСЂС‹С‚РёРµ РѕС†РµРЅРёРІР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РЅР° {evaluation_windows} РѕРєРЅР°С… РїРѕСЃР»Рµ РЅР°С‡Р°Р»СЊРЅРѕР№ РєР°Р»РёР±СЂРѕРІРєРё РЅР° {calibration_windows} РѕРєРЅР°С….'
             )
         else:
-            parts.append(f'Покрытие проверено схемой: {scheme_label}.')
-        parts.append('После проверки рабочие интервалы перекалибруются на всех доступных остатках скользящей проверки.')
+            parts.append(f'РџРѕРєСЂС‹С‚РёРµ РїСЂРѕРІРµСЂРµРЅРѕ СЃС…РµРјРѕР№: {scheme_label}.')
+        parts.append('РџРѕСЃР»Рµ РїСЂРѕРІРµСЂРєРё СЂР°Р±РѕС‡РёРµ РёРЅС‚РµСЂРІР°Р»С‹ РїРµСЂРµРєР°Р»РёР±СЂСѓСЋС‚СЃСЏ РЅР° РІСЃРµС… РґРѕСЃС‚СѓРїРЅС‹С… РѕСЃС‚Р°С‚РєР°С… СЃРєРѕР»СЊР·СЏС‰РµР№ РїСЂРѕРІРµСЂРєРё.')
         return ' '.join(part for part in parts if part)
 
     if translated_explanation:
         return translated_explanation
 
     if calibration_windows or evaluation_windows:
-        return 'Покрытие на отложенных окнах пока не показывается: для честной временной проверки пока недостаточно скользящих окон.'
-    return 'Покрытие на отложенных окнах пока не показывается: проверка интервалов на истории ещё не запускалась.'
+        return 'РџРѕРєСЂС‹С‚РёРµ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С… РїРѕРєР° РЅРµ РїРѕРєР°Р·С‹РІР°РµС‚СЃСЏ: РґР»СЏ С‡РµСЃС‚РЅРѕР№ РІСЂРµРјРµРЅРЅРѕР№ РїСЂРѕРІРµСЂРєРё РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ СЃРєРѕР»СЊР·СЏС‰РёС… РѕРєРѕРЅ.'
+    return 'РџРѕРєСЂС‹С‚РёРµ РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С… РїРѕРєР° РЅРµ РїРѕРєР°Р·С‹РІР°РµС‚СЃСЏ: РїСЂРѕРІРµСЂРєР° РёРЅС‚РµСЂРІР°Р»РѕРІ РЅР° РёСЃС‚РѕСЂРёРё РµС‰С‘ РЅРµ Р·Р°РїСѓСЃРєР°Р»Р°СЃСЊ.'
 
 
 def _join_meta_parts(*parts: Any) -> str:
@@ -312,8 +312,8 @@ def _join_meta_parts(*parts: Any) -> str:
 
 def _prediction_interval_card_label(level_display: str) -> str:
     if level_display in {MISSING_DISPLAY, '-', ''}:
-        return 'Покрытие интервала на отложенных окнах'
-    return f'Покрытие {level_display} интервала на отложенных окнах'
+        return 'РџРѕРєСЂС‹С‚РёРµ РёРЅС‚РµСЂРІР°Р»Р° РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С…'
+    return f'РџРѕРєСЂС‹С‚РёРµ {level_display} РёРЅС‚РµСЂРІР°Р»Р° РЅР° РѕС‚Р»РѕР¶РµРЅРЅС‹С… РѕРєРЅР°С…'
 
 
 def _build_prediction_interval_card(
@@ -333,11 +333,11 @@ def _build_event_table(
 ) -> BacktestEventTable:
     rows = [_event_comparison_row(row) for row in ml_result.get('event_comparison_rows', [])]
     return {
-        'title': 'Сравнение по вероятности события пожара',
+        'title': 'РЎСЂР°РІРЅРµРЅРёРµ РїРѕ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР°',
         'rows': rows,
         'empty_message': (
             event_context['note']
-            or 'Сравнение seasonal baseline, heuristic probability и classifier появится после проверки на истории.'
+            or 'РЎСЂР°РІРЅРµРЅРёРµ seasonal baseline, heuristic probability Рё classifier РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ РїСЂРѕРІРµСЂРєРё РЅР° РёСЃС‚РѕСЂРёРё.'
         ),
         'reason_code': event_context['reason_code'],
     }
@@ -383,30 +383,30 @@ def _model_choice_section(ml_result: MlBacktestPresentationResult, overview: Bac
     top_feature_label = _format_optional_text(ml_result.get('top_feature_label'))
 
     return {
-        'title': 'Почему выбран рабочий метод',
+        'title': 'РџРѕС‡РµРјСѓ РІС‹Р±СЂР°РЅ СЂР°Р±РѕС‡РёР№ РјРµС‚РѕРґ',
         'lead': (
             short_reason
             if short_reason != MISSING_DISPLAY
-            else f'Рабочим count-методом оставлен {working_method}.'
+            else f'Р Р°Р±РѕС‡РёРј count-РјРµС‚РѕРґРѕРј РѕСЃС‚Р°РІР»РµРЅ {working_method}.'
         ),
         'body': (
             long_reason
             if long_reason != MISSING_DISPLAY
-            else 'Выбор закреплён по результатам одинаковой проверки на истории для всех кандидатов.'
+            else 'Р’С‹Р±РѕСЂ Р·Р°РєСЂРµРїР»С‘РЅ РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј РѕРґРёРЅР°РєРѕРІРѕР№ РїСЂРѕРІРµСЂРєРё РЅР° РёСЃС‚РѕСЂРёРё РґР»СЏ РІСЃРµС… РєР°РЅРґРёРґР°С‚РѕРІ.'
         ),
         'facts': [
             {
-                'label': 'Рабочий count-метод',
+                'label': 'Р Р°Р±РѕС‡РёР№ count-РјРµС‚РѕРґ',
                 'value': working_method,
                 'meta': _format_optional_text(ml_result.get('selected_count_model_key')),
             },
             {
-                'label': 'Правило выбора',
+                'label': 'РџСЂР°РІРёР»Рѕ РІС‹Р±РѕСЂР°',
                 'value': _format_optional_text(overview.get('selection_rule')),
                 'meta': _format_optional_text(overview.get('rolling_scheme_label')),
             },
             {
-                'label': 'Главный признак',
+                'label': 'Р“Р»Р°РІРЅС‹Р№ РїСЂРёР·РЅР°Рє',
                 'value': top_feature_label,
                 'meta': 'Permutation importance' if top_feature_label != MISSING_DISPLAY else '',
             },
@@ -434,7 +434,7 @@ def _dissertation_points(
 
     if not points:
         points.append(
-            'ML-блок сравнивает count-методы на одной и той же истории и отдельно показывает устойчивость прогноза.'
+            'ML-Р±Р»РѕРє СЃСЂР°РІРЅРёРІР°РµС‚ count-РјРµС‚РѕРґС‹ РЅР° РѕРґРЅРѕР№ Рё С‚РѕР№ Р¶Рµ РёСЃС‚РѕСЂРёРё Рё РѕС‚РґРµР»СЊРЅРѕ РїРѕРєР°Р·С‹РІР°РµС‚ СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ РїСЂРѕРіРЅРѕР·Р°.'
         )
     return points
 
@@ -452,21 +452,21 @@ def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> Backte
 
     count_metric_cards = [
         _comparison_metric_card(
-            'MAE по числу пожаров',
+            'MAE РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ',
             ml_result.get('count_mae'),
             ml_result.get('baseline_count_mae'),
             ml_result.get('heuristic_count_mae'),
             _format_optional_number,
         ),
         _comparison_metric_card(
-            'RMSE по числу пожаров',
+            'RMSE РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ',
             ml_result.get('count_rmse'),
             ml_result.get('baseline_count_rmse'),
             ml_result.get('heuristic_count_rmse'),
             _format_optional_number,
         ),
         _comparison_metric_card(
-            'sMAPE по числу пожаров',
+            'sMAPE РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ',
             ml_result.get('count_smape'),
             ml_result.get('baseline_count_smape'),
             ml_result.get('heuristic_count_smape'),
@@ -517,11 +517,11 @@ def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> Backte
 
     return {
         'ready': bool(ml_result.get('is_ready')),
-        'title': 'Оценка качества ML-блока',
-        'subtitle': 'Ключевые метрики и сравнение методов на одной и той же истории. Блок проверяет именно прогноз числа пожаров, а не приоритет территорий.',
+        'title': 'РћС†РµРЅРєР° РєР°С‡РµСЃС‚РІР° ML-Р±Р»РѕРєР°',
+        'subtitle': 'РљР»СЋС‡РµРІС‹Рµ РјРµС‚СЂРёРєРё Рё СЃСЂР°РІРЅРµРЅРёРµ РјРµС‚РѕРґРѕРІ РЅР° РѕРґРЅРѕР№ Рё С‚РѕР№ Р¶Рµ РёСЃС‚РѕСЂРёРё. Р‘Р»РѕРє РїСЂРѕРІРµСЂСЏРµС‚ РёРјРµРЅРЅРѕ РїСЂРѕРіРЅРѕР· С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ, Р° РЅРµ РїСЂРёРѕСЂРёС‚РµС‚ С‚РµСЂСЂРёС‚РѕСЂРёР№.',
         'methodology_items': [
             _methodology_item(
-                'Схема валидации',
+                'РЎС…РµРјР° РІР°Р»РёРґР°С†РёРё',
                 _format_optional_text(overview.get('rolling_scheme_label')),
                 _join_meta_parts(
                     _format_optional_text(overview.get('validation_horizon_label') or overview.get('validation_horizon_days')),
@@ -529,23 +529,23 @@ def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> Backte
                 ),
             ),
             _methodology_item(
-                'Минимум обучающего окна',
+                'РњРёРЅРёРјСѓРј РѕР±СѓС‡Р°СЋС‰РµРіРѕ РѕРєРЅР°',
                 _format_optional_integer(overview.get('min_train_rows')),
             ),
             _methodology_item(
-                'Сравниваемые count-методы',
+                'РЎСЂР°РІРЅРёРІР°РµРјС‹Рµ count-РјРµС‚РѕРґС‹',
                 _comparison_method_labels(ml_result, overview),
             ),
             _methodology_item(
-                'Индекс пере-дисперсии',
+                'РРЅРґРµРєСЃ РїРµСЂРµ-РґРёСЃРїРµСЂСЃРёРё',
                 _format_optional_number(overview.get('dispersion_ratio')),
             ),
             _methodology_item(
-                'Правило выбора',
+                'РџСЂР°РІРёР»Рѕ РІС‹Р±РѕСЂР°',
                 _format_optional_text(overview.get('selection_rule')),
             ),
             _methodology_item(
-                'Интервал прогноза',
+                'РРЅС‚РµСЂРІР°Р» РїСЂРѕРіРЅРѕР·Р°',
                 interval_context['level_display'],
                 interval_meta,
             ),
@@ -555,9 +555,9 @@ def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> Backte
         'event_metric_cards': event_metric_cards,
         'model_choice': _model_choice_section(ml_result, overview),
         'count_table': {
-            'title': 'Сравнение по числу пожаров',
+            'title': 'РЎСЂР°РІРЅРµРЅРёРµ РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ',
             'rows': count_rows,
-            'empty_message': 'Сравнение seasonal baseline, heuristic forecast и count-model появится после проверки на истории.',
+            'empty_message': 'РЎСЂР°РІРЅРµРЅРёРµ seasonal baseline, heuristic forecast Рё count-model РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ РїСЂРѕРІРµСЂРєРё РЅР° РёСЃС‚РѕСЂРёРё.',
         },
         'event_table': event_table,
         'event_probability_reason_code': event_context['reason_code'],

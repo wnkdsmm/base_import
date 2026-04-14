@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
@@ -324,12 +324,12 @@ def get_forecasting_page_context(
             exc=exc,
         )
         initial_data["notes"].append(
-            "Страница прогнозирования открыта в безопасном режиме: часть расчета временно отключена из-за внутренней ошибки."
+            "РЎС‚СЂР°РЅРёС†Р° РїСЂРѕРіРЅРѕР·РёСЂРѕРІР°РЅРёСЏ РѕС‚РєСЂС‹С‚Р° РІ Р±РµР·РѕРїР°СЃРЅРѕРј СЂРµР¶РёРјРµ: С‡Р°СЃС‚СЊ СЂР°СЃС‡РµС‚Р° РІСЂРµРјРµРЅРЅРѕ РѕС‚РєР»СЋС‡РµРЅР° РёР·-Р·Р° РІРЅСѓС‚СЂРµРЅРЅРµР№ РѕС€РёР±РєРё."
         )
-        initial_data["notes"].append(f"Техническая причина: {exc}")
+        initial_data["notes"].append(f"РўРµС…РЅРёС‡РµСЃРєР°СЏ РїСЂРёС‡РёРЅР°: {exc}")
         initial_data["model_description"] = (
-            "Сценарный прогноз временно открыт без части расчетов, чтобы экран оставался доступен. Его задача по-прежнему та же: "
-            "показать ближайшие дни риска и не подменять ML-прогноз ожидаемого числа пожаров."
+            "РЎС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· РІСЂРµРјРµРЅРЅРѕ РѕС‚РєСЂС‹С‚ Р±РµР· С‡Р°СЃС‚Рё СЂР°СЃС‡РµС‚РѕРІ, С‡С‚РѕР±С‹ СЌРєСЂР°РЅ РѕСЃС‚Р°РІР°Р»СЃСЏ РґРѕСЃС‚СѓРїРµРЅ. Р•РіРѕ Р·Р°РґР°С‡Р° РїРѕ-РїСЂРµР¶РЅРµРјСѓ С‚Р° Р¶Рµ: "
+            "РїРѕРєР°Р·Р°С‚СЊ Р±Р»РёР¶Р°Р№С€РёРµ РґРЅРё СЂРёСЃРєР° Рё РЅРµ РїРѕРґРјРµРЅСЏС‚СЊ ML-РїСЂРѕРіРЅРѕР· РѕР¶РёРґР°РµРјРѕРіРѕ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ."
         )
     return _build_forecasting_context(initial_data, plotly_js=get_plotly_bundle())
 
@@ -428,9 +428,9 @@ def get_forecasting_shell_context(
             initial_data["notes"].append(initial_data["metadata_status_message"])
             initial_data["notes"].append(initial_data["loading_status_message"])
         initial_data["notes"].append(
-            "Часть быстрого стартового контекста временно недоступна, поэтому страница открыта с безопасными placeholder-данными."
+            "Р§Р°СЃС‚СЊ Р±С‹СЃС‚СЂРѕРіРѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ РєРѕРЅС‚РµРєСЃС‚Р° РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРЅР°, РїРѕСЌС‚РѕРјСѓ СЃС‚СЂР°РЅРёС†Р° РѕС‚РєСЂС‹С‚Р° СЃ Р±РµР·РѕРїР°СЃРЅС‹РјРё placeholder-РґР°РЅРЅС‹РјРё."
         )
-        initial_data["notes"].append(f"Техническая причина: {exc}")
+        initial_data["notes"].append(f"РўРµС…РЅРёС‡РµСЃРєР°СЏ РїСЂРёС‡РёРЅР°: {exc}")
         initial_data["model_description"] = SCENARIO_FORECAST_DESCRIPTION
         if perf is not None:
             perf.fail(
@@ -582,7 +582,7 @@ def get_forecasting_data(
         selected_history_window,
     )
     if not source_tables:
-        base_data["notes"].append("Нет доступных таблиц для прогнозирования.")
+        base_data["notes"].append("РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С‚Р°Р±Р»РёС† РґР»СЏ РїСЂРѕРіРЅРѕР·РёСЂРѕРІР°РЅРёСЏ.")
         base_data["bootstrap_mode"] = "full"
         base_data["loading"] = False
         base_data["deferred"] = False
@@ -659,14 +659,14 @@ def get_forecasting_decision_support_data(
         _emit_forecasting_progress(
             progress_callback,
             "forecasting_decision_support.completed",
-            "Блок поддержки решений уже был рассчитан ранее и взят из кэша.",
+            "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ СѓР¶Рµ Р±С‹Р» СЂР°СЃСЃС‡РёС‚Р°РЅ СЂР°РЅРµРµ Рё РІР·СЏС‚ РёР· РєСЌС€Р°.",
         )
         return cached_payload
 
     _emit_forecasting_progress(
         progress_callback,
         "forecasting_decision_support.loading",
-        "Поднимаем базовый прогноз и подготавливаем входные данные для блока поддержки решений.",
+        "РџРѕРґРЅРёРјР°РµРј Р±Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР· Рё РїРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РІС…РѕРґРЅС‹Рµ РґР°РЅРЅС‹Рµ РґР»СЏ Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№.",
     )
     base_payload = get_forecasting_data(
         table_name=table_name,
@@ -688,7 +688,7 @@ def get_forecasting_decision_support_data(
     _emit_forecasting_progress(
         progress_callback,
         "forecasting_decision_support.completed",
-        "Блок поддержки решений готов и подставлен в итоговый прогноз.",
+        "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ РіРѕС‚РѕРІ Рё РїРѕРґСЃС‚Р°РІР»РµРЅ РІ РёС‚РѕРіРѕРІС‹Р№ РїСЂРѕРіРЅРѕР·.",
     )
     return payload
 

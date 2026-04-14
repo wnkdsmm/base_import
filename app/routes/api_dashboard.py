@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter
 
@@ -24,7 +24,7 @@ def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_co
             allow_fallback=False,
         ),
         invalid_code="dashboard_invalid_request",
-        invalid_message="Не удалось обработать параметры dashboard.",
+        invalid_message="РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±СЂР°Р±РѕС‚Р°С‚СЊ РїР°СЂР°РјРµС‚СЂС‹ dashboard.",
         failed_code="dashboard_failed",
-        failed_message="Не удалось обновить dashboard. Попробуйте повторить запрос.",
+        failed_message="РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ dashboard. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.",
     )

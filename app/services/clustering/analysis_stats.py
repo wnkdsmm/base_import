@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from itertools import combinations
@@ -92,10 +92,10 @@ def _build_sample_weights(
 ) -> np.ndarray:
     if (
         weighting_strategy in {WEIGHTING_STRATEGY_UNIFORM, WEIGHTING_STRATEGY_NOT_APPLICABLE}
-        or "Число пожаров" not in entity_frame.columns
+        or "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ" not in entity_frame.columns
     ):
         return np.ones(len(entity_frame), dtype=float)
-    counts = pd.to_numeric(entity_frame["Число пожаров"], errors="coerce").fillna(1.0).clip(lower=1.0).to_numpy(dtype=float)
+    counts = pd.to_numeric(entity_frame["Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"], errors="coerce").fillna(1.0).clip(lower=1.0).to_numpy(dtype=float)
     weights = np.log1p(counts)
     mean_weight = float(np.mean(weights))
     if mean_weight <= 0:
@@ -215,7 +215,7 @@ def _estimate_resampled_stability(
         return None
 
     subset_size = min(row_count, max(cluster_count * 2, int(round(row_count * STABILITY_RESAMPLE_RATIO))))
-    resampled_models: list[Dict[str, Any]] = []
+    resampled_models: list[dict[str, Any]] = []
     for seed in STABILITY_RANDOM_SEEDS:
         rng = np.random.default_rng(seed)
         sampled_indexes = np.sort(rng.choice(row_count, size=subset_size, replace=False))
@@ -275,7 +275,7 @@ def _restore_raw_centers(transformed_centers: np.ndarray, columns: Sequence[str]
     return raw_centers
 
 
-def _estimate_elbow_k(rows: Sequence[Dict[str, Any]]) -> int | None:
+def _estimate_elbow_k(rows: Sequence[dict[str, Any]]) -> int | None:
     if len(rows) < 3:
         return None
     x = np.asarray([item["cluster_count"] for item in rows], dtype=float)

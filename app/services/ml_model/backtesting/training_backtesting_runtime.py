@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -114,12 +114,12 @@ def _build_window(
 def _simulate_candidate_paths(
     *,
     window: _BacktestWindow,
-    count_model_bundles: Dict[str, Optional[Dict[str, Any]]],
-    event_bundle: Optional[Dict[str, Any]],
+    count_model_bundles: Dict[str, Optional[dict[str, Any]]],
+    event_bundle: Optional[dict[str, Any]],
     forecast_days: int,
-) -> Dict[str, Optional[List[Dict[str, Any]]]]:
-    forecast_paths: Dict[str, Optional[List[Dict[str, Any]]]] = {}
-    candidate_specs: List[Tuple[str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]] = [
+) -> Dict[str, Optional[List[dict[str, Any]]]]:
+    forecast_paths: Dict[str, Optional[List[dict[str, Any]]]] = {}
+    candidate_specs: List[Tuple[str, Optional[dict[str, Any]], Optional[dict[str, Any]]]] = [
         ('seasonal_baseline', None, None),
         ('heuristic_forecast', None, None),
     ]
@@ -248,7 +248,7 @@ def _score_candidates(evaluation_data: _HorizonEvaluationData) -> _ScoredCandida
 
 def _select_working_method(
     scored_candidates: _ScoredCandidates,
-) -> Tuple[str, CountMetrics, Dict[str, Any]]:
+) -> Tuple[str, CountMetrics, dict[str, Any]]:
     return _select_count_method(
         scored_candidates.baseline_metrics,
         scored_candidates.heuristic_metrics,
@@ -346,7 +346,7 @@ def _build_backtest_overview(
     horizon_days: List[int],
     selection: _BacktestSelection,
     event_metrics: EventMetrics,
-    prediction_interval_calibration: Dict[str, Any],
+    prediction_interval_calibration: dict[str, Any],
     validation_summary: HorizonSummary,
     horizon_summaries: Dict[str, HorizonSummary],
 ) -> BacktestOverview:

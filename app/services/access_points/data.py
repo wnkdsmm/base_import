@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -34,7 +34,7 @@ class AccessPointsDataLoader(DataLoader):
 
     def collect_access_point_metadata(self, source_tables: Sequence[str]) -> Tuple[List[AccessPointMetadata], List[str]]:
         metadata_items, notes = self.collect_with_notes(source_tables, _impl._load_table_metadata)
-        normalized_items: List[Dict[str, Any]] = []
+        normalized_items: List[dict[str, Any]] = []
         for metadata in metadata_items:
             normalized_items.append(
                 {
@@ -58,7 +58,7 @@ class AccessPointsDataLoader(DataLoader):
             source_tables,
             lambda table_name: (table_name, _impl._collect_source_records(table_name)),
         )
-        records: List[Dict[str, Any]] = []
+        records: List[dict[str, Any]] = []
         for table_name, raw_records in table_payloads:
             for record in raw_records:
                 records.append(_impl._record_to_access_point_input(record, source_table=table_name))

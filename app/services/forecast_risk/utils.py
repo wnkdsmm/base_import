@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter
 from datetime import date, datetime
@@ -14,20 +14,20 @@ def _parse_water_supply_flag(count_value: Optional[float], details: str) -> Opti
     normalized = _normalize_match_text(details)
     if not normalized:
         return None
-    if "отсутств" in normalized or ("нет" in normalized and "дан" not in normalized):
+    if "РѕС‚СЃСѓС‚СЃС‚РІ" in normalized or ("РЅРµС‚" in normalized and "РґР°РЅ" not in normalized):
         return False
-    if any(token in normalized for token in ["вода", "водо", "гидрант", "водоем", "водоисточ", "цистерн"]):
+    if any(token in normalized for token in ["РІРѕРґР°", "РІРѕРґРѕ", "РіРёРґСЂР°РЅС‚", "РІРѕРґРѕРµРј", "РІРѕРґРѕРёСЃС‚РѕС‡", "С†РёСЃС‚РµСЂРЅ"]):
         return True
     return None
 
 
 def _truthy_value(value: Any) -> Optional[bool]:
     normalized = _normalize_match_text(_clean_text(value))
-    if not normalized or normalized in {"нет данных", "не указано", "не указан", "-"}:
+    if not normalized or normalized in {"РЅРµС‚ РґР°РЅРЅС‹С…", "РЅРµ СѓРєР°Р·Р°РЅРѕ", "РЅРµ СѓРєР°Р·Р°РЅ", "-"}:
         return None
-    if normalized in {"да", "true", "истина", "1", "есть"} or normalized.startswith("да") or normalized.startswith("име"):
+    if normalized in {"РґР°", "true", "РёСЃС‚РёРЅР°", "1", "РµСЃС‚СЊ"} or normalized.startswith("РґР°") or normalized.startswith("РёРјРµ"):
         return True
-    if normalized in {"нет", "false", "ложь", "0"} or normalized.startswith("нет"):
+    if normalized in {"РЅРµС‚", "false", "Р»РѕР¶СЊ", "0"} or normalized.startswith("РЅРµС‚"):
         return False
     return None
 
@@ -36,17 +36,17 @@ def _risk_category_score(value: str) -> float:
     normalized = _normalize_match_text(value)
     if not normalized:
         return 0.26
-    if "чрезвычай" in normalized or "очень высокий" in normalized:
+    if "С‡СЂРµР·РІС‹С‡Р°Р№" in normalized or "РѕС‡РµРЅСЊ РІС‹СЃРѕРєРёР№" in normalized:
         return 0.85
-    if "высок" in normalized:
+    if "РІС‹СЃРѕРє" in normalized:
         return 0.68
-    if "значител" in normalized:
+    if "Р·РЅР°С‡РёС‚РµР»" in normalized:
         return 0.56
-    if "средн" in normalized:
+    if "СЃСЂРµРґРЅ" in normalized:
         return 0.42
-    if "умерен" in normalized:
+    if "СѓРјРµСЂРµРЅ" in normalized:
         return 0.30
-    if "низк" in normalized:
+    if "РЅРёР·Рє" in normalized:
         return 0.18
     return 0.26
 
@@ -57,7 +57,7 @@ def _is_heating_season(value: date) -> bool:
 
 def _is_rural_label(value: str) -> bool:
     normalized = _normalize_match_text(value)
-    return any(token in normalized for token in ["сель", "деревн", "посел", "село", "хутор", "станиц", "аул"])
+    return any(token in normalized for token in ["СЃРµР»СЊ", "РґРµСЂРµРІРЅ", "РїРѕСЃРµР»", "СЃРµР»Рѕ", "С…СѓС‚РѕСЂ", "СЃС‚Р°РЅРёС†", "Р°СѓР»"])
 
 
 def _calculate_response_minutes(start_time: Optional[datetime], end_time: Optional[datetime]) -> Optional[float]:
@@ -113,9 +113,9 @@ def _parse_datetime_string(text_value: str) -> Optional[datetime]:
 def _pick_territory_label(primary_value: Any, district_value: str) -> str:
     for raw_value in [primary_value, district_value]:
         value = _clean_text(raw_value)
-        if value and _normalize_match_text(value) not in {"нет данных", "не указано", "-"}:
+        if value and _normalize_match_text(value) not in {"РЅРµС‚ РґР°РЅРЅС‹С…", "РЅРµ СѓРєР°Р·Р°РЅРѕ", "-"}:
             return value if len(value) <= 72 else value[:69].rstrip() + "..."
-    return "Территория не указана"
+    return "РўРµСЂСЂРёС‚РѕСЂРёСЏ РЅРµ СѓРєР°Р·Р°РЅР°"
 
 
 def _scan_columns(columns: Sequence[str], token_groups: Sequence[Sequence[str]]) -> List[str]:
@@ -131,7 +131,7 @@ def _counter_top_label(counter: Counter, fallback: str) -> str:
     return counter.most_common(1)[0][0] if counter else fallback
 
 
-def _apply_history_window(records: Sequence[Dict[str, Any]], history_window: str) -> List[Dict[str, Any]]:
+def _apply_history_window(records: Sequence[dict[str, Any]], history_window: str) -> List[dict[str, Any]]:
     if not records or history_window == "all":
         return list(records)
     latest_year = max(record["date"].year for record in records)
@@ -238,7 +238,7 @@ def _quote_identifier(identifier: str) -> str:
 
 @lru_cache(maxsize=16384)
 def _normalize_match_text(value: str) -> str:
-    return " ".join(str(value).lower().replace("ё", "е").replace("/", " ").replace("-", " ").split())
+    return " ".join(str(value).lower().replace("С‘", "Рµ").replace("/", " ").replace("-", " ").split())
 
 
 def _text_expression(column_name: str) -> str:

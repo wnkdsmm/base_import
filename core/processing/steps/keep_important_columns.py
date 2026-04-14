@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 import os
@@ -41,9 +41,9 @@ logger = logging.getLogger(__name__)
 
 class KeepImportantColumnsStep(PipelineStep):
     """
-    Шаг интеллектуальной фильтрации колонок.
-    Сохраняет обязательные доменные признаки и legacy-важные колонки,
-    даже если profiling пометил их как candidate_to_drop.
+    РЁР°Рі РёРЅС‚РµР»Р»РµРєС‚СѓР°Р»СЊРЅРѕР№ С„РёР»СЊС‚СЂР°С†РёРё РєРѕР»РѕРЅРѕРє.
+    РЎРѕС…СЂР°РЅСЏРµС‚ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ РґРѕРјРµРЅРЅС‹Рµ РїСЂРёР·РЅР°РєРё Рё legacy-РІР°Р¶РЅС‹Рµ РєРѕР»РѕРЅРєРё,
+    РґР°Р¶Рµ РµСЃР»Рё profiling РїРѕРјРµС‚РёР» РёС… РєР°Рє candidate_to_drop.
     """
 
     def __init__(self):
@@ -78,7 +78,7 @@ class KeepImportantColumnsStep(PipelineStep):
         protected_xlsx = os.path.join(output_folder, f"{table_name}_protected_columns_report.xlsx")
 
         if not os.path.exists(profile_csv):
-            raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
+            raise FileNotFoundError(f"РќРµ РЅР°Р№РґРµРЅ РѕС‚С‡С‘С‚ РїСЂРѕС„РёР»РёСЂРѕРІР°РЅРёСЏ: {profile_csv}")
 
         resolved_profile_df = profile_df
         if resolved_profile_df is None:
@@ -87,13 +87,13 @@ class KeepImportantColumnsStep(PipelineStep):
                 resolved_profile_df = cached_profile_df
         if resolved_profile_df is None:
             if not os.path.exists(profile_csv):
-                raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
+                raise FileNotFoundError(f"РќРµ РЅР°Р№РґРµРЅ РѕС‚С‡С‘С‚ РїСЂРѕС„РёР»РёСЂРѕРІР°РЅРёСЏ: {profile_csv}")
             resolved_profile_df = pd.read_csv(profile_csv)
 
         profile_df = self._ensure_report_columns(resolved_profile_df.copy())
 
         if "candidate_to_drop" not in profile_df.columns:
-            raise KeyError("В отчете отсутствует колонка 'candidate_to_drop'")
+            raise KeyError("Р’ РѕС‚С‡РµС‚Рµ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ РєРѕР»РѕРЅРєР° 'candidate_to_drop'")
 
         profile_df = coerce_report_bool_columns(profile_df)
 
@@ -116,7 +116,7 @@ class KeepImportantColumnsStep(PipelineStep):
         protected_df.to_excel(protected_xlsx, index=False, engine="openpyxl")
 
         if protected_columns:
-            logger.info("Защищенные признаки от удаления:")
+            logger.info("Р—Р°С‰РёС‰РµРЅРЅС‹Рµ РїСЂРёР·РЅР°РєРё РѕС‚ СѓРґР°Р»РµРЅРёСЏ:")
             for item in protected_columns:
                 logger.info(
                     "  - '%s' -> '%s' [%s; match=%s]",
@@ -126,12 +126,12 @@ class KeepImportantColumnsStep(PipelineStep):
                     item["protection_match"],
                 )
         else:
-            logger.info("Защищенных признаков не найдено.")
+            logger.info("Р—Р°С‰РёС‰РµРЅРЅС‹С… РїСЂРёР·РЅР°РєРѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ.")
 
-        logger.info("Обновленный CSV: %s", updated_csv)
-        logger.info("Обновленный XLSX: %s", updated_xlsx)
-        logger.info("Отчет по защищенным признакам CSV: %s", protected_csv)
-        logger.info("Отчет по защищенным признакам XLSX: %s", protected_xlsx)
+        logger.info("РћР±РЅРѕРІР»РµРЅРЅС‹Р№ CSV: %s", updated_csv)
+        logger.info("РћР±РЅРѕРІР»РµРЅРЅС‹Р№ XLSX: %s", updated_xlsx)
+        logger.info("РћС‚С‡РµС‚ РїРѕ Р·Р°С‰РёС‰РµРЅРЅС‹Рј РїСЂРёР·РЅР°РєР°Рј CSV: %s", protected_csv)
+        logger.info("РћС‚С‡РµС‚ РїРѕ Р·Р°С‰РёС‰РµРЅРЅС‹Рј РїСЂРёР·РЅР°РєР°Рј XLSX: %s", protected_xlsx)
 
         settings._pipeline_profile_df = profile_df_sorted
         settings._pipeline_protected_df = protected_df

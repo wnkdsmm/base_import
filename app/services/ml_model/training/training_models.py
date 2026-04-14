@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -130,13 +130,13 @@ def _fit_with_convergence_guard(model: Any, X_train: pd.DataFrame, y_train: np.n
     return not _has_warning_instability(caught_warnings)
 
 
-def _fit_count_model(model_key: str, frame: pd.DataFrame, feature_columns: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+def _fit_count_model(model_key: str, frame: pd.DataFrame, feature_columns: Optional[List[str]] = None) -> Optional[dict[str, Any]]:  # one-off
     X_train = _build_design_matrix(frame, feature_columns=feature_columns)
     y_train = frame['count'].to_numpy(dtype=float)
     return _fit_count_model_from_design(model_key, X_train, y_train)
 
 
-def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[Dict[str, Any]]:
+def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[dict[str, Any]]:  # one-off
     if model_key == 'negative_binomial':
         if not _can_train_negative_binomial(y_train):
             return None
@@ -159,7 +159,7 @@ def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train:
     }
 
 
-def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[Dict[str, Any]]:
+def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[dict[str, Any]]:  # one-off
     if sm is None:
         return None
 
@@ -198,7 +198,7 @@ def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.
     }
 
 
-def _predict_count_model(model_bundle: Dict[str, Any], frame: pd.DataFrame) -> np.ndarray:
+def _predict_count_model(model_bundle: dict[str, Any], frame: pd.DataFrame) -> np.ndarray:  # one-off
     X = _build_design_matrix(frame, model_bundle['columns'])
     return _predict_count_from_design(model_bundle, X)
 
@@ -247,7 +247,7 @@ def _sanitize_count_predictions(predictions: np.ndarray, X: pd.DataFrame) -> np.
     return np.where(np.isfinite(sanitized), sanitized, fallback)
 
 
-def _predict_count_from_design(model_bundle: Dict[str, Any], X: pd.DataFrame) -> np.ndarray:
+def _predict_count_from_design(model_bundle: dict[str, Any], X: pd.DataFrame) -> np.ndarray:  # one-off
     X = X.reindex(columns=model_bundle['columns'], fill_value=0.0)
     try:
         with warnings.catch_warnings(record=True):
@@ -299,13 +299,13 @@ def _can_train_event_model(event_series: pd.Series) -> bool:
     return positives >= MIN_EVENT_CLASS_COUNT and negatives >= MIN_EVENT_CLASS_COUNT
 
 
-def _fit_event_model(frame: pd.DataFrame, feature_columns: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+def _fit_event_model(frame: pd.DataFrame, feature_columns: Optional[List[str]] = None) -> Optional[dict[str, Any]]:  # one-off
     X_train = _build_design_matrix(frame, feature_columns=feature_columns)
     y_train = frame['event'].to_numpy(dtype=int)
     return _fit_event_model_from_design(X_train, y_train)
 
 
-def _fit_event_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[Dict[str, Any]]:
+def _fit_event_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[dict[str, Any]]:  # one-off
     if not _can_train_event_model(pd.Series(y_train)):
         return None
     model = LogisticRegression(**_LOGISTIC_PARAMS)
@@ -319,12 +319,12 @@ def _fit_event_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> 
     }
 
 
-def _predict_event_probability(model_bundle: Dict[str, Any], frame: pd.DataFrame) -> np.ndarray:
+def _predict_event_probability(model_bundle: dict[str, Any], frame: pd.DataFrame) -> np.ndarray:  # one-off
     X = _build_design_matrix(frame, model_bundle['columns'])
     return _predict_event_probability_from_design(model_bundle, X)
 
 
-def _predict_event_probability_from_design(model_bundle: Dict[str, Any], X: pd.DataFrame) -> np.ndarray:
+def _predict_event_probability_from_design(model_bundle: dict[str, Any], X: pd.DataFrame) -> np.ndarray:  # one-off
     X = X.reindex(columns=model_bundle['columns'], fill_value=0.0)
     probabilities = np.asarray(model_bundle['model'].predict_proba(X)[:, 1], dtype=float)
     return probabilities

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
@@ -38,7 +38,7 @@ def _coordinates_display(latitude: float | None, longitude: float | None) -> str
         return ""
     return f"{_format_coordinate(latitude)}, {_format_coordinate(longitude)}"
 
-def _build_reason_list_context(reason_details: Sequence[Dict[str, Any]]) -> _AccessPointReasonListContext:
+def _build_reason_list_context(reason_details: Sequence[dict[str, Any]]) -> _AccessPointReasonListContext:
     top_four_details = list(reason_details[:4])
     top_three_details = top_four_details[:3]
     return _AccessPointReasonListContext(
@@ -52,7 +52,7 @@ def _build_access_point_reason_context(
     label: str,
     severity_band: str,
     total_score_display: str,
-    score_decomposition: Sequence[Dict[str, Any]],
+    score_decomposition: Sequence[dict[str, Any]],
     uncertainty_flag: bool,
     low_support: bool,
     uncertainty_penalty_display: str,
@@ -76,8 +76,8 @@ def _build_low_support_note(*, low_support: bool, incident_count: int) -> str:
     if not low_support:
         return ""
     return (
-        f"Точка собрана всего по {_format_integer(incident_count)} пожарам, "
-        "долевые признаки сглажены."
+        f"РўРѕС‡РєР° СЃРѕР±СЂР°РЅР° РІСЃРµРіРѕ РїРѕ {_format_integer(incident_count)} РїРѕР¶Р°СЂР°Рј, "
+        "РґРѕР»РµРІС‹Рµ РїСЂРёР·РЅР°РєРё СЃРіР»Р°Р¶РµРЅС‹."
     )
 
 def _build_incomplete_note(
@@ -89,13 +89,13 @@ def _build_incomplete_note(
 ) -> str:
     if uncertainty_flag:
         return (
-            f"Неопределённость добавляет {uncertainty_penalty_display} п. "
-            "и требует верификации воды, времени прибытия и дистанции."
+            f"РќРµРѕРїСЂРµРґРµР»С‘РЅРЅРѕСЃС‚СЊ РґРѕР±Р°РІР»СЏРµС‚ {uncertainty_penalty_display} Рї. "
+            "Рё С‚СЂРµР±СѓРµС‚ РІРµСЂРёС„РёРєР°С†РёРё РІРѕРґС‹, РІСЂРµРјРµРЅРё РїСЂРёР±С‹С‚РёСЏ Рё РґРёСЃС‚Р°РЅС†РёРё."
         )
     if missing_data_priority:
         return (
-            "Высокий приоритет проверки связан прежде всего с "
-            "пропусками по доступности, воде или времени прибытия."
+            "Р’С‹СЃРѕРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚ РїСЂРѕРІРµСЂРєРё СЃРІСЏР·Р°РЅ РїСЂРµР¶РґРµ РІСЃРµРіРѕ СЃ "
+            "РїСЂРѕРїСѓСЃРєР°РјРё РїРѕ РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё, РІРѕРґРµ РёР»Рё РІСЂРµРјРµРЅРё РїСЂРёР±С‹С‚РёСЏ."
         )
     return low_support_note
 
@@ -168,7 +168,7 @@ def _access_point_decomposition_components(
     if SEVERITY_CODE in active_reason_codes:
         components.append((SEVERITY_CODE, metrics.severity_factor * 100.0, metrics.severity_factor, displays.severe_share_display))
     if RECURRENCE_CODE in active_reason_codes:
-        components.append((RECURRENCE_CODE, metrics.recurrence_factor * 100.0, metrics.recurrence_factor, f"{_format_number(metrics.incidents_per_year)} в год"))
+        components.append((RECURRENCE_CODE, metrics.recurrence_factor * 100.0, metrics.recurrence_factor, f"{_format_number(metrics.incidents_per_year)} РІ РіРѕРґ"))
     if NIGHT_CODE in active_reason_codes:
         components.append((NIGHT_CODE, metrics.night_share * 100.0, metrics.night_share, displays.night_share_display))
     if HEATING_CODE in active_reason_codes:
@@ -181,8 +181,8 @@ def _build_access_point_score_decomposition(
     *,
     active_reason_codes: set[str],
     normalized_factor_weights: Dict[str, float],
-) -> List[Dict[str, Any]]:
-    score_decomposition: List[Dict[str, Any]] = []
+) -> List[dict[str, Any]]:
+    score_decomposition: List[dict[str, Any]] = []
     for code, factor_score, factor_value, value_display in _access_point_decomposition_components(
         metrics,
         displays,
@@ -203,13 +203,13 @@ def _build_access_point_score_decomposition(
             factor_score=metrics.uncertainty_factor * 100.0,
             weight_points=UNCERTAINTY_PENALTY_MAX,
             contribution_points=UNCERTAINTY_PENALTY_MAX * metrics.uncertainty_factor,
-            value_display=f"полнота {displays.completeness_display}",
+            value_display=f"РїРѕР»РЅРѕС‚Р° {displays.completeness_display}",
             is_penalty=True,
         )
     )
     return score_decomposition
 
-def _score_total_and_uncertainty_penalty(score_decomposition: Sequence[Dict[str, Any]]) -> tuple[float, float]:
+def _score_total_and_uncertainty_penalty(score_decomposition: Sequence[dict[str, Any]]) -> tuple[float, float]:
     total_score = 0.0
     uncertainty_penalty: float | None = None
     for item in score_decomposition:

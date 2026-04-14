@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from statistics import mean
 from typing import Any, Dict, List
@@ -36,20 +36,20 @@ from .utils import (
 )
 
 
-def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    title = "История и сценарный прогноз"
+def _build_forecast_chart(daily_history: List[dict[str, Any]], forecast_rows: List[dict[str, Any]]) -> dict[str, Any]:
+    title = "РСЃС‚РѕСЂРёСЏ Рё СЃС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР·"
     if not daily_history:
         return {
             "title": title,
-            "plotly": _build_empty_plotly("Нет данных для исторического ряда."),
-            "empty_message": "Нет данных для исторического ряда.",
+            "plotly": _build_empty_plotly("РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РёСЃС‚РѕСЂРёС‡РµСЃРєРѕРіРѕ СЂСЏРґР°."),
+            "empty_message": "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РёСЃС‚РѕСЂРёС‡РµСЃРєРѕРіРѕ СЂСЏРґР°.",
         }
 
     if not PLOTLY_AVAILABLE:
         return {
             "title": title,
             "plotly": empty_plotly_payload(),
-            "empty_message": "Библиотека Plotly не найдена в окружении. Таблица прогноза ниже остаётся доступной.",
+            "empty_message": "Р‘РёР±Р»РёРѕС‚РµРєР° Plotly РЅРµ РЅР°Р№РґРµРЅР° РІ РѕРєСЂСѓР¶РµРЅРёРё. РўР°Р±Р»РёС†Р° РїСЂРѕРіРЅРѕР·Р° РЅРёР¶Рµ РѕСЃС‚Р°С‘С‚СЃСЏ РґРѕСЃС‚СѓРїРЅРѕР№.",
         }
 
     visible_history = daily_history[-90:] if len(daily_history) > 90 else daily_history
@@ -67,9 +67,9 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
             x=history_x,
             y=history_y,
             mode="lines",
-            name="Факт по дням",
+            name="Р¤Р°РєС‚ РїРѕ РґРЅСЏРј",
             line=build_plotly_line(color=PLOTLY_PALETTE["sand"], width=1.6),
-            hovertemplate="<b>%{x}</b><br>Факт: %{y} пожара<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>Р¤Р°РєС‚: %{y} РїРѕР¶Р°СЂР°<extra></extra>",
         )
     )
     figure.add_trace(
@@ -77,9 +77,9 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
             x=history_x,
             y=history_avg7,
             mode="lines",
-            name="Сглаженный тренд за 7 дней",
+            name="РЎРіР»Р°Р¶РµРЅРЅС‹Р№ С‚СЂРµРЅРґ Р·Р° 7 РґРЅРµР№",
             line=build_plotly_line(color=PLOTLY_PALETTE["fire"], width=3),
-            hovertemplate="<b>%{x}</b><br>Среднее за 7 дней: %{y:.1f}<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>РЎСЂРµРґРЅРµРµ Р·Р° 7 РґРЅРµР№: %{y:.1f}<extra></extra>",
         )
     )
 
@@ -103,7 +103,7 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
                 fill="tonexty",
                 fillcolor="rgba(45, 108, 143, 0.16)",
                 hoverinfo="skip",
-                name="Типичный диапазон",
+                name="РўРёРїРёС‡РЅС‹Р№ РґРёР°РїР°Р·РѕРЅ",
             )
         )
         figure.add_trace(
@@ -111,10 +111,10 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
                 x=forecast_x,
                 y=forecast_y,
                 mode="lines+markers",
-                name="Сценарный прогноз",
+                name="РЎС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР·",
                 line=build_plotly_line(color=PLOTLY_PALETTE["sky"], width=3, dash="dash"),
                 marker=build_plotly_marker(color=PLOTLY_PALETTE["sky_soft"], size=7),
-                hovertemplate="<b>%{x}</b><br>Ожидаемо: %{y:.1f} пожара<extra></extra>",
+                hovertemplate="<b>%{x}</b><br>РћР¶РёРґР°РµРјРѕ: %{y:.1f} РїРѕР¶Р°СЂР°<extra></extra>",
             )
         )
         figure.add_shape(build_vertical_reference_line(forecast_x[0], "rgba(94, 73, 49, 0.45)", width=2))
@@ -124,7 +124,7 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
                 y=1,
                 xref="x",
                 yref="paper",
-                text="Начало прогноза",
+                text="РќР°С‡Р°Р»Рѕ РїСЂРѕРіРЅРѕР·Р°",
                 showarrow=False,
                 xanchor="left",
                 yanchor="bottom",
@@ -134,7 +134,7 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
 
     figure.update_layout(
         **merge_plotly_layout(
-            plotly_layout("Пожаров в день", height=420, margin_right=24, hover_bgcolor="#fffaf5"),
+            plotly_layout("РџРѕР¶Р°СЂРѕРІ РІ РґРµРЅСЊ", height=420, margin_right=24, hover_bgcolor="#fffaf5"),
             xaxis={"type": "date", "rangeslider": {"visible": False}},
             legend=build_horizontal_legend(y=1.12),
             updates={"margin": {"l": 52, "r": 24, "t": 24, "b": 50}},
@@ -144,16 +144,16 @@ def _build_forecast_chart(daily_history: List[Dict[str, Any]], forecast_rows: Li
     return build_chart_bundle(title, figure)
 
 
-def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_average: float) -> Dict[str, Any]:
-    title = "Сценарная вероятность пожара по ближайшим дням"
+def _build_forecast_breakdown_chart(forecast_rows: List[dict[str, Any]], recent_average: float) -> dict[str, Any]:
+    title = "РЎС†РµРЅР°СЂРЅР°СЏ РІРµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРѕР¶Р°СЂР° РїРѕ Р±Р»РёР¶Р°Р№С€РёРј РґРЅСЏРј"
     if not forecast_rows:
-        return _empty_chart_bundle(title, "Нет данных для ближайших дней.")
+        return _empty_chart_bundle(title, "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ Р±Р»РёР¶Р°Р№С€РёС… РґРЅРµР№.")
     if not PLOTLY_AVAILABLE:
-        return build_plotly_unavailable_chart_bundle(title, "График недоступен без Plotly.", annotation_color="#7b6a5a")
+        return build_plotly_unavailable_chart_bundle(title, "Р“СЂР°С„РёРє РЅРµРґРѕСЃС‚СѓРїРµРЅ Р±РµР· Plotly.", annotation_color="#7b6a5a")
 
     visible_rows = forecast_rows[:21]
     if len(forecast_rows) > 21:
-        title = "Вероятность пожара на ближайшие 21 день"
+        title = "Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРѕР¶Р°СЂР° РЅР° Р±Р»РёР¶Р°Р№С€РёРµ 21 РґРµРЅСЊ"
 
     colors = [_scenario_color(row.get("scenario_tone", "sky")) for row in visible_rows]
     labels = [row["date_display"] for row in visible_rows]
@@ -168,9 +168,9 @@ def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_
             text=text_values,
             textposition="outside",
             marker={"color": colors},
-            name="Вероятность пожара",
+            name="Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРѕР¶Р°СЂР°",
             customdata=[[row["weekday_label"], row["scenario_hint"]] for row in visible_rows],
-            hovertemplate="<b>%{x}</b><br>%{customdata[0]}<br>Вероятность: %{y:.1f}%<br>%{customdata[1]}<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>%{customdata[0]}<br>Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ: %{y:.1f}%<br>%{customdata[1]}<extra></extra>",
         )
     )
     usual_probability_values = [float(row.get("usual_fire_probability", 0.0)) * 100.0 for row in visible_rows]
@@ -180,15 +180,15 @@ def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_
                 x=labels,
                 y=usual_probability_values,
                 mode="lines",
-                name="Недавний обычный уровень",
+                name="РќРµРґР°РІРЅРёР№ РѕР±С‹С‡РЅС‹Р№ СѓСЂРѕРІРµРЅСЊ",
                 line=build_plotly_line(color="rgba(94, 73, 49, 0.7)", width=2, dash="dot"),
-                hovertemplate="Обычная вероятность за последние 4 недели: %{y:.1f}%<extra></extra>",
+                hovertemplate="РћР±С‹С‡РЅР°СЏ РІРµСЂРѕСЏС‚РЅРѕСЃС‚СЊ Р·Р° РїРѕСЃР»РµРґРЅРёРµ 4 РЅРµРґРµР»Рё: %{y:.1f}%<extra></extra>",
             )
         )
 
     figure.update_layout(
         **merge_plotly_layout(
-            plotly_layout("Вероятность, %", height=360, margin_right=24, hover_bgcolor="#fffaf5"),
+            plotly_layout("Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ, %", height=360, margin_right=24, hover_bgcolor="#fffaf5"),
             xaxis={"tickangle": -35},
             legend=build_horizontal_legend(y=1.12),
         )
@@ -196,12 +196,12 @@ def _build_forecast_breakdown_chart(forecast_rows: List[Dict[str, Any]], recent_
     return build_chart_bundle(title, figure)
 
 
-def _build_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any]:
-    title = "В какие дни недели пожары случаются чаще"
+def _build_weekday_chart(weekday_profile: List[dict[str, Any]]) -> dict[str, Any]:
+    title = "Р’ РєР°РєРёРµ РґРЅРё РЅРµРґРµР»Рё РїРѕР¶Р°СЂС‹ СЃР»СѓС‡Р°СЋС‚СЃСЏ С‡Р°С‰Рµ"
     if not weekday_profile:
-        return _empty_chart_bundle(title, "Нет данных по дням недели.")
+        return _empty_chart_bundle(title, "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РґРЅСЏРј РЅРµРґРµР»Рё.")
     if not PLOTLY_AVAILABLE:
-        return build_plotly_unavailable_chart_bundle(title, "График недоступен без Plotly.", annotation_color="#7b6a5a")
+        return build_plotly_unavailable_chart_bundle(title, "Р“СЂР°С„РёРє РЅРµРґРѕСЃС‚СѓРїРµРЅ Р±РµР· Plotly.", annotation_color="#7b6a5a")
 
     overall_average = mean(float(item["avg_value"]) for item in weekday_profile) if weekday_profile else 0.0
 
@@ -224,8 +224,8 @@ def _build_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any
                     PLOTLY_PALETTE["forest"],
                 ]
             },
-            hovertemplate="<b>%{x}</b><br>Среднее: %{y:.1f} пожара<extra></extra>",
-            name="Среднее по дню недели",
+            hovertemplate="<b>%{x}</b><br>РЎСЂРµРґРЅРµРµ: %{y:.1f} РїРѕР¶Р°СЂР°<extra></extra>",
+            name="РЎСЂРµРґРЅРµРµ РїРѕ РґРЅСЋ РЅРµРґРµР»Рё",
         )
     )
     figure.add_trace(
@@ -233,26 +233,26 @@ def _build_weekday_chart(weekday_profile: List[Dict[str, Any]]) -> Dict[str, Any
             x=labels,
             y=[overall_average] * len(weekday_profile),
             mode="lines",
-            name="Общий средний уровень",
+            name="РћР±С‰РёР№ СЃСЂРµРґРЅРёР№ СѓСЂРѕРІРµРЅСЊ",
             line=build_plotly_line(color="rgba(94, 73, 49, 0.55)", width=2, dash="dot"),
-            hovertemplate="Средний уровень: %{y:.1f}<extra></extra>",
+            hovertemplate="РЎСЂРµРґРЅРёР№ СѓСЂРѕРІРµРЅСЊ: %{y:.1f}<extra></extra>",
         )
     )
     figure.update_layout(
         **merge_plotly_layout(
-            plotly_layout("Среднее пожаров в день", height=340, margin_right=24, hover_bgcolor="#fffaf5"),
+            plotly_layout("РЎСЂРµРґРЅРµРµ РїРѕР¶Р°СЂРѕРІ РІ РґРµРЅСЊ", height=340, margin_right=24, hover_bgcolor="#fffaf5"),
             legend=build_horizontal_legend(y=1.12),
         )
     )
     return build_chart_bundle(title, figure)
-def _build_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
-    title = "Карта зон риска"
+def _build_geo_chart(geo_prediction: dict[str, Any]) -> dict[str, Any]:
+    title = "РљР°СЂС‚Р° Р·РѕРЅ СЂРёСЃРєР°"
     points = geo_prediction.get("points") or []
     if not points:
-        message = "В выбранном срезе нет координат, поэтому карта не построена." if not geo_prediction.get("has_coordinates") else "Для карты пока недостаточно устойчивых зон."
+        message = "Р’ РІС‹Р±СЂР°РЅРЅРѕРј СЃСЂРµР·Рµ РЅРµС‚ РєРѕРѕСЂРґРёРЅР°С‚, РїРѕСЌС‚РѕРјСѓ РєР°СЂС‚Р° РЅРµ РїРѕСЃС‚СЂРѕРµРЅР°." if not geo_prediction.get("has_coordinates") else "Р”Р»СЏ РєР°СЂС‚С‹ РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ СѓСЃС‚РѕР№С‡РёРІС‹С… Р·РѕРЅ."
         return _empty_chart_bundle(title, message)
     if not PLOTLY_AVAILABLE:
-        return build_plotly_unavailable_chart_bundle(title, "Геокарта недоступна без Plotly.", annotation_color="#7b6a5a")
+        return build_plotly_unavailable_chart_bundle(title, "Р“РµРѕРєР°СЂС‚Р° РЅРµРґРѕСЃС‚СѓРїРЅР° Р±РµР· Plotly.", annotation_color="#7b6a5a")
 
     latitudes = [float(point["latitude"]) for point in points]
     longitudes = [float(point["longitude"]) for point in points]
@@ -292,12 +292,12 @@ def _build_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
                 ],
                 "opacity": 0.86,
                 "line": {"color": "rgba(51, 41, 32, 0.30)", "width": 1},
-                "colorbar": {"title": {"text": "Риск"}},
+                "colorbar": {"title": {"text": "Р РёСЃРє"}},
             },
             hovertemplate=(
-                "<b>%{text}</b><br>Риск: %{customdata[0]}<br>Пожаров в зоне: %{customdata[1]}<br>"
-                "Последний пожар: %{customdata[2]}<br>Причина: %{customdata[3]}<br>"
-                "Категория: %{customdata[4]}<extra></extra>"
+                "<b>%{text}</b><br>Р РёСЃРє: %{customdata[0]}<br>РџРѕР¶Р°СЂРѕРІ РІ Р·РѕРЅРµ: %{customdata[1]}<br>"
+                "РџРѕСЃР»РµРґРЅРёР№ РїРѕР¶Р°СЂ: %{customdata[2]}<br>РџСЂРёС‡РёРЅР°: %{customdata[3]}<br>"
+                "РљР°С‚РµРіРѕСЂРёСЏ: %{customdata[4]}<extra></extra>"
             ),
         )
     )
@@ -328,7 +328,7 @@ def _build_geo_chart(geo_prediction: Dict[str, Any]) -> Dict[str, Any]:
     )
     return build_chart_bundle(title, figure)
 
-def _empty_chart_bundle(title: str, message: str, use_plotly: bool = True) -> Dict[str, Any]:
+def _empty_chart_bundle(title: str, message: str, use_plotly: bool = True) -> dict[str, Any]:
     return build_empty_chart_bundle(
         title,
         message,
@@ -337,7 +337,7 @@ def _empty_chart_bundle(title: str, message: str, use_plotly: bool = True) -> Di
     )
 
 
-def _build_empty_plotly(message: str) -> Dict[str, Any]:
+def _build_empty_plotly(message: str) -> dict[str, Any]:
     return build_empty_plotly_payload(message, annotation_color="#7b6a5a")
 
 

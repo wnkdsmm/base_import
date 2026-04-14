@@ -1,28 +1,29 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy import text
 
 from app.domain.fire_columns import DASHBOARD_DISTRICT_COLUMN_CANDIDATES as DISTRICT_COLUMN_CANDIDATES
 from app.statistics_constants import AREA_COLUMN, CAUSE_COLUMNS, DATE_COLUMN, IMPACT_METRIC_CONFIG
 
+from .types import DashboardTableRef, ImpactTotals
 from .utils import _date_expression, _quote_identifier
 
 _LEGACY_DISTRICT_COLUMN_CANDIDATES = [
-    "Район",
-    "Муниципальный район",
-    "Муниципальное образование",
-    "Административный район",
-    "Район выезда подразделения",
-    "Район пожара",
-    "Территория",
+    "Р Р°Р№РѕРЅ",
+    "РњСѓРЅРёС†РёРїР°Р»СЊРЅС‹Р№ СЂР°Р№РѕРЅ",
+    "РњСѓРЅРёС†РёРїР°Р»СЊРЅРѕРµ РѕР±СЂР°Р·РѕРІР°РЅРёРµ",
+    "РђРґРјРёРЅРёСЃС‚СЂР°С‚РёРІРЅС‹Р№ СЂР°Р№РѕРЅ",
+    "Р Р°Р№РѕРЅ РІС‹РµР·РґР° РїРѕРґСЂР°Р·РґРµР»РµРЅРёСЏ",
+    "Р Р°Р№РѕРЅ РїРѕР¶Р°СЂР°",
+    "РўРµСЂСЂРёС‚РѕСЂРёСЏ",
 ]
-SEASON_ORDER = ["Зима", "Весна", "Лето", "Осень"]
+SEASON_ORDER = ["Р—РёРјР°", "Р’РµСЃРЅР°", "Р›РµС‚Рѕ", "РћСЃРµРЅСЊ"]
 
 
-def _resolve_district_column(table: Dict[str, Any]) -> str:
+def _resolve_district_column(table: DashboardTableRef) -> str:
     for candidate in DISTRICT_COLUMN_CANDIDATES:
         resolved = _resolve_table_column_name(table, candidate)
         if resolved:
@@ -30,7 +31,7 @@ def _resolve_district_column(table: Dict[str, Any]) -> str:
     return ""
 
 
-def _collect_impact_totals(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, float]:
+def _collect_impact_totals(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> ImpactTotals:
     from config.db import engine
 
     totals = {metric_key: 0.0 for metric_key in IMPACT_METRIC_CONFIG}
@@ -60,7 +61,7 @@ def _collect_impact_totals(selected_tables: List[Dict[str, Any]], selected_year:
 
 
 def _build_impact_timeline_query(
-    table: Dict[str, Any],
+    table: DashboardTableRef,
     selected_year: Optional[int],
     *,
     include_order_by: bool = True,
@@ -99,7 +100,7 @@ def _build_impact_timeline_query(
     """
 
 
-def _resolve_cause_column(table: Dict[str, Any]) -> str:
+def _resolve_cause_column(table: DashboardTableRef) -> str:
     for column_name in CAUSE_COLUMNS:
         resolved_column_name = _resolve_table_column_name(table, column_name)
         if resolved_column_name:
@@ -107,7 +108,7 @@ def _resolve_cause_column(table: Dict[str, Any]) -> str:
     return ""
 
 
-def _resolve_table_column_name(table: Dict[str, Any], expected_name: str) -> str:
+def _resolve_table_column_name(table: DashboardTableRef, expected_name: str) -> str:
     if expected_name in table["column_set"]:
         return expected_name
 
@@ -138,14 +139,14 @@ def _resolve_table_column_name(table: Dict[str, Any], expected_name: str) -> str
     return best_match if best_score >= 12 else ""
 
 
-def _metric_expression(table: Dict[str, Any], metric_key: str) -> str:
+def _metric_expression(table: DashboardTableRef, metric_key: str) -> str:
     column_name = _find_metric_column(table, metric_key)
     if not column_name:
         return "NULL"
     return _numeric_expression_for_column(column_name)
 
 
-def _find_metric_column(table: Dict[str, Any], metric_key: str) -> str:
+def _find_metric_column(table: DashboardTableRef, metric_key: str) -> str:
     config = IMPACT_METRIC_CONFIG[metric_key]
     columns = list(table["column_set"])
     normalized_columns = {column_name: _normalize_match_text(column_name) for column_name in columns}
@@ -168,7 +169,7 @@ def _find_metric_column(table: Dict[str, Any], metric_key: str) -> str:
         for token_group in config.get("include_any", []):
             if all(token in normalized_name for token in token_group):
                 score = max(score, 3 + len(token_group))
-        if "количество" in normalized_name:
+        if "РєРѕР»РёС‡РµСЃС‚РІРѕ" in normalized_name:
             score += 1
         if score > best_score:
             best_score = score
@@ -184,12 +185,12 @@ def _numeric_expression_for_column(column_name: str) -> str:
 
 
 def _normalize_match_text(value: str) -> str:
-    normalized = value.lower().replace("ё", "е")
+    normalized = value.lower().replace("С‘", "Рµ")
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized
 
 
-def _build_yearly_query(table: Dict[str, Any]) -> Optional[str]:
+def _build_yearly_query(table: DashboardTableRef) -> Optional[str]:
     table_name = _quote_identifier(table["name"])
     area_expression = _area_expression(table)
 
@@ -233,7 +234,7 @@ def _fetch_table_years(conn: Any, table_name: str, column_set: set) -> List[int]
     return [int(row["year_value"]) for row in conn.execute(query).mappings().all() if row["year_value"] is not None]
 
 
-def _build_year_filter_clause(table: Dict[str, Any], selected_year: Optional[int]) -> Optional[str]:
+def _build_year_filter_clause(table: DashboardTableRef, selected_year: Optional[int]) -> Optional[str]:
     if selected_year is None:
         return "TRUE"
     if DATE_COLUMN in table["column_set"]:
@@ -261,7 +262,7 @@ def _month_expression(column_name: str) -> str:
     )
 
 
-def _area_expression(table: Dict[str, Any]) -> str:
+def _area_expression(table: DashboardTableRef) -> str:
     if AREA_COLUMN not in table["column_set"]:
         return "NULL"
     column_sql = _quote_identifier(AREA_COLUMN)
@@ -269,7 +270,7 @@ def _area_expression(table: Dict[str, Any]) -> str:
     return f"CASE WHEN {cleaned} ~ '^[-+]?[0-9]*\\.?[0-9]+$' THEN ({cleaned})::double precision ELSE NULL END"
 
 
-def _resolve_years_in_scope(table: Dict[str, Any], selected_year: Optional[int]) -> List[int]:
+def _resolve_years_in_scope(table: DashboardTableRef, selected_year: Optional[int]) -> List[int]:
     if selected_year is not None:
         return [selected_year] if _build_year_filter_clause(table, selected_year) is not None else []
     if table["years"]:

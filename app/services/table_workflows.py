@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Sequence
 
@@ -35,7 +35,7 @@ def build_table_page_api_payload(table_name: str, page: int = 1, page_size: int 
         "rows": table_page["rows"],
         "pagination": table_page,
         "table_summary": bundle["table_summary"],
-        "message": "Страница таблицы загружена.",
+        "message": "РЎС‚СЂР°РЅРёС†Р° С‚Р°Р±Р»РёС†С‹ Р·Р°РіСЂСѓР¶РµРЅР°.",
     }
 
 
@@ -53,7 +53,7 @@ def build_column_search_payload(table_name: str = "", query: str = "") -> dict[s
     }
 
     if not normalized_table_name:
-        payload["message"] = "Выберите таблицу для поиска колонок."
+        payload["message"] = "Р’С‹Р±РµСЂРёС‚Рµ С‚Р°Р±Р»РёС†Сѓ РґР»СЏ РїРѕРёСЃРєР° РєРѕР»РѕРЅРѕРє."
         return payload
 
     try:
@@ -67,7 +67,7 @@ def build_column_search_payload(table_name: str = "", query: str = "") -> dict[s
         groups = matcher.get_group_catalog(columns)
         matches = matcher.find_columns_by_query(columns, query_text) if query_text else []
     except Exception as exc:
-        payload["message"] = f"Natasha-поиск не сработал: {exc}"
+        payload["message"] = f"Natasha-РїРѕРёСЃРє РЅРµ СЃСЂР°Р±РѕС‚Р°Р»: {exc}"
         return payload
 
     payload["count"] = len(matches)
@@ -82,15 +82,15 @@ def build_column_search_payload(table_name: str = "", query: str = "") -> dict[s
                 limit=100,
             )
         except Exception as exc:
-            payload["message"] = f"Совпадения найдены, но превью таблицы не удалось загрузить: {exc}"
+            payload["message"] = f"РЎРѕРІРїР°РґРµРЅРёСЏ РЅР°Р№РґРµРЅС‹, РЅРѕ РїСЂРµРІСЊСЋ С‚Р°Р±Р»РёС†С‹ РЅРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ: {exc}"
             return payload
         payload["preview_columns"] = preview_columns
         payload["preview_rows"] = preview_rows
 
     if query_text:
-        payload["message"] = "Совпадения найдены." if matches else "Совпадений по этому запросу не найдено. Можно выбрать группы ниже."
+        payload["message"] = "РЎРѕРІРїР°РґРµРЅРёСЏ РЅР°Р№РґРµРЅС‹." if matches else "РЎРѕРІРїР°РґРµРЅРёР№ РїРѕ СЌС‚РѕРјСѓ Р·Р°РїСЂРѕСЃСѓ РЅРµ РЅР°Р№РґРµРЅРѕ. РњРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РіСЂСѓРїРїС‹ РЅРёР¶Рµ."
     else:
-        payload["message"] = "Можно выбрать тематические группы или ввести слова для поиска колонок."
+        payload["message"] = "РњРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ С‚РµРјР°С‚РёС‡РµСЃРєРёРµ РіСЂСѓРїРїС‹ РёР»Рё РІРІРµСЃС‚Рё СЃР»РѕРІР° РґР»СЏ РїРѕРёСЃРєР° РєРѕР»РѕРЅРѕРє."
     return payload
 
 
@@ -103,7 +103,7 @@ def build_column_search_preview_payload(table_name: str = "", selected_columns: 
             "table_name": "",
             "preview_columns": [],
             "preview_rows": [],
-            "message": "Не выбрана таблица.",
+            "message": "РќРµ РІС‹Р±СЂР°РЅР° С‚Р°Р±Р»РёС†Р°.",
         }
 
     if not normalized_columns:
@@ -111,7 +111,7 @@ def build_column_search_preview_payload(table_name: str = "", selected_columns: 
             "table_name": normalized_table_name,
             "preview_columns": [],
             "preview_rows": [],
-            "message": "Выберите колонки или тематические группы для предпросмотра.",
+            "message": "Р’С‹Р±РµСЂРёС‚Рµ РєРѕР»РѕРЅРєРё РёР»Рё С‚РµРјР°С‚РёС‡РµСЃРєРёРµ РіСЂСѓРїРїС‹ РґР»СЏ РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂР°.",
         }
 
     try:
@@ -125,14 +125,14 @@ def build_column_search_preview_payload(table_name: str = "", selected_columns: 
             "table_name": normalized_table_name,
             "preview_columns": [],
             "preview_rows": [],
-            "message": f"Не удалось загрузить предпросмотр: {exc}",
+            "message": f"РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ: {exc}",
         }
 
     return {
         "table_name": normalized_table_name,
         "preview_columns": preview_columns,
         "preview_rows": preview_rows,
-        "message": "Предпросмотр обновлен.",
+        "message": "РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РѕР±РЅРѕРІР»РµРЅ.",
     }
 
 
@@ -148,7 +148,7 @@ def build_create_modify_table_payload(
     normalized_groups = [str(item) for item in (selected_groups or []) if str(item).strip()]
 
     if not normalized_table_name:
-        return {"status": "error", "message": "Не выбрана исходная таблица."}
+        return {"status": "error", "message": "РќРµ РІС‹Р±СЂР°РЅР° РёСЃС…РѕРґРЅР°СЏ С‚Р°Р±Р»РёС†Р°."}
 
     try:
         all_columns = get_table_columns(normalized_table_name)
@@ -171,7 +171,7 @@ def build_create_modify_table_payload(
     except Exception as exc:
         return {"status": "error", "message": str(exc)}
 
-    replace_message = "Таблица была пересоздана." if created["replaced_existing"] else "Таблица создана."
+    replace_message = "РўР°Р±Р»РёС†Р° Р±С‹Р»Р° РїРµСЂРµСЃРѕР·РґР°РЅР°." if created["replaced_existing"] else "РўР°Р±Р»РёС†Р° СЃРѕР·РґР°РЅР°."
     return {
         "status": "created",
         "message": replace_message,

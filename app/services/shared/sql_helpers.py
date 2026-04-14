@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 
@@ -24,14 +24,14 @@ def build_scope_conditions(
     min_year: Optional[int] = None,
     selected_year: Optional[int] = None,
     all_value: str = "all",
-) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
+) -> tuple[Optional[str], list[str], dict[str, Any], bool]:
     date_column = resolved_columns.get(date_field)
     if not date_column:
         return None, [], {}, True
 
     date_expression = date_expression_builder(date_column)
     conditions = [f"{date_expression} IS NOT NULL"]
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
 
     if min_year is not None:
         conditions.append(f"EXTRACT(YEAR FROM {date_expression}) >= :min_year")

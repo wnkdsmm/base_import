@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Set
 
@@ -58,7 +58,7 @@ def _match_mandatory_feature_payload(
                 feature_label=feature_label,
                 rule_id="mandatory_registry_exact",
                 matched_value=str(synonym["raw"]),
-                reason=f"Колонка совпала с обязательным признаком '{feature['label']}' по точному имени.",
+                reason=f"РљРѕР»РѕРЅРєР° СЃРѕРІРїР°Р»Р° СЃ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рј РїСЂРёР·РЅР°РєРѕРј '{feature['label']}' РїРѕ С‚РѕС‡РЅРѕРјСѓ РёРјРµРЅРё.",
                 mandatory=True,
             )
 
@@ -71,7 +71,7 @@ def _match_mandatory_feature_payload(
                 feature_label=feature_label,
                 rule_id="mandatory_registry_synonym",
                 matched_value=str(synonym["raw"]),
-                reason=f"Колонка защищена обязательным реестром по синониму '{synonym['raw']}'.",
+                reason=f"РљРѕР»РѕРЅРєР° Р·Р°С‰РёС‰РµРЅР° РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рј СЂРµРµСЃС‚СЂРѕРј РїРѕ СЃРёРЅРѕРЅРёРјСѓ '{synonym['raw']}'.",
                 mandatory=True,
             )
 
@@ -84,7 +84,7 @@ def _match_mandatory_feature_payload(
                 feature_label=feature_label,
                 rule_id="mandatory_registry_tokens",
                 matched_value=joined_tokens,
-                reason=f"Колонка защищена обязательным реестром по доменным токенам '{joined_tokens}'.",
+                reason=f"РљРѕР»РѕРЅРєР° Р·Р°С‰РёС‰РµРЅР° РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рј СЂРµРµСЃС‚СЂРѕРј РїРѕ РґРѕРјРµРЅРЅС‹Рј С‚РѕРєРµРЅР°Рј '{joined_tokens}'.",
                 mandatory=True,
             )
     return None
@@ -211,12 +211,12 @@ def _keyword_rule_match_specs(rule: MandatoryFeatureSpec) -> List[tuple[List[Lis
         (
             list(rule.get("include_all", [])),
             "keyword_include_all",
-            "Колонка сохранена по keyword-правилу с обязательным набором токенов '{joined_tokens}'.",
+            "РљРѕР»РѕРЅРєР° СЃРѕС…СЂР°РЅРµРЅР° РїРѕ keyword-РїСЂР°РІРёР»Сѓ СЃ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рј РЅР°Р±РѕСЂРѕРј С‚РѕРєРµРЅРѕРІ '{joined_tokens}'.",
         ),
         (
             list(rule.get("include_any", [])),
             "keyword_include_any",
-            "Колонка сохранена по keyword-правилу с токеном '{joined_tokens}'.",
+            "РљРѕР»РѕРЅРєР° СЃРѕС…СЂР°РЅРµРЅР° РїРѕ keyword-РїСЂР°РІРёР»Сѓ СЃ С‚РѕРєРµРЅРѕРј '{joined_tokens}'.",
         ),
     ]
 
@@ -329,7 +329,7 @@ def _collect_column_matches(
     return matches
 
 class NatashaColumnMatcher:
-    """Переиспользуемый Natasha-поиск и доменный матчер по названиям колонок."""
+    """РџРµСЂРµРёСЃРїРѕР»СЊР·СѓРµРјС‹Р№ Natasha-РїРѕРёСЃРє Рё РґРѕРјРµРЅРЅС‹Р№ РјР°С‚С‡РµСЂ РїРѕ РЅР°Р·РІР°РЅРёСЏРј РєРѕР»РѕРЅРѕРє."""
 
     def __init__(self):
         self.morph_vocab = MorphVocab()
@@ -388,7 +388,7 @@ class NatashaColumnMatcher:
             feature_label=str(exact_match),
             rule_id="legacy_explicit_exact",
             matched_value=original_name,
-            reason=f"Колонка сохранена по legacy-правилу точного совпадения '{original_name}'.",
+            reason=f"РљРѕР»РѕРЅРєР° СЃРѕС…СЂР°РЅРµРЅР° РїРѕ legacy-РїСЂР°РІРёР»Сѓ С‚РѕС‡РЅРѕРіРѕ СЃРѕРІРїР°РґРµРЅРёСЏ '{original_name}'.",
             mandatory=False,
         )
 

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from statistics import mean
 from typing import Any, Dict, List
@@ -9,7 +9,7 @@ from .data import _build_forecast_rows
 from .utils import _format_integer, _format_number, _format_signed_percent
 
 
-def _scenario_baseline_expected_count(history: List[Dict[str, Any]], target_date: Any) -> float:
+def _scenario_baseline_expected_count(history: List[dict[str, Any]], target_date: Any) -> float:
     if not history:
         return 0.0
     history_counts = [float(item["count"]) for item in history]
@@ -20,7 +20,7 @@ def _scenario_baseline_expected_count(history: List[Dict[str, Any]], target_date
     return max(0.0, recent_mean)
 
 
-def _run_scenario_backtesting(daily_history: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _run_scenario_backtesting(daily_history: List[dict[str, Any]]) -> dict[str, Any]:
     if len(daily_history) < 30:
         return {
             "is_ready": False,
@@ -44,7 +44,7 @@ def _run_scenario_backtesting(daily_history: List[Dict[str, Any]]) -> Dict[str, 
         }
 
     start_index = len(daily_history) - min(45, available_points)
-    rows: List[Dict[str, Any]] = []
+    rows: List[dict[str, Any]] = []
     for index in range(start_index, len(daily_history)):
         train_history = daily_history[:index]
         actual_row = daily_history[index]
@@ -89,7 +89,7 @@ def _run_scenario_backtesting(daily_history: List[Dict[str, Any]]) -> Dict[str, 
     }
 
 
-def _empty_forecast_quality_assessment() -> Dict[str, Any]:
+def _empty_forecast_quality_assessment() -> dict[str, Any]:
     return {
         "ready": False,
         "title": "\u041e\u0446\u0435\u043d\u043a\u0430 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0430 \u0441\u0446\u0435\u043d\u0430\u0440\u043d\u043e\u0433\u043e \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430",
@@ -101,7 +101,7 @@ def _empty_forecast_quality_assessment() -> Dict[str, Any]:
     }
 
 
-def _build_scenario_quality_assessment(backtest: Dict[str, Any]) -> Dict[str, Any]:
+def _build_scenario_quality_assessment(backtest: dict[str, Any]) -> dict[str, Any]:
     if not backtest.get("is_ready"):
         payload = _empty_forecast_quality_assessment()
         message = backtest.get("message")

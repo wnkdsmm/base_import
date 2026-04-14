@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence
@@ -89,8 +89,8 @@ def _build_combined_impact_timeline_chart(
             }
         )
 
-    title = "Последствия, эвакуация и дети"
-    empty_message = "Нет данных по погибшим, травмам и эвакуации."
+    title = "РџРѕСЃР»РµРґСЃС‚РІРёСЏ, СЌРІР°РєСѓР°С†РёСЏ Рё РґРµС‚Рё"
+    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїРѕРіРёР±С€РёРј, С‚СЂР°РІРјР°Рј Рё СЌРІР°РєСѓР°С†РёРё."
     return _finalize_chart(
         title,
         items,
@@ -151,13 +151,13 @@ def _build_sql_cause_widget(
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
     ]
-    title = "SQL-виджет: причины"
-    empty_message = "Нет данных по причинам возгорания."
+    title = "SQL-РІРёРґР¶РµС‚: РїСЂРёС‡РёРЅС‹"
+    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїСЂРёС‡РёРЅР°Рј РІРѕР·РіРѕСЂР°РЅРёСЏ."
     return _finalize_chart(
         title,
         items,
         empty_message,
-        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="fire", value_label="Пожаров"),
+        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="fire", value_label="РџРѕР¶Р°СЂРѕРІ"),
     )
 
 
@@ -174,7 +174,7 @@ def _build_sql_district_widget(selected_tables: List[DashboardTableRef], selecte
             query = text(
                 f"""
                 SELECT
-                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(district_column)} AS TEXT)), ''), 'Не указано') AS label,
+                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(district_column)} AS TEXT)), ''), 'РќРµ СѓРєР°Р·Р°РЅРѕ') AS label,
                     COUNT(*) AS fire_count
                 FROM {_quote_identifier(table['name'])}
                 WHERE {where_clause}
@@ -190,13 +190,13 @@ def _build_sql_district_widget(selected_tables: List[DashboardTableRef], selecte
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
     ]
-    title = "SQL-виджет: районы"
-    empty_message = "В выбранных таблицах не найдено колонок района."
+    title = "SQL-РІРёРґР¶РµС‚: СЂР°Р№РѕРЅС‹"
+    empty_message = "Р’ РІС‹Р±СЂР°РЅРЅС‹С… С‚Р°Р±Р»РёС†Р°С… РЅРµ РЅР°Р№РґРµРЅРѕ РєРѕР»РѕРЅРѕРє СЂР°Р№РѕРЅР°."
     return _finalize_chart(
         title,
         items,
         empty_message,
-        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="Пожаров"),
+        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="РџРѕР¶Р°СЂРѕРІ"),
     )
 
 
@@ -205,13 +205,13 @@ def _build_sql_district_widget_from_counts(district_counts: Dict[str, int]) -> D
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(district_counts.items(), key=lambda item: item[1], reverse=True)[:8]
     ]
-    title = "SQL-виджет: районы"
-    empty_message = "В выбранных таблицах не найдено колонок района."
+    title = "SQL-РІРёРґР¶РµС‚: СЂР°Р№РѕРЅС‹"
+    empty_message = "Р’ РІС‹Р±СЂР°РЅРЅС‹С… С‚Р°Р±Р»РёС†Р°С… РЅРµ РЅР°Р№РґРµРЅРѕ РєРѕР»РѕРЅРѕРє СЂР°Р№РѕРЅР°."
     return _finalize_chart(
         title,
         items,
         empty_message,
-        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="Пожаров"),
+        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="РџРѕР¶Р°СЂРѕРІ"),
     )
 
 
@@ -244,8 +244,8 @@ def _build_sql_season_widget(
         for season_label in SEASON_ORDER
         if season_label in grouped
     ]
-    title = "SQL-виджет: сезоны"
-    empty_message = "Нет данных для сезонного SQL-виджета."
+    title = "SQL-РІРёРґР¶РµС‚: СЃРµР·РѕРЅС‹"
+    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃРµР·РѕРЅРЅРѕРіРѕ SQL-РІРёРґР¶РµС‚Р°."
     return _finalize_chart(
         title,
         items,

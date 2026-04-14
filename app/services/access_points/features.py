@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -17,9 +17,9 @@ def _normalize_access_point_feature_columns(feature_columns: Sequence[str] | Non
     return [str(item).strip() for item in (feature_columns or []) if str(item).strip()]
 
 
-def _build_access_point_shell_feature_options(selected_features: Sequence[str] | None = None) -> List[Dict[str, Any]]:
+def _build_access_point_shell_feature_options(selected_features: Sequence[str] | None = None) -> List[dict[str, Any]]:
     selected_set = set(_normalize_access_point_feature_columns(selected_features)) or set(DEFAULT_ACCESS_POINT_FEATURES)
-    rows: List[Dict[str, Any]] = []
+    rows: List[dict[str, Any]] = []
     for feature_name in DEFAULT_ACCESS_POINT_FEATURES:
         metadata = ACCESS_POINT_FEATURE_METADATA.get(feature_name, {})
         rows.append(
@@ -27,8 +27,8 @@ def _build_access_point_shell_feature_options(selected_features: Sequence[str] |
                 "name": feature_name,
                 "label": str(metadata.get("label") or feature_name),
                 "description": str(metadata.get("description") or ""),
-                "coverage_display": "н/д",
-                "variance_display": "н/д",
+                "coverage_display": "РЅ/Рґ",
+                "variance_display": "РЅ/Рґ",
                 "is_selected": feature_name in selected_set,
             }
         )
@@ -61,12 +61,12 @@ def _access_point_feature_series(entity_frame: pd.DataFrame, feature_name: str) 
     return pd.Series(dtype=float)
 
 
-def _build_access_point_candidate_features(entity_frame: pd.DataFrame) -> List[Dict[str, Any]]:
+def _build_access_point_candidate_features(entity_frame: pd.DataFrame) -> List[dict[str, Any]]:
     if entity_frame is None or entity_frame.empty:
         return []
 
     row_count = len(entity_frame)
-    rows: List[Dict[str, Any]] = []
+    rows: List[dict[str, Any]] = []
     for order, feature_name in enumerate(DEFAULT_ACCESS_POINT_FEATURES):
         series = _access_point_feature_series(entity_frame, feature_name)
         metadata = ACCESS_POINT_FEATURE_METADATA.get(feature_name, {})
@@ -106,18 +106,18 @@ def _resolve_selected_access_point_features(
     if requested_features:
         return (
             fallback,
-            "Часть выбранных признаков недоступна для scoring, поэтому блок вернулся к базовому набору explainable-факторов.",
+            "Р§Р°СЃС‚СЊ РІС‹Р±СЂР°РЅРЅС‹С… РїСЂРёР·РЅР°РєРѕРІ РЅРµРґРѕСЃС‚СѓРїРЅР° РґР»СЏ scoring, РїРѕСЌС‚РѕРјСѓ Р±Р»РѕРє РІРµСЂРЅСѓР»СЃСЏ Рє Р±Р°Р·РѕРІРѕРјСѓ РЅР°Р±РѕСЂСѓ explainable-С„Р°РєС‚РѕСЂРѕРІ.",
         )
     return (
         fallback,
-        "По умолчанию выбраны базовые признаки access-risk score: доступность ПЧ, вода, последствия, повторяемость и сезонный контекст.",
+        "РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІС‹Р±СЂР°РЅС‹ Р±Р°Р·РѕРІС‹Рµ РїСЂРёР·РЅР°РєРё access-risk score: РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РџР§, РІРѕРґР°, РїРѕСЃР»РµРґСЃС‚РІРёСЏ, РїРѕРІС‚РѕСЂСЏРµРјРѕСЃС‚СЊ Рё СЃРµР·РѕРЅРЅС‹Р№ РєРѕРЅС‚РµРєСЃС‚.",
     )
 
 
 def _build_access_point_feature_options(
-    candidate_features: Sequence[Dict[str, Any]],
+    candidate_features: Sequence[dict[str, Any]],
     selected_features: Sequence[str],
-) -> List[Dict[str, Any]]:
+) -> List[dict[str, Any]]:
     selected_set = set(selected_features)
     prioritized = list(candidate_features[:MAX_ACCESS_POINT_FEATURE_OPTIONS])
     selected_rows = [item for item in candidate_features if item["name"] in selected_set and item not in prioritized]

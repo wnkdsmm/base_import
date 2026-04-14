@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from typing import Any, Dict, List, Sequence, Tuple
@@ -76,7 +76,7 @@ def _build_method_candidates(weighting_strategy: str) -> List[ClusteringMethodCa
             {
                 "method_key": "agglomerative",
                 "algorithm_key": "agglomerative",
-                "method_label": "Агломеративная кластеризация (Ward)",
+                "method_label": "РђРіР»РѕРјРµСЂР°С‚РёРІРЅР°СЏ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ (Ward)",
                 "weighting_strategy": WEIGHTING_STRATEGY_NOT_APPLICABLE,
             },
             {
@@ -332,7 +332,7 @@ def _build_cluster_profiles(
 ) -> List[Dict[str, str]]:
     profiles = []
     total_entities = len(cluster_frame)
-    total_incidents = int(entity_frame["Число пожаров"].sum()) if "Число пожаров" in entity_frame.columns else 0
+    total_incidents = int(entity_frame["Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"].sum()) if "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ" in entity_frame.columns else 0
     columns = list(cluster_frame.columns)
     overall_mean = cluster_frame.mean(numeric_only=True)
     overall_std = cluster_frame.std(numeric_only=True).replace(0, 1.0).fillna(1.0)
@@ -348,13 +348,13 @@ def _build_cluster_profiles(
         dominant_columns = list(deltas.abs().sort_values(ascending=False).head(3).index)
         title_parts = [_feature_phrase(column, float(deltas[column])) for column in dominant_columns[:2]]
         title_parts = [part for part in title_parts if part]
-        segment_title = " и ".join(title_parts).capitalize() if title_parts else "Смешанный профиль риска"
+        segment_title = " Рё ".join(title_parts).capitalize() if title_parts else "РЎРјРµС€Р°РЅРЅС‹Р№ РїСЂРѕС„РёР»СЊ СЂРёСЃРєР°"
         summary_parts = []
         for column in dominant_columns:
-            direction = "выше" if float(deltas[column]) >= 0 else "ниже"
-            summary_parts.append(f"{column}: {direction} среднего ({_format_feature_value(column, center[column])})")
+            direction = "РІС‹С€Рµ" if float(deltas[column]) >= 0 else "РЅРёР¶Рµ"
+            summary_parts.append(f"{column}: {direction} СЃСЂРµРґРЅРµРіРѕ ({_format_feature_value(column, center[column])})")
 
-        cluster_incidents = int(entity_frame.loc[mask, "Число пожаров"].sum()) if "Число пожаров" in entity_frame.columns else 0
+        cluster_incidents = int(entity_frame.loc[mask, "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"].sum()) if "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ" in entity_frame.columns else 0
         profiles.append(
             {
                 "cluster_label": cluster_label,
@@ -363,8 +363,8 @@ def _build_cluster_profiles(
                 "share_display": _format_percent(size / total_entities if total_entities else 0.0),
                 "incidents_display": _format_integer(cluster_incidents),
                 "incident_share_display": _format_percent(cluster_incidents / total_incidents if total_incidents else 0.0),
-                "dominant_feature": dominant_columns[0] if dominant_columns else "—",
-                "dominant_value": _format_feature_value(dominant_columns[0], center[dominant_columns[0]]) if dominant_columns else "—",
+                "dominant_feature": dominant_columns[0] if dominant_columns else "вЂ”",
+                "dominant_value": _format_feature_value(dominant_columns[0], center[dominant_columns[0]]) if dominant_columns else "вЂ”",
                 "summary": "; ".join(summary_parts[:3]) + ".",
                 "tone": CARD_TONES[cluster_id % len(CARD_TONES)],
             }
@@ -380,14 +380,14 @@ def _build_centroid_table(
     cluster_labels: Sequence[str],
     cluster_profiles: Sequence[Dict[str, str]],
 ) -> Tuple[List[str], List[List[str]]]:
-    columns = ["Кластер", "Профиль", "Территорий", "Пожаров в истории"] + list(cluster_frame.columns)
+    columns = ["РљР»Р°СЃС‚РµСЂ", "РџСЂРѕС„РёР»СЊ", "РўРµСЂСЂРёС‚РѕСЂРёР№", "РџРѕР¶Р°СЂРѕРІ РІ РёСЃС‚РѕСЂРёРё"] + list(cluster_frame.columns)
     rows: List[List[str]] = []
     titles = {item["cluster_label"]: item.get("segment_title", "") for item in cluster_profiles}
     for cluster_id, cluster_label in enumerate(cluster_labels):
         mask = labels == cluster_id
         size = int(np.sum(mask))
-        cluster_incidents = int(entity_frame.loc[mask, "Число пожаров"].sum()) if "Число пожаров" in entity_frame.columns else 0
-        row = [cluster_label, titles.get(cluster_label, "—"), _format_integer(size), _format_integer(cluster_incidents)]
+        cluster_incidents = int(entity_frame.loc[mask, "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"].sum()) if "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ" in entity_frame.columns else 0
+        row = [cluster_label, titles.get(cluster_label, "вЂ”"), _format_integer(size), _format_integer(cluster_incidents)]
         row.extend(_format_feature_value(feature_name, value) for feature_name, value in zip(cluster_frame.columns, raw_centers[cluster_id]))
         rows.append(row)
     return columns, rows
@@ -401,7 +401,7 @@ def _build_representative_rows(
     scaled_centers: np.ndarray,
     cluster_labels: Sequence[str],
 ) -> Tuple[List[str], List[List[str]]]:
-    columns = ["Кластер", "Территория", "Район", "Тип территории"] + list(cluster_frame.columns)
+    columns = ["РљР»Р°СЃС‚РµСЂ", "РўРµСЂСЂРёС‚РѕСЂРёСЏ", "Р Р°Р№РѕРЅ", "РўРёРї С‚РµСЂСЂРёС‚РѕСЂРёРё"] + list(cluster_frame.columns)
     rows: List[List[str]] = []
     distances = np.linalg.norm(scaled_points - scaled_centers[labels], axis=1)
 
@@ -412,9 +412,9 @@ def _build_representative_rows(
             entity_row = entity_frame.iloc[row_index]
             row_values = [
                 cluster_label,
-                str(entity_row.get("Территория", "—")),
-                str(entity_row.get("Район", "—")),
-                str(entity_row.get("Тип территории", "—")),
+                str(entity_row.get("РўРµСЂСЂРёС‚РѕСЂРёСЏ", "вЂ”")),
+                str(entity_row.get("Р Р°Р№РѕРЅ", "вЂ”")),
+                str(entity_row.get("РўРёРї С‚РµСЂСЂРёС‚РѕСЂРёРё", "вЂ”")),
             ]
             for column in cluster_frame.columns:
                 row_values.append(_format_feature_value(column, cluster_frame.iloc[row_index][column]))
@@ -435,11 +435,11 @@ def _build_notes(
     feature_selection_report: FeatureSelectionReport | None = None,
 ) -> List[str]:
     notes = [
-        f"Кластеризация построена по { _format_integer(sampled_entities) } территориям/населённым пунктам, агрегированным из { _format_integer(total_incidents) } пожаров.",
+        f"РљР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ РїРѕСЃС‚СЂРѕРµРЅР° РїРѕ { _format_integer(sampled_entities) } С‚РµСЂСЂРёС‚РѕСЂРёСЏРј/РЅР°СЃРµР»С‘РЅРЅС‹Рј РїСѓРЅРєС‚Р°Рј, Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹Рј РёР· { _format_integer(total_incidents) } РїРѕР¶Р°СЂРѕРІ.",
     ]
     if total_entities > sampled_entities:
         notes.append(
-            f"До кластеризации были собраны агрегаты по { _format_integer(total_entities) } территориям, а затем отобрана подвыборка без смещения по первым строкам таблицы."
+            f"Р”Рѕ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё Р±С‹Р»Рё СЃРѕР±СЂР°РЅС‹ Р°РіСЂРµРіР°С‚С‹ РїРѕ { _format_integer(total_entities) } С‚РµСЂСЂРёС‚РѕСЂРёСЏРј, Р° Р·Р°С‚РµРј РѕС‚РѕР±СЂР°РЅР° РїРѕРґРІС‹Р±РѕСЂРєР° Р±РµР· СЃРјРµС‰РµРЅРёСЏ РїРѕ РїРµСЂРІС‹Рј СЃС‚СЂРѕРєР°Рј С‚Р°Р±Р»РёС†С‹."
         )
 
     if support_summary:
@@ -448,15 +448,15 @@ def _build_notes(
             algorithm_key = str((feature_selection_report or {}).get("selected_algorithm_key") or "kmeans")
             if bool((feature_selection_report or {}).get("uses_incident_weights")):
                 notes.append(
-                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому для них редкие значения сглажены к общему уровню, а территории с более длинной историей влияют на результат немного сильнее."
+                    f"{_format_percent(low_support_share)} С‚РµСЂСЂРёС‚РѕСЂРёР№ РёРјРµСЋС‚ РЅРµ Р±РѕР»РµРµ {LOW_SUPPORT_TERRITORY_THRESHOLD} РїРѕР¶Р°СЂРѕРІ, РїРѕСЌС‚РѕРјСѓ РґР»СЏ РЅРёС… СЂРµРґРєРёРµ Р·РЅР°С‡РµРЅРёСЏ СЃРіР»Р°Р¶РµРЅС‹ Рє РѕР±С‰РµРјСѓ СѓСЂРѕРІРЅСЋ, Р° С‚РµСЂСЂРёС‚РѕСЂРёРё СЃ Р±РѕР»РµРµ РґР»РёРЅРЅРѕР№ РёСЃС‚РѕСЂРёРµР№ РІР»РёСЏСЋС‚ РЅР° СЂРµР·СѓР»СЊС‚Р°С‚ РЅРµРјРЅРѕРіРѕ СЃРёР»СЊРЅРµРµ."
                 )
             elif algorithm_key == "kmeans":
                 notes.append(
-                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому для них редкие значения сглажены к общему уровню, а все территории сохраняют одинаковый вес в расчёте."
+                    f"{_format_percent(low_support_share)} С‚РµСЂСЂРёС‚РѕСЂРёР№ РёРјРµСЋС‚ РЅРµ Р±РѕР»РµРµ {LOW_SUPPORT_TERRITORY_THRESHOLD} РїРѕР¶Р°СЂРѕРІ, РїРѕСЌС‚РѕРјСѓ РґР»СЏ РЅРёС… СЂРµРґРєРёРµ Р·РЅР°С‡РµРЅРёСЏ СЃРіР»Р°Р¶РµРЅС‹ Рє РѕР±С‰РµРјСѓ СѓСЂРѕРІРЅСЋ, Р° РІСЃРµ С‚РµСЂСЂРёС‚РѕСЂРёРё СЃРѕС…СЂР°РЅСЏСЋС‚ РѕРґРёРЅР°РєРѕРІС‹Р№ РІРµСЃ РІ СЂР°СЃС‡С‘С‚Рµ."
                 )
             else:
                 notes.append(
-                    f"{_format_percent(low_support_share)} территорий имеют не более {LOW_SUPPORT_TERRITORY_THRESHOLD} пожаров, поэтому для них редкие значения сглажены к общему уровню, а выбранный алгоритм не добавляет отдельные веса территориям."
+                    f"{_format_percent(low_support_share)} С‚РµСЂСЂРёС‚РѕСЂРёР№ РёРјРµСЋС‚ РЅРµ Р±РѕР»РµРµ {LOW_SUPPORT_TERRITORY_THRESHOLD} РїРѕР¶Р°СЂРѕРІ, РїРѕСЌС‚РѕРјСѓ РґР»СЏ РЅРёС… СЂРµРґРєРёРµ Р·РЅР°С‡РµРЅРёСЏ СЃРіР»Р°Р¶РµРЅС‹ Рє РѕР±С‰РµРјСѓ СѓСЂРѕРІРЅСЋ, Р° РІС‹Р±СЂР°РЅРЅС‹Р№ Р°Р»РіРѕСЂРёС‚Рј РЅРµ РґРѕР±Р°РІР»СЏРµС‚ РѕС‚РґРµР»СЊРЅС‹Рµ РІРµСЃР° С‚РµСЂСЂРёС‚РѕСЂРёСЏРј."
                 )
 
     if feature_selection_report:
@@ -472,30 +472,30 @@ def _build_notes(
         if negative_adds:
             worst_feature = min(negative_adds, key=lambda item: float(item.get("delta_score") or 0.0))
             notes.append(
-                f"В пробном сравнении признак '{worst_feature['feature']}' не вошёл в итоговый набор, потому что с ним группы разделялись хуже."
+                f"Р’ РїСЂРѕР±РЅРѕРј СЃСЂР°РІРЅРµРЅРёРё РїСЂРёР·РЅР°Рє '{worst_feature['feature']}' РЅРµ РІРѕС€С‘Р» РІ РёС‚РѕРіРѕРІС‹Р№ РЅР°Р±РѕСЂ, РїРѕС‚РѕРјСѓ С‡С‚Рѕ СЃ РЅРёРј РіСЂСѓРїРїС‹ СЂР°Р·РґРµР»СЏР»РёСЃСЊ С…СѓР¶Рµ."
             )
 
     if silhouette is None:
-        notes.append("Показатель отделённости групп не рассчитан: для этого нужно больше территорий, чем кластеров, и хотя бы две непустые группы.")
+        notes.append("РџРѕРєР°Р·Р°С‚РµР»СЊ РѕС‚РґРµР»С‘РЅРЅРѕСЃС‚Рё РіСЂСѓРїРї РЅРµ СЂР°СЃСЃС‡РёС‚Р°РЅ: РґР»СЏ СЌС‚РѕРіРѕ РЅСѓР¶РЅРѕ Р±РѕР»СЊС€Рµ С‚РµСЂСЂРёС‚РѕСЂРёР№, С‡РµРј РєР»Р°СЃС‚РµСЂРѕРІ, Рё С…РѕС‚СЏ Р±С‹ РґРІРµ РЅРµРїСѓСЃС‚С‹Рµ РіСЂСѓРїРїС‹.")
     elif silhouette < 0.2:
-        notes.append("Кластеры отделены слабо: профиль территорий плавный, поэтому результат стоит трактовать как предварительную типологию, а не как жёсткое разбиение.")
+        notes.append("РљР»Р°СЃС‚РµСЂС‹ РѕС‚РґРµР»РµРЅС‹ СЃР»Р°Р±Рѕ: РїСЂРѕС„РёР»СЊ С‚РµСЂСЂРёС‚РѕСЂРёР№ РїР»Р°РІРЅС‹Р№, РїРѕСЌС‚РѕРјСѓ СЂРµР·СѓР»СЊС‚Р°С‚ СЃС‚РѕРёС‚ С‚СЂР°РєС‚РѕРІР°С‚СЊ РєР°Рє РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅСѓСЋ С‚РёРїРѕР»РѕРіРёСЋ, Р° РЅРµ РєР°Рє Р¶С‘СЃС‚РєРѕРµ СЂР°Р·Р±РёРµРЅРёРµ.")
     elif silhouette < 0.4:
-        notes.append("Разделение умеренное: типы территорий уже читаются, но между ними остаются заметные переходные зоны.")
+        notes.append("Р Р°Р·РґРµР»РµРЅРёРµ СѓРјРµСЂРµРЅРЅРѕРµ: С‚РёРїС‹ С‚РµСЂСЂРёС‚РѕСЂРёР№ СѓР¶Рµ С‡РёС‚Р°СЋС‚СЃСЏ, РЅРѕ РјРµР¶РґСѓ РЅРёРјРё РѕСЃС‚Р°СЋС‚СЃСЏ Р·Р°РјРµС‚РЅС‹Рµ РїРµСЂРµС…РѕРґРЅС‹Рµ Р·РѕРЅС‹.")
     else:
-        notes.append("Кластеры отделены достаточно чётко для исследовательского сравнения типов территорий риска.")
+        notes.append("РљР»Р°СЃС‚РµСЂС‹ РѕС‚РґРµР»РµРЅС‹ РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ С‡С‘С‚РєРѕ РґР»СЏ РёСЃСЃР»РµРґРѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ СЃСЂР°РІРЅРµРЅРёСЏ С‚РёРїРѕРІ С‚РµСЂСЂРёС‚РѕСЂРёР№ СЂРёСЃРєР°.")
 
     if stability_ari is not None:
         if stability_ari < 0.45:
             notes.append(
-                f"На повторных подвыборках устойчивость низкая ({_format_number(stability_ari, 3)}): сегментация заметно меняется от состава выборки, поэтому кластеры лучше проверять по представителям и центрам."
+                f"РќР° РїРѕРІС‚РѕСЂРЅС‹С… РїРѕРґРІС‹Р±РѕСЂРєР°С… СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ РЅРёР·РєР°СЏ ({_format_number(stability_ari, 3)}): СЃРµРіРјРµРЅС‚Р°С†РёСЏ Р·Р°РјРµС‚РЅРѕ РјРµРЅСЏРµС‚СЃСЏ РѕС‚ СЃРѕСЃС‚Р°РІР° РІС‹Р±РѕСЂРєРё, РїРѕСЌС‚РѕРјСѓ РєР»Р°СЃС‚РµСЂС‹ Р»СѓС‡С€Рµ РїСЂРѕРІРµСЂСЏС‚СЊ РїРѕ РїСЂРµРґСЃС‚Р°РІРёС‚РµР»СЏРј Рё С†РµРЅС‚СЂР°Рј."
             )
         elif stability_ari < 0.7:
             notes.append(
-                f"На повторных подвыборках устойчивость умеренная ({_format_number(stability_ari, 3)}): общая типология сохраняется, но границы между соседними кластерами ещё чувствительны к составу данных."
+                f"РќР° РїРѕРІС‚РѕСЂРЅС‹С… РїРѕРґРІС‹Р±РѕСЂРєР°С… СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ СѓРјРµСЂРµРЅРЅР°СЏ ({_format_number(stability_ari, 3)}): РѕР±С‰Р°СЏ С‚РёРїРѕР»РѕРіРёСЏ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ, РЅРѕ РіСЂР°РЅРёС†С‹ РјРµР¶РґСѓ СЃРѕСЃРµРґРЅРёРјРё РєР»Р°СЃС‚РµСЂР°РјРё РµС‰С‘ С‡СѓРІСЃС‚РІРёС‚РµР»СЊРЅС‹ Рє СЃРѕСЃС‚Р°РІСѓ РґР°РЅРЅС‹С…."
             )
         else:
             notes.append(
-                f"На повторных подвыборках сегментация выглядит воспроизводимой ({_format_number(stability_ari, 3)}), хотя это всё равно не гарантирует идеальную устойчивость на новых периодах."
+                f"РќР° РїРѕРІС‚РѕСЂРЅС‹С… РїРѕРґРІС‹Р±РѕСЂРєР°С… СЃРµРіРјРµРЅС‚Р°С†РёСЏ РІС‹РіР»СЏРґРёС‚ РІРѕСЃРїСЂРѕРёР·РІРѕРґРёРјРѕР№ ({_format_number(stability_ari, 3)}), С…РѕС‚СЏ СЌС‚Рѕ РІСЃС‘ СЂР°РІРЅРѕ РЅРµ РіР°СЂР°РЅС‚РёСЂСѓРµС‚ РёРґРµР°Р»СЊРЅСѓСЋ СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ РЅР° РЅРѕРІС‹С… РїРµСЂРёРѕРґР°С…."
             )
 
     best_quality_k = diagnostics.get("best_quality_k")
@@ -504,35 +504,35 @@ def _build_notes(
     available_k_label = f"{CLUSTER_COUNT_OPTIONS[0]}..{CLUSTER_COUNT_OPTIONS[-1]}"
     if best_quality_k and best_silhouette_k and best_quality_k != best_silhouette_k:
         notes.append(
-            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп лучше выглядит k={best_quality_k}, хотя по чёткости границ отдельно лидирует k={best_silhouette_k}."
+            f"Р’ РґРѕСЃС‚СѓРїРЅРѕРј РґРёР°РїР°Р·РѕРЅРµ k={available_k_label} РїРѕ СЃРѕРІРѕРєСѓРїРЅРѕСЃС‚Рё РїРѕРєР°Р·Р°С‚РµР»РµР№ Рё СЂР°Р·РјРµСЂРѕРІ РіСЂСѓРїРї Р»СѓС‡С€Рµ РІС‹РіР»СЏРґРёС‚ k={best_quality_k}, С…РѕС‚СЏ РїРѕ С‡С‘С‚РєРѕСЃС‚Рё РіСЂР°РЅРёС† РѕС‚РґРµР»СЊРЅРѕ Р»РёРґРёСЂСѓРµС‚ k={best_silhouette_k}."
         )
     elif best_quality_k:
         notes.append(
-            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп наиболее убедительно выглядит k={best_quality_k}."
+            f"Р’ РґРѕСЃС‚СѓРїРЅРѕРј РґРёР°РїР°Р·РѕРЅРµ k={available_k_label} РїРѕ СЃРѕРІРѕРєСѓРїРЅРѕСЃС‚Рё РїРѕРєР°Р·Р°С‚РµР»РµР№ Рё СЂР°Р·РјРµСЂРѕРІ РіСЂСѓРїРї РЅР°РёР±РѕР»РµРµ СѓР±РµРґРёС‚РµР»СЊРЅРѕ РІС‹РіР»СЏРґРёС‚ k={best_quality_k}."
         )
     elif best_silhouette_k and elbow_k and best_silhouette_k != elbow_k:
         notes.append(
-            f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}, а заметный перелом кривой начинается около k={elbow_k}."
+            f"Р’ РґРѕСЃС‚СѓРїРЅРѕРј РґРёР°РїР°Р·РѕРЅРµ k={available_k_label} РїРѕ С‡С‘С‚РєРѕСЃС‚Рё РіСЂР°РЅРёС† Р»СѓС‡С€РёР№ СЂРµР·СѓР»СЊС‚Р°С‚ РґР°С‘С‚ k={best_silhouette_k}, Р° Р·Р°РјРµС‚РЅС‹Р№ РїРµСЂРµР»РѕРј РєСЂРёРІРѕР№ РЅР°С‡РёРЅР°РµС‚СЃСЏ РѕРєРѕР»Рѕ k={elbow_k}."
         )
     elif best_silhouette_k:
-        notes.append(f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}.")
+        notes.append(f"Р’ РґРѕСЃС‚СѓРїРЅРѕРј РґРёР°РїР°Р·РѕРЅРµ k={available_k_label} РїРѕ С‡С‘С‚РєРѕСЃС‚Рё РіСЂР°РЅРёС† Р»СѓС‡С€РёР№ СЂРµР·СѓР»СЊС‚Р°С‚ РґР°С‘С‚ k={best_silhouette_k}.")
     elif elbow_k:
-        notes.append(f"В доступном диапазоне k={available_k_label} кривая внутригруппового разброса заметно меняется около k={elbow_k}.")
+        notes.append(f"Р’ РґРѕСЃС‚СѓРїРЅРѕРј РґРёР°РїР°Р·РѕРЅРµ k={available_k_label} РєСЂРёРІР°СЏ РІРЅСѓС‚СЂРёРіСЂСѓРїРїРѕРІРѕРіРѕ СЂР°Р·Р±СЂРѕСЃР° Р·Р°РјРµС‚РЅРѕ РјРµРЅСЏРµС‚СЃСЏ РѕРєРѕР»Рѕ k={elbow_k}.")
 
-    notes.append(f"В расчёте участвовали признаки: {', '.join(selected_features)}.")
+    notes.append(f"Р’ СЂР°СЃС‡С‘С‚Рµ СѓС‡Р°СЃС‚РІРѕРІР°Р»Рё РїСЂРёР·РЅР°РєРё: {', '.join(selected_features)}.")
     if cluster_profiles:
         largest = max(cluster_profiles, key=lambda item: int(item["size_display"].replace(" ", "")))
         notes.append(
-            f"Самый крупный тип территорий сейчас — {largest['cluster_label']} ({largest['share_display']} выборки): {largest['segment_title'].lower()}."
+            f"РЎР°РјС‹Р№ РєСЂСѓРїРЅС‹Р№ С‚РёРї С‚РµСЂСЂРёС‚РѕСЂРёР№ СЃРµР№С‡Р°СЃ вЂ” {largest['cluster_label']} ({largest['share_display']} РІС‹Р±РѕСЂРєРё): {largest['segment_title'].lower()}."
         )
     notes.append(
-        "Кластеры полезны как типология территорий, но соседние группы могут пересекаться, поэтому итог лучше проверять по профилям, центрам и типичным территориям внутри каждого кластера."
+        "РљР»Р°СЃС‚РµСЂС‹ РїРѕР»РµР·РЅС‹ РєР°Рє С‚РёРїРѕР»РѕРіРёСЏ С‚РµСЂСЂРёС‚РѕСЂРёР№, РЅРѕ СЃРѕСЃРµРґРЅРёРµ РіСЂСѓРїРїС‹ РјРѕРіСѓС‚ РїРµСЂРµСЃРµРєР°С‚СЊСЃСЏ, РїРѕСЌС‚РѕРјСѓ РёС‚РѕРі Р»СѓС‡С€Рµ РїСЂРѕРІРµСЂСЏС‚СЊ РїРѕ РїСЂРѕС„РёР»СЏРј, С†РµРЅС‚СЂР°Рј Рё С‚РёРїРёС‡РЅС‹Рј С‚РµСЂСЂРёС‚РѕСЂРёСЏРј РІРЅСѓС‚СЂРё РєР°Р¶РґРѕРіРѕ РєР»Р°СЃС‚РµСЂР°."
     )
     return notes
 
 
 def _cluster_labels(cluster_count: int) -> List[str]:
-    return [f"Тип {index + 1}" for index in range(cluster_count)]
+    return [f"РўРёРї {index + 1}" for index in range(cluster_count)]
 
 
 def _feature_phrase(column_name: str, delta_score: float) -> str:
@@ -543,6 +543,6 @@ def _feature_phrase(column_name: str, delta_score: float) -> str:
 
 
 def _format_feature_value(column_name: str, value: Any) -> str:
-    if column_name.startswith("Доля") or column_name.startswith("Покрытие"):
+    if column_name.startswith("Р”РѕР»СЏ") or column_name.startswith("РџРѕРєСЂС‹С‚РёРµ"):
         return _format_percent(float(value))
     return _format_number(value, 2)

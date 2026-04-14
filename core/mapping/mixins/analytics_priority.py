@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
-from typing import Any, Callable, Dict, List
+from typing import Callable, List
 
 import numpy as np
 
@@ -24,7 +24,7 @@ def build_priority_territories(
 
     max_incidents = max(len(items) for items in grouped.values()) or 1
     max_weight = max(sum(point['weight'] for point in items) for items in grouped.values()) or 1.0
-    territories: List[Dict[str, Any]] = []
+    territories: List[PriorityTerritory] = []
     for label, items in grouped.items():
         incident_count = len(items)
         severe_count = sum(1 for item in items if item['has_victims'])
@@ -61,14 +61,14 @@ def build_priority_territories(
         ), 1)
         risk_label, risk_tone = risk_level(risk_score)
         explanation_parts = [
-            f"Территория {label} выделена по сочетанию повторяемости пожаров и логистической нагрузки.",
-            f"Travel-time {logistics_profile['travel_time_display']}, покрытие ПЧ {logistics_profile['service_coverage_display']} ({logistics_profile['fire_station_coverage_label']}).",
-            f"Сервисная зона: {logistics_profile['service_zone_label']}; логистический приоритет {logistics_profile['logistics_priority_display']}",
+            f"РўРµСЂСЂРёС‚РѕСЂРёСЏ {label} РІС‹РґРµР»РµРЅР° РїРѕ СЃРѕС‡РµС‚Р°РЅРёСЋ РїРѕРІС‚РѕСЂСЏРµРјРѕСЃС‚Рё РїРѕР¶Р°СЂРѕРІ Рё Р»РѕРіРёСЃС‚РёС‡РµСЃРєРѕР№ РЅР°РіСЂСѓР·РєРё.",
+            f"Travel-time {logistics_profile['travel_time_display']}, РїРѕРєСЂС‹С‚РёРµ РџР§ {logistics_profile['service_coverage_display']} ({logistics_profile['fire_station_coverage_label']}).",
+            f"РЎРµСЂРІРёСЃРЅР°СЏ Р·РѕРЅР°: {logistics_profile['service_zone_label']}; Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚ {logistics_profile['logistics_priority_display']}",
         ]
         if zone_hits:
-            explanation_parts.append(f"Внутри верхних зон риска отмечено {zone_hits} исторических очагов.")
+            explanation_parts.append(f"Р’РЅСѓС‚СЂРё РІРµСЂС…РЅРёС… Р·РѕРЅ СЂРёСЃРєР° РѕС‚РјРµС‡РµРЅРѕ {zone_hits} РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕС‡Р°РіРѕРІ.")
         elif severe_count:
-            explanation_parts.append(f"Тяжёлые последствия фиксировались в {severe_count} случаях.")
+            explanation_parts.append(f"РўСЏР¶С‘Р»С‹Рµ РїРѕСЃР»РµРґСЃС‚РІРёСЏ С„РёРєСЃРёСЂРѕРІР°Р»РёСЃСЊ РІ {severe_count} СЃР»СѓС‡Р°СЏС….")
         territories.append({
             'label': label,
             'latitude': round(float(np.mean([item['latitude'] for item in items])), 6),
@@ -81,9 +81,9 @@ def build_priority_territories(
             'risk_label': risk_label,
             'risk_tone': risk_tone,
             'avg_station_distance': round(avg_distance, 1) if avg_distance is not None else None,
-            'avg_station_distance_display': f'{avg_distance:.1f} км' if avg_distance is not None else 'н/д',
+            'avg_station_distance_display': f'{avg_distance:.1f} РєРј' if avg_distance is not None else 'РЅ/Рґ',
             'avg_response_minutes': round(avg_response, 1) if avg_response is not None else None,
-            'avg_response_display': f'{avg_response:.1f} мин' if avg_response is not None else 'н/д',
+            'avg_response_display': f'{avg_response:.1f} РјРёРЅ' if avg_response is not None else 'РЅ/Рґ',
             'travel_time_minutes': logistics_profile['travel_time_minutes'],
             'travel_time_display': logistics_profile['travel_time_display'],
             'travel_time_source': logistics_profile['travel_time_source'],
@@ -103,7 +103,7 @@ def build_priority_territories(
     territories.sort(key=lambda item: (item['risk_score'], item['incident_count']), reverse=True)
     for rank, item in enumerate(territories, start=1):
         item['rank'] = rank
-        item['priority_label'] = f'Территория #{rank}'
+        item['priority_label'] = f'РўРµСЂСЂРёС‚РѕСЂРёСЏ #{rank}'
     return territories[:8]
 
 
@@ -116,7 +116,7 @@ def build_fallback_risk_zones(
     build_circle_polygon: Callable[[float, float, float], List[List[float]]],
 ) -> List[RiskZone]:
     grouped = group_records_by_field(records, 'territory_label')
-    fallback_zones: List[Dict[str, Any]] = []
+    fallback_zones: List[RiskZone] = []
     for rank, territory in enumerate(priority_territories[:3], start=1):
         items = grouped.get(territory['label'], [])
         if not items:
@@ -137,10 +137,10 @@ def build_fallback_risk_zones(
             'risk_label': risk_label,
             'risk_tone': risk_tone,
             'support_count': territory['incident_count'],
-            'source': 'Резервная территориальная зона',
-            'explanation': 'Зона сформирована по центроиду приоритетной территории, так как сигнал hotspot/DBSCAN пока недостаточно устойчив.',
+            'source': 'Р РµР·РµСЂРІРЅР°СЏ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅР°СЏ Р·РѕРЅР°',
+            'explanation': 'Р—РѕРЅР° СЃС„РѕСЂРјРёСЂРѕРІР°РЅР° РїРѕ С†РµРЅС‚СЂРѕРёРґСѓ РїСЂРёРѕСЂРёС‚РµС‚РЅРѕР№ С‚РµСЂСЂРёС‚РѕСЂРёРё, С‚Р°Рє РєР°Рє СЃРёРіРЅР°Р» hotspot/DBSCAN РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ СѓСЃС‚РѕР№С‡РёРІ.',
             'rank': rank,
-            'priority_label': f'Приоритет {rank}',
+            'priority_label': f'РџСЂРёРѕСЂРёС‚РµС‚ {rank}',
             'polygon': build_circle_polygon(territory['longitude'], territory['latitude'], radius_km),
         })
     return fallback_zones
@@ -153,7 +153,7 @@ def build_spatial_risk_zones(
     km_distance: Callable[[SpatialPoint, SpatialPoint], float],
     build_circle_polygon: Callable[[float, float, float], List[List[float]]],
 ) -> List[RiskZone]:
-    risk_zone_candidates: List[Dict[str, Any]] = []
+    risk_zone_candidates: List[RiskZone] = []
     for cluster in dbscan.get('clusters', []):
         risk_zone_candidates.append({
             'label': cluster['label'], 'latitude': cluster['latitude'], 'longitude': cluster['longitude'], 'radius_km': max(cluster['radius_km'], 1.0), 'risk_score': cluster['risk_score'], 'risk_score_display': cluster['risk_score_display'], 'risk_label': cluster['risk_label'], 'risk_tone': cluster['risk_tone'], 'support_count': cluster['incident_count'], 'source': 'DBSCAN', 'explanation': cluster['explanation'],
@@ -165,12 +165,12 @@ def build_spatial_risk_zones(
             'label': hotspot['label'], 'latitude': hotspot['latitude'], 'longitude': hotspot['longitude'], 'radius_km': hotspot['radius_km'], 'risk_score': hotspot['risk_score'], 'risk_score_display': hotspot['risk_score_display'], 'risk_label': hotspot['risk_label'], 'risk_tone': hotspot['risk_tone'], 'support_count': hotspot['support_count'], 'source': 'Hotspot', 'explanation': hotspot['explanation'],
         })
     risk_zone_candidates.sort(key=lambda item: (item['risk_score'], item['support_count']), reverse=True)
-    risk_zones: List[Dict[str, Any]] = []
+    risk_zones: List[RiskZone] = []
     for rank, item in enumerate(risk_zone_candidates[:6], start=1):
         risk_zones.append({
             **item,
             'rank': rank,
-            'priority_label': f'Приоритет {rank}',
+            'priority_label': f'РџСЂРёРѕСЂРёС‚РµС‚ {rank}',
             'polygon': build_circle_polygon(item['longitude'], item['latitude'], item['radius_km']),
         })
     return risk_zones

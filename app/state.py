@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,11 +23,11 @@ def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def _freeze_job_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+def _freeze_job_meta(meta: dict[str, Any]) -> dict[str, Any]:
     return {key: freeze_mutable_payload(value) for key, value in meta.items()}
 
 
-def _clone_job_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+def _clone_job_meta(meta: dict[str, Any]) -> dict[str, Any]:
     return {key: clone_mutable_payload(value) for key, value in meta.items()}
 
 
@@ -41,7 +41,7 @@ class JobState:
     logs: list[str] = field(default_factory=list)
     result: Any = None
     error_message: str = ""
-    meta: Dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)
     status: str = "created"
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)

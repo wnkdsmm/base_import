@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -349,15 +349,15 @@ def _build_future_forecast_rows(
                 'upper_bound': round(upper_bound, 3),
                 'upper_bound_display': _format_number(upper_bound),
                 'range_label': f'{interval_label} interval',
-                'range_display': f"{interval_label}: {_format_number(lower_bound)} - {_format_number(upper_bound)} пожара",
-                'temperature_display': f"{_format_number(temp_value)} °C",
+                'range_display': f"{interval_label}: {_format_number(lower_bound)} - {_format_number(upper_bound)} РїРѕР¶Р°СЂР°",
+                'temperature_display': f"{_format_number(temp_value)} В°C",
                 'risk_index': round(risk_index, 1),
                 'risk_index_display': f"{int(round(risk_index))} / 100",
                 'risk_level_label': risk_level_label,
                 'risk_level_tone': risk_level_tone,
                 **_forecast_interval_coverage_metadata(row_interval_calibration),
                 'event_probability': round(event_probability, 4) if event_probability is not None else None,
-                'event_probability_display': _format_probability(event_probability) if event_probability is not None else '—',
+                'event_probability_display': _format_probability(event_probability) if event_probability is not None else 'вЂ”',
             }
         )
     return forecast_rows

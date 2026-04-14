@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,7 +19,7 @@ def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return reference
 
 
-def _build_history_frame(history_tail: List[Dict[str, Any]]) -> pd.DataFrame:
+def _build_history_frame(history_tail: List[dict[str, Any]]) -> pd.DataFrame:
     frame = pd.DataFrame(
         {
             'date': pd.to_datetime([item['date'] for item in history_tail]),
@@ -112,10 +112,10 @@ def _build_backtest_seed_dataset(
 
 def _prepare_training_dataset(
     frame: pd.DataFrame,
-    temperature_stats: Optional[Dict[str, Any]] = None,
+    temperature_stats: Optional[dict[str, Any]] = None,
     *,
     frame_is_prepared: bool = False,
-) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     from .training_temperature import (
         _apply_temperature_statistics,
         _fit_temperature_statistics,

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, Dict, Sequence
 
@@ -28,7 +28,7 @@ def _build_table_request_context(
     source_notes_resolver: SourceNotesResolver,
     forecast_days_parser: ForecastDaysParser,
     history_window_parser: HistoryWindowParser,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     table_options = table_options_builder()
     selected_table = selection_resolver(table_options, table_name)
     requested_table = normalize_cache_value(table_name, fallback="all")
@@ -85,7 +85,7 @@ def build_forecasting_request_state(
     source_notes_resolver: SourceNotesResolver,
     forecast_days_parser: ForecastDaysParser,
     history_window_parser: HistoryWindowParser,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     state = _build_table_request_context(
         table_name=table_name,
         forecast_days=forecast_days,
@@ -151,7 +151,7 @@ def build_ml_request_state(
     history_window_parser: HistoryWindowParser,
     temperature_parser: Callable[[str], float | None],
     temperature_formatter: Callable[[float], str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     state = _build_table_request_context(
         table_name=table_name,
         forecast_days=forecast_days,

@@ -1,17 +1,17 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 
 class ColumnFinder:
-    """Поиск колонок в DataFrame с кэшированием"""
+    """РџРѕРёСЃРє РєРѕР»РѕРЅРѕРє РІ DataFrame СЃ РєСЌС€РёСЂРѕРІР°РЅРёРµРј"""
     
     def __init__(self):
         self._cache: Dict[int, Dict[Tuple, Optional[str]]] = {}
     
     def find(self, df: pd.DataFrame, possible_names: Tuple[str, ...]) -> Optional[str]:
-        """Находит колонку по возможным именам"""
+        """РќР°С…РѕРґРёС‚ РєРѕР»РѕРЅРєСѓ РїРѕ РІРѕР·РјРѕР¶РЅС‹Рј РёРјРµРЅР°Рј"""
         df_id = id(df)
         if df_id not in self._cache:
             self._cache[df_id] = {}
@@ -20,7 +20,7 @@ class ColumnFinder:
         if possible_names in cache:
             return cache[possible_names]
         
-        # Поиск с предварительной нормализацией
+        # РџРѕРёСЃРє СЃ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕР№ РЅРѕСЂРјР°Р»РёР·Р°С†РёРµР№
         df_lower = {col.lower().strip(): col for col in df.columns}
         for name in possible_names:
             if name in df_lower:
@@ -36,15 +36,15 @@ class ColumnFinder:
 # =====================================================
 
 class DataCleaner:
-    """Очистка и подготовка данных"""
+    """РћС‡РёСЃС‚РєР° Рё РїРѕРґРіРѕС‚РѕРІРєР° РґР°РЅРЅС‹С…"""
     
     @staticmethod
     def clean_coordinates(df: pd.DataFrame, lat_col: str, lon_col: str) -> pd.DataFrame:
-        """Очищает координаты и удаляет некорректные"""
+        """РћС‡РёС‰Р°РµС‚ РєРѕРѕСЂРґРёРЅР°С‚С‹ Рё СѓРґР°Р»СЏРµС‚ РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Рµ"""
         df = df.copy()
         
         for col in [lat_col, lon_col]:
-            # Конвертация строк в числа
+            # РљРѕРЅРІРµСЂС‚Р°С†РёСЏ СЃС‚СЂРѕРє РІ С‡РёСЃР»Р°
             df[col] = (
                 df[col]
                 .astype(str)
@@ -53,7 +53,7 @@ class DataCleaner:
             )
             df[col] = pd.to_numeric(df[col], errors='coerce')
         
-        # Фильтрация валидных координат
+        # Р¤РёР»СЊС‚СЂР°С†РёСЏ РІР°Р»РёРґРЅС‹С… РєРѕРѕСЂРґРёРЅР°С‚
         valid_coords = (
             df[lat_col].between(-90, 90) & 
             df[lon_col].between(-180, 180)
@@ -63,7 +63,7 @@ class DataCleaner:
     
     @staticmethod
     def safe_get(row: pd.Series, col: Optional[str], default: Any = 0) -> Any:
-        """Безопасное получение значения из строки"""
+        """Р‘РµР·РѕРїР°СЃРЅРѕРµ РїРѕР»СѓС‡РµРЅРёРµ Р·РЅР°С‡РµРЅРёСЏ РёР· СЃС‚СЂРѕРєРё"""
         if col and col in row.index:
             val = row[col]
             return val if pd.notna(val) else default
