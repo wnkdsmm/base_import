@@ -179,3 +179,118 @@ class SupportSummary(TypedDict, total=False):
     """Support coverage summary with share of low-support territories."""
 
     low_support_share: float | None
+
+
+class ClusteringFilters(TypedDict, total=False):
+    """Request filters and selectable options for clustering page payloads."""
+
+    table_name: str
+    cluster_count: str
+    sample_limit: str
+    sampling_strategy: str
+    feature_columns: list[str]
+    available_tables: list[dict[str, str]]
+    available_cluster_counts: list[dict[str, str]]
+    available_sample_limits: list[dict[str, str]]
+    available_sampling_strategies: list[dict[str, str]]
+    available_features: list[dict[str, Any]]
+
+
+class ClusteringSummary(TypedDict, total=False):
+    """Top-level clustering summary counters and labels shown in hero/cards."""
+
+    selected_table_label: str
+    total_incidents_display: str
+    total_entities_display: str
+    sampled_entities_display: str
+    clustered_entities_display: str
+    excluded_entities_display: str
+    candidate_features_display: str
+    selected_features_display: str
+    cluster_count_display: str
+    cluster_count_requested_display: str
+    cluster_count_note: str
+    suggested_cluster_count_label: str
+    suggested_cluster_count_display: str
+    suggested_cluster_count_note: str
+    elbow_cluster_count_display: str
+    silhouette_display: str
+    pca_variance_display: str
+    inertia_display: str
+    sampling_strategy_label: str
+
+
+class DiagnosticsRow(TypedDict, total=False):
+    """Diagnostics row for cluster-count quality chart and table views."""
+
+    cluster_count: int
+    silhouette: float | None
+    davies_bouldin: float | None
+    calinski_harabasz: float | None
+    cluster_balance_ratio: float | None
+
+
+class ClusteringDiagnostics(QualityDiagnostics, total=False):
+    """Diagnostics payload enriched with chart rows and elbow recommendation."""
+
+    rows: list[DiagnosticsRow]
+    elbow_k: int | None
+
+
+class ClusteringModelOutput(TypedDict, total=False):
+    """Model output used by result assembly and quality narrative builders."""
+
+    silhouette: float | None
+    explained_variance: float | None
+    inertia: float | None
+    pca_points: Any
+    stability_ari: float | None
+
+
+class ClusteringDataset(TypedDict, total=False):
+    """Dataset-level counters and support summary after preprocessing stage."""
+
+    total_incidents: int
+    total_entities: int
+    sampled_entities: int
+    support_summary: SupportSummary | None
+
+
+class ClusteringModelInputs(TypedDict, total=False):
+    """Prepared inputs that feed clustering model stage."""
+
+    requested_working_cluster_count: int
+
+
+class ClusteringModelBundle(TypedDict, total=False):
+    """Combined model stage outputs used by core_results and rendering."""
+
+    actual_cluster_count: int
+    diagnostics: ClusteringDiagnostics
+    clustering: ClusteringModelOutput
+    runtime_feature_context: FeatureSelectionReport
+
+
+class ClusteringCharts(TypedDict):
+    """Chart bundle rendered in clustering payload."""
+
+    scatter: dict[str, Any]
+    distribution: dict[str, Any]
+    diagnostics: dict[str, Any]
+
+
+class ClusteringPayload(TypedDict, total=False):
+    """Top-level clustering payload returned to API/template layer."""
+
+    has_data: bool
+    model_description: str
+    summary: ClusteringSummary
+    quality_assessment: ClusteringQualityAssessment
+    cluster_profiles: list[dict[str, Any]]
+    centroid_columns: list[dict[str, Any]]
+    centroid_rows: list[dict[str, Any]]
+    representative_columns: list[dict[str, Any]]
+    representative_rows: list[dict[str, Any]]
+    charts: ClusteringCharts
+    notes: list[str]
+    filters: ClusteringFilters

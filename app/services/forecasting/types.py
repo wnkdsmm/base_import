@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Callable, TypedDict
 
 
 class TableOption(TypedDict, total=False):
@@ -154,6 +154,131 @@ class ForecastingOptionCatalog(TypedDict, total=False):
     districts: list[dict[str, str]]
     causes: list[dict[str, str]]
     object_categories: list[dict[str, str]]
+
+
+class ForecastingFeatureCard(TypedDict, total=False):
+    label: str
+    status: str
+    status_label: str
+    source: str
+    description: str
+    quality_status: str | None
+    quality_label: str | None
+    coverage_display: str | None
+    usable: bool | None
+
+
+class ForecastingInsightCard(TypedDict, total=False):
+    label: str
+    value: str
+    meta: str
+    tone: str
+
+
+class ForecastingQualityAssessment(TypedDict, total=False):
+    title: str
+    subtitle: str
+    metric_cards: list[dict[str, Any]]
+    methodology_items: list[dict[str, Any]]
+    comparison_rows: list[dict[str, Any]]
+    dissertation_points: list[str]
+
+
+class ForecastingCharts(TypedDict, total=False):
+    daily: dict[str, Any]
+    breakdown: dict[str, Any]
+    weekday: dict[str, Any]
+    geo: dict[str, Any]
+
+
+class ForecastingBaseArtifacts(TypedDict, total=False):
+    quality_assessment: ForecastingQualityAssessment
+    forecast_rows: list[ForecastingForecastRow]
+    weekday_profile: list[ForecastingWeekdayProfileRow]
+    charts: ForecastingCharts
+
+
+class ForecastingBasePresentation(TypedDict, total=False):
+    generated_at: str
+    notes: list[str]
+    features: list[ForecastingFeatureCard]
+    insights: list[ForecastingInsightCard]
+    summary: ForecastingSummary
+    executive_brief: ForecastingExecutiveBrief
+    filters: ForecastingFilters
+
+
+class ForecastingDeps(TypedDict, total=False):
+    """Dependency container with forecasting service callbacks."""
+
+    format_datetime: Callable[..., str]
+    build_slice_label: Callable[..., str]
+    history_window_label: Callable[..., str]
+    build_shell_risk_prediction: Callable[..., ForecastingRiskPrediction]
+    build_pending_executive_brief: Callable[..., ForecastingExecutiveBrief]
+    build_decision_support_followup_message: Callable[..., str]
+    format_float_for_input: Callable[..., str]
+    build_forecast_chart: Callable[..., dict[str, Any]]
+    build_forecast_breakdown_chart: Callable[..., dict[str, Any]]
+    build_weekday_chart: Callable[..., dict[str, Any]]
+    build_notes: Callable[..., list[str]]
+    build_executive_brief_from_risk_payload: Callable[..., ForecastingExecutiveBrief]
+    compose_executive_brief_text: Callable[..., str]
+    build_summary: Callable[..., ForecastingSummary]
+    build_insights: Callable[..., list[ForecastingInsightCard]]
+    build_geo_chart: Callable[..., dict[str, Any]]
+    run_scenario_backtesting: Callable[..., dict[str, Any]]
+    build_scenario_quality_assessment: Callable[..., ForecastingQualityAssessment]
+    build_forecast_rows: Callable[..., list[ForecastingForecastRow]]
+    build_weekday_profile: Callable[..., list[ForecastingWeekdayProfileRow]]
+    build_decision_support_payload: Callable[..., ForecastingRiskPrediction]
+    build_pending_decision_support_payload: Callable[..., ForecastingRiskPrediction]
+    selected_source_tables: Callable[..., list[str]]
+    emit_forecasting_progress: Callable[..., None]
+    scenario_forecast_description: str
+    forecast_day_options: list[int]
+    history_window_options: list[dict[str, str]]
+
+
+class ForecastInput(TypedDict, total=False):
+    """Input bundle for forecasting payload assembly."""
+
+    table_options: list[TableOption]
+    selected_table: str
+    source_tables: list[str]
+    source_table_notes: list[str]
+    district: str
+    cause: str
+    object_category: str
+    temperature: str
+    temperature_value: float | None
+    days_ahead: int
+    selected_history_window: str
+    include_decision_support: bool
+
+
+class ForecastPayload(ForecastingPayload, total=False):
+    """Final forecasting payload served to the UI."""
+
+    pass
+
+
+class SqlFilters(TypedDict, total=False):
+    """SQL scope/filter parameters passed into query builders."""
+
+    district: str
+    cause: str
+    object_category: str
+    min_year: int | None
+    history_window: str
+
+
+class SqlRow(TypedDict, total=False):
+    """One normalized daily history row returned by SQL layer."""
+
+    date: Any
+    count: float
+    temperature: float | None
 
 
 class ForecastingMetadataInputs(TypedDict, total=False):

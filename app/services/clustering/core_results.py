@@ -5,17 +5,29 @@ from typing import Any, Dict, Sequence
 from .analysis_metrics import _build_notes
 from .charts import _build_diagnostics_chart, _build_distribution_chart, _build_scatter_chart
 from .quality import _build_cluster_count_guidance, _build_clustering_quality_assessment
+from .types import (
+    ClusterCountGuidance,
+    ClusterMethod,
+    ClusteringDataset,
+    ClusteringDiagnostics,
+    ClusteringModelBundle,
+    ClusteringModelInputs,
+    ClusteringModelOutput,
+    ClusteringPayload,
+    ClusteringSummary,
+    FeatureSelectionReport,
+)
 from .utils import _format_integer, _format_number, _format_percent
 
 
 def _apply_cluster_count_guidance_to_summary(
     *,
-    base: Dict[str, Any],
-    summary: Dict[str, Any],
-    cluster_count_guidance: Dict[str, Any],
+    base: ClusteringPayload,
+    summary: ClusteringSummary,
+    cluster_count_guidance: ClusterCountGuidance,
     actual_cluster_count: int,
     requested_cluster_count: int,
-    diagnostics: Dict[str, Any],
+    diagnostics: ClusteringDiagnostics,
 ) -> None:
     base["filters"]["cluster_count"] = str(actual_cluster_count)
     summary["cluster_count_display"] = _format_integer(actual_cluster_count)
@@ -36,14 +48,14 @@ def _apply_cluster_count_guidance_to_summary(
 
 def _build_clustering_charts_payload(
     *,
-    clustering: Dict[str, Any],
+    clustering: ClusteringModelOutput,
     labels: Sequence[int],
     cluster_labels: Sequence[str],
     cluster_frame: Any,
     entity_frame: Any,
-    diagnostics: Dict[str, Any],
+    diagnostics: ClusteringDiagnostics,
     actual_cluster_count: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:  # one-off structure: direct chart bundle mapped by chart ids
     return {
         "scatter": _build_scatter_chart(
             pca_points=clustering["pca_points"],
@@ -70,30 +82,30 @@ def _build_clustering_charts_payload(
 
 def _build_clustering_success_payload(
     *,
-    base: Dict[str, Any],
-    summary: Dict[str, Any],
+    base: ClusteringPayload,
+    summary: ClusteringSummary,
     model_description: str,
-    dataset: Dict[str, Any],
+    dataset: ClusteringDataset,
     selected_features: Sequence[str],
     requested_cluster_count: int,
     requested_working_cluster_count: int,
     cluster_count_is_explicit: bool,
-    cluster_count_guidance: Dict[str, Any],
-    diagnostics: Dict[str, Any],
-    runtime_feature_context: Dict[str, Any],
-    clustering: Dict[str, Any],
-    method_comparison: Sequence[Dict[str, Any]],
+    cluster_count_guidance: ClusterCountGuidance,
+    diagnostics: ClusteringDiagnostics,
+    runtime_feature_context: FeatureSelectionReport,
+    clustering: ClusteringModelOutput,
+    method_comparison: Sequence[ClusterMethod],
     actual_cluster_count: int,
-    profiles: Sequence[Dict[str, Any]],
-    centroid_columns: Sequence[Dict[str, Any]],
-    centroid_rows: Sequence[Dict[str, Any]],
-    representative_columns: Sequence[Dict[str, Any]],
-    representative_rows: Sequence[Dict[str, Any]],
+    profiles: Sequence[dict[str, Any]],  # one-off structure: presentation rows from analysis_metrics
+    centroid_columns: Sequence[dict[str, Any]],  # one-off structure: dynamic tabular schema
+    centroid_rows: Sequence[dict[str, Any]],  # one-off structure: dynamic tabular rows
+    representative_columns: Sequence[dict[str, Any]],  # one-off structure: dynamic tabular schema
+    representative_rows: Sequence[dict[str, Any]],  # one-off structure: dynamic tabular rows
     labels: Sequence[int],
     cluster_labels: Sequence[str],
     cluster_frame: Any,
     entity_frame: Any,
-) -> Dict[str, Any]:
+) -> ClusteringPayload:
     payload = {
         **base,
         "has_data": True,
@@ -146,13 +158,13 @@ def _build_clustering_success_payload(
 
 def _build_clustering_quality_stage(
     *,
-    base: Dict[str, Any],
-    summary: Dict[str, Any],
-    model_inputs: Dict[str, Any],
-    model_bundle: Dict[str, Any],
+    base: ClusteringPayload,
+    summary: ClusteringSummary,
+    model_inputs: ClusteringModelInputs,
+    model_bundle: ClusteringModelBundle,
     requested_cluster_count: int,
     cluster_count_is_explicit: bool,
-) -> Dict[str, Any]:
+) -> ClusterCountGuidance:
     actual_cluster_count = model_bundle["actual_cluster_count"]
     diagnostics = model_bundle["diagnostics"]
     clustering = model_bundle["clustering"]

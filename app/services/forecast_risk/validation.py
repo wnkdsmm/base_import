@@ -10,6 +10,18 @@ from typing import Any, Dict, List, Optional, Sequence
 from .profile_resolution import resolve_weight_profile_for_records
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile, resolve_component_weights
 from .scoring import _build_territory_rows
+from .types import (
+    HistoricalValidationPayload,
+    HistoricalWindow,
+    HistoricalWindowsBundle,
+    RiskEventRecord,
+    RiskProfile,
+    RiskScore,
+    ValidationEvaluation,
+    ValidationMetricsRaw,
+    ValidationRankedRow,
+    ValidationWindowMetrics,
+)
 from .utils import _clamp, _format_decimal, _format_integer, _format_probability, _unique_non_empty
 
 DEFAULT_RANKING_K = 3
@@ -17,11 +29,11 @@ MIN_VALIDATION_WINDOWS = 3
 
 
 def build_historical_validation_payload(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[RiskEventRecord],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-    profile_override: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    profile_override: Optional[RiskProfile] = None,
+) -> HistoricalValidationPayload:
     profile = deepcopy(profile_override) if profile_override is not None else get_risk_weight_profile(weight_mode)
     payload = empty_historical_validation_payload(profile.get("mode_label") or "Адаптивные веса")
     if not records:
@@ -122,7 +134,7 @@ def build_historical_validation_payload(
     return payload
 
 
-def empty_historical_validation_payload(mode_label: str = "Адаптивные веса") -> Dict[str, Any]:
+def empty_historical_validation_payload(mode_label: str = "Адаптивные веса") -> HistoricalValidationPayload:
     return {
         "title": "Историческая проверка ranking-качества",
         "mode_label": mode_label,
@@ -155,7 +167,10 @@ def empty_historical_validation_payload(mode_label: str = "Адаптивные 
     }
 
 
-def _build_historical_windows(records: Sequence[Dict[str, Any]], planning_horizon_days: int) -> Dict[str, Any]:
+def _build_historical_windows(
+    records: Sequence[RiskEventRecord],
+    planning_horizon_days: int,
+) -> HistoricalWindowsBundle:
     if not records:
         return {
             "is_ready": False,
@@ -195,7 +210,7 @@ def _build_historical_windows(records: Sequence[Dict[str, Any]], planning_horizo
         cursor += timedelta(days=step_days)
     cutoffs = cutoffs[-6:]
 
-    windows: List[Dict[str, Any]] = []
+    windows: List[HistoricalWindow] = []
     skipped_no_future = 0
     for cutoff in cutoffs:
         train_records = [record for record in records if record["date"] <= cutoff]
@@ -226,11 +241,11 @@ def _build_historical_windows(records: Sequence[Dict[str, Any]], planning_horizo
 
 
 def _evaluate_profile_on_windows(
-    profile: Dict[str, Any],
-    windows: Sequence[Dict[str, Any]],
+    profile: RiskProfile,
+    windows: Sequence[HistoricalWindow],
     ranking_k: int,
-) -> Dict[str, Any]:
-    window_metrics: List[Dict[str, Any]] = []
+) -> ValidationEvaluation:
+    window_metrics: List[ValidationWindowMetrics] = []
     skipped_no_rows = 0
 
     for window in windows:
@@ -268,9 +283,9 @@ def _evaluate_profile_on_windows(
 
 
 def _rerank_predicted_rows_for_profile(
-    predicted_rows: Sequence[Dict[str, Any]],
-    profile: Dict[str, Any],
-) -> List[Dict[str, Any]]:
+    predicted_rows: Sequence[RiskScore],
+    profile: RiskProfile,
+) -> List[ValidationRankedRow]:
     if not predicted_rows:
         return []
 
@@ -283,7 +298,7 @@ def _rerank_predicted_rows_for_profile(
         for item in resolve_component_weights(profile, is_rural=True)
     }
 
-    reranked: List[Dict[str, Any]] = []
+    reranked: List[ValidationRankedRow] = []
     for row in predicted_rows:
         component_scores = row.get("component_scores") or []
         weight_map = rural_weights if row.get("is_rural") else urban_weights
@@ -308,11 +323,11 @@ def _rerank_predicted_rows_for_profile(
 
 
 def _evaluate_ranking_window(
-    predicted_rows: Sequence[Dict[str, Any]],
-    future_records: Sequence[Dict[str, Any]],
+    predicted_rows: Sequence[ValidationRankedRow],
+    future_records: Sequence[RiskEventRecord],
     ranking_k: int,
     cutoff: Any,
-) -> Optional[Dict[str, Any]]:
+) -> Optional[ValidationWindowMetrics]:
     if not predicted_rows or not future_records:
         return None
 
@@ -351,7 +366,10 @@ def _evaluate_ranking_window(
     }
 
 
-def _aggregate_window_metrics(window_metrics: Sequence[Dict[str, Any]], ranking_k: int) -> Dict[str, Any]:
+def _aggregate_window_metrics(
+    window_metrics: Sequence[ValidationWindowMetrics],
+    ranking_k: int,
+) -> ValidationMetricsRaw:
     if not window_metrics:
         return {
             "windows_count": 0,
@@ -377,7 +395,7 @@ def _aggregate_window_metrics(window_metrics: Sequence[Dict[str, Any]], ranking_
     return aggregate
 
 
-def _ranking_objective(metrics: Dict[str, Any]) -> float:
+def _ranking_objective(metrics: ValidationMetricsRaw) -> float:
     top1 = float(metrics.get("top1_hit_rate") or 0.0)
     capture = float(metrics.get("topk_capture_rate") or 0.0)
     precision = float(metrics.get("precision_at_k") or 0.0)
@@ -385,7 +403,7 @@ def _ranking_objective(metrics: Dict[str, Any]) -> float:
     return 0.24 * top1 + 0.31 * capture + 0.20 * precision + 0.25 * ndcg
 
 
-def _validation_status(aggregate: Dict[str, Any]) -> tuple[str, str]:
+def _validation_status(aggregate: ValidationMetricsRaw) -> tuple[str, str]:
     windows_count = int(aggregate.get("windows_count") or 0)
     topk_capture = float(aggregate.get("topk_capture_rate") or 0.0)
     ndcg = float(aggregate.get("ndcg_at_k") or 0.0)

@@ -20,6 +20,16 @@ from .profile_resolution import resolve_weight_profile_for_records
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, build_weight_profile_snapshot, get_risk_weight_profile
 from .reliability import _attach_ranking_reliability, _build_summary_cards, _top_territory_confidence_payload
 from .scoring import _build_territory_rows, _top_territory_lead
+from .types import (
+    FeatureCard,
+    GeoPredictionData,
+    GeoSummary,
+    HistoricalValidationPayload,
+    QualityPassport,
+    RiskPresentation,
+    RiskProfile,
+    RiskScore,
+)
 from .utils import _unique_non_empty
 from .validation import build_historical_validation_payload, empty_historical_validation_payload
 
@@ -32,7 +42,7 @@ DECISION_SUPPORT_DESCRIPTION = (
 )
 
 
-def _feature_coverage_display(feature_cards: Sequence[Dict[str, Any]]) -> str:
+def _feature_coverage_display(feature_cards: Sequence[FeatureCard]) -> str:
     if not feature_cards:
         return "0 из 0"
     available_count = sum(1 for item in feature_cards if item["status"] != "missing")
@@ -46,20 +56,20 @@ def _placeholder_decision_support_notes(preload_notes: Sequence[str]) -> list[st
     )
 
 
-def _validation_windows_count(historical_validation: Dict[str, Any]) -> int:
+def _validation_windows_count(historical_validation: HistoricalValidationPayload) -> int:
     return int((historical_validation.get("metrics_raw") or {}).get("windows_count") or 0)
 
 
 def _build_placeholder_decision_support_payload(
     *,
     coverage_display: str,
-    quality_passport: Dict[str, Any],
-    feature_cards: Sequence[Dict[str, Any]],
-    requested_weight_profile: Dict[str, Any],
+    quality_passport: QualityPassport,
+    feature_cards: Sequence[FeatureCard],
+    requested_weight_profile: RiskProfile,
     notes: Sequence[str],
-    geo_summary: Dict[str, Any],
-    geo_prediction: Dict[str, Any] | None,
-) -> Dict[str, Any]:
+    geo_summary: GeoSummary,
+    geo_prediction: GeoPredictionData | None,
+) -> RiskPresentation:
     top_confidence = _top_territory_confidence_payload(None, quality_passport)
     return _build_empty_decision_support_payload(
         title=DECISION_SUPPORT_TITLE,
@@ -81,15 +91,15 @@ def _build_placeholder_decision_support_payload(
 def _build_ranked_decision_support_payload(
     *,
     coverage_display: str,
-    quality_passport: Dict[str, Any],
-    territories: Sequence[Dict[str, Any]],
-    feature_cards: Sequence[Dict[str, Any]],
-    weight_profile: Dict[str, Any],
-    historical_validation: Dict[str, Any],
+    quality_passport: QualityPassport,
+    territories: Sequence[RiskScore],
+    feature_cards: Sequence[FeatureCard],
+    weight_profile: RiskProfile,
+    historical_validation: HistoricalValidationPayload,
     notes: Sequence[str],
-    geo_summary: Dict[str, Any],
-    geo_prediction: Dict[str, Any] | None,
-) -> Dict[str, Any]:
+    geo_summary: GeoSummary,
+    geo_prediction: GeoPredictionData | None,
+) -> RiskPresentation:
     top_territory = territories[0] if territories else None
     top_confidence = _top_territory_confidence_payload(top_territory, quality_passport)
     return _build_decision_support_payload_response(
@@ -123,13 +133,13 @@ def build_decision_support_payload(
     selected_object_category: str,
     history_window: str,
     planning_horizon_days: int,
-    geo_prediction: Optional[Dict[str, Any]] = None,
+    geo_prediction: Optional[GeoPredictionData] = None,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
     selected_year: Optional[int] = None,
     progress_callback: Optional[Callable[[str, str], None]] = None,
     include_geo_prediction: bool = True,
     include_historical_validation: bool = True,
-) -> Dict[str, Any]:
+) -> RiskPresentation:
     ensure_sqlalchemy_timing(engine)
     with perf_trace(
         "decision_support",
@@ -281,10 +291,10 @@ def build_risk_forecast_payload(
     selected_cause: str,
     selected_object_category: str,
     history_window: str,
-    forecast_rows: Sequence[Dict[str, Any]],
-    geo_prediction: Optional[Dict[str, Any]] = None,
+    forecast_rows: Sequence[Dict[str, Any]],  # one-off structure: forecasting rows used only for horizon length
+    geo_prediction: Optional[GeoPredictionData] = None,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-) -> Dict[str, Any]:
+) -> RiskPresentation:
     return build_decision_support_payload(
         source_tables=source_tables,
         selected_district=selected_district,

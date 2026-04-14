@@ -10,7 +10,7 @@ Role split:
 
 from collections import Counter
 from datetime import date
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from app.perf import current_perf_trace
 from config.db import engine
@@ -18,6 +18,13 @@ from config.db import engine
 from .sql_aggregations import AggregationQueryBuilder, QueryBuilder
 from .sql_payload import PayloadQueryBuilder, _DailyHistoryLoadTrace
 from .sql_sources import SourceQueryBuilder
+from .types import (
+    ForecastingInputRecord,
+    ForecastingTableMetadata,
+    SqlFilters,
+    SqlRow,
+    TableOption,
+)
 
 
 def _resolve_public_symbol(name: str) -> Any:
@@ -55,7 +62,7 @@ def _filtered_record_count_cache_key(
     )
 
 
-def _daily_history_total_count(history: Sequence[Dict[str, Any]]) -> int:
+def _daily_history_total_count(history: Sequence[SqlRow]) -> int:
     return _AGGREGATION_BUILDER._daily_history_total_count(history)
 
 
@@ -67,7 +74,7 @@ def _daily_aggregate_view_name(table_name: str) -> str:
     return _AGGREGATION_BUILDER._daily_aggregate_view_name(table_name)
 
 
-def _daily_aggregate_view_status_map(table_names: Sequence[str]) -> Dict[str, bool]:
+def _daily_aggregate_view_status_map(table_names: Sequence[str]) -> dict[str, bool]:
     return _AGGREGATION_BUILDER._daily_aggregate_view_status_map(table_names)
 
 
@@ -76,12 +83,12 @@ def _daily_aggregate_view_exists(table_name: str) -> bool:
 
 
 def _build_materialized_scope_conditions(
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     min_year: Optional[int] = None,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-) -> tuple[list[str], Dict[str, Any], bool]:
+) -> tuple[list[str], SqlFilters, bool]:
     return _AGGREGATION_BUILDER._build_materialized_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -91,7 +98,7 @@ def _build_materialized_scope_conditions(
     )
 
 
-def _build_daily_aggregate_view_sql(table_name: str, resolved_columns: Dict[str, str]) -> str:
+def _build_daily_aggregate_view_sql(table_name: str, resolved_columns: dict[str, str]) -> str:
     return _AGGREGATION_BUILDER._build_daily_aggregate_view_sql(table_name, resolved_columns)
 
 
@@ -107,12 +114,12 @@ def prepare_forecasting_materialized_views(
 
 
 def _build_scope_conditions(
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     min_year: Optional[int] = None,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
+) -> tuple[Optional[str], list[str], SqlFilters, bool]:
     return _SOURCE_BUILDER._build_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -124,12 +131,12 @@ def _build_scope_conditions(
 
 def _load_forecasting_records(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     min_year: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+) -> list[ForecastingInputRecord]:
     return _SOURCE_BUILDER._load_forecasting_records(
         table_name,
         resolved_columns,
@@ -142,7 +149,7 @@ def _load_forecasting_records(
 
 def _load_option_counts(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     field_name: str,
     min_year: Optional[int] = None,
 ) -> Counter:
@@ -156,9 +163,9 @@ def _load_option_counts(
 
 def _load_all_option_counts(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     min_year: Optional[int] = None,
-) -> Dict[str, Counter]:
+) -> dict[str, Counter]:
     return _SOURCE_BUILDER._load_all_option_counts(
         table_name,
         resolved_columns,
@@ -166,15 +173,15 @@ def _load_all_option_counts(
     )
 
 
-def _build_options_from_counter(counter: Counter, default_label: str) -> List[Dict[str, str]]:
+def _build_options_from_counter(counter: Counter, default_label: str) -> list[TableOption]:
     return _PAYLOAD_BUILDER._build_options_from_counter(counter, default_label)
 
 
 def _build_option_catalog_sql(
     source_tables: Sequence[str],
     history_window: str = "all",
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, List[Dict[str, str]]]:
+    metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+) -> dict[str, list[TableOption]]:
     return _PAYLOAD_BUILDER._build_option_catalog_sql(
         source_tables,
         history_window=history_window,
@@ -184,12 +191,12 @@ def _build_option_catalog_sql(
 
 def _load_daily_history_rows(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     min_year: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_daily_history_rows(
         table_name,
         resolved_columns,
@@ -200,23 +207,23 @@ def _load_daily_history_rows(
     )
 
 
-def _daily_history_rows_from_query_rows(rows: Sequence[Any]) -> List[Dict[str, Any]]:
+def _daily_history_rows_from_query_rows(rows: Sequence[Any]) -> list[SqlRow]:
     return _AGGREGATION_BUILDER._daily_history_rows_from_query_rows(rows)
 
 
-def _execute_daily_history_row_query(query: Any, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _execute_daily_history_row_query(query: Any, params: SqlFilters) -> list[SqlRow]:
     return _AGGREGATION_BUILDER._execute_daily_history_row_query(query, params)
 
 
 def _load_materialized_daily_history_rows(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     *,
     district: str,
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> List[Dict[str, Any]]:
+) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_materialized_daily_history_rows(
         table_name,
         resolved_columns,
@@ -229,20 +236,20 @@ def _load_materialized_daily_history_rows(
 
 def _daily_history_source_select_parts(
     date_expression: str,
-    resolved_columns: Dict[str, str],
-) -> List[str]:
+    resolved_columns: dict[str, str],
+) -> list[str]:
     return _SOURCE_BUILDER._daily_history_source_select_parts(date_expression, resolved_columns)
 
 
 def _load_source_daily_history_rows(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     *,
     district: str,
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> List[Dict[str, Any]]:
+) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_source_daily_history_rows(
         table_name,
         resolved_columns,
@@ -255,8 +262,8 @@ def _load_source_daily_history_rows(
 
 def _daily_history_union_materialized_part_sql(
     table_name: str,
-    resolved_columns: Dict[str, str],
-    params: Dict[str, Any],
+    resolved_columns: dict[str, str],
+    params: SqlFilters,
     *,
     district: str,
     cause: str,
@@ -276,8 +283,8 @@ def _daily_history_union_materialized_part_sql(
 
 def _daily_history_union_source_part_sql(
     table_name: str,
-    resolved_columns: Dict[str, str],
-    params: Dict[str, Any],
+    resolved_columns: dict[str, str],
+    params: SqlFilters,
     *,
     district: str,
     cause: str,
@@ -296,13 +303,13 @@ def _daily_history_union_source_part_sql(
 
 
 def _load_daily_history_rows_union(
-    metadata_items: Sequence[Dict[str, Any]],
+    metadata_items: Sequence[ForecastingTableMetadata],
     *,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     min_year: Optional[int] = None,
-) -> Optional[List[Dict[str, Any]]]:
+) -> Optional[list[SqlRow]]:
     return _SOURCE_BUILDER._load_daily_history_rows_union(
         metadata_items,
         district=district,
@@ -313,14 +320,14 @@ def _load_daily_history_rows_union(
 
 
 def _daily_history_union_query_parts(
-    metadata_items: Sequence[Dict[str, Any]],
-    params: Dict[str, Any],
+    metadata_items: Sequence[ForecastingTableMetadata],
+    params: SqlFilters,
     *,
     district: str,
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> List[str]:
+) -> list[str]:
     return _SOURCE_BUILDER._daily_history_union_query_parts(
         metadata_items,
         params,
@@ -336,15 +343,15 @@ def _build_daily_history_union_query(query_parts: Sequence[str]) -> Any:
 
 
 def _merge_daily_history_rows(
-    merged_rows: Dict[date, Dict[str, Any]],
-    table_rows: Sequence[Dict[str, Any]],
+    merged_rows: dict[date, SqlRow],
+    table_rows: Sequence[SqlRow],
 ) -> None:
     _AGGREGATION_BUILDER._merge_daily_history_rows(merged_rows, table_rows)
 
 
 def _load_scope_total_count(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
@@ -415,15 +422,15 @@ def _lookup_daily_history_cache(
     cache_key: tuple[Any, ...],
     count_cache_key: tuple[Any, ...],
     perf: Any,
-) -> Optional[List[Dict[str, Any]]]:
+) -> Optional[list[SqlRow]]:
     return _PAYLOAD_BUILDER._lookup_daily_history_cache(cache_key, count_cache_key, perf)
 
 
 def _load_daily_history_metadata_and_min_year(
     normalized_tables: Sequence[str],
     history_window: str,
-    metadata_items: Optional[Sequence[Dict[str, Any]]],
-) -> tuple[List[Dict[str, Any]], Optional[int]]:
+    metadata_items: Optional[Sequence[ForecastingTableMetadata]],
+) -> tuple[list[ForecastingTableMetadata], Optional[int]]:
     return _PAYLOAD_BUILDER._load_daily_history_metadata_and_min_year(
         normalized_tables,
         history_window,
@@ -432,14 +439,14 @@ def _load_daily_history_metadata_and_min_year(
 
 
 def _load_daily_history_union_fast_path(
-    metadata_items: Sequence[Dict[str, Any]],
+    metadata_items: Sequence[ForecastingTableMetadata],
     trace: _DailyHistoryLoadTrace,
     *,
     district: str,
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> Optional[Dict[date, Dict[str, Any]]]:
+) -> Optional[dict[date, SqlRow]]:
     return _PAYLOAD_BUILDER._load_daily_history_union_fast_path(
         metadata_items,
         trace,
@@ -450,19 +457,19 @@ def _load_daily_history_union_fast_path(
     )
 
 
-def _daily_history_rows_from_record_fallback(records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _daily_history_rows_from_record_fallback(records: Sequence[ForecastingInputRecord]) -> list[SqlRow]:
     return _SOURCE_BUILDER._daily_history_rows_from_record_fallback(records)
 
 
 def _load_table_daily_history_record_fallback(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     *,
     district: str,
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> List[Dict[str, Any]]:
+) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_table_daily_history_record_fallback(
         table_name,
         resolved_columns,
@@ -474,13 +481,13 @@ def _load_table_daily_history_record_fallback(
 
 
 def _load_daily_history_per_table_fallback(
-    metadata_items: Sequence[Dict[str, Any]],
+    metadata_items: Sequence[ForecastingTableMetadata],
     *,
     district: str,
     cause: str,
     object_category: str,
     min_year: Optional[int],
-) -> Dict[date, Dict[str, Any]]:
+) -> dict[date, SqlRow]:
     return _SOURCE_BUILDER._load_daily_history_per_table_fallback(
         metadata_items,
         district=district,
@@ -491,20 +498,20 @@ def _load_daily_history_per_table_fallback(
 
 
 def _dense_daily_history_from_merged_rows(
-    merged_rows: Dict[date, Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    merged_rows: dict[date, SqlRow],
+) -> list[SqlRow]:
     return _AGGREGATION_BUILDER._dense_daily_history_from_merged_rows(merged_rows)
 
 
 def _cache_daily_history_result(
     cache_key: tuple[Any, ...],
     count_cache_key: tuple[Any, ...],
-    history: List[Dict[str, Any]],
+    history: list[SqlRow],
     *,
     perf: Any,
     trace: _DailyHistoryLoadTrace,
     table_count: int,
-) -> List[Dict[str, Any]]:
+) -> list[SqlRow]:
     return _PAYLOAD_BUILDER._cache_daily_history_result(
         cache_key,
         count_cache_key,
@@ -522,8 +529,8 @@ def _load_daily_history_uncached(
     district: str,
     cause: str,
     object_category: str,
-    metadata_items: Optional[Sequence[Dict[str, Any]]],
-) -> tuple[List[Dict[str, Any]], _DailyHistoryLoadTrace, int]:
+    metadata_items: Optional[Sequence[ForecastingTableMetadata]],
+) -> tuple[list[SqlRow], _DailyHistoryLoadTrace, int]:
     return _PAYLOAD_BUILDER._load_daily_history_uncached(
         normalized_tables,
         history_window,
@@ -540,8 +547,8 @@ def _build_daily_history_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-) -> List[Dict[str, Any]]:
+    metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+) -> list[SqlRow]:
     return _PAYLOAD_BUILDER._build_daily_history_sql(
         source_tables,
         history_window=history_window,
@@ -558,7 +565,7 @@ def _count_forecasting_records_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+    metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
 ) -> int:
     return _PAYLOAD_BUILDER._count_forecasting_records_sql(
         source_tables,

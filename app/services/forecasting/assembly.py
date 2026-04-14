@@ -2,24 +2,44 @@ from __future__ import annotations
 
 from datetime import datetime
 from statistics import mean
-from typing import Any, Callable, Dict, Sequence
+from typing import Callable, Sequence
 
 from app.cache import clone_mutable_payload
 
 from .inputs import load_base_forecasting_inputs, load_forecasting_metadata_inputs
-from .types import ForecastingPayload, ForecastingRequestState, TableOption
-
-ForecastingDeps = Dict[str, Callable[..., Any]]
+from .types import (
+    ForecastPayload,
+    ForecastingBaseArtifacts,
+    ForecastingBaseInputs,
+    ForecastingBasePresentation,
+    ForecastingCharts,
+    ForecastingDeps,
+    ForecastingDailyHistoryRow,
+    ForecastingExecutiveBrief,
+    ForecastingFeatureCard,
+    ForecastingFilters,
+    ForecastingForecastRow,
+    ForecastingGeoPrediction,
+    ForecastingInsightCard,
+    ForecastingOptionCatalog,
+    ForecastingQualityAssessment,
+    ForecastingRequestState,
+    ForecastingRiskPrediction,
+    ForecastingSummary,
+    ForecastingTableMetadata,
+    ForecastingWeekdayProfileRow,
+    TableOption,
+)
 
 
 def build_forecasting_metadata_payload(
-    metadata_payload: ForecastingPayload,
+    metadata_payload: ForecastPayload,
     *,
     source_tables: Sequence[str],
     source_table_notes: Sequence[str],
     selected_history_window: str,
     deps: ForecastingDeps,
-) -> ForecastingPayload:
+) -> ForecastPayload:
     metadata_inputs = load_forecasting_metadata_inputs(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -112,7 +132,7 @@ def build_forecasting_metadata_payload(
     return metadata_payload
 
 
-def _recent_average_from_daily_history(daily_history: Sequence[Dict[str, Any]]) -> float:
+def _recent_average_from_daily_history(daily_history: Sequence[ForecastingDailyHistoryRow]) -> float:
     history_counts = [float(item["count"]) for item in daily_history]
     recent_counts = history_counts[-28:] if len(history_counts) >= 28 else history_counts
     return mean(recent_counts) if recent_counts else 0.0
@@ -120,11 +140,11 @@ def _recent_average_from_daily_history(daily_history: Sequence[Dict[str, Any]]) 
 
 def _build_base_forecasting_charts(
     *,
-    daily_history: Sequence[Dict[str, Any]],
-    forecast_rows: Sequence[Dict[str, Any]],
-    weekday_profile: Sequence[Dict[str, Any]],
+    daily_history: Sequence[ForecastingDailyHistoryRow],
+    forecast_rows: Sequence[ForecastingForecastRow],
+    weekday_profile: Sequence[ForecastingWeekdayProfileRow],
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingCharts:
     recent_average = _recent_average_from_daily_history(daily_history)
     return {
         "daily": deps["build_forecast_chart"](daily_history, forecast_rows),
@@ -137,9 +157,9 @@ def _build_base_forecasting_notes(
     *,
     source_table_notes: Sequence[str],
     preload_notes: Sequence[str],
-    metadata_items: Sequence[Dict[str, Any]],
+    metadata_items: Sequence[ForecastingTableMetadata],
     filtered_records_count: int,
-    daily_history: Sequence[Dict[str, Any]],
+    daily_history: Sequence[ForecastingDailyHistoryRow],
     temperature_value: float | None,
     deps: ForecastingDeps,
 ) -> list[str]:
@@ -159,13 +179,13 @@ def _build_base_forecasting_notes(
 
 def _build_base_forecasting_executive_brief(
     *,
-    risk_prediction: Dict[str, Any],
+    risk_prediction: ForecastingRiskPrediction,
     decision_support_ready: bool,
     decision_support_status_message: str,
-    summary: Dict[str, Any],
+    summary: ForecastingSummary,
     generated_at: str,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingExecutiveBrief:
     executive_brief = deps["build_pending_executive_brief"](
         decision_support_status_message
         or "Короткий вывод будет доступен после расчета блока поддержки решений."
@@ -188,7 +208,7 @@ def _build_base_forecasting_executive_brief(
 
 def _build_base_forecasting_filters(
     *,
-    table_options: Sequence[Dict[str, Any]],
+    table_options: Sequence[TableOption],
     selected_table: str,
     selected_district: str,
     selected_cause: str,
@@ -197,9 +217,9 @@ def _build_base_forecasting_filters(
     temperature_value: float | None,
     days_ahead: int,
     selected_history_window: str,
-    option_catalog: Dict[str, Any],
+    option_catalog: ForecastingOptionCatalog,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingFilters:
     return {
         "table_name": selected_table,
         "district": selected_district,
@@ -230,18 +250,18 @@ def _build_base_forecasting_payload_response(
     decision_support_ready: bool,
     decision_support_error: bool,
     decision_support_status_message: str,
-    summary: Dict[str, Any],
-    quality_assessment: Dict[str, Any],
-    features: Sequence[Dict[str, Any]],
-    risk_prediction: Dict[str, Any],
-    executive_brief: Dict[str, Any],
-    insights: Sequence[Dict[str, Any]],
-    charts: Dict[str, Any],
-    forecast_rows: Sequence[Dict[str, Any]],
+    summary: ForecastingSummary,
+    quality_assessment: ForecastingQualityAssessment,
+    features: Sequence[ForecastingFeatureCard],
+    risk_prediction: ForecastingRiskPrediction,
+    executive_brief: ForecastingExecutiveBrief,
+    insights: Sequence[ForecastingInsightCard],
+    charts: ForecastingCharts,
+    forecast_rows: Sequence[ForecastingForecastRow],
     notes: Sequence[str],
-    filters: Dict[str, Any],
+    filters: ForecastingFilters,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastPayload:
     return {
         "generated_at": generated_at,
         "has_data": filtered_records_count > 0,
@@ -281,7 +301,7 @@ def _load_base_forecasting_inputs(
     cause: str,
     object_category: str,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingBaseInputs:
     return load_base_forecasting_inputs(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -294,11 +314,11 @@ def _load_base_forecasting_inputs(
 
 def _build_base_forecasting_artifacts(
     *,
-    daily_history: Sequence[Dict[str, Any]],
+    daily_history: Sequence[ForecastingDailyHistoryRow],
     days_ahead: int,
     temperature_value: float | None,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingBaseArtifacts:
     scenario_backtest = deps["run_scenario_backtesting"](daily_history)
     quality_assessment = deps["build_scenario_quality_assessment"](scenario_backtest)
     forecast_rows = deps["build_forecast_rows"](daily_history, days_ahead, temperature_value)
@@ -321,13 +341,13 @@ def _build_base_forecasting_presentation(
     *,
     source_table_notes: Sequence[str],
     preload_notes: Sequence[str],
-    metadata_items: Sequence[Dict[str, Any]],
+    metadata_items: Sequence[ForecastingTableMetadata],
     filtered_records_count: int,
-    daily_history: Sequence[Dict[str, Any]],
-    forecast_rows: Sequence[Dict[str, Any]],
-    weekday_profile: Sequence[Dict[str, Any]],
-    risk_prediction: Dict[str, Any],
-    feature_cards: Sequence[Dict[str, Any]],
+    daily_history: Sequence[ForecastingDailyHistoryRow],
+    forecast_rows: Sequence[ForecastingForecastRow],
+    weekday_profile: Sequence[ForecastingWeekdayProfileRow],
+    risk_prediction: ForecastingRiskPrediction,
+    feature_cards: Sequence[ForecastingFeatureCard],
     selected_table: str,
     selected_district: str,
     selected_cause: str,
@@ -336,12 +356,12 @@ def _build_base_forecasting_presentation(
     selected_history_window: str,
     decision_support_ready: bool,
     decision_support_status_message: str,
-    table_options: Sequence[Dict[str, Any]],
+    table_options: Sequence[TableOption],
     temperature: str,
     days_ahead: int,
-    option_catalog: Dict[str, Any],
+    option_catalog: ForecastingOptionCatalog,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingBasePresentation:
     notes = _build_base_forecasting_notes(
         source_table_notes=source_table_notes,
         preload_notes=preload_notes,
@@ -412,7 +432,7 @@ def build_forecasting_base_payload(
     selected_history_window: str,
     include_decision_support: bool,
     deps: ForecastingDeps,
-) -> ForecastingPayload:
+) -> ForecastPayload:
     inputs = _load_base_forecasting_inputs(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -501,11 +521,11 @@ def build_forecasting_base_payload(
 
 def complete_forecasting_decision_support_payload(
     *,
-    base_payload: ForecastingPayload,
+    base_payload: ForecastPayload,
     request_state: ForecastingRequestState,
     progress_callback: Callable[[str, str], None] | None,
     deps: ForecastingDeps,
-) -> ForecastingPayload:
+) -> ForecastPayload:
     filters = base_payload.get("filters") or {}
     available_tables = filters.get("available_tables") or request_state["table_options"]
     selected_table = str(filters.get("table_name") or request_state["selected_table"] or "all")
@@ -583,7 +603,7 @@ def complete_forecasting_decision_support_payload(
 
 def _build_decision_support_block(
     *,
-    table_options: Sequence[Dict[str, Any]],
+    table_options: Sequence[TableOption],
     selected_table: str,
     source_tables: Sequence[str],
     selected_district: str,
@@ -592,10 +612,10 @@ def _build_decision_support_block(
     selected_history_window: str,
     days_ahead: int,
     temperature: str,
-    feature_cards: Sequence[Dict[str, Any]],
+    feature_cards: Sequence[ForecastingFeatureCard],
     include_decision_support: bool,
     deps: ForecastingDeps,
-) -> tuple[Dict[str, Any], Dict[str, Any], bool, bool, bool, str]:
+) -> tuple[ForecastingRiskPrediction, ForecastingGeoPrediction, bool, bool, bool, str]:
     if not include_decision_support:
         decision_support_status_message = (
             "Базовый сценарный прогноз уже показан. Приоритеты территорий, паспорт качества и рекомендации догружаются фоном."

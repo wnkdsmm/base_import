@@ -30,6 +30,14 @@ class TerritoryBucket(TypedDict, total=False):
     settlement_types: Any
 
 
+class RiskEventRecord(TypedDict, total=False):
+    """Raw incident record used for historical validation windows."""
+
+    date: Any
+    territory_label: str
+    district: str
+
+
 class HorizonContext(TypedDict, total=False):
     """Scoring horizon and seasonal context values."""
 
@@ -368,6 +376,118 @@ class TopConfidence(TypedDict, total=False):
     note: str
 
 
+class ValidationMetricCard(TypedDict, total=False):
+    """One metric card in historical ranking validation output."""
+
+    label: str
+    value: str
+    meta: str
+
+
+class ValidationWindowSummaryCard(TypedDict, total=False):
+    """Compact per-window validation summary for UI preview."""
+
+    label: str
+    risk_display: str
+    meta: str
+
+
+class ValidationMetricsRaw(TypedDict, total=False):
+    """Aggregated ranking metrics over historical windows."""
+
+    windows_count: int
+    horizon_days: int
+    k_value: int
+    top1_hit_rate: float
+    topk_capture_rate: float
+    precision_at_k: float
+    ndcg_at_k: float
+    objective_score: float
+
+
+class ValidationRankedRow(TypedDict, total=False):
+    """Minimal reranked row used inside validation windows."""
+
+    label: str
+    risk_score: float
+    history_pressure: float
+
+
+class ValidationWindowMetrics(TypedDict, total=False):
+    """Evaluation metrics for one historical validation window."""
+
+    cutoff: Any
+    top_label: str
+    future_incidents: int
+    top1_hit: float
+    topk_capture: float
+    precision_at_k: float
+    ndcg_at_k: float
+    summary_card: ValidationWindowSummaryCard
+
+
+class ValidationEvaluation(TypedDict, total=False):
+    """Result of profile evaluation across historical windows."""
+
+    has_metrics: bool
+    window_metrics: list[ValidationWindowMetrics]
+    aggregate: ValidationMetricsRaw
+    skipped_no_rows: int
+
+
+class HistoricalWindow(TypedDict, total=False):
+    """Train/future split describing one rolling validation window."""
+
+    cutoff: Any
+    future_end: Any
+    horizon_days: int
+    train_records: list[dict[str, Any]]
+    future_records: list[dict[str, Any]]
+    predicted_rows: list[ValidationRankedRow]
+
+
+class HistoricalWindowsBundle(TypedDict, total=False):
+    """Historical windows bundle with readiness metadata."""
+
+    is_ready: bool
+    reason: str
+    history_days: int
+    horizon_days: int
+    min_training_days: int
+    windows: list[HistoricalWindow]
+    skipped_no_future: int
+
+
+class HistoricalValidationPayload(TypedDict, total=False):
+    """Historical validation block attached to decision-support payload."""
+
+    title: str
+    mode_label: str
+    has_metrics: bool
+    status_label: str
+    status_tone: str
+    summary: str
+    metric_cards: list[ValidationMetricCard]
+    notes: list[str]
+    recent_windows: list[ValidationWindowSummaryCard]
+    metrics_raw: ValidationMetricsRaw
+
+
+class GeoPredictionData(TypedDict, total=False):
+    """Raw geo prediction payload before compact geo-summary transform."""
+
+    has_coordinates: bool
+    points: list[dict[str, Any]]
+    hotspots: list[dict[str, Any]]
+    districts: list[dict[str, Any]]
+    model_description: str
+    coverage_display: str
+    top_zone_label: str
+    top_risk_display: str
+    hotspots_count_display: str
+    top_explanation: str
+
+
 class RiskPresentation(TypedDict, total=False):
     """Final decision-support payload rendered by presentation layer."""
 
@@ -386,7 +506,7 @@ class RiskPresentation(TypedDict, total=False):
     territories: list[RiskScore]
     feature_cards: list[FeatureCard]
     weight_profile: RiskProfile
-    historical_validation: dict[str, Any]
+    historical_validation: HistoricalValidationPayload
     notes: list[str]
     geo_summary: GeoSummary
-    geo_prediction: dict[str, Any]
+    geo_prediction: GeoPredictionData
