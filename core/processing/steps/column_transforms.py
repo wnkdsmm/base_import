@@ -9,6 +9,7 @@ from .column_definitions import (
     PROTECTION_REPORT_DEFAULTS,
     PROTECTION_TEXT_COLUMNS,
 )
+from ...types import ColumnMatchMetadata, ProtectedColumnInfo
 
 
 def coerce_bool_series(series: pd.Series) -> pd.Series:
@@ -46,8 +47,8 @@ def coerce_report_bool_columns(profile_df: pd.DataFrame) -> pd.DataFrame:
 def apply_match_results(
     profile_df: pd.DataFrame,
     column_names: pd.Series,
-    matches: List[Optional[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+    matches: List[Optional[ColumnMatchMetadata]],
+) -> List[ProtectedColumnInfo]:
     match_mask = pd.Series([bool(match) for match in matches], index=profile_df.index)
     mandatory_values = pd.Series([bool((match or {}).get("mandatory")) for match in matches], index=profile_df.index)
     feature_id_values = pd.Series([str((match or {}).get("feature_id") or "") for match in matches], index=profile_df.index)

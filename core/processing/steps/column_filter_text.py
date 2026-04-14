@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Dict, List, Set
+from typing import Callable, Dict, List, Set
+
+from ...types import CategoryRule, ColumnTermPayload, MandatoryFeatureSpec
 
 def _normalize_column_text(value: str) -> str:
     text = str(value).lower().replace("ё", "е")
@@ -13,7 +15,7 @@ def _normalize_column_text(value: str) -> str:
 def _extract_word_tokens(value: str) -> List[str]:
     return [word for word in re.findall(r"\w+", value) if word]
 
-def _column_payload_parts(column_payload: Dict[str, object]) -> tuple[str, Set[str], Set[str]]:
+def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, Set[str], Set[str]]:
     normalized_name = column_payload.get("normalized_name", "")
     if not isinstance(normalized_name, str):
         normalized_name = str(normalized_name)
@@ -49,10 +51,10 @@ def _prepare_exclude_tokens(tokens: List[str], normalize_text: Callable[[str], s
     return [normalize_text(token) for token in tokens if token]
 
 def _prepare_registry_feature_payload(
-    feature: Dict[str, Any],
+    feature: MandatoryFeatureSpec,
     normalize_text: Callable[[str], str],
     extract_words: Callable[[str], List[str]],
-) -> Dict[str, Any]:
+) -> MandatoryFeatureSpec:
     return {
         **feature,
         "prepared_synonyms": _prepare_synonym_payloads(
@@ -71,7 +73,7 @@ def _prepare_registry_feature_payload(
     }
 
 def _build_category_lemma_map(
-    category_rules: List[Dict[str, Any]],
+    category_rules: List[CategoryRule],
     lemmatize_text: Callable[[str], List[str]],
 ) -> Dict[str, Set[str]]:
     category_lemmas: Dict[str, Set[str]] = {}

@@ -502,6 +502,33 @@ class ClusteringRunResult(TypedDict, total=False):
     weighting_strategy: str
 
 
+class ClusteringRuntimeBundle(TypedDict, total=False):
+    """Runtime bundle produced after one clustering run for selected config."""
+
+    runtime_feature_context: FeatureSelectionReport
+    clustering: ClusteringRunResult
+    method_comparison: list[ClusteringMethodRow]
+    labels: Any
+    cluster_labels: list[str]
+    profiles: list[dict[str, Any]]
+    centroid_columns: list[dict[str, Any]]
+    centroid_rows: list[dict[str, Any]]
+    representative_columns: list[dict[str, Any]]
+    representative_rows: list[dict[str, Any]]
+
+
+class ClusteringDiagnosticsRuntimeBundle(ClusteringRuntimeBundle, total=False):
+    """Runtime bundle enriched with diagnostics and resolved render config."""
+
+    diagnostics: ClusteringDiagnosticsResult
+    render_configuration: ClusteringMethodRow
+    actual_cluster_count: int
+    actual_method_key: str
+    actual_algorithm_key: str
+    actual_weighting_strategy: str
+    method_comparison_reused: bool
+
+
 class ClusteringLoadStageResult(TypedDict, total=False):
     """Result of dataset/feature loading stage or early error payload."""
 

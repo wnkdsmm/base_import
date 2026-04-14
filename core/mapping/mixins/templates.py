@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from ...types import MapTablePayload
 from .template_analytics import (
     analytics_heatmap_config,
     analytics_layer_defaults,
@@ -13,7 +14,7 @@ from .template_scripts import build_tab_script_lines
 
 
 class MapCreatorTemplateMixin:
-    def _generate_html(self, tables: List[Dict[str, Any]], total_categories: Dict[str, int]) -> str:
+    def _generate_html(self, tables: List[MapTablePayload], total_categories: Dict[str, int]) -> str:
         return generate_html(
             tables,
             total_categories,
@@ -24,7 +25,7 @@ class MapCreatorTemplateMixin:
     def _generate_tab_content(
         self,
         idx: int,
-        table: Dict[str, Any],
+        table: MapTablePayload,
         use_tab_wrapper: bool = True,
         active: bool = True,
     ) -> str:

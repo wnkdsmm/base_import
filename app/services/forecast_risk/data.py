@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from app.services.shared.data_base import DataLoader
 
 from . import data_impl as _impl
+from .types import RiskDataRecord, RiskScopeParams, RiskTableMetadata
 
 
 class ForecastRiskDataLoader(DataLoader):
     def __init__(self) -> None:
         super().__init__(cache=None, cache_namespace="forecast_risk_data")
 
-    def collect_risk_metadata(self, source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
+    def collect_risk_metadata(self, source_tables: Sequence[str]) -> tuple[list[RiskTableMetadata], list[str]]:
         return self.collect_with_notes(
             source_tables,
             _impl._load_table_metadata,
@@ -23,7 +24,7 @@ class ForecastRiskDataLoader(DataLoader):
 
     def resolve_history_window_min_year(
         self,
-        metadata_items: Sequence[Dict[str, Any]],
+        metadata_items: Sequence[RiskTableMetadata],
         history_window: str,
     ) -> Optional[int]:
         return _impl._resolve_history_window_min_year(metadata_items, history_window)
@@ -36,7 +37,7 @@ class ForecastRiskDataLoader(DataLoader):
         cause: str = "all",
         object_category: str = "all",
         selected_year: Optional[int] = None,
-    ) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
+    ) -> tuple[Optional[str], list[str], RiskScopeParams, bool]:
         return _impl._build_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -54,7 +55,7 @@ class ForecastRiskDataLoader(DataLoader):
         object_category: str = "all",
         history_window: str = "all",
         selected_year: Optional[int] = None,
-    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+    ) -> tuple[list[RiskTableMetadata], list[RiskDataRecord], list[str]]:
         metadata_items, notes = self.collect_risk_metadata(source_tables)
         min_year = self.resolve_history_window_min_year(metadata_items, history_window)
 
@@ -73,24 +74,24 @@ class ForecastRiskDataLoader(DataLoader):
         )
         notes.extend(load_notes)
 
-        records: List[Dict[str, Any]] = []
+        records: list[RiskDataRecord] = []
         for batch in record_batches:
             records.extend(batch)
         return metadata_items, records, notes
 
-    def load_table_metadata(self, table_name: str) -> Dict[str, Any]:
+    def load_table_metadata(self, table_name: str) -> RiskTableMetadata:
         return _impl._load_table_metadata(table_name)
 
     def load_risk_records(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
         min_year: Optional[int] = None,
         selected_year: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[RiskDataRecord]:
         return _impl._load_risk_records(
             table_name,
             resolved_columns,
@@ -105,7 +106,7 @@ class ForecastRiskDataLoader(DataLoader):
 _LOADER = ForecastRiskDataLoader()
 
 
-def _collect_risk_metadata(source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
+def _collect_risk_metadata(source_tables: Sequence[str]) -> tuple[list[RiskTableMetadata], list[str]]:
     return _LOADER.collect_risk_metadata(source_tables)
 
 
@@ -113,18 +114,18 @@ def _history_window_year_span(history_window: str) -> int:
     return _LOADER.history_window_year_span(history_window)
 
 
-def _resolve_history_window_min_year(metadata_items: Sequence[Dict[str, Any]], history_window: str) -> Optional[int]:
+def _resolve_history_window_min_year(metadata_items: Sequence[RiskTableMetadata], history_window: str) -> Optional[int]:
     return _LOADER.resolve_history_window_min_year(metadata_items, history_window)
 
 
 def _build_scope_conditions(
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     min_year: Optional[int] = None,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     selected_year: Optional[int] = None,
-) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
+) -> tuple[Optional[str], list[str], RiskScopeParams, bool]:
     return _LOADER.build_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -142,7 +143,7 @@ def _collect_risk_inputs(
     object_category: str = "all",
     history_window: str = "all",
     selected_year: Optional[int] = None,
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+) -> tuple[list[RiskTableMetadata], list[RiskDataRecord], list[str]]:
     return _LOADER.collect_risk_inputs(
         source_tables,
         district=district,
@@ -153,19 +154,19 @@ def _collect_risk_inputs(
     )
 
 
-def _load_table_metadata(table_name: str) -> Dict[str, Any]:
+def _load_table_metadata(table_name: str) -> RiskTableMetadata:
     return _LOADER.load_table_metadata(table_name)
 
 
 def _load_risk_records(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     min_year: Optional[int] = None,
     selected_year: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+) -> list[RiskDataRecord]:
     return _LOADER.load_risk_records(
         table_name,
         resolved_columns,

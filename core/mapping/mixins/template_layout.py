@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
+from ...types import AnalyticsLayersPayload, CategoryStyleLike, MapTablePayload, SpatialLayerDefaults
 from .template_analytics import analytics_layer_definitions
 
 
@@ -79,7 +80,7 @@ PAGE_STYLE_LINES = [
 ]
 
 
-def build_category_filter_items(category_styles: Dict[str, Any], table: Dict[str, Any], escape: Callable[[Any], str]) -> List[str]:
+def build_category_filter_items(category_styles: Dict[str, CategoryStyleLike], table: MapTablePayload, escape: Callable[[Any], str]) -> List[str]:
     category_items: List[str] = []
     for category_id, style in category_styles.items():
         count = table["counts"].get(category_id, 0)
@@ -101,8 +102,8 @@ def build_category_filter_items(category_styles: Dict[str, Any], table: Dict[str
 
 
 def build_layer_filter_items(
-    analytics_layers: Dict[str, Dict[str, Any]],
-    analytics_defaults: Dict[str, bool],
+    analytics_layers: AnalyticsLayersPayload,
+    analytics_defaults: SpatialLayerDefaults,
 ) -> List[str]:
     layer_items: List[str] = []
     for layer_id, icon_html, label, available in analytics_layer_definitions(analytics_layers):
@@ -127,10 +128,10 @@ def build_layer_filter_items(
 
 def build_filter_panel_html(
     idx: int,
-    table: Dict[str, Any],
-    analytics_layers: Dict[str, Dict[str, Any]],
-    analytics_defaults: Dict[str, bool],
-    category_styles: Dict[str, Any],
+    table: MapTablePayload,
+    analytics_layers: AnalyticsLayersPayload,
+    analytics_defaults: SpatialLayerDefaults,
+    category_styles: Dict[str, CategoryStyleLike],
     escape: Callable[[Any], str],
 ) -> str:
     filter_panel_lines = [
@@ -156,7 +157,7 @@ def build_filter_panel_html(
 
 
 def _render_tabs(
-    tables: List[Dict[str, Any]],
+    tables: List[MapTablePayload],
     *,
     render_tab_content: Callable[..., str],
     escape: Callable[[Any], str],
@@ -212,7 +213,7 @@ def _body_script_lines(table_count: int, tab_resize_script: str) -> List[str]:
 
 
 def generate_html(
-    tables: List[Dict[str, Any]],
+    tables: List[MapTablePayload],
     total_categories: Dict[str, int],
     *,
     render_tab_content: Callable[..., str],

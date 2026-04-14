@@ -33,6 +33,7 @@ from .column_transforms import (
     coerce_text_series,
     ensure_report_columns,
 )
+from ...types import ColumnMatchMetadata, KeepImportantColumnsResult
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ class KeepImportantColumnsStep(PipelineStep):
     def _build_protected_report(self, profile_df: pd.DataFrame) -> pd.DataFrame:
         return build_protected_report(profile_df)
 
-    def run(self, settings, profile_df: Optional[pd.DataFrame] = None):
+    def run(self, settings, profile_df: Optional[pd.DataFrame] = None) -> KeepImportantColumnsResult:
         output_folder = settings.output_folder
         os.makedirs(output_folder, exist_ok=True)
 
@@ -97,7 +98,7 @@ class KeepImportantColumnsStep(PipelineStep):
         profile_df = coerce_report_bool_columns(profile_df)
 
         column_names = profile_df["column"].astype("string").fillna("").str.strip()
-        matches: List[Optional[Dict[str, Any]]] = [
+        matches: List[Optional[ColumnMatchMetadata]] = [
             self.matcher.match_column_metadata(column_name) if column_name else None
             for column_name in column_names.tolist()
         ]

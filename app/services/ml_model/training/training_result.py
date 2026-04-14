@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from ..ml_model_types import (
     BacktestEvaluationRow,
@@ -18,9 +18,21 @@ from ..ml_model_types import (
     PREDICTION_INTERVAL_LEVEL,
     PREDICTION_INTERVAL_METHOD_LABEL,
 )
+from .types import (
+    TrainingCountComparisonPayload,
+    TrainingEventComparisonPayload,
+    TrainingEventModelPayload,
+    TrainingFeatureImportanceRow,
+    TrainingForecastRow,
+    TrainingHorizonSummaryPayload,
+    TrainingMlResultPayload,
+    TrainingTemperatureStats,
+    TrainingBacktestOverviewPayload,
+    TrainingBacktestRowPayload,
+)
 
 
-def _serialize_backtest_row(row: BacktestEvaluationRow) -> Dict[str, Any]:
+def _serialize_backtest_row(row: BacktestEvaluationRow) -> TrainingBacktestRowPayload:
     return {
         'origin_date': row.origin_date,
         'horizon_days': row.horizon_days,
@@ -44,7 +56,7 @@ def _serialize_backtest_row(row: BacktestEvaluationRow) -> Dict[str, Any]:
     }
 
 
-def _serialize_count_comparison_row(row: CountComparisonRow) -> Dict[str, Any]:
+def _serialize_count_comparison_row(row: CountComparisonRow) -> TrainingCountComparisonPayload:
     return {
         'method_key': row.method_key,
         'method_label': row.method_label,
@@ -60,7 +72,7 @@ def _serialize_count_comparison_row(row: CountComparisonRow) -> Dict[str, Any]:
     }
 
 
-def _serialize_event_comparison_row(row: EventComparisonRow) -> Dict[str, Any]:
+def _serialize_event_comparison_row(row: EventComparisonRow) -> TrainingEventComparisonPayload:
     return {
         'method_key': row.method_key,
         'method_label': row.method_label,
@@ -73,7 +85,7 @@ def _serialize_event_comparison_row(row: EventComparisonRow) -> Dict[str, Any]:
     }
 
 
-def _serialize_horizon_summary(summary: HorizonSummary) -> Dict[str, Any]:
+def _serialize_horizon_summary(summary: HorizonSummary) -> TrainingHorizonSummaryPayload:
     return {
         'horizon_days': summary.horizon_days,
         'horizon_label': summary.horizon_label,
@@ -94,14 +106,16 @@ def _serialize_horizon_summary(summary: HorizonSummary) -> Dict[str, Any]:
     }
 
 
-def _serialize_horizon_summaries(horizon_summaries: Dict[str, HorizonSummary]) -> Dict[str, Dict[str, Any]]:
+def _serialize_horizon_summaries(
+    horizon_summaries: Dict[str, HorizonSummary],
+) -> Dict[str, TrainingHorizonSummaryPayload]:
     return {
         str(horizon_day): _serialize_horizon_summary(summary)
         for horizon_day, summary in horizon_summaries.items()
     }
 
 
-def _serialize_backtest_overview(overview: BacktestOverview) -> Dict[str, Any]:
+def _serialize_backtest_overview(overview: BacktestOverview) -> TrainingBacktestOverviewPayload:
     return {
         'folds': overview.folds,
         'min_train_rows': overview.min_train_rows,
@@ -143,7 +157,7 @@ def _serialize_backtest_overview(overview: BacktestOverview) -> Dict[str, Any]:
     }
 
 
-def _empty_ml_result(message: str) -> Dict[str, Any]:
+def _empty_ml_result(message: str) -> TrainingMlResultPayload:
     return {
         'is_ready': False,
         'forecast_rows': [],
@@ -248,15 +262,15 @@ def _empty_ml_result(message: str) -> Dict[str, Any]:
 def _assemble_training_result(
     *,
     backtest: BacktestSuccess,
-    forecast_rows: List[Dict[str, Any]],
-    feature_importance: List[Dict[str, Any]],
+    forecast_rows: List[TrainingForecastRow],
+    feature_importance: List[TrainingFeatureImportanceRow],
     feature_importance_source_key: Optional[str],
     feature_importance_source_label: Optional[str],
     feature_importance_note: Optional[str],
-    final_temperature_stats: Dict[str, Any],
-    final_event_model: Optional[Dict[str, Any]],
+    final_temperature_stats: TrainingTemperatureStats,
+    final_event_model: Optional[TrainingEventModelPayload],  # one-off
     selected_count_model_key: str,
-) -> Dict[str, Any]:
+) -> TrainingMlResultPayload:
     backtest_rows = [_serialize_backtest_row(row) for row in backtest.rows]
     overview = _serialize_backtest_overview(backtest.backtest_overview)
     event_metrics = backtest.event_metrics

@@ -6,11 +6,12 @@ from threading import RLock
 from typing import Any, Callable, Dict, MutableMapping, Optional, Sequence, Tuple
 
 from app.state import FINAL_JOB_STATUSES, job_store
+from app.services.forecasting.types import JobMetaPayload, JobSnapshot, JobStageMeta, JobStatusPayload
 
 JobCacheMapping = MutableMapping[Tuple[str, str], str]
-StageMetaResolver = Callable[[str], Optional[Dict[str, Any]]]
+StageMetaResolver = Callable[[str], Optional[JobStageMeta]]
 StatusResolver = Callable[[str, str], Optional[str]]
-StatusPayloadBuilder = Callable[[str, bool], Dict[str, Any]]
+StatusPayloadBuilder = Callable[[str, bool], JobStatusPayload]
 CachedPayloadLoader = Callable[[], Any | None]
 JobBundleFactory = Callable[[bool], "JobLaunchBundle"]
 CachedPayloadHandler = Callable[["JobLaunchBundle", Any], None]
@@ -101,7 +102,7 @@ def attach_standard_job_metadata(
     session_id: str,
     job_id: str,
     cache_key_token: str,
-    params_payload: Dict[str, Any],
+    params_payload: dict[str, object],
     cache_hit: bool,
     **meta: Any,
 ) -> None:
@@ -120,10 +121,10 @@ def attach_linked_job_metadata(
     session_id: str,
     primary_job_id: str,
     cache_key_token: str,
-    params_payload: Dict[str, Any],
+    params_payload: dict[str, object],
     cache_hit: bool,
-    primary_meta: Optional[Dict[str, Any]] = None,
-    linked_meta_by_job_id: Optional[Dict[str, Dict[str, Any]]] = None,
+    primary_meta: Optional[JobMetaPayload] = None,
+    linked_meta_by_job_id: Optional[dict[str, JobMetaPayload]] = None,
 ) -> None:
     attach_standard_job_metadata(
         session_id=session_id,
@@ -149,7 +150,7 @@ def build_missing_job_payload(
     *,
     reused: bool | None,
     include_meta: bool,
-) -> Dict[str, Any]:
+) -> JobStatusPayload:
     payload = {
         "job_id": job_id,
         "status": "missing",
@@ -167,12 +168,12 @@ def build_missing_job_payload(
 
 
 def build_job_payload_from_snapshot(
-    snapshot: Dict[str, Any],
+    snapshot: JobSnapshot,
     *,
     reused: bool | None,
     include_result: bool = True,
     include_meta: bool = True,
-) -> Dict[str, Any]:
+) -> JobStatusPayload:
     payload = {
         "job_id": snapshot["job_id"],
         "kind": snapshot["kind"],
@@ -190,7 +191,7 @@ def build_job_payload_from_snapshot(
     return payload
 
 
-def build_standard_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> Dict[str, Any]:
+def build_standard_job_status_payload(session_id: str, job_id: str, *, reused: bool) -> JobStatusPayload:
     snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
     if snapshot is None:
         return build_missing_job_payload(job_id, reused=reused, include_meta=True)
@@ -205,7 +206,7 @@ def build_linked_job_status_payload(
     linked_specs: Sequence[LinkedJobStatusSpec],
     include_meta: bool = True,
     missing_include_meta: bool | None = None,
-) -> Dict[str, Any]:
+) -> JobStatusPayload:
     snapshot = job_store.get_job_snapshot(session_id, job_id=job_id)
     if snapshot is None:
         return build_missing_job_payload(
@@ -239,7 +240,7 @@ def start_cache_aware_job(
     create_jobs: JobBundleFactory,
     handle_cached_payload: CachedPayloadHandler,
     submit_background_job: QueuedJobSubmitter,
-) -> Dict[str, Any]:
+) -> JobStatusPayload:
     with reuse_coordinator.job_lock:
         reusable_job_id = reuse_coordinator.find_reusable_job_id()
         if reusable_job_id:
@@ -280,7 +281,7 @@ def run_background_job(
                 reuse_coordinator.discard(primary_job_id)
 
 
-def default_stage_meta_for_phase(phase: str) -> Optional[Dict[str, Any]]:
+def default_stage_meta_for_phase(phase: str) -> Optional[JobStageMeta]:
     normalized_phase = str(phase or "").strip().lower()
     if "loading" in normalized_phase:
         return {

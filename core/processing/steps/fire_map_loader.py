@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import pandas as pd
 from sqlalchemy import text
@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.db_metadata import get_table_columns_cached
 from config.db import engine
 from core.mapping.config import Config
+from core.types import FireMapSource
 
 _FIRE_MAP_COLUMN_GROUPS: Tuple[str, ...] = (
     "lat_names",
@@ -61,7 +62,7 @@ def _resolve_fire_map_columns(available_columns: List[str], config: Config) -> T
     return selected_columns, matched_columns
 
 
-def load_fire_map_source(table_name: str, config: Config) -> Dict[str, Any]:
+def load_fire_map_source(table_name: str, config: Config) -> FireMapSource:
     normalized_table_name = str(table_name or "").strip()
     if not normalized_table_name:
         raise ValueError("Не выбрана таблица для построения карты.")

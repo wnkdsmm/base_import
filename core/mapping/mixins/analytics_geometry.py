@@ -6,8 +6,10 @@ from typing import Any, Dict, Iterable, List
 
 import numpy as np
 
+from ...types import ProcessedRecord
 
-def project_records_to_local_xy(records: List[Dict[str, Any]]) -> np.ndarray:
+
+def project_records_to_local_xy(records: List[ProcessedRecord]) -> np.ndarray:
     coords = np.array([[item['latitude'], item['longitude']] for item in records], dtype=float)
     lat0 = float(np.mean(coords[:, 0]))
     lon0 = float(np.mean(coords[:, 1]))
@@ -19,20 +21,20 @@ def project_records_to_local_xy(records: List[Dict[str, Any]]) -> np.ndarray:
 
 
 def group_records_by_field(
-    records: Iterable[Dict[str, Any]],
+    records: Iterable[ProcessedRecord],
     field_name: str,
-) -> Dict[Any, List[Dict[str, Any]]]:
-    grouped: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
+) -> Dict[Any, List[ProcessedRecord]]:
+    grouped: Dict[Any, List[ProcessedRecord]] = defaultdict(list)
     for item in records:
         grouped[item[field_name]].append(item)
     return dict(grouped)
 
 
 def group_records_by_cluster_label(
-    records: List[Dict[str, Any]],
+    records: List[ProcessedRecord],
     labels: Iterable[Any],
-) -> Dict[int, List[Dict[str, Any]]]:
-    grouped: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+) -> Dict[int, List[ProcessedRecord]]:
+    grouped: Dict[int, List[ProcessedRecord]] = defaultdict(list)
     for index, label in enumerate(labels):
         if label >= 0:
             grouped[int(label)].append(records[index])
@@ -40,7 +42,7 @@ def group_records_by_cluster_label(
 
 
 def mean_record_value(
-    records: Iterable[Dict[str, Any]],
+    records: Iterable[ProcessedRecord],
     field_name: str,
 ) -> float | None:
     values = [item[field_name] for item in records if item[field_name] is not None]
@@ -48,7 +50,7 @@ def mean_record_value(
 
 
 def nanmean_record_value(
-    records: Iterable[Dict[str, Any]],
+    records: Iterable[ProcessedRecord],
     field_name: str,
 ) -> float | None:
     values = [item[field_name] for item in records if item[field_name] is not None]

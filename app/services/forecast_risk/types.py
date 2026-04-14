@@ -39,6 +39,43 @@ class RiskEventRecord(TypedDict, total=False):
     district: str
 
 
+class RiskTableMetadata(TypedDict, total=False):
+    """Resolved table metadata used by forecast_risk data loading layer."""
+
+    table_name: str
+    columns: list[str]
+    resolved_columns: dict[str, str]
+
+
+class RiskDataRecord(TypedDict, total=False):
+    """Normalized incident record produced by forecast_risk/data_impl."""
+
+    date: Any
+    district: str
+    cause: str
+    object_category: str
+    territory_label: str
+    settlement_type: str
+    fire_station_distance: float | None
+    has_water_supply: bool | None
+    response_minutes: float | None
+    long_arrival: bool
+    heating_season: bool
+    night_incident: bool
+    victims_present: bool
+    major_damage: bool
+    severe_consequence: bool
+    risk_category_score: float
+
+
+class RiskScopeParams(TypedDict, total=False):
+    min_year: int | None
+    selected_year: int | None
+    district: str
+    cause: str
+    object_category: str
+
+
 class HorizonContext(TypedDict, total=False):
     """Scoring horizon and seasonal context values."""
 

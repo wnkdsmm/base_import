@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import Any, Dict, List, Sequence
+from typing import Any, Sequence
 
 from .analysis_features import _build_runtime_clustering_context
 from .analysis_metrics import (
@@ -13,15 +13,22 @@ from .analysis_metrics import (
     _evaluate_cluster_counts,
     _run_clustering,
 )
+from .types import (
+    ClusteringDiagnosticsResult,
+    ClusteringDiagnosticsRuntimeBundle,
+    ClusteringMethodRow,
+    ClusteringRuntimeBundle,
+    FeatureSelectionReport,
+)
 
 
 def _select_render_configuration(
     *,
     requested_cluster_count: int,
     cluster_count_is_explicit: bool,
-    diagnostics: Dict[str, Any] | None,
+    diagnostics: ClusteringDiagnosticsResult | None,
     fallback_weighting_strategy: str,
-) -> Dict[str, Any]:
+) -> ClusteringMethodRow:
     diagnostics = diagnostics or {}
     if not cluster_count_is_explicit:
         best_configuration = diagnostics.get("best_configuration")
@@ -46,11 +53,11 @@ def _select_render_configuration(
 
 
 def _method_comparison_from_diagnostics(
-    diagnostics: Dict[str, Any] | None,
+    diagnostics: ClusteringDiagnosticsResult | None,
     *,
     cluster_count: int,
     selected_method_key: str,
-) -> List[Dict[str, Any]] | None:
+) -> list[ClusteringMethodRow] | None:
     rows_by_cluster_count = (diagnostics or {}).get("method_rows_by_cluster_count") or {}
     method_rows = rows_by_cluster_count.get(int(cluster_count)) or []
     if not method_rows:
@@ -69,14 +76,14 @@ def _run_clustering_model_bundle(
     *,
     cluster_frame: Any,
     entity_frame: Any,
-    feature_selection_report: Dict[str, Any],
+    feature_selection_report: FeatureSelectionReport,
     actual_cluster_count: int,
     actual_method_key: str,
     actual_method_label: str,
     actual_algorithm_key: str,
     actual_weighting_strategy: str,
-    method_comparison: Sequence[Dict[str, Any]] | None = None,
-) -> Dict[str, Any]:
+    method_comparison: Sequence[ClusteringMethodRow] | None = None,
+) -> ClusteringRuntimeBundle:
     runtime_feature_context = _build_runtime_clustering_context(
         feature_selection_report,
         method_label=actual_method_label,
@@ -144,10 +151,10 @@ def _run_clustering_diagnostics_bundle(
     *,
     cluster_frame: Any,
     entity_frame: Any,
-    feature_selection_report: Dict[str, Any],
+    feature_selection_report: FeatureSelectionReport,
     requested_working_cluster_count: int,
     cluster_count_is_explicit: bool,
-) -> Dict[str, Any]:
+) -> ClusteringDiagnosticsRuntimeBundle:
     weighting_strategy = str(feature_selection_report.get("weighting_strategy") or "")
     diagnostics = _evaluate_cluster_counts(
         cluster_frame,
@@ -197,11 +204,11 @@ def _run_clustering_model_stage(
     *,
     cluster_frame: Any,
     entity_frame: Any,
-    feature_selection_report: Dict[str, Any],
+    feature_selection_report: FeatureSelectionReport,
     requested_working_cluster_count: int,
     cluster_count_is_explicit: bool,
     perf: Any,
-) -> Dict[str, Any]:
+) -> ClusteringDiagnosticsRuntimeBundle:
     with (perf.span("model_training") if perf is not None else nullcontext()):
         return _run_clustering_diagnostics_bundle(
             cluster_frame=cluster_frame,

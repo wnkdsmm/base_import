@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
+from ...types import AnalyticsLayersPayload, CategoryStyleLike, MapTablePayload, SpatialLayerDefaults
+
 
 _POINT_ANALYTICS_LAYER_SPECS = (
     ("hotspots", 10),
@@ -356,13 +358,13 @@ def build_popup_script_lines() -> List[str]:
 
 def build_tab_script_lines(
     idx: int,
-    table: Dict[str, Any],
+    table: MapTablePayload,
     container_id: str,
-    analytics_layers: Dict[str, Dict[str, Any]],
-    analytics_defaults: Dict[str, bool],
-    heatmap_config: Dict[str, Any],
+    analytics_layers: AnalyticsLayersPayload,
+    analytics_defaults: SpatialLayerDefaults,
+    heatmap_config: Dict[str, object],
     *,
-    category_styles: Dict[str, Any],
+    category_styles: Dict[str, CategoryStyleLike],
     json_for_script: Callable[[Any], str],
 ) -> List[str]:
     center_lon, center_lat = table["center"]

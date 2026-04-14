@@ -97,6 +97,176 @@ class TrainingResultPayload(TypedDict, total=False):
     selected_count_model_key: str
 
 
+class TrainingBacktestRowPayload(TypedDict, total=False):
+    origin_date: str | None
+    horizon_days: int
+    date: str
+    actual_count: float
+    predicted_count: float
+    lower_bound: float
+    upper_bound: float
+    baseline_count: float
+    heuristic_count: float
+    actual_event: int
+    predicted_event_probability: float | None
+    baseline_event_probability: float | None
+    heuristic_event_probability: float | None
+
+
+class TrainingCountComparisonPayload(TypedDict, total=False):
+    method_key: str
+    method_label: str
+    role_label: str
+    is_selected: bool
+    mae: float | None
+    rmse: float | None
+    smape: float | None
+    poisson_deviance: float | None
+    mae_delta_vs_baseline: float | None
+    rmse_delta_vs_baseline: float | None
+    smape_delta_vs_baseline: float | None
+
+
+class TrainingEventComparisonPayload(TypedDict, total=False):
+    method_key: str
+    method_label: str
+    role_label: str
+    brier_score: float | None
+    roc_auc: float | None
+    f1: float | None
+    log_loss: float | None
+    is_selected: bool
+
+
+class TrainingHorizonSummaryPayload(TypedDict, total=False):
+    horizon_days: int
+    horizon_label: str
+    folds: int
+    count_mae: float | None
+    count_rmse: float | None
+    count_smape: float | None
+    count_poisson_deviance: float | None
+    baseline_count_mae: float | None
+    heuristic_count_mae: float | None
+    prediction_interval_coverage: float | None
+    prediction_interval_coverage_display: str
+    prediction_interval_coverage_validated: bool
+    prediction_interval_coverage_note: str | None
+    prediction_interval_validation_scheme_key: str | None
+    prediction_interval_validation_scheme_label: str | None
+    prediction_interval_method_label: str | None
+
+
+class TrainingBacktestOverviewPayload(TypedDict, total=False):
+    folds: int
+    min_train_rows: int
+    validation_horizon_days: int
+    validation_horizon_label: str
+    forecast_horizon_days: int
+    forecast_horizon_label: str
+    validated_horizon_days: list[int]
+    selection_rule: str
+    event_selection_rule: str
+    classification_threshold: float
+    event_backtest_event_rate: float | None
+    event_probability_informative: bool
+    event_probability_note: str | None
+    event_probability_reason_code: str | None
+    candidate_model_labels: list[str]
+    candidate_window_count: int
+    candidate_covered_window_count_by_model: dict[str, int]
+    candidate_window_coverage_by_model: dict[str, float]
+    dispersion_ratio: float | None
+    prediction_interval_level: float | None
+    prediction_interval_level_display: str
+    prediction_interval_coverage: float | None
+    prediction_interval_coverage_display: str
+    prediction_interval_method_label: str
+    prediction_interval_coverage_validated: bool
+    prediction_interval_coverage_note: str
+    prediction_interval_calibration_windows: int
+    prediction_interval_evaluation_windows: int
+    prediction_interval_validation_scheme_key: str | None
+    prediction_interval_validation_scheme_label: str | None
+    prediction_interval_validation_explanation: str | None
+    prediction_interval_calibration_range_label: str
+    prediction_interval_evaluation_range_label: str
+    prediction_interval_validated_horizon_days: list[int]
+    prediction_interval_coverage_by_horizon: dict[str, float | None]
+    prediction_interval_coverage_display_by_horizon: dict[str, str]
+    rolling_scheme_label: str
+
+
+class TrainingEventModelPayload(TypedDict, total=False):
+    # one-off: carrier for optional trained classifier artifact
+    pass
+
+
+class TrainingMlResultPayload(TypedDict, total=False):
+    is_ready: bool
+    message: str
+    forecast_rows: list[TrainingForecastRow]
+    feature_importance: list[TrainingFeatureImportanceRow]
+    feature_importance_source_key: str | None
+    feature_importance_source_label: str | None
+    feature_importance_note: str | None
+    backtest_rows: list[TrainingBacktestRowPayload]
+    horizon_summaries: dict[str, TrainingHorizonSummaryPayload]
+    count_mae: float | None
+    count_rmse: float | None
+    count_smape: float | None
+    count_poisson_deviance: float | None
+    baseline_count_mae: float | None
+    baseline_count_rmse: float | None
+    baseline_count_smape: float | None
+    baseline_count_poisson_deviance: float | None
+    heuristic_count_mae: float | None
+    heuristic_count_rmse: float | None
+    heuristic_count_smape: float | None
+    heuristic_count_poisson_deviance: float | None
+    count_vs_baseline_delta: float | None
+    brier_score: float | None
+    baseline_brier_score: float | None
+    heuristic_brier_score: float | None
+    roc_auc: float | None
+    baseline_roc_auc: float | None
+    heuristic_roc_auc: float | None
+    f1_score: float | None
+    baseline_f1_score: float | None
+    heuristic_f1_score: float | None
+    log_loss: float | None
+    baseline_log_loss: float | None
+    heuristic_log_loss: float | None
+    count_comparison_rows: list[TrainingCountComparisonPayload]
+    event_comparison_rows: list[TrainingEventComparisonPayload]
+    backtest_overview: TrainingBacktestOverviewPayload
+    selected_count_model_key: str
+    selected_count_model_reason: str
+    selected_count_model_reason_short: str
+    candidate_count_model_labels: list[str]
+    selected_event_model_key: str | None
+    selected_event_model_label: str | None
+    top_feature_label: str
+    count_model_label: str
+    prediction_interval_level: float | None
+    prediction_interval_level_display: str
+    prediction_interval_coverage: float | None
+    prediction_interval_coverage_display: str
+    prediction_interval_method_label: str
+    event_model_label: str | None
+    event_backtest_available: bool
+    event_probability_enabled: bool
+    event_probability_note: str | None
+    event_probability_reason_code: str | None
+    temperature_feature_enabled: bool
+    temperature_non_null_days: int
+    temperature_total_days: int
+    temperature_coverage: float
+    temperature_note: str | None
+    backtest_method_label: str
+    classifier_ready: bool
+
+
 class MlRequestState(TypedDict, total=False):
     """Normalized request state used by ml_model/core cache and shell flow."""
 

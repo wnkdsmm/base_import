@@ -1,12 +1,29 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, List
+
+from ...types import (
+    DbscanResult,
+    HeatmapPoint,
+    HotspotPayload,
+    LogisticsSummaryPayload,
+    PriorityTerritory,
+    ProcessedRecord,
+    RiskZone,
+    SpatialAnalyticsPayload,
+    SpatialDbscanPayload,
+    SpatialHeatmapPayload,
+    SpatialLayerDefaults,
+    SpatialQualityContext,
+    SpatialQualityPayload,
+    SpatialSummaryPayload,
+)
 
 
 def build_spatial_heatmap_payload(
     record_count: int,
-    heatmap_points: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    heatmap_points: List[HeatmapPoint],
+) -> SpatialHeatmapPayload:
     return {
         'enabled': record_count >= 3,
         'points': heatmap_points,
@@ -15,7 +32,7 @@ def build_spatial_heatmap_payload(
     }
 
 
-def build_spatial_dbscan_payload(dbscan: Dict[str, Any]) -> Dict[str, Any]:
+def build_spatial_dbscan_payload(dbscan: DbscanResult) -> SpatialDbscanPayload:
     clusters = dbscan.get('clusters', [])
     return {
         'enabled': bool(clusters),
@@ -33,11 +50,11 @@ def build_spatial_layer_defaults(
     *,
     record_count: int,
     mode: str,
-    hotspots: List[Dict[str, Any]],
-    dbscan: Dict[str, Any],
-    risk_zones: List[Dict[str, Any]],
-    priority_territories: List[Dict[str, Any]],
-) -> Dict[str, bool]:
+    hotspots: List[HotspotPayload],
+    dbscan: DbscanResult,
+    risk_zones: List[RiskZone],
+    priority_territories: List[PriorityTerritory],
+) -> SpatialLayerDefaults:
     return {
         'incidents': True,
         'heatmap': record_count >= 3 and mode != 'minimal',
@@ -50,17 +67,17 @@ def build_spatial_layer_defaults(
 
 def build_spatial_analytics_payload(
     *,
-    quality: Dict[str, Any],
+    quality: SpatialQualityPayload,
     record_count: int,
-    heatmap_points: List[Dict[str, Any]],
-    hotspots: List[Dict[str, Any]],
-    dbscan: Dict[str, Any],
-    risk_zones: List[Dict[str, Any]],
-    priority_territories: List[Dict[str, Any]],
-    logistics: Dict[str, Any],
-    summary: Dict[str, Any],
+    heatmap_points: List[HeatmapPoint],
+    hotspots: List[HotspotPayload],
+    dbscan: DbscanResult,
+    risk_zones: List[RiskZone],
+    priority_territories: List[PriorityTerritory],
+    logistics: LogisticsSummaryPayload,
+    summary: SpatialSummaryPayload,
     mode: str,
-) -> Dict[str, Any]:
+) -> SpatialAnalyticsPayload:
     return {
         'quality': quality,
         'heatmap': build_spatial_heatmap_payload(record_count, heatmap_points),
@@ -81,7 +98,7 @@ def build_spatial_analytics_payload(
     }
 
 
-def build_empty_spatial_analytics(source_record_count: int) -> Dict[str, Any]:
+def build_empty_spatial_analytics(source_record_count: int) -> SpatialAnalyticsPayload:
     return {
         'quality': {
             'mode': 'minimal',
@@ -106,9 +123,9 @@ def build_empty_spatial_analytics(source_record_count: int) -> Dict[str, Any]:
 
 
 def build_spatial_quality_context(
-    records: List[Dict[str, Any]],
+    records: List[ProcessedRecord],
     source_record_count: int,
-) -> Dict[str, Any]:
+) -> SpatialQualityContext:
     unique_coordinates = len({(item['latitude'], item['longitude']) for item in records})
     duplicate_ratio = (1.0 - unique_coordinates / max(len(records), 1)) * 100.0
     mode = 'full' if len(records) >= 18 and unique_coordinates >= 10 else 'limited' if len(records) >= 6 else 'minimal'
@@ -131,7 +148,7 @@ def build_spatial_quality_context(
     }
 
 
-def build_heatmap_points(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def build_heatmap_points(records: List[ProcessedRecord]) -> List[HeatmapPoint]:
     max_weight = max(item['weight'] for item in records) or 1.0
     return [
         {'latitude': item['latitude'], 'longitude': item['longitude'], 'weight': round(max(0.08, min(1.0, item['weight'] / max_weight)), 4)}
@@ -140,12 +157,12 @@ def build_heatmap_points(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def build_spatial_methods(
-    records: List[Dict[str, Any]],
-    hotspots: List[Dict[str, Any]],
-    dbscan: Dict[str, Any],
-    risk_zones: List[Dict[str, Any]],
-    priority_territories: List[Dict[str, Any]],
-    logistics: Dict[str, Any],
+    records: List[ProcessedRecord],
+    hotspots: List[HotspotPayload],
+    dbscan: DbscanResult,
+    risk_zones: List[RiskZone],
+    priority_territories: List[PriorityTerritory],
+    logistics: LogisticsSummaryPayload,
 ) -> List[str]:
     methods = ['Точечный слой пожаров']
     if len(records) >= 3:
@@ -164,10 +181,10 @@ def build_spatial_methods(
 
 
 def build_spatial_insights(
-    hotspots: List[Dict[str, Any]],
-    priority_territories: List[Dict[str, Any]],
-    logistics: Dict[str, Any],
-    dbscan: Dict[str, Any],
+    hotspots: List[HotspotPayload],
+    priority_territories: List[PriorityTerritory],
+    logistics: LogisticsSummaryPayload,
+    dbscan: DbscanResult,
     notes: List[str],
 ) -> List[str]:
     insights = []
@@ -187,12 +204,12 @@ def build_spatial_insights(
 
 def build_spatial_thesis_paragraphs(
     table_name: str,
-    records: List[Dict[str, Any]],
+    records: List[ProcessedRecord],
     source_record_count: int,
     methods: List[str],
-    risk_zones: List[Dict[str, Any]],
-    priority_territories: List[Dict[str, Any]],
-    logistics: Dict[str, Any],
+    risk_zones: List[RiskZone],
+    priority_territories: List[PriorityTerritory],
+    logistics: LogisticsSummaryPayload,
 ) -> List[str]:
     enhanced_methods = methods[1:] if len(methods) > 1 else ['ранжирования территорий и резервного пространственного режима']
     return [
@@ -203,10 +220,10 @@ def build_spatial_thesis_paragraphs(
 
 
 def build_spatial_quality_payload(
-    records: List[Dict[str, Any]],
+    records: List[ProcessedRecord],
     source_record_count: int,
-    quality_context: Dict[str, Any],
-) -> Dict[str, Any]:
+    quality_context: SpatialQualityContext,
+) -> SpatialQualityPayload:
     return {
         'mode': quality_context['mode'],
         'mode_label': quality_context['mode_label'],
@@ -227,7 +244,7 @@ def build_spatial_summary_payload(
     methods: List[str],
     insights: List[str],
     thesis_paragraphs: List[str],
-) -> Dict[str, Any]:
+) -> SpatialSummaryPayload:
     return {
         'title': 'Пространственная аналитика пожаров',
         'subtitle': 'Карта дополнена слоями плотности, hotspot/DBSCAN, приоритетами территорий и explainable logistics-метриками доезда.',

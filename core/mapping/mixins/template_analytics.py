@@ -2,11 +2,18 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
+from ...types import (
+    AnalyticsLayersPayload,
+    PopupRow,
+    SpatialAnalyticsPayload,
+    SpatialLayerDefaults,
+)
+
 
 def build_analytics_layer_geojsons(
-    analytics: Dict[str, Any],
-    build_popup_rows: Callable[..., List[Dict[str, str]]],
-) -> Dict[str, Dict[str, Any]]:
+    analytics: SpatialAnalyticsPayload,
+    build_popup_rows: Callable[..., List[PopupRow]],
+) -> AnalyticsLayersPayload:
     layers = {
         "heatmap": {"type": "FeatureCollection", "features": []},
         "hotspots": {"type": "FeatureCollection", "features": []},
@@ -138,11 +145,11 @@ def default_analytics_layer_flags() -> Dict[str, bool]:
     }
 
 
-def analytics_layer_defaults(analytics: Dict[str, Any]) -> Dict[str, bool]:
+def analytics_layer_defaults(analytics: SpatialAnalyticsPayload) -> SpatialLayerDefaults:
     return analytics.get("layer_defaults", default_analytics_layer_flags())
 
 
-def analytics_heatmap_config(analytics: Dict[str, Any]) -> Dict[str, Any]:
+def analytics_heatmap_config(analytics: SpatialAnalyticsPayload) -> Dict[str, object]:
     heatmap = analytics.get("heatmap") or {}
     return {
         "enabled": bool(heatmap.get("enabled", False)),
@@ -151,7 +158,7 @@ def analytics_heatmap_config(analytics: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def analytics_layer_definitions(analytics_layers: Dict[str, Dict[str, Any]]) -> List[tuple[str, str, str, bool]]:
+def analytics_layer_definitions(analytics_layers: AnalyticsLayersPayload) -> List[tuple[str, str, str, bool]]:
     return [
         ("incidents", "&#128506;", "\u0422\u043e\u0447\u043a\u0438 \u043f\u043e\u0436\u0430\u0440\u043e\u0432", True),
         ("heatmap", "&#128293;", "KDE / heatmap", bool(analytics_layers.get("heatmap", {}).get("features"))),
@@ -162,7 +169,7 @@ def analytics_layer_definitions(analytics_layers: Dict[str, Dict[str, Any]]) -> 
     ]
 
 
-def build_analytics_panel_html(analytics: Dict[str, Any], idx: int, escape: Callable[[Any], str]) -> str:
+def build_analytics_panel_html(analytics: SpatialAnalyticsPayload, idx: int, escape: Callable[[Any], str]) -> str:
     quality = analytics.get("quality", {})
     dbscan = analytics.get("dbscan", {})
     logistics = analytics.get("logistics", {})

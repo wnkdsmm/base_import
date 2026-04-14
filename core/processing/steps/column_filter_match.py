@@ -28,13 +28,20 @@ from .column_filter_text import (
     _prepare_exclude_tokens,
     _prepare_registry_feature_payload,
 )
+from ...types import (
+    CategoryRule,
+    ColumnMatchMetadata,
+    ColumnTermPayload,
+    GroupCatalogEntry,
+    MandatoryFeatureSpec,
+)
 
 _COLUMN_MATCHER: Optional["NatashaColumnMatcher"] = None
 
 def _match_mandatory_feature_payload(
-    column_payload: Dict[str, object],
-    feature: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    column_payload: ColumnTermPayload,
+    feature: MandatoryFeatureSpec,
+) -> Optional[ColumnMatchMetadata]:
     exclude_tokens = list(feature.get("prepared_exclude_tokens", []))
     if exclude_tokens and _payload_has_excluded_token(column_payload, exclude_tokens):
         return None
@@ -140,7 +147,7 @@ def _build_query_terms(
         terms.append(build_query_term(token))
     return terms
 
-def _payload_matches_query_variants(column_payload: Dict[str, object], variants: Set[str]) -> bool:
+def _payload_matches_query_variants(column_payload: ColumnTermPayload, variants: Set[str]) -> bool:
     normalized_name, words, lemmas = _column_payload_parts(column_payload)
     return any(
         variant in normalized_name
@@ -150,7 +157,7 @@ def _payload_matches_query_variants(column_payload: Dict[str, object], variants:
     )
 
 def _match_query_terms_in_payload(
-    column_payload: Dict[str, object],
+    column_payload: ColumnTermPayload,
     query_terms: List[Dict[str, Set[str]]],
 ) -> tuple[List[str], int]:
     matched_terms: List[str] = []
@@ -162,8 +169,8 @@ def _match_query_terms_in_payload(
     return matched_terms, score
 
 def _payload_matches_category_rule(
-    column_payload: Dict[str, object],
-    category_rule: Dict[str, object],
+    column_payload: ColumnTermPayload,
+    category_rule: CategoryRule,
     category_lemmas: Set[str],
     normalize_text: Callable[[str], str],
 ) -> bool:
@@ -183,8 +190,8 @@ def _payload_matches_category_rule(
     return bool(category_lemmas.intersection(words))
 
 def _matching_category_rule_ids(
-    column_payload: Dict[str, object],
-    category_rules: List[Dict[str, Any]],
+    column_payload: ColumnTermPayload,
+    category_rules: List[CategoryRule],
     category_lemmas: Dict[str, Set[str]],
     normalize_text: Callable[[str], str],
 ) -> List[str]:
@@ -199,7 +206,7 @@ def _matching_category_rule_ids(
             group_ids.append(rule["id"])
     return group_ids
 
-def _keyword_rule_match_specs(rule: Dict[str, Any]) -> List[tuple[List[List[str]], str, str]]:
+def _keyword_rule_match_specs(rule: MandatoryFeatureSpec) -> List[tuple[List[List[str]], str, str]]:
     return [
         (
             list(rule.get("include_all", [])),
@@ -214,10 +221,10 @@ def _keyword_rule_match_specs(rule: Dict[str, Any]) -> List[tuple[List[List[str]
     ]
 
 def _match_keyword_rule_payload(
-    column_payload: Dict[str, object],
-    rule: Dict[str, Any],
+    column_payload: ColumnTermPayload,
+    rule: MandatoryFeatureSpec,
     normalize_text: Callable[[str], str],
-) -> Optional[Dict[str, Any]]:
+) -> Optional[ColumnMatchMetadata]:
     exclude_tokens = _prepare_exclude_tokens(list(rule.get("exclude", [])), normalize_text)
     if exclude_tokens and _payload_has_excluded_token(column_payload, exclude_tokens):
         return None
@@ -288,7 +295,7 @@ def _partition_column_query_matches(
             partial_matches.append(item)
     return full_matches if full_matches else partial_matches
 
-def _build_group_catalog_entry(rule: Dict[str, Any], group_columns: List[str]) -> Dict[str, object]:
+def _build_group_catalog_entry(rule: CategoryRule, group_columns: List[str]) -> GroupCatalogEntry:
     return {
         "id": rule["id"],
         "label": rule["label"],
@@ -299,7 +306,7 @@ def _build_group_catalog_entry(rule: Dict[str, Any], group_columns: List[str]) -
 
 def _build_grouped_columns_by_category(
     columns: List[str],
-    category_rules: List[Dict[str, Any]],
+    category_rules: List[CategoryRule],
     classify_column_groups: Callable[[str], List[str]],
 ) -> Dict[str, List[str]]:
     grouped_columns: Dict[str, List[str]] = {rule["id"]: [] for rule in category_rules}
@@ -349,10 +356,10 @@ class NatashaColumnMatcher:
     def _extract_words(self, value: str) -> List[str]:
         return _extract_word_tokens(value)
 
-    def _prepare_registry_feature(self, feature: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_registry_feature(self, feature: MandatoryFeatureSpec) -> MandatoryFeatureSpec:
         return _prepare_registry_feature_payload(feature, self._normalize_text, self._extract_words)
 
-    def _column_terms(self, column_name: str) -> Dict[str, object]:
+    def _column_terms(self, column_name: str) -> ColumnTermPayload:
         return _build_column_term_payload(
             column_name,
             self._normalize_text,
@@ -361,7 +368,7 @@ class NatashaColumnMatcher:
         )
 
 
-    def _match_mandatory_feature(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
+    def _match_mandatory_feature(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
         for feature in self.mandatory_registry:
             match = _match_mandatory_feature_payload(column_payload, feature)
             if match:
@@ -369,7 +376,7 @@ class NatashaColumnMatcher:
         return None
 
 
-    def _match_legacy_explicit(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
+    def _match_legacy_explicit(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
         original_name = str(column_payload["original_name"]).strip()
         exact_match = LEGACY_EXPLICIT_IMPORTANT_COLUMNS.get(original_name)
         if not exact_match:
@@ -385,30 +392,30 @@ class NatashaColumnMatcher:
             mandatory=False,
         )
 
-    def _match_keyword_rule(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
+    def _match_keyword_rule(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
         for rule in KEYWORD_IMPORTANCE_RULES:
             match = _match_keyword_rule_payload(column_payload, rule, self._normalize_text)
             if match:
                 return match
         return None
 
-    def match_column_metadata(self, col_name: str) -> Optional[Dict[str, Any]]:
+    def match_column_metadata(self, col_name: str) -> Optional[ColumnMatchMetadata]:
         return self._match_column_payload_metadata(self._column_terms(col_name))
 
-    def _match_column_payload_metadata(self, column_payload: Dict[str, object]) -> Optional[Dict[str, Any]]:
+    def _match_column_payload_metadata(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
         for matcher in (self._match_mandatory_feature, self._match_legacy_explicit, self._match_keyword_rule):
             match = matcher(column_payload)
             if match:
                 return match
         return None
 
-    def _important_label_from_payload(self, column_payload: Dict[str, object]) -> Optional[str]:
+    def _important_label_from_payload(self, column_payload: ColumnTermPayload) -> Optional[str]:
         return _feature_label_from_match(self._match_column_payload_metadata(column_payload))
 
     def classify_column(self, col_name: str) -> Optional[str]:
         return self._classify_column_payload(self._column_terms(col_name))
 
-    def _classify_column_payload(self, column_payload: Dict[str, object]) -> Optional[str]:
+    def _classify_column_payload(self, column_payload: ColumnTermPayload) -> Optional[str]:
         return self._important_label_from_payload(column_payload)
 
     def _query_terms(self, query_text: str) -> List[Dict[str, Set[str]]]:
@@ -433,7 +440,7 @@ class NatashaColumnMatcher:
     def classify_column_groups(self, column_name: str) -> List[str]:
         return self._classify_column_payload_groups(self._column_terms(column_name))
 
-    def _classify_column_payload_groups(self, column_payload: Dict[str, object]) -> List[str]:
+    def _classify_column_payload_groups(self, column_payload: ColumnTermPayload) -> List[str]:
         return _matching_category_rule_ids(
             column_payload,
             COLUMN_CATEGORY_RULES,
@@ -444,7 +451,7 @@ class NatashaColumnMatcher:
     def _build_column_query_match(
         self,
         column_name: str,
-        column_payload: Dict[str, object],
+        column_payload: ColumnTermPayload,
         query_terms: List[Dict[str, Set[str]]],
     ) -> Optional[Dict[str, object]]:
         matched_terms, score = _match_query_terms_in_payload(column_payload, query_terms)
@@ -468,7 +475,7 @@ class NatashaColumnMatcher:
     def _build_column_category_match(
         self,
         column_name: str,
-        column_payload: Dict[str, object],
+        column_payload: ColumnTermPayload,
         wanted: Set[str],
     ) -> Optional[Dict[str, object]]:
         matched_groups = _matching_group_ids(self._classify_column_payload_groups(column_payload), wanted)

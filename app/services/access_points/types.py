@@ -307,6 +307,119 @@ class AccessPointCard(TypedDict, total=False):
     tone: str
 
 
+class AccessPointReasonDetail(TypedDict, total=False):
+    code: str
+    label: str
+    contribution_points: float
+    contribution_display: str
+    value_display: str
+
+
+class AccessPointScoreDecompositionItem(TypedDict, total=False):
+    code: str
+    label: str
+    factor_score: float
+    factor_score_display: str
+    weight_points: float
+    weight_points_display: str
+    contribution_points: float
+    contribution_display: str
+    value_display: str
+    is_penalty: bool
+    tone: str
+
+
+class AccessPointComponentScore(TypedDict, total=False):
+    key: str
+    label: str
+    score: float
+    score_display: str
+    tone: str
+
+
+class AccessPointPayloadRow(PointData, total=False):
+    """Final scored row used by analysis_output builders and presentation."""
+
+    access_score: float
+    water_score: float
+    severity_score: float
+    recurrence_score: float
+    data_gap_score: float
+    score: float
+    score_display: str
+    total_score: float
+    total_score_display: str
+    uncertainty_penalty: float
+    uncertainty_penalty_display: str
+    investigation_score: float
+    investigation_score_display: str
+    missing_data_priority: bool
+    uncertainty_flag: bool
+    low_support: bool
+    low_support_note: str
+    selected_feature_columns: list[str]
+    selected_feature_count: int
+    score_decomposition: list[AccessPointScoreDecompositionItem]
+    component_scores: list[AccessPointComponentScore]
+    severity_band_code: str
+    severity_band: str
+    priority_label: str
+    tone: str
+    typology_code: str
+    typology_label: str
+    reason_details: list[AccessPointReasonDetail]
+    top_reason_codes: list[str]
+    reasons: list[str]
+    reason_chips: list[str]
+    human_readable_explanation: str
+    explanation: str
+    incomplete_note: str
+
+
+class AccessPointTypologyRow(TypedDict, total=False):
+    code: str
+    label: str
+    count: int
+    count_display: str
+    share_display: str
+    max_score: float
+    max_score_display: str
+    lead_label: str
+
+
+class AccessPointScoreBandRow(TypedDict, total=False):
+    code: str
+    label: str
+    count: int
+    count_display: str
+    share_display: str
+
+
+class AccessPointScoreBucketRow(TypedDict, total=False):
+    label: str
+    count: int
+    count_display: str
+
+
+class AccessPointScoreDistribution(TypedDict, total=False):
+    average_score_display: str
+    median_score_display: str
+    bands: list[AccessPointScoreBandRow]
+    buckets: list[AccessPointScoreBucketRow]
+
+
+class AccessPointReasonBreakdownRow(TypedDict, total=False):
+    code: str
+    label: str
+    count: int
+    count_display: str
+    share_display: str
+    average_contribution: float
+    average_contribution_display: str
+    max_contribution_display: str
+    lead_label: str
+
+
 class PresentationSummary(TypedDict, total=False):
     """Presentation summary block rendered above ranked access points."""
 

@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ...types import PopupRow, ProcessedRecord, SpatialPoint
+
 class MapCreatorUtilityMixin:
     def _get_marker_category(self, row: pd.Series, columns: Dict[str, Optional[str]]) -> str:
         """Определяет категорию маркера по данным строки"""
@@ -47,8 +49,8 @@ class MapCreatorUtilityMixin:
         self,
         items: List[Tuple[str, Any]],
         title: Optional[str] = None,
-    ) -> List[Dict[str, str]]:
-        rows: List[Dict[str, str]] = []
+    ) -> List[PopupRow]:
+        rows: List[PopupRow] = []
         if title:
             rows.append({"title": "" if title is None else str(title)})
         for label, value in items:
@@ -58,7 +60,7 @@ class MapCreatorUtilityMixin:
             })
         return rows
 
-    def _build_fire_popup_rows(self, data: Dict[str, str]) -> List[Dict[str, str]]:
+    def _build_fire_popup_rows(self, data: Dict[str, str]) -> List[PopupRow]:
         return self._build_popup_rows(
             [
                 ("Дата", data.get("date", "")),
@@ -193,7 +195,7 @@ class MapCreatorUtilityMixin:
         )
         return any(token in normalized for token in ('сель', 'деревн', 'посел', 'село', 'хутор', 'станиц', 'аул', 'снт', 'днп'))
 
-    def _dominant_label(self, records: List[Dict[str, Any]], key: str, fallback: str) -> str:
+    def _dominant_label(self, records: List[ProcessedRecord], key: str, fallback: str) -> str:
         counter = Counter(
             self._clean_text(item.get(key))
             for item in records
@@ -201,7 +203,7 @@ class MapCreatorUtilityMixin:
         )
         return counter.most_common(1)[0][0] if counter else fallback
 
-    def _km_distance(self, left: Dict[str, Any], right: Dict[str, Any]) -> float:
+    def _km_distance(self, left: SpatialPoint, right: SpatialPoint) -> float:
         lat_factor = 110.574
         avg_lat = (float(left['latitude']) + float(right['latitude'])) / 2.0
         lon_factor = 111.320 * max(math.cos(math.radians(avg_lat)), 0.1)

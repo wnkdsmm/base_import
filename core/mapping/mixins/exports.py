@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import List
+
+from ...types import AnalysisExportPayload, MapTablePayload
 
 class MapCreatorExportMixin:
-    def _build_analysis_export_payload(self, tables: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _build_analysis_export_payload(self, tables: List[MapTablePayload]) -> AnalysisExportPayload:
         return {
             'tables': [
                 {
@@ -15,7 +17,7 @@ class MapCreatorExportMixin:
             ]
         }
 
-    def _build_analysis_markdown(self, tables: List[Dict[str, Any]]) -> str:
+    def _build_analysis_markdown(self, tables: List[MapTablePayload]) -> str:
         lines = ['# Пространственная аналитика пожаров', '']
         for table in tables:
             analytics = table.get('spatial_analytics', {})

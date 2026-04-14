@@ -7,16 +7,17 @@ import numpy as np
 
 from app.services.explainable_logistics import build_explainable_logistics_profile
 
+from ...types import DbscanResult, HotspotPayload, PriorityTerritory, ProcessedRecord, RiskZone, SpatialPoint
 from .analytics_geometry import group_records_by_field, mean_record_value
 
 
 def build_priority_territories(
-    records: List[Dict[str, Any]],
-    risk_zones: List[Dict[str, Any]],
+    records: List[ProcessedRecord],
+    risk_zones: List[RiskZone],
     *,
     risk_level: Callable[[float], tuple[str, str]],
-    km_distance: Callable[[Dict[str, Any], Dict[str, Any]], float],
-) -> List[Dict[str, Any]]:
+    km_distance: Callable[[SpatialPoint, SpatialPoint], float],
+) -> List[PriorityTerritory]:
     grouped = group_records_by_field(records, 'territory_label')
     if not grouped:
         return []
@@ -107,13 +108,13 @@ def build_priority_territories(
 
 
 def build_fallback_risk_zones(
-    records: List[Dict[str, Any]],
-    priority_territories: List[Dict[str, Any]],
+    records: List[ProcessedRecord],
+    priority_territories: List[PriorityTerritory],
     *,
     risk_level: Callable[[float], tuple[str, str]],
-    km_distance: Callable[[Dict[str, Any], Dict[str, Any]], float],
+    km_distance: Callable[[SpatialPoint, SpatialPoint], float],
     build_circle_polygon: Callable[[float, float, float], List[List[float]]],
-) -> List[Dict[str, Any]]:
+) -> List[RiskZone]:
     grouped = group_records_by_field(records, 'territory_label')
     fallback_zones: List[Dict[str, Any]] = []
     for rank, territory in enumerate(priority_territories[:3], start=1):
@@ -146,12 +147,12 @@ def build_fallback_risk_zones(
 
 
 def build_spatial_risk_zones(
-    dbscan: Dict[str, Any],
-    hotspots: List[Dict[str, Any]],
+    dbscan: DbscanResult,
+    hotspots: List[HotspotPayload],
     *,
-    km_distance: Callable[[Dict[str, Any], Dict[str, Any]], float],
+    km_distance: Callable[[SpatialPoint, SpatialPoint], float],
     build_circle_polygon: Callable[[float, float, float], List[List[float]]],
-) -> List[Dict[str, Any]]:
+) -> List[RiskZone]:
     risk_zone_candidates: List[Dict[str, Any]] = []
     for cluster in dbscan.get('clusters', []):
         risk_zone_candidates.append({

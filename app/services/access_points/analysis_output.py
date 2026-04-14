@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from statistics import mean, median
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, Sequence
 
 from app.services.shared.data_utils import _clean_text
 from app.services.shared.formatting import _format_integer, _format_number, _format_percent
+from .types import (
+    AccessPointPayloadRow,
+    AccessPointReasonBreakdownRow,
+    AccessPointScoreDistribution,
+    AccessPointTypologyRow,
+)
 
 from .analysis_factors import HIGH_THRESHOLD, UNCERTAINTY_PENALTY_MAX
 from .analysis_output_context import (
@@ -153,7 +159,7 @@ def _build_access_point_score_context(
 def _build_access_point_metric_payload(
     metrics: _AccessPointRowMetrics,
     displays: _AccessPointDisplayContext,
-) -> Dict[str, Any]:
+) -> AccessPointPayloadRow:
     return {
         "incident_count": metrics.incident_count,
         "incident_count_display": _format_integer(metrics.incident_count),
@@ -200,7 +206,7 @@ def _build_access_point_score_payload(
     uncertainty_flag: bool,
     low_support: bool,
     low_support_note: str,
-) -> Dict[str, Any]:
+) -> AccessPointPayloadRow:
     return {
         "access_score": score_context.access_score_payload,
         "water_score": score_context.water_score_payload,
@@ -226,13 +232,13 @@ def _build_access_point_score_payload(
 
 def _build_access_point_payload_row(
     *,
-    record: Dict[str, Any],
+    record: AccessPointPayloadRow,
     precomputed: Dict[str, Sequence[Any]],
     row_index: int,
     normalized_selected_features: Sequence[str],
     active_reason_codes: set[str],
     normalized_factor_weights: Dict[str, float],
-) -> Dict[str, Any]:
+) -> AccessPointPayloadRow:
     metrics = _access_point_row_metrics(precomputed, row_index)
     displays = _build_access_point_display_context(metrics)
     score_context = _build_access_point_score_context(
@@ -301,7 +307,7 @@ def _build_access_point_payload_row(
     )
     return row
 
-def _build_typology_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_typology_rows(rows: Sequence[AccessPointPayloadRow]) -> list[AccessPointTypologyRow]:
     if not rows:
         return []
 
@@ -342,11 +348,11 @@ def _build_typology_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]
     result.sort(key=lambda item: (item["count"], item["max_score"]), reverse=True)
     return result
 
-def _build_score_distribution(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_score_distribution(rows: Sequence[AccessPointPayloadRow]) -> AccessPointScoreDistribution:
     if not rows:
         return {"average_score_display": "0", "median_score_display": "0", "bands": [], "buckets": []}
 
-    scores: List[float] = []
+    scores: list[float] = []
     band_counts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
     bucket_counts = [0, 0, 0, 0]
     for row in rows:
@@ -388,7 +394,7 @@ def _build_score_distribution(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "buckets": buckets,
     }
 
-def _build_reason_breakdown(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_reason_breakdown(rows: Sequence[AccessPointPayloadRow]) -> list[AccessPointReasonBreakdownRow]:
     buckets: Dict[str, Dict[str, Any]] = {}
     for row in rows:
         for detail in list(row.get("reason_details") or [])[:3]:
@@ -433,7 +439,7 @@ def _build_reason_breakdown(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, An
     result.sort(key=lambda item: (item["count"], item["average_contribution"]), reverse=True)
     return result
 
-def _build_uncertainty_notes(rows: Sequence[Dict[str, Any]]) -> List[str]:
+def _build_uncertainty_notes(rows: Sequence[AccessPointPayloadRow]) -> list[str]:
     if not rows:
         return ["Неопределённость будет оценена после расчёта рейтинга."]
 

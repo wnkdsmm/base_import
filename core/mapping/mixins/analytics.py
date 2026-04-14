@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 import pandas as pd
 
+from ...types import ColumnMapping, ProcessedRecord, SpatialAnalyticsPayload
 from .analytics_dbscan import build_dbscan_clusters
 from .analytics_hotspots import build_hotspots_from_dated_records
 from .analytics_logistics import build_logistics_summary_payload
@@ -34,7 +35,7 @@ except Exception:  # pragma: no cover - graceful fallback when sklearn is unavai
     SKLEARN_AVAILABLE = False
 
 class MapCreatorAnalyticsMixin:
-    def _collect_spatial_records(self, df: pd.DataFrame, lat_col: str, lon_col: str, columns: Dict[str, Optional[str]]) -> List[Dict[str, Any]]:
+    def _collect_spatial_records(self, df: pd.DataFrame, lat_col: str, lon_col: str, columns: ColumnMapping) -> List[ProcessedRecord]:
         latitudes = pd.to_numeric(df[lat_col], errors='coerce')
         longitudes = pd.to_numeric(df[lon_col], errors='coerce')
         valid_mask = latitudes.notna() & longitudes.notna()
@@ -112,7 +113,7 @@ class MapCreatorAnalyticsMixin:
         )
         return records_frame.to_dict(orient='records')
 
-    def _build_spatial_analytics(self, table_name: str, records: List[Dict[str, Any]], source_record_count: int) -> Dict[str, Any]:
+    def _build_spatial_analytics(self, table_name: str, records: List[ProcessedRecord], source_record_count: int) -> SpatialAnalyticsPayload:
         if not records:
             return build_empty_spatial_analytics(source_record_count)
 

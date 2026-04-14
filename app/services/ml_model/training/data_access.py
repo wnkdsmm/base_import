@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Sequence
+from typing import Any, Callable, Sequence
 
 from app.cache import build_immutable_payload_ttl_cache, callable_cache_scope
+from app.services.forecasting.types import ForecastingDailyHistoryRow, ForecastingOptionCatalog, ForecastingTableMetadata
 from app.services.forecasting.selection import _canonicalize_source_tables, _normalize_filter_value
 from app.services.shared.data_base import DataLoader
+from .types import MlAggregationInputs, MlFilterBundle
 
 _ML_FILTER_BUNDLE_CACHE = build_immutable_payload_ttl_cache(ttl_seconds=120.0)
 _ML_AGGREGATION_INPUT_CACHE = build_immutable_payload_ttl_cache(ttl_seconds=120.0)
@@ -21,10 +23,10 @@ def load_ml_filter_bundle(
     selected_history_window: str,
     cause: str,
     object_category: str,
-    collect_forecasting_metadata: Callable[[Sequence[str]], tuple[list[Dict[str, Any]], list[str]]],
-    build_option_catalog_sql: Callable[..., Dict[str, list[Dict[str, str]]]],
-    resolve_option_value: Callable[[Sequence[Dict[str, str]], str], str],
-) -> Dict[str, Any]:
+    collect_forecasting_metadata: Callable[[Sequence[str]], tuple[list[ForecastingTableMetadata], list[str]]],
+    build_option_catalog_sql: Callable[..., ForecastingOptionCatalog],
+    resolve_option_value: Callable[[Sequence[dict[str, str]], str], str],  # one-off
+) -> MlFilterBundle:
     bundle = _load_ml_filter_bundle(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -46,10 +48,10 @@ def load_ml_aggregation_inputs(
     *,
     source_tables: Sequence[str],
     selected_history_window: str,
-    filter_bundle: Dict[str, Any],
-    build_daily_history_sql: Callable[..., list[Dict[str, Any]]],
+    filter_bundle: MlFilterBundle,
+    build_daily_history_sql: Callable[..., list[ForecastingDailyHistoryRow]],
     count_forecasting_records_sql: Callable[..., int],
-) -> Dict[str, Any]:
+) -> MlAggregationInputs:
     cache_key = _ml_aggregation_input_cache_key(
         source_tables,
         selected_history_window,
@@ -87,9 +89,9 @@ def _load_ml_filter_bundle(
     *,
     source_tables: Sequence[str],
     selected_history_window: str,
-    collect_forecasting_metadata: Callable[[Sequence[str]], tuple[list[Dict[str, Any]], list[str]]],
-    build_option_catalog_sql: Callable[..., Dict[str, list[Dict[str, str]]]],
-) -> Dict[str, Any]:
+    collect_forecasting_metadata: Callable[[Sequence[str]], tuple[list[ForecastingTableMetadata], list[str]]],
+    build_option_catalog_sql: Callable[..., ForecastingOptionCatalog],
+) -> MlFilterBundle:
     cache_key = _ml_filter_bundle_cache_key(
         source_tables,
         selected_history_window,
@@ -163,10 +165,10 @@ class MlModelDataLoader(DataLoader):
         selected_history_window: str,
         cause: str,
         object_category: str,
-        collect_forecasting_metadata: Callable[[Sequence[str]], tuple[list[Dict[str, Any]], list[str]]],
-        build_option_catalog_sql: Callable[..., Dict[str, list[Dict[str, str]]]],
-        resolve_option_value: Callable[[Sequence[Dict[str, str]], str], str],
-    ) -> Dict[str, Any]:
+        collect_forecasting_metadata: Callable[[Sequence[str]], tuple[list[ForecastingTableMetadata], list[str]]],
+        build_option_catalog_sql: Callable[..., ForecastingOptionCatalog],
+        resolve_option_value: Callable[[Sequence[dict[str, str]], str], str],  # one-off
+    ) -> MlFilterBundle:
         return load_ml_filter_bundle(
             source_tables=source_tables,
             selected_history_window=selected_history_window,
@@ -182,10 +184,10 @@ class MlModelDataLoader(DataLoader):
         *,
         source_tables: Sequence[str],
         selected_history_window: str,
-        filter_bundle: Dict[str, Any],
-        build_daily_history_sql: Callable[..., list[Dict[str, Any]]],
+        filter_bundle: MlFilterBundle,
+        build_daily_history_sql: Callable[..., list[ForecastingDailyHistoryRow]],
         count_forecasting_records_sql: Callable[..., int],
-    ) -> Dict[str, Any]:
+    ) -> MlAggregationInputs:
         return load_ml_aggregation_inputs(
             source_tables=source_tables,
             selected_history_window=selected_history_window,

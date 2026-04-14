@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .bootstrap import _build_slice_label
 from .selection import _table_selection_label
+from .types import (
+    ForecastingDailyHistoryRow,
+    ForecastingFeatureCard,
+    ForecastingForecastRow,
+    ForecastingTableMetadata,
+    ForecastingTemperatureQuality,
+    ForecastingWeekdayProfileRow,
+)
 from .utils import (
     _forecast_level_label,
     _forecast_stability_hint,
@@ -27,9 +35,9 @@ def _build_summary(
     selected_cause: str,
     selected_object_category: str,
     temperature_value: Optional[float],
-    daily_history: List[Dict[str, Any]],
+    daily_history: list[ForecastingDailyHistoryRow],
     filtered_records_count: int,
-    forecast_rows: List[Dict[str, Any]],
+    forecast_rows: list[ForecastingForecastRow],
     history_window: str,
 ) -> Dict[str, str]:
     history_dates = [item["date"] for item in daily_history]
@@ -80,7 +88,7 @@ def _build_summary(
     }
 
 
-def _build_feature_cards(metadata: Any) -> List[Dict[str, str]]:
+def _build_feature_cards(metadata: Any) -> list[dict[str, str]]:
     metadata_items = metadata if isinstance(metadata, list) else [metadata]
     metadata_items = [item for item in metadata_items if item]
     if not metadata_items:
@@ -124,8 +132,8 @@ def _build_feature_cards(metadata: Any) -> List[Dict[str, str]]:
 
 def _build_feature_cards_with_quality(
     metadata: Any,
-    temperature_quality: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, Any]]:
+    temperature_quality: Optional[ForecastingTemperatureQuality] = None,
+) -> list[ForecastingFeatureCard]:
     metadata_items = metadata if isinstance(metadata, list) else [metadata]
     metadata_items = [item for item in metadata_items if item]
     if not metadata_items:
@@ -215,10 +223,10 @@ def _build_feature_cards_with_quality(
 
 
 def _build_insights(
-    daily_history: List[Dict[str, Any]],
-    forecast_rows: List[Dict[str, Any]],
-    weekday_profile: List[Dict[str, Any]],
-) -> List[Dict[str, str]]:
+    daily_history: list[ForecastingDailyHistoryRow],
+    forecast_rows: list[ForecastingForecastRow],
+    weekday_profile: list[ForecastingWeekdayProfileRow],
+) -> list[dict[str, str]]:
     insights = []
     if forecast_rows:
         peak_row = max(forecast_rows, key=lambda item: float(item["fire_probability"]))
@@ -274,11 +282,11 @@ def _build_insights(
 
 
 def _build_notes(
-    metadata: Dict[str, Any],
+    metadata: ForecastingTableMetadata | list[ForecastingTableMetadata],  # one-off
     filtered_records_count: int,
-    daily_history: List[Dict[str, Any]],
+    daily_history: list[ForecastingDailyHistoryRow],
     temperature_value: Optional[float],
-) -> List[str]:
+) -> list[str]:
     metadata_items = metadata if isinstance(metadata, list) else [metadata]
     metadata_items = [item for item in metadata_items if item]
     notes: List[str] = []

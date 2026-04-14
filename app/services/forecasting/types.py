@@ -312,3 +312,49 @@ class ForecastingJobStatus(TypedDict, total=False):
     status: str
     message: str
     payload: ForecastingPayload
+
+
+class JobStageMeta(TypedDict, total=False):
+    stage_index: int
+    stage_label: str
+
+
+class JobMetaPayload(TypedDict, total=False):
+    stage_index: int
+    stage_label: str
+    stage_message: str
+    cache_key: str
+    cache_hit: bool
+    params: dict[str, Any]
+
+
+class JobSnapshot(TypedDict, total=False):
+    job_id: str
+    kind: str
+    status: str
+    logs: list[str]
+    result: Any
+    error_message: str
+    meta: JobMetaPayload
+
+
+class JobStatusPayload(TypedDict, total=False):
+    job_id: str
+    kind: str
+    status: str
+    logs: list[str]
+    result: Any
+    error_message: str
+    is_final: bool
+    meta: JobMetaPayload
+    reused: bool
+
+
+class ForecastingTemperatureQuality(TypedDict, total=False):
+    usable: bool
+    non_null_days: int
+    total_days: int
+    coverage: float
+    quality_key: str
+    quality_label: str
+    note: str
