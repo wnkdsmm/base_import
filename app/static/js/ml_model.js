@@ -1,14 +1,15 @@
-(function (global) {
-    function bootstrapMlModelPage() {
-        if (!global.MlModelUi || typeof global.MlModelUi.init !== 'function') {
+﻿(function (global) {
+    function boot() {
+        if (!global.MlModelEvents || typeof global.MlModelEvents.bootstrap !== 'function') {
             return;
         }
-        global.MlModelUi.init();
+        global.MlModelEvents.bootstrap();
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootstrapMlModelPage);
+        document.addEventListener('DOMContentLoaded', boot);
         return;
     }
-    bootstrapMlModelPage();
+    boot();
 }(window));
+
