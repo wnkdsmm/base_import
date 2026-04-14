@@ -28,6 +28,7 @@ class TerritoryBucket(TypedDict, total=False):
     last_fire: Any
     object_categories: Any
     settlement_types: Any
+    causes: Any
 
 
 class RiskEventRecord(TypedDict, total=False):
@@ -45,6 +46,24 @@ class HorizonContext(TypedDict, total=False):
     horizon_days: int
     recent_window_days: int
     future_heating_share: float
+    history_end: Any
+    future_months: Any
+    future_weekdays: Any
+    recent_window_start: Any
+
+
+class ComponentWeightRow(TypedDict, total=False):
+    """Resolved component-weight row for current settlement context."""
+
+    key: str
+    label: str
+    description: str
+    weight: float
+    weight_display: str
+    base_weight: float
+    base_weight_display: str
+    rural_shift: float
+    rural_shift_display: str
 
 
 class TerritoryIdentity(TypedDict, total=False):

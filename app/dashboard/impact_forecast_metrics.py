@@ -21,16 +21,24 @@ from .data_access import (
     _resolve_district_column,
 )
 from .impact_fire_metrics import _collect_cause_counts, _collect_month_counts
+from .types import (
+    DashboardTableRef,
+    DashboardWidgets,
+    DistributionResult,
+    ImpactMetric,
+    ImpactTimelineBucket,
+    ImpactTimelineSqlRow,
+)
 from .utils import _format_chart_date, _format_number, _quote_identifier
 
 
 def _build_combined_impact_timeline_chart(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
-    impact_timeline_rows: Optional[Sequence[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    grouped: Dict[str, Dict[str, Any]] = defaultdict(
+    impact_timeline_rows: Optional[Sequence[ImpactTimelineSqlRow]] = None,
+) -> DistributionResult:
+    grouped: Dict[str, ImpactTimelineBucket] = defaultdict(
         lambda: {
             "date_value": "",
             "label": "",
@@ -92,9 +100,9 @@ def _build_combined_impact_timeline_chart(
 
 
 def _collect_impact_timeline_rows(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
-) -> List[Dict[str, Any]]:
+) -> List[ImpactTimelineSqlRow]:
     queries = []
     uses_selected_year_param = False
     for index, table in enumerate(selected_tables):
@@ -114,13 +122,13 @@ def _collect_impact_timeline_rows(
 
 
 def _build_sql_widgets(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
     cause_counts: Optional[Dict[str, int]] = None,
     month_counts: Optional[Dict[int, int]] = None,
     district_counts: Optional[Dict[str, int]] = None,
-) -> Dict[str, Dict[str, Any]]:
+) -> DashboardWidgets:
     return {
         "causes": _build_sql_cause_widget(selected_tables, selected_year, cause_counts=cause_counts),
         "districts": (
@@ -133,11 +141,11 @@ def _build_sql_widgets(
 
 
 def _build_sql_cause_widget(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
     cause_counts: Optional[Dict[str, int]] = None,
-) -> Dict[str, Any]:
+) -> DistributionResult:
     grouped = cause_counts if cause_counts is not None else _collect_cause_counts(selected_tables, selected_year)
     items = [
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
@@ -153,7 +161,7 @@ def _build_sql_cause_widget(
     )
 
 
-def _build_sql_district_widget(selected_tables: List[Dict[str, Any]], selected_year: Optional[int]) -> Dict[str, Any]:
+def _build_sql_district_widget(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> DistributionResult:
     grouped: Dict[str, int] = defaultdict(int)
     with engine.connect() as conn:
         for table in selected_tables:
@@ -192,7 +200,7 @@ def _build_sql_district_widget(selected_tables: List[Dict[str, Any]], selected_y
     )
 
 
-def _build_sql_district_widget_from_counts(district_counts: Dict[str, int]) -> Dict[str, Any]:
+def _build_sql_district_widget_from_counts(district_counts: Dict[str, int]) -> DistributionResult:
     items = [
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(district_counts.items(), key=lambda item: item[1], reverse=True)[:8]
@@ -208,11 +216,11 @@ def _build_sql_district_widget_from_counts(district_counts: Dict[str, int]) -> D
 
 
 def _build_sql_season_widget(
-    selected_tables: List[Dict[str, Any]],
+    selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
     *,
     month_counts: Optional[Dict[int, int]] = None,
-) -> Dict[str, Any]:
+) -> DistributionResult:
     grouped: Dict[str, int] = defaultdict(int)
     winter_label, spring_label, summer_label, autumn_label = SEASON_ORDER
     resolved_month_counts = month_counts if month_counts is not None else _collect_month_counts(selected_tables, selected_year)

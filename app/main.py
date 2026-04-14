@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routes.api import router as api_router
 from app.routes.pages import router as pages_router
+from config.db import check_connection, get_db_info
 from config.paths import STATIC_DIR
 
 
@@ -15,3 +16,13 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    success, message = check_connection()
+    if success:
+        print(f"✓ {message} ({get_db_info()})")
+    else:
+        print(f"✗ {message}")
+        print("  Проверьте настройки DATABASE_URL в файле .env")

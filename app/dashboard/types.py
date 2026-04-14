@@ -130,6 +130,85 @@ class ImpactMetric(TypedDict, total=False):
     rescued_children: float
 
 
+class ImpactTimelineSqlRow(TypedDict, total=False):
+    """Raw timeline row returned by SQL union before chart shaping."""
+
+    date_value: Any
+    deaths: float
+    injuries: float
+    evacuated: float
+    evacuated_children: float
+    rescued_children: float
+
+
+class ImpactTimelineBucket(TypedDict, total=False):
+    """Aggregated timeline bucket keyed by date string."""
+
+    date_value: str
+    label: str
+    deaths: float
+    injuries: float
+    evacuated: float
+    evacuated_children: float
+    rescued_children: float
+
+
+class DashboardWidgets(TypedDict, total=False):
+    """Three SQL widgets rendered in the dashboard side panel."""
+
+    causes: DistributionResult
+    districts: DistributionResult
+    seasons: DistributionResult
+
+
+class DashboardSummarySeries(TypedDict, total=False):
+    """Precomputed summary series reused by trend/highlight builders."""
+
+    summary: SummaryResult
+    yearly_fires_series: DistributionResult
+    table_breakdown_series: DistributionResult
+
+
+class DashboardSummaryMetrics(TypedDict, total=False):
+    """Derived trend/ranking/highlight block based on summary series."""
+
+    trend: DashboardSection
+    rankings: dict[str, list[DistributionItem]]
+    highlights: list[SummaryCard]
+
+
+class DashboardGroupedQueryContext(TypedDict, total=False):
+    """Resolved query context for grouped SQL aggregation."""
+
+    where_clause: str
+    cause_column: str
+    distribution_column: str
+    district_column: str
+    has_date_column: bool
+    has_timeline: bool
+    include_area_buckets: bool
+    dimensions: list[tuple[str, str]]
+
+
+class DashboardGroupedDimensionSql(TypedDict, total=False):
+    """SQL fragments for GROUPING SETS and label/metric projections."""
+
+    metric_kind_case: str
+    label_case: str
+    grouping_sets: str
+    having_clause: str
+    positive_group_condition: str
+
+
+class DashboardGroupedResultSelects(TypedDict, total=False):
+    """SQL SELECT fragments for grouped rows and positive column bundles."""
+
+    fire_count_select: str
+    date_value_select: str
+    metric_selects: list[str]
+    positive_metric_selects: list[str]
+
+
 class DashboardSection(TypedDict, total=False):
     """Reusable dashboard section object for scope, trend, and widgets."""
 
@@ -173,7 +252,7 @@ class DashboardGroupedCounts(TypedDict, total=False):
     month_counts: dict[int, int]
     area_bucket_counts: dict[str, int]
     positive_column_counts: dict[str, int]
-    impact_timeline_rows: list[dict[str, Any]]
+    impact_timeline_rows: list[ImpactTimelineSqlRow]
 
 
 class DashboardAggregation(TypedDict, total=False):
@@ -189,7 +268,7 @@ class DashboardAggregation(TypedDict, total=False):
     trend: DashboardSection
     rankings: dict[str, list[DistributionItem]]
     highlights: list[SummaryCard]
-    widgets: dict[str, DistributionResult]
+    widgets: DashboardWidgets
     management: dict[str, Any]
     scope: DashboardSection
 

@@ -26,10 +26,14 @@ from .data_access import (
     _year_expression,
 )
 from .types import (
+    DashboardGroupedDimensionSql,
+    DashboardGroupedQueryContext,
+    DashboardGroupedResultSelects,
     DashboardGroupedCounts,
     DashboardTableRef,
     DistributionResult,
     ImpactMetric,
+    ImpactTimelineSqlRow,
 )
 from .utils import _date_expression, _format_number, _quote_identifier
 
@@ -125,7 +129,7 @@ def _resolve_grouped_count_query_context(
     include_area_buckets: bool,
     include_impact_timeline: bool,
     include_positive_columns: bool = False,
-) -> Optional[dict[str, Any]]:
+) -> Optional[DashboardGroupedQueryContext]:
     where_clause = _build_year_filter_clause(table, selected_year)
     if where_clause is None:
         return None
@@ -254,7 +258,7 @@ def _area_bucket_label_expression(table: DashboardTableRef) -> str:
 
 def _build_grouped_count_source_selects(
     table: DashboardTableRef,
-    context: dict[str, Any],
+    context: DashboardGroupedQueryContext,
     *,
     month_label_expression: str,
     date_value_expression: str,
@@ -292,7 +296,7 @@ def _build_grouped_count_result_selects(
     *,
     positive_count_columns: Sequence[str] = (),
     positive_group_condition: str = "FALSE",
-) -> dict[str, Any]:
+) -> DashboardGroupedResultSelects:
     if not has_timeline:
         return {
             "fire_count_select": "COUNT(*) AS fire_count",
@@ -407,7 +411,7 @@ def _collect_dashboard_grouped_counts(
         column_name: 0
         for column_name in positive_columns
     }
-    impact_timeline_rows: List[Dict[str, Any]] = []
+    impact_timeline_rows: List[ImpactTimelineSqlRow] = []
     subqueries: List[str] = []
     uses_selected_year_param = False
 

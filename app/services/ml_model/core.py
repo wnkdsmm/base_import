@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
 from app.cache import build_immutable_payload_lru_cache
@@ -35,13 +35,14 @@ from .training.data_access import (
     load_ml_aggregation_inputs as _load_ml_aggregation_inputs_impl,
     load_ml_filter_bundle as _load_ml_filter_bundle_impl,
 )
+from .training.types import MlAggregationInputs, MlContext, MlFilterBundle, MlPayload, MlRequestState
 from .payloads import _build_ml_payload, _compact_ui_notes, _empty_ml_model_data
 from .training.training import _train_ml_model, clear_training_artifact_cache
 
 _ML_CACHE = build_immutable_payload_lru_cache(max_size=_CACHE_LIMIT)
 
 
-def _build_ml_context(initial_data: Dict[str, Any]) -> Dict[str, Any]:
+def _build_ml_context(initial_data: MlPayload) -> MlContext:
     return {
         'generated_at': _format_datetime(datetime.now()),
         'initial_data': initial_data,
@@ -51,12 +52,12 @@ def _build_ml_context(initial_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_ml_deferred_shell_data(
-    request_state: Dict[str, Any],
+    request_state: MlRequestState,
     *,
     cause: str,
     object_category: str,
     temperature: str,
-) -> Dict[str, Any]:
+) -> MlPayload:
     initial_data = _empty_ml_model_data(
         request_state['table_options'],
         request_state['selected_table'],
@@ -76,10 +77,10 @@ def _build_ml_deferred_shell_data(
 
 
 def _build_no_source_ml_payload(
-    base_payload: Dict[str, Any],
+    base_payload: MlPayload,
     *,
     source_table_notes: list[str],
-) -> Dict[str, Any]:
+) -> MlPayload:
     base_payload['notes'].extend(source_table_notes)
     base_payload['notes'].append('\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0442\u0430\u0431\u043b\u0438\u0446 \u0434\u043b\u044f ML-\u043c\u043e\u0434\u0435\u043b\u0438.')
     base_payload['notes'] = _compact_ui_notes(base_payload['notes'])
@@ -92,7 +93,7 @@ def _load_ml_filter_bundle(
     selected_history_window: str,
     cause: str,
     object_category: str,
-) -> Dict[str, Any]:
+) -> MlFilterBundle:
     return _load_ml_filter_bundle_impl(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -108,8 +109,8 @@ def _load_ml_aggregation_inputs(
     *,
     source_tables: list[str],
     selected_history_window: str,
-    filter_bundle: Dict[str, Any],
-) -> Dict[str, Any]:
+    filter_bundle: MlFilterBundle,
+) -> MlAggregationInputs:
     return _load_ml_aggregation_inputs_impl(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -127,7 +128,7 @@ def get_ml_model_shell_context(
     forecast_days: str = '14',
     history_window: str = 'all',
     prefer_cached: bool = False,
-) -> Dict[str, Any]:
+) -> MlContext:
     request_state = _build_ml_request_state(
         table_name=table_name,
         cause=cause,
@@ -158,7 +159,7 @@ def get_ml_model_data(
     forecast_days: str = '14',
     history_window: str = 'all',
     progress_callback: MlProgressCallback = None,
-) -> Dict[str, Any]:
+) -> MlPayload:
     perf = current_perf_trace()
     request_state = _build_ml_request_state(
         table_name=table_name,
@@ -281,11 +282,11 @@ def get_ml_model_data(
     return _cache_store(cache_key, payload)
 
 
-def _cache_get(cache_key: Tuple[int, str, str, str, str, int, str]) -> Optional[Dict[str, Any]]:
+def _cache_get(cache_key: Tuple[int, str, str, str, str, int, str]) -> Optional[MlPayload]:
     return _ML_CACHE.get(cache_key)
 
 
-def _cache_store(cache_key: Tuple[int, str, str, str, str, int, str], payload: Dict[str, Any]) -> Dict[str, Any]:
+def _cache_store(cache_key: Tuple[int, str, str, str, str, int, str], payload: MlPayload) -> MlPayload:
     _ML_CACHE.set(cache_key, payload)
     return payload
 
@@ -297,7 +298,7 @@ def _build_ml_request_state(
     temperature: str = '',
     forecast_days: str = '14',
     history_window: str = 'all',
-) -> Dict[str, Any]:
+) -> MlRequestState:
     return _build_ml_request_state_impl(
         table_name=table_name,
         cause=cause,

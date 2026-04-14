@@ -2,13 +2,21 @@ from __future__ import annotations
 
 from dataclasses import replace
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
 from app.services.model_quality import compute_count_metrics
 
-from ..ml_model_types import BacktestEvaluationRow, BacktestWindowRow, COUNT_MODEL_KEYS, CountMetrics, HorizonSummary
+from ..ml_model_types import (
+    BacktestEvaluationRow,
+    BacktestWindowRow,
+    COUNT_MODEL_KEYS,
+    CountMetrics,
+    HorizonSummary,
+    PredictionIntervalAdaptiveBin,
+    PredictionIntervalCalibration,
+)
 from .training_backtesting_support import (
     _empty_float_array,
     _lead_time_label,
@@ -27,9 +35,9 @@ from ..training.forecast_calibration import _evaluate_prediction_interval_backte
 
 
 def _enforce_monotonic_horizon_interval_calibrations(
-    interval_calibration_by_horizon: Dict[int, Dict[str, Any]],
-) -> Dict[int, Dict[str, Any]]:
-    monotonic_calibrations: Dict[int, Dict[str, Any]] = {}
+    interval_calibration_by_horizon: Dict[int, PredictionIntervalCalibration],
+) -> Dict[int, PredictionIntervalCalibration]:
+    monotonic_calibrations: Dict[int, PredictionIntervalCalibration] = {}
     running_floor = 0.0
     for horizon_day in sorted(interval_calibration_by_horizon):
         calibration = dict(interval_calibration_by_horizon[horizon_day])
@@ -37,7 +45,7 @@ def _enforce_monotonic_horizon_interval_calibrations(
         horizon_floor = max(running_floor, original_floor)
         running_floor = horizon_floor
 
-        adaptive_bins: List[Dict[str, Any]] = []
+        adaptive_bins: List[PredictionIntervalAdaptiveBin] = []
         for bin_row in calibration.get('adaptive_bins') or []:
             normalized_bin = dict(bin_row)
             normalized_bin['absolute_error_quantile'] = max(
@@ -205,7 +213,7 @@ def _build_horizon_evaluation_data_by_horizon(
     return evaluation_data_by_horizon
 
 
-def _prediction_interval_evaluation_slice(calibration: Dict[str, Any], total_rows: int) -> Optional[slice]:
+def _prediction_interval_evaluation_slice(calibration: PredictionIntervalCalibration, total_rows: int) -> Optional[slice]:
     if not bool(calibration.get('coverage_validated')):
         return None
 
@@ -225,9 +233,9 @@ def _remeasure_deployed_interval_calibration(
     rows_for_horizon: List[BacktestWindowRow],
     *,
     selected_count_model_key: str,
-    calibration: Dict[str, Any],
+    calibration: PredictionIntervalCalibration,
     evaluation_data: Optional[_HorizonEvaluationData] = None,
-) -> Dict[str, Any]:
+) -> PredictionIntervalCalibration:
     updated_calibration = dict(calibration)
     total_rows = len(evaluation_data.rows) if evaluation_data is not None else len(rows_for_horizon)
     evaluation_slice = _prediction_interval_evaluation_slice(updated_calibration, total_rows)
@@ -280,7 +288,7 @@ def _remeasure_deployed_interval_calibration(
 
 def _sync_horizon_summary_with_calibration(
     summary: HorizonSummary,
-    calibration: Dict[str, Any],
+    calibration: PredictionIntervalCalibration,
 ) -> HorizonSummary:
     return summary.clone(
         prediction_interval_coverage=calibration.get('validated_coverage'),
@@ -294,14 +302,14 @@ def _sync_horizon_summary_with_calibration(
 
 
 def _reconcile_horizon_interval_metadata(
-    interval_calibration_by_horizon: Dict[int, Dict[str, Any]],
+    interval_calibration_by_horizon: Dict[int, PredictionIntervalCalibration],
     horizon_rows: Dict[int, List[BacktestWindowRow]],
     horizon_summaries: Dict[str, HorizonSummary],
     *,
     selected_count_model_key: str,
     evaluation_data_by_horizon: Optional[Dict[int, _HorizonEvaluationData]] = None,
-) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, HorizonSummary]]:
-    updated_calibrations: Dict[int, Dict[str, Any]] = {}
+) -> Tuple[Dict[int, PredictionIntervalCalibration], Dict[str, HorizonSummary]]:
+    updated_calibrations: Dict[int, PredictionIntervalCalibration] = {}
     updated_summaries: Dict[str, HorizonSummary] = {}
     for horizon_day, calibration in interval_calibration_by_horizon.items():
         evaluation_data = (evaluation_data_by_horizon or {}).get(horizon_day)
@@ -323,7 +331,7 @@ def _evaluate_horizon_rows(
     evaluation_data: _HorizonEvaluationData,
     *,
     horizon_day: int,
-) -> Tuple[HorizonSummary, Dict[str, Any]]:
+) -> Tuple[HorizonSummary, PredictionIntervalCalibration]:
     baseline_metrics_h = CountMetrics.coerce(
         compute_count_metrics(evaluation_data.actuals, evaluation_data.baseline_predictions)
     )
@@ -365,8 +373,8 @@ def _evaluate_backtest_horizon_metadata(
     horizon_days: List[int],
     selected_count_model_key: str,
     evaluation_data_by_horizon: Dict[int, _HorizonEvaluationData],
-) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, HorizonSummary]]:
-    interval_calibration_by_horizon: Dict[int, Dict[str, Any]] = {}
+) -> Tuple[Dict[int, PredictionIntervalCalibration], Dict[str, HorizonSummary]]:
+    interval_calibration_by_horizon: Dict[int, PredictionIntervalCalibration] = {}
     horizon_summaries: Dict[str, HorizonSummary] = {}
     for horizon_day in horizon_days:
         horizon_summary, interval_calibration = _evaluate_horizon_rows(
@@ -389,7 +397,7 @@ def _evaluate_backtest_horizon_metadata(
 def _build_backtest_payload_rows(
     *,
     evaluation_data: _HorizonEvaluationData,
-    prediction_interval_calibration: Dict[str, Any],
+    prediction_interval_calibration: PredictionIntervalCalibration,
     validation_horizon_days: int,
 ) -> Tuple[List[BacktestEvaluationRow], List[BacktestWindowRow]]:
     backtest_rows: List[BacktestEvaluationRow] = []

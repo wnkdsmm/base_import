@@ -281,6 +281,17 @@ class SqlRow(TypedDict, total=False):
     temperature: float | None
 
 
+class SqlMaterializedRow(SqlRow, total=False):
+    avg_temperature: float | None
+    temperature_samples: int
+
+
+class SqlMergedBucket(TypedDict, total=False):
+    count: int
+    temperature_sum: float
+    temperature_samples: int
+
+
 class ForecastingMetadataInputs(TypedDict, total=False):
     metadata_items: list[ForecastingTableMetadata]
     preload_notes: list[str]

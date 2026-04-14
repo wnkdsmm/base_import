@@ -12,6 +12,7 @@ from app.cache import CopyingTtlCache
 from config.db import engine
 
 from .selection import _canonicalize_source_tables, _normalize_filter_value
+from .types import SqlFilters, SqlMaterializedRow, SqlMergedBucket, SqlRow
 from .utils import (
     _date_expression,
     _numeric_expression_for_column,
@@ -69,7 +70,7 @@ class AggregationQueryBuilder(QueryBuilder):
     def clear_forecasting_sql_cache(self) -> None:
         self.cache.clear()
 
-    def _daily_history_total_count(self, history: Sequence[Dict[str, Any]]) -> int:
+    def _daily_history_total_count(self, history: Sequence[SqlRow]) -> int:
         return sum(int(row.get("count") or 0) for row in history)
 
     def _materialized_view_suffix(self, value: str) -> str:
@@ -133,9 +134,9 @@ class AggregationQueryBuilder(QueryBuilder):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-    ) -> tuple[list[str], Dict[str, Any], bool]:
+    ) -> tuple[list[str], SqlFilters, bool]:
         conditions = ["fire_date IS NOT NULL"]
-        params: Dict[str, Any] = {}
+        params: SqlFilters = {}
         if min_year is not None:
             conditions.append("EXTRACT(YEAR FROM fire_date) >= :min_year")
             params["min_year"] = min_year
@@ -238,7 +239,7 @@ class AggregationQueryBuilder(QueryBuilder):
         self.clear_forecasting_sql_cache()
         return prepared_views
 
-    def _daily_history_rows_from_query_rows(self, rows: Sequence[Any]) -> List[Dict[str, Any]]:
+    def _daily_history_rows_from_query_rows(self, rows: Sequence[Any]) -> List[SqlMaterializedRow]:
         return [
             {
                 "date": row.get("fire_date"),
@@ -250,7 +251,7 @@ class AggregationQueryBuilder(QueryBuilder):
             if row.get("fire_date") is not None
         ]
 
-    def _execute_daily_history_row_query(self, query: Any, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _execute_daily_history_row_query(self, query: Any, params: SqlFilters) -> List[SqlMaterializedRow]:
         with engine.connect() as conn:
             rows = conn.execute(query, params).mappings().all()
         return self._daily_history_rows_from_query_rows(rows)
@@ -264,7 +265,7 @@ class AggregationQueryBuilder(QueryBuilder):
         cause: str,
         object_category: str,
         min_year: Optional[int],
-    ) -> List[Dict[str, Any]]:
+    ) -> List[SqlMaterializedRow]:
         conditions, params, scope_is_valid = self._build_materialized_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -298,7 +299,7 @@ class AggregationQueryBuilder(QueryBuilder):
         self,
         table_name: str,
         resolved_columns: Dict[str, str],
-        params: Dict[str, Any],
+        params: SqlFilters,
         *,
         district: str,
         cause: str,
@@ -349,8 +350,8 @@ class AggregationQueryBuilder(QueryBuilder):
 
     def _merge_daily_history_rows(
         self,
-        merged_rows: Dict[date, Dict[str, Any]],
-        table_rows: Sequence[Dict[str, Any]],
+        merged_rows: Dict[date, SqlMergedBucket],
+        table_rows: Sequence[SqlMaterializedRow],
     ) -> None:
         for row in table_rows:
             row_date = row.get("date")
@@ -369,12 +370,12 @@ class AggregationQueryBuilder(QueryBuilder):
 
     def _dense_daily_history_from_merged_rows(
         self,
-        merged_rows: Dict[date, Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        merged_rows: Dict[date, SqlMergedBucket],
+    ) -> List[SqlRow]:
         if not merged_rows:
             return []
 
-        history: List[Dict[str, Any]] = []
+        history: List[SqlRow] = []
         current_date = min(merged_rows)
         max_date = max(merged_rows)
         while current_date <= max_date:

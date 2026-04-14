@@ -19,6 +19,7 @@ tmp_*.txt
 htmlcov/
 
 # local environments and IDE files
+.env
 .venv/
 venv/
 env/

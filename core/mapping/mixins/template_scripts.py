@@ -322,8 +322,17 @@ def _popup_builder_script_lines() -> List[str]:
 
 def _popup_click_handler_script_lines() -> List[str]:
     return [
+        "    function featureHasPopupRows(feature) {",
+        "        const rows = feature ? feature.get(\"popup_rows\") : null;",
+        "        return Array.isArray(rows) && rows.length > 0;",
+        "    }",
+        "",
         '    map.on("click", event => {',
-        "        const feature = map.forEachFeatureAtPixel(event.pixel, item => item);",
+        "        const feature = map.forEachFeatureAtPixel(",
+        "            event.pixel,",
+        "            item => featureHasPopupRows(item) ? item : undefined,",
+        "            { hitTolerance: 6 }",
+        "        );",
         "        const popupElement = feature ? buildPopupElement(feature) : null;",
         "        if (feature && popupElement) {",
         "            const geometry = feature.getGeometry();",

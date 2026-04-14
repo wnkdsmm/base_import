@@ -41,7 +41,7 @@ def _collect_summary_table_rows(
     selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
 ) -> List[SummaryRow]:
-    summary_rows: List[Dict[str, Any]] = []
+    summary_rows: List[SummaryRow] = []
 
     with engine.connect() as conn:
         for table in selected_tables:
@@ -92,7 +92,7 @@ def _collect_dashboard_summary_bundle(
     selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
 ) -> SummaryBundle:
-    summary_rows: List[Dict[str, Any]] = []
+    summary_rows: List[SummaryRow] = []
     yearly_grouped: Dict[int, Dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
     query_parts: List[str] = []
 
@@ -146,7 +146,7 @@ def _collect_dashboard_summary_bundle(
                 """
             )
 
-    rows_by_table: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    rows_by_table: Dict[str, List[Any]] = defaultdict(list)
     if query_parts:
         with engine.connect() as conn:
             for row in conn.execute(text("\nUNION ALL\n".join(query_parts))).mappings().all():

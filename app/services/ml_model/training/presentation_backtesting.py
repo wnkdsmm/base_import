@@ -3,6 +3,14 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, Dict, List, Optional
 
+from ..ml_model_types import BacktestOverview, CountComparisonRow, EventComparisonRow
+from .types import (
+    BacktestEventTable,
+    BacktestQualityAssessment,
+    MlBacktestPresentationResult,
+    ModelChoiceSection,
+    PredictionIntervalDisplayContext,
+)
 from .presentation_meta import (
     MISSING_DISPLAY,
     _event_probability_context,
@@ -164,14 +172,14 @@ def _translate_interval_range_label(label: Any) -> str:
     return normalized
 
 
-def _prediction_interval_scheme_label(overview: Dict[str, Any]) -> str:
+def _prediction_interval_scheme_label(overview: BacktestOverview) -> str:
     raw_label = overview.get('prediction_interval_validation_scheme_label')
     if _is_missing_metric(raw_label):
         return ''
     return _translate_interval_scheme_label(raw_label)
 
 
-def _prediction_interval_method_label(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> str:
+def _prediction_interval_method_label(ml_result: MlBacktestPresentationResult, overview: BacktestOverview) -> str:
     explicit_label = _first_present(
         ml_result.get('prediction_interval_method_label'),
         overview.get('prediction_interval_method_label'),
@@ -180,9 +188,9 @@ def _prediction_interval_method_label(ml_result: Dict[str, Any], overview: Dict[
 
 
 def _prediction_interval_display_context(
-    ml_result: Dict[str, Any],
-    overview: Dict[str, Any],
-) -> Dict[str, str]:
+    ml_result: MlBacktestPresentationResult,
+    overview: BacktestOverview,
+) -> PredictionIntervalDisplayContext:
     method_label = _prediction_interval_method_label(ml_result, overview)
     method_label_display = _format_optional_text(method_label)
     level_display = _format_first_present(
@@ -218,7 +226,7 @@ def _comparison_metric_card(
     }
 
 
-def _count_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
+def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
     return {
         'method_label': row.get('method_label', 'Метод'),
         'role_label': row.get('role_label', ''),
@@ -231,7 +239,7 @@ def _count_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
-def _event_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
+def _event_comparison_row(row: EventComparisonRow) -> Dict[str, str]:
     return {
         'method_label': row.get('method_label', 'Метод'),
         'role_label': row.get('role_label', ''),
@@ -244,7 +252,7 @@ def _event_comparison_row(row: Dict[str, Any]) -> Dict[str, str]:
 
 
 def _prediction_interval_quality_note(
-    overview: Dict[str, Any],
+    overview: BacktestOverview,
     interval_coverage_display: str,
 ) -> str:
     validated_flag = overview.get('prediction_interval_coverage_validated')
@@ -309,7 +317,7 @@ def _prediction_interval_card_label(level_display: str) -> str:
 
 
 def _build_prediction_interval_card(
-    interval_context: Dict[str, str],
+    interval_context: PredictionIntervalDisplayContext,
     interval_meta: str,
 ) -> Dict[str, str]:
     return {
@@ -320,9 +328,9 @@ def _build_prediction_interval_card(
 
 
 def _build_event_table(
-    ml_result: Dict[str, Any],
+    ml_result: MlBacktestPresentationResult,
     event_context: Dict[str, Optional[str]],
-) -> Dict[str, Any]:
+) -> BacktestEventTable:
     rows = [_event_comparison_row(row) for row in ml_result.get('event_comparison_rows', [])]
     return {
         'title': 'Сравнение по вероятности события пожара',
@@ -335,7 +343,7 @@ def _build_event_table(
     }
 
 
-def _comparison_method_labels(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> str:
+def _comparison_method_labels(ml_result: MlBacktestPresentationResult, overview: BacktestOverview) -> str:
     labels: List[str] = []
     for source in (
         overview.get('candidate_model_labels') or [],
@@ -368,7 +376,7 @@ def _methodology_item(label: str, value: str, meta: str = '') -> Dict[str, str]:
     }
 
 
-def _model_choice_section(ml_result: Dict[str, Any], overview: Dict[str, Any]) -> Dict[str, Any]:
+def _model_choice_section(ml_result: MlBacktestPresentationResult, overview: BacktestOverview) -> ModelChoiceSection:
     working_method = _format_optional_text(ml_result.get('count_model_label'))
     short_reason = _format_optional_text(ml_result.get('selected_count_model_reason_short'))
     long_reason = _format_optional_text(ml_result.get('selected_count_model_reason'))
@@ -407,7 +415,7 @@ def _model_choice_section(ml_result: Dict[str, Any], overview: Dict[str, Any]) -
 
 
 def _dissertation_points(
-    ml_result: Dict[str, Any],
+    ml_result: MlBacktestPresentationResult,
     interval_meta: str,
     event_context: Dict[str, Optional[str]],
 ) -> List[str]:
@@ -431,8 +439,8 @@ def _dissertation_points(
     return points
 
 
-def _build_quality_assessment(ml_result: Dict[str, Any]) -> Dict[str, Any]:
-    overview = ml_result.get('backtest_overview', {}) or {}
+def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> BacktestQualityAssessment:
+    overview = BacktestOverview.coerce(ml_result.get('backtest_overview', {}) or {})
     event_context = _event_probability_context(ml_result, overview)
     interval_context = _prediction_interval_display_context(ml_result, overview)
     count_rows = [_count_comparison_row(row) for row in ml_result.get('count_comparison_rows', [])]

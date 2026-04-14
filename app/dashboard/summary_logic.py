@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from .distribution import _build_rankings, _build_table_breakdown_chart
 from .summary import (
@@ -11,13 +11,23 @@ from .summary import (
     _build_yearly_chart,
     _collect_dashboard_summary_bundle,
 )
+from .types import (
+    DashboardMetadata,
+    DashboardOption,
+    DashboardSection,
+    DashboardSummaryMetrics,
+    DashboardSummarySeries,
+    DashboardTableRef,
+    DistributionResult,
+    SummaryResult,
+)
 from .utils import _find_option_label
 
 
 def _build_dashboard_summary_series(
-    selected_tables: list[dict[str, Any]],
+    selected_tables: list[DashboardTableRef],
     selected_year: Optional[int],
-) -> Dict[str, Any]:
+) -> DashboardSummarySeries:
     summary_bundle = _collect_dashboard_summary_bundle(selected_tables, selected_year)
     summary_rows = summary_bundle["summary_rows"]
     return {
@@ -39,12 +49,12 @@ def _build_dashboard_summary_series(
 
 def _build_dashboard_summary_metrics(
     *,
-    summary: Dict[str, Any],
-    yearly_fires_series: Dict[str, Any],
-    table_breakdown_series: Dict[str, Any],
-    distribution: Dict[str, Any],
-    cause_overview: Dict[str, Any],
-) -> Dict[str, Any]:
+    summary: SummaryResult,
+    yearly_fires_series: DistributionResult,
+    table_breakdown_series: DistributionResult,
+    distribution: DistributionResult,
+    cause_overview: DistributionResult,
+) -> DashboardSummaryMetrics:
     trend = _build_trend(yearly_fires_series)
     rankings = _build_rankings(distribution, table_breakdown_series, yearly_fires_series)
     highlights = _build_highlights(summary, yearly_fires_series, cause_overview)
@@ -57,13 +67,13 @@ def _build_dashboard_summary_metrics(
 
 def _build_dashboard_scope(
     *,
-    summary: Dict[str, Any],
-    metadata: Dict[str, Any],
+    summary: SummaryResult,
+    metadata: DashboardMetadata,
     selected_table_name: str,
     selected_group_column: str,
-    available_group_columns: list[Dict[str, Any]],
-    available_years: list[Dict[str, Any]],
-) -> Dict[str, Any]:
+    available_group_columns: list[DashboardOption],
+    available_years: list[DashboardOption],
+) -> DashboardSection:
     return _build_scope(
         summary=summary,
         metadata=metadata,

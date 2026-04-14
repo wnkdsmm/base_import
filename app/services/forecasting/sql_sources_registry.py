@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from .shaping import _build_daily_history
+from .types import ForecastingInputRecord, ForecastingTableMetadata, SqlFilters, SqlMaterializedRow, SqlMergedBucket
 
 
 class SourceQueryRegistryMixin:
@@ -14,7 +15,7 @@ class SourceQueryRegistryMixin:
         cause: str = "all",
         object_category: str = "all",
         min_year: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[SqlMaterializedRow]:
         if self._aggregations._daily_aggregate_view_exists(table_name):
             return self._load_materialized_daily_history_rows(
                 table_name,
@@ -43,7 +44,7 @@ class SourceQueryRegistryMixin:
         cause: str,
         object_category: str,
         min_year: Optional[int],
-    ) -> List[Dict[str, Any]]:
+    ) -> List[SqlMaterializedRow]:
         return self._aggregations._load_materialized_daily_history_rows(
             table_name,
             resolved_columns,
@@ -55,14 +56,14 @@ class SourceQueryRegistryMixin:
 
     def _load_daily_history_rows_union(
         self,
-        metadata_items: Sequence[Dict[str, Any]],
+        metadata_items: Sequence[ForecastingTableMetadata],
         *,
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
         min_year: Optional[int] = None,
-    ) -> Optional[List[Dict[str, Any]]]:
-        params: Dict[str, Any] = {}
+    ) -> Optional[List[SqlMaterializedRow]]:
+        params: SqlFilters = {}
         query_parts = self._daily_history_union_query_parts(
             metadata_items,
             params,
@@ -80,8 +81,8 @@ class SourceQueryRegistryMixin:
 
     def _daily_history_union_query_parts(
         self,
-        metadata_items: Sequence[Dict[str, Any]],
-        params: Dict[str, Any],
+        metadata_items: Sequence[ForecastingTableMetadata],
+        params: SqlFilters,
         *,
         district: str,
         cause: str,
@@ -125,7 +126,7 @@ class SourceQueryRegistryMixin:
                 query_parts.append(query_part)
         return query_parts
 
-    def _daily_history_rows_from_record_fallback(self, records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _daily_history_rows_from_record_fallback(self, records: Sequence[ForecastingInputRecord]) -> List[SqlMaterializedRow]:
         return [
             {
                 "date": item["date"],
@@ -145,7 +146,7 @@ class SourceQueryRegistryMixin:
         cause: str,
         object_category: str,
         min_year: Optional[int],
-    ) -> List[Dict[str, Any]]:
+    ) -> List[SqlMaterializedRow]:
         load_records = self._resolve_hook("_load_forecasting_records", self._load_forecasting_records)
         fallback_records = load_records(
             table_name,
@@ -159,14 +160,14 @@ class SourceQueryRegistryMixin:
 
     def _load_daily_history_per_table_fallback(
         self,
-        metadata_items: Sequence[Dict[str, Any]],
+        metadata_items: Sequence[ForecastingTableMetadata],
         *,
         district: str,
         cause: str,
         object_category: str,
         min_year: Optional[int],
-    ) -> Dict[Any, Dict[str, Any]]:
-        merged_rows: Dict[Any, Dict[str, Any]] = {}
+    ) -> Dict[Any, SqlMergedBucket]:
+        merged_rows: Dict[Any, SqlMergedBucket] = {}
         load_daily_history_rows = self._resolve_hook("_load_daily_history_rows", self._load_daily_history_rows)
         load_record_fallback = self._resolve_hook(
             "_load_table_daily_history_record_fallback",

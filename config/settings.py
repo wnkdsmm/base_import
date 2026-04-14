@@ -31,6 +31,12 @@ class Settings:
             self.output_folder = str(output_path)
         else:
             self.output_folder = str(get_result_folder(self.project_name))
+
+        self.app_host = os.getenv("APP_HOST", "127.0.0.1")
+        self.app_port = int(os.getenv("APP_PORT", "8000"))
     
     def __repr__(self):
-        return f"Settings(project_name={self.project_name}, selected_table={self.selected_table}, output_folder={self.output_folder})"
+        return (
+            f"Settings(project_name={self.project_name}, selected_table={self.selected_table}, "
+            f"output_folder={self.output_folder}, app_host={self.app_host}, app_port={self.app_port})"
+        )

@@ -3,12 +3,31 @@ setlocal EnableExtensions
 
 set "PROJECT_ROOT=%~dp0"
 if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
-set "APP_HOST=127.0.0.1"
-set "APP_PORT=8000"
-set "APP_URL=http://%APP_HOST%:%APP_PORT%/"
-set "READY_URL=http://%APP_HOST%:%APP_PORT%/favicon.ico"
 set "SERVER_TITLE=Fire Data FastAPI"
 set "VENV_PYTHON=%PROJECT_ROOT%\.venv\Scripts\python.exe"
+set "ENV_FILE=%PROJECT_ROOT%\.env"
+
+if not exist "%VENV_PYTHON%" (
+    echo Сначала запустите setup.bat для установки зависимостей
+    pause
+    exit /b 1
+)
+
+if not exist "%ENV_FILE%" (
+    echo Файл .env не найден. Запустите setup.bat
+    pause
+    exit /b 1
+)
+
+for /f "usebackq tokens=1,2 delims==" %%A in (`findstr /R /V "^[ ]*# ^[ ]*$" "%ENV_FILE%"`) do (
+    set "%%A=%%B"
+)
+
+if not defined APP_HOST set "APP_HOST=127.0.0.1"
+if not defined APP_PORT set "APP_PORT=8000"
+set "APP_BASE_URL=http://%APP_HOST%:%APP_PORT%"
+set "APP_URL=http://%APP_HOST%:%APP_PORT%/"
+set "READY_URL=http://%APP_HOST%:%APP_PORT%/favicon.ico"
 
 call :wait_for_url
 if "%errorlevel%"=="0" (
@@ -24,7 +43,9 @@ if not "%errorlevel%"=="0" (
     exit /b 1
 )
 
-echo Starting FastAPI server in a new window...
+echo Запуск Fire Analytics Dashboard...
+echo Адрес: %APP_BASE_URL%
+echo Для остановки закройте это окно
 start "%SERVER_TITLE%" cmd /k "cd /d ""%PROJECT_ROOT%"" && %SERVER_COMMAND%"
 
 call :wait_for_url

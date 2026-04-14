@@ -251,7 +251,7 @@ def _build_damage_category_items(
     counts: Optional[Dict[str, int]] = None,
 ) -> List[DistributionItem]:
     counts = counts if counts is not None else _collect_damage_counts(selected_tables, selected_year)
-    items: List[Dict[str, Any]] = []
+    items: List[DistributionItem] = []
     used_columns = set()
 
     for label, destroyed_column, damaged_column in DAMAGE_PAIR_COLUMNS:
@@ -310,7 +310,7 @@ def _build_damage_theme_items(
     counts: Optional[Dict[str, int]] = None,
 ) -> List[DistributionItem]:
     counts = counts if counts is not None else _collect_damage_counts(selected_tables, selected_year)
-    items: List[Dict[str, Any]] = []
+    items: List[DistributionItem] = []
 
     for label, columns in _DAMAGE_THEME_COLUMNS.items():
         value = sum(int(counts.get(column_name, 0) or 0) for column_name in columns)
