@@ -85,10 +85,12 @@ function syncClusteringAsyncContainer() {
             ? filters.feature_columns.map(function (item) { return String(item); })
             : [];
 
+        var hasExplicitSelection = selectedValues.length > 0;
         var body;
         if (items.length) {
             body = '<div class="cluster-feature-grid">' + items.map(function (feature) {
-                var checked = feature.is_selected || selectedValues.indexOf(String(feature.name)) >= 0 ? ' checked' : '';
+                var shouldCheckByDefault = !hasExplicitSelection && !feature.is_selected;
+                var checked = feature.is_selected || selectedValues.indexOf(String(feature.name)) >= 0 || shouldCheckByDefault ? ' checked' : '';
                 return ''
                     + '<label class="cluster-feature-option">'
                     + '<input type="checkbox" name="feature_columns" value="' + escapeHtml(feature.name) + '"' + checked + '>'

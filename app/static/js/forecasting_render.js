@@ -29,7 +29,7 @@
         }
 
         if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">РЎРёРіРЅР°Р»С‹ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° РїСЂРѕРіРЅРѕР·Р°.</div>';
+            container.innerHTML = '<div class="mini-empty">Сигналы появятся после расчета прогноза.</div>';
             return;
         }
 
@@ -66,18 +66,18 @@
         }
 
         if (!Array.isArray(rows) || !rows.length) {
-            container.innerHTML = '<div class="mini-empty">РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІСЏС‚СЃСЏ Р±Р»РёР¶Р°Р№С€РёРµ РґР°С‚С‹ Рё РІРµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРѕР¶Р°СЂР° РїРѕ СЃС†РµРЅР°СЂРёСЋ.</div>';
+            container.innerHTML = '<div class="mini-empty">После расчета здесь появятся ближайшие даты и вероятность пожара по сценарию.</div>';
             return;
         }
 
         container.innerHTML = '<table class="forecast-table">' +
-            '<thead><tr><th>Р”Р°С‚Р°</th><th>Р”РµРЅСЊ РЅРµРґРµР»Рё</th><th>Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРѕР¶Р°СЂР°</th><th>РљРѕРјРјРµРЅС‚Р°СЂРёР№</th></tr></thead>' +
+            '<thead><tr><th>Дата</th><th>День недели</th><th>Вероятность пожара</th><th>Комментарий</th></tr></thead>' +
             '<tbody>' + rows.map(function (row) {
                 return '<tr>' +
-                    '<td data-label="Р”Р°С‚Р°">' + escapeHtml(row.date_display) + '</td>' +
-                    '<td data-label="Р”РµРЅСЊ РЅРµРґРµР»Рё">' + escapeHtml(row.weekday_label) + '</td>' +
-                    '<td data-label="Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРѕР¶Р°СЂР°">' + escapeHtml(row.fire_probability_display || '0%') + '</td>' +
-                    '<td data-label="РљРѕРјРјРµРЅС‚Р°СЂРёР№"><span class="forecast-scenario-pill tone-' + escapeHtml(row.scenario_tone || 'sky') + '">' + escapeHtml(row.scenario_label || 'РћРєРѕР»Рѕ РѕР±С‹С‡РЅРѕРіРѕ') + '</span><div class="forecast-cell-note">' + escapeHtml(row.scenario_hint || '') + '</div></td>' +
+                    '<td data-label="Дата">' + escapeHtml(row.date_display) + '</td>' +
+                    '<td data-label="День недели">' + escapeHtml(row.weekday_label) + '</td>' +
+                    '<td data-label="Вероятность пожара">' + escapeHtml(row.fire_probability_display || '0%') + '</td>' +
+                    '<td data-label="Комментарий"><span class="forecast-scenario-pill tone-' + escapeHtml(row.scenario_tone || 'sky') + '">' + escapeHtml(row.scenario_label || 'Около обычного') + '</span><div class="forecast-cell-note">' + escapeHtml(row.scenario_hint || '') + '</div></td>' +
                 '</tr>';
             }).join('') + '</tbody></table>';
     }
@@ -89,7 +89,7 @@
         }
 
         if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">РљР°СЂС‚РѕС‡РєРё Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.</div>';
+            container.innerHTML = '<div class="mini-empty">Карточки блока поддержки решений появятся после расчета.</div>';
             return;
         }
 
@@ -119,7 +119,7 @@
         }
 
         if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">РџРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ СЂР°РЅР¶РёСЂРѕРІР°РЅРёРµ С‚РµСЂСЂРёС‚РѕСЂРёР№ РґР»СЏ РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№.</div>';
+            container.innerHTML = '<div class="mini-empty">После расчёта здесь появится ранжирование территорий для поддержки решений.</div>';
             return;
         }
 
@@ -127,13 +127,13 @@
             var components = Array.isArray(item.component_scores) ? item.component_scores : [];
             var recommendations = Array.isArray(item.recommendations) ? item.recommendations : [];
             var rankingTone = normalizeTone(item.ranking_confidence_tone || 'fire');
-            var whyText = item.ranking_reason || item.drivers_display || 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СЉСЏСЃРЅРµРЅРёСЏ РїСЂРёРѕСЂРёС‚РµС‚Р°.';
-            var reliabilityText = item.ranking_confidence_note || 'РћС†РµРЅРєР° РЅР°РґС‘Р¶РЅРѕСЃС‚Рё РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р°.';
+            var whyText = item.ranking_reason || item.drivers_display || 'Недостаточно данных для объяснения приоритета.';
+            var reliabilityText = item.ranking_confidence_note || 'Оценка надёжности появится после расчёта.';
             var metricOrder = [
-                { key: 'fire_frequency', fallback: 'Р§Р°СЃС‚РѕС‚Р° РїРѕР¶Р°СЂРѕРІ' },
-                { key: 'consequence_severity', fallback: 'РўСЏР¶РµСЃС‚СЊ РїРѕСЃР»РµРґСЃС‚РІРёР№' },
-                { key: 'long_arrival_risk', fallback: 'Р”РѕР»РіРѕРµ РїСЂРёР±С‹С‚РёРµ' },
-                { key: 'water_supply_deficit', fallback: 'Р”РµС„РёС†РёС‚ РІРѕРґС‹' }
+                { key: 'fire_frequency', fallback: 'Частота пожаров' },
+                { key: 'consequence_severity', fallback: 'Тяжесть последствий' },
+                { key: 'long_arrival_risk', fallback: 'Долгое прибытие' },
+                { key: 'water_supply_deficit', fallback: 'Дефицит воды' }
             ];
 
             var metricsHtml = metricOrder.map(function (descriptor) {
@@ -143,7 +143,7 @@
 
             var componentsHtml = components.map(function (component) {
                 return '<article class="risk-component-card tone-' + escapeHtml(component.tone || 'low') + '">' +
-                    '<div class="risk-component-head"><strong>' + escapeHtml(component.label || 'РљРѕРјРїРѕРЅРµРЅС‚') + '</strong><span>' + escapeHtml(component.score_display || '0 / 100') + '</span></div>' +
+                    '<div class="risk-component-head"><strong>' + escapeHtml(component.label || 'Компонент') + '</strong><span>' + escapeHtml(component.score_display || '0 / 100') + '</span></div>' +
                     '<div class="risk-component-bar"><span data-bar-width="' + escapeHtml(component.bar_width || '12%') + '"></span></div>' +
                     '<div class="risk-component-meta">' + escapeHtml(component.summary || '') + '</div>' +
                     '<p>' + escapeHtml(component.rationale || '') + '</p>' +
@@ -152,48 +152,48 @@
 
             var recommendationsHtml = recommendations.length ? recommendations.map(function (recommendation) {
                 return '<article class="risk-recommendation-item">' +
-                    '<strong>' + escapeHtml(recommendation.label || 'Р РµРєРѕРјРµРЅРґР°С†РёСЏ') + '</strong>' +
+                    '<strong>' + escapeHtml(recommendation.label || 'Рекомендация') + '</strong>' +
                     '<span>' + escapeHtml(recommendation.detail || '') + '</span>' +
                 '</article>';
-            }).join('') : '<div class="mini-empty">Р РµРєРѕРјРµРЅРґР°С†РёРё РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.</div>';
+            }).join('') : '<div class="mini-empty">Рекомендации появятся после расчета.</div>';
 
             return '<article class="risk-territory-card tone-' + escapeHtml(item.risk_tone || 'low') + '">' +
                 '<div class="risk-territory-head">' +
                     '<div>' +
                         '<strong>' + escapeHtml(item.label) + '</strong>' +
                         '<div class="risk-territory-tags">' +
-                            '<span class="forecast-badge risk-badge tone-' + escapeHtml(item.risk_tone || 'low') + '">' + escapeHtml(item.risk_class_label || 'РќРёР·РєРёР№ СЂРёСЃРє') + '</span>' +
-                            '<span class="forecast-badge risk-badge tone-' + escapeHtml(item.priority_tone || 'sky') + '">' + escapeHtml(item.priority_label || 'РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ') + '</span>' +
-                            '<span class="forecast-badge risk-badge tone-sky">' + escapeHtml(item.weight_mode_label || 'Р­РєСЃРїРµСЂС‚РЅС‹Рµ РІРµСЃР°') + '</span>' +
-                            '<span class="forecast-badge risk-badge tone-' + escapeHtml(rankingTone) + '">' + escapeHtml(item.ranking_confidence_label || 'РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ') + '</span>' +
+                            '<span class="forecast-badge risk-badge tone-' + escapeHtml(item.risk_tone || 'low') + '">' + escapeHtml(item.risk_class_label || 'Низкий риск') + '</span>' +
+                            '<span class="forecast-badge risk-badge tone-' + escapeHtml(item.priority_tone || 'sky') + '">' + escapeHtml(item.priority_label || 'Плановое наблюдение') + '</span>' +
+                            '<span class="forecast-badge risk-badge tone-sky">' + escapeHtml(item.weight_mode_label || 'Экспертные веса') + '</span>' +
+                            '<span class="forecast-badge risk-badge tone-' + escapeHtml(rankingTone) + '">' + escapeHtml(item.ranking_confidence_label || 'Ограниченная') + '</span>' +
                         '</div>' +
                     '</div>' +
                     '<div class="risk-territory-score">' + escapeHtml(item.risk_display || '0 / 100') + '</div>' +
                 '</div>' +
                 '<div class="risk-score-bar"><span data-bar-width="' + escapeHtml(item.bar_width || '10%') + '"></span></div>' +
                 '<div class="risk-territory-callout">' +
-                    '<span>Р§С‚Рѕ РїСЂРѕРІРµСЂРёС‚СЊ РїРµСЂРІС‹Рј</span>' +
-                    '<strong>' + escapeHtml(item.action_label || 'РћСЃС‚Р°РІРёС‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёСЋ РІ РїР»Р°РЅРѕРІРѕРј РЅР°Р±Р»СЋРґРµРЅРёРё') + '</strong>' +
+                    '<span>Что проверить первым</span>' +
+                    '<strong>' + escapeHtml(item.action_label || 'Оставить территорию в плановом наблюдении') + '</strong>' +
                     '<p>' + escapeHtml(item.action_hint || '') + '</p>' +
                 '</div>' +
                 '<div class="risk-metrics-grid">' + metricsHtml + '</div>' +
                 '<div class="risk-components-grid">' + componentsHtml + '</div>' +
-                '<p class="risk-formula"><strong>РљР°Рє СЃР»РѕР¶РёР»СЃСЏ РёС‚РѕРіРѕРІС‹Р№ Р±Р°Р»Р»:</strong> ' + escapeHtml(item.risk_formula_display || '') + '</p>' +
+                '<p class="risk-formula"><strong>Как сложился итоговый балл:</strong> ' + escapeHtml(item.risk_formula_display || '') + '</p>' +
                 '<div class="risk-recommendation-list">' + recommendationsHtml + '</div>' +
                 '<div class="risk-territory-meta">' +
-                    '<span>РљРѕРЅС‚РµРєСЃС‚: <strong>' + escapeHtml(item.settlement_context_label || 'РќРµ СѓРєР°Р·Р°РЅ') + '</strong></span>' +
-                    '<span>РџРѕСЃР»РµРґРЅРёР№ РїРѕР¶Р°СЂ: <strong>' + escapeHtml(item.last_fire_display || '-') + '</strong></span>' +
-                    '<span>Travel-time: <strong>' + escapeHtml(item.travel_time_display || 'РЅ/Рґ') + '</strong></span>' +
-                    '<span>РЎСЂРµРґРЅРµРµ РїСЂРёР±С‹С‚РёРµ: <strong>' + escapeHtml(item.response_time_display || 'РќРµС‚ РґР°РЅРЅС‹С…') + '</strong></span>' +
-                    '<span>РЈРґР°Р»С‘РЅРЅРѕСЃС‚СЊ РѕС‚ РџР§: <strong>' + escapeHtml(item.distance_display || 'РќРµС‚ РґР°РЅРЅС‹С…') + '</strong></span>' +
-                    '<span>РџРѕРєСЂС‹С‚РёРµ РџР§: <strong>' + escapeHtml(item.fire_station_coverage_display || 'РЅ/Рґ') + ' (' + escapeHtml(item.fire_station_coverage_label || 'РЅРµС‚ РґР°РЅРЅС‹С…') + ')</strong></span>' +
-                    '<span>РЎРµСЂРІРёСЃРЅР°СЏ Р·РѕРЅР°: <strong>' + escapeHtml(item.service_zone_label || 'РЅРµ РѕРїСЂРµРґРµР»РµРЅР°') + '</strong></span>' +
-                    '<span>Р›РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚: <strong>' + escapeHtml(item.logistics_priority_display || '0 / 100') + '</strong></span>' +
-                    '<span>Р’РѕРґР°: <strong>' + escapeHtml(item.water_supply_display || 'РќРµС‚ РґР°РЅРЅС‹С…') + '</strong></span>' +
-                    '<span>РћР±СЉРµРєС‚С‹: <strong>' + escapeHtml(item.dominant_object_category || 'РќРµ СѓРєР°Р·Р°РЅРѕ') + '</strong></span>' +
+                    '<span>Контекст: <strong>' + escapeHtml(item.settlement_context_label || 'Не указан') + '</strong></span>' +
+                    '<span>Последний пожар: <strong>' + escapeHtml(item.last_fire_display || '-') + '</strong></span>' +
+                    '<span>Travel-time: <strong>' + escapeHtml(item.travel_time_display || 'н/д') + '</strong></span>' +
+                    '<span>Среднее прибытие: <strong>' + escapeHtml(item.response_time_display || 'Нет данных') + '</strong></span>' +
+                    '<span>Удалённость от ПЧ: <strong>' + escapeHtml(item.distance_display || 'Нет данных') + '</strong></span>' +
+                    '<span>Покрытие ПЧ: <strong>' + escapeHtml(item.fire_station_coverage_display || 'н/д') + ' (' + escapeHtml(item.fire_station_coverage_label || 'нет данных') + ')</strong></span>' +
+                    '<span>Сервисная зона: <strong>' + escapeHtml(item.service_zone_label || 'не определена') + '</strong></span>' +
+                    '<span>Логистический приоритет: <strong>' + escapeHtml(item.logistics_priority_display || '0 / 100') + '</strong></span>' +
+                    '<span>Вода: <strong>' + escapeHtml(item.water_supply_display || 'Нет данных') + '</strong></span>' +
+                    '<span>Объекты: <strong>' + escapeHtml(item.dominant_object_category || 'Не указано') + '</strong></span>' +
                 '</div>' +
-                '<p class="risk-drivers"><strong>РџРѕС‡РµРјСѓ РёРјРµРЅРЅРѕ СЌС‚Р° С‚РµСЂСЂРёС‚РѕСЂРёСЏ:</strong> ' + escapeHtml(whyText) + '</p>' +
-                '<p class="risk-drivers"><strong>РџРѕС‡РµРјСѓ СѓСЂРѕРІРµРЅСЊ РґРѕРІРµСЂРёСЏ С‚Р°РєРѕР№:</strong> ' + escapeHtml(reliabilityText) + '</p>' +
+                '<p class="risk-drivers"><strong>Почему именно эта территория:</strong> ' + escapeHtml(whyText) + '</p>' +
+                '<p class="risk-drivers"><strong>Почему уровень доверия такой:</strong> ' + escapeHtml(reliabilityText) + '</p>' +
             '</article>';
         }).join('');
     }
@@ -204,7 +204,7 @@
         }
 
         if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">РЎРїРёСЃРѕРє РїСЂРёР·РЅР°РєРѕРІ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.</div>';
+            container.innerHTML = '<div class="mini-empty">Список признаков появится после расчета.</div>';
             return;
         }
 
@@ -212,10 +212,10 @@
             return '<article class="forecast-feature-card status-' + escapeHtml(item.status || 'missing') + '">' +
                 '<div class="forecast-feature-head">' +
                     '<strong>' + escapeHtml(item.label) + '</strong>' +
-                    '<span class="forecast-badge">' + escapeHtml(item.status_label || 'РќРµ РЅР°Р№РґРµРЅР°') + '</span>' +
+                    '<span class="forecast-badge">' + escapeHtml(item.status_label || 'Не найдена') + '</span>' +
                 '</div>' +
                 '<p>' + escapeHtml(item.description || '') + '</p>' +
-                '<div class="forecast-feature-source">' + escapeHtml(item.source || 'РќРµ РЅР°Р№РґРµРЅР°') + '</div>' +
+                '<div class="forecast-feature-source">' + escapeHtml(item.source || 'Не найдена') + '</div>' +
             '</article>';
         }).join('');
     }
@@ -274,7 +274,7 @@
     function showForecastError(message) {
         var errorNode = byId('forecastErrorState');
         setForecastAsyncVisibility(true);
-        setText('forecastErrorMessage', message || 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµСЃС‡РёС‚Р°С‚СЊ РїСЂРѕРіРЅРѕР·. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰Рµ СЂР°Р·.');
+        setText('forecastErrorMessage', message || 'Не удалось пересчитать прогноз. Попробуйте еще раз.');
         if (errorNode) {
             errorNode.classList.remove('is-hidden');
         }
@@ -287,16 +287,16 @@
         }
 
         if (data && data.bootstrap_mode === 'deferred') {
-            node.textContent = 'РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РїСЂРѕРіРЅРѕР·';
+            node.textContent = 'Подготавливаем прогноз';
             node.classList.add('status-badge-live');
             return;
         }
         if (data && data.has_data) {
-            node.textContent = 'РЎС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· СЃРѕР±СЂР°РЅ';
+            node.textContent = 'Сценарный прогноз собран';
             node.classList.add('status-badge-live');
             return;
         }
-        node.textContent = 'РќСѓР¶РЅРѕ СѓС‚РѕС‡РЅРёС‚СЊ С„РёР»СЊС‚СЂС‹';
+        node.textContent = 'Нужно уточнить фильтры';
         node.classList.remove('status-badge-live');
     }
 
@@ -308,16 +308,16 @@
         if (data && data.loading && data.loading_status_message) {
             return data.loading_status_message;
         }
-        return 'РЎРµР№С‡Р°СЃ РїРѕРєР°Р·Р°РЅРѕ: ' + (safeSummary.slice_label || 'Р’СЃРµ РїРѕР¶Р°СЂС‹') +
-            ' | РўРёРїРёС‡РЅС‹Р№ РґРµРЅСЊ: ' + (safeSummary.average_probability_display || '0%') +
-            ' | РџРёРє: ' + (safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
-            ' | Рљ РїРѕСЃР»РµРґРЅРёРј 4 РЅРµРґРµР»СЏРј: ' + (safeSummary.forecast_vs_recent_display || '0%');
+        return 'Сейчас показано: ' + (safeSummary.slice_label || 'Все пожары') +
+            ' | Типичный день: ' + (safeSummary.average_probability_display || '0%') +
+            ' | Пик: ' + (safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
+            ' | К последним 4 неделям: ' + (safeSummary.forecast_vs_recent_display || '0%');
     }
 
     function clearForecastJobRuntime(runtimeNode, titleNode, metaNode, logsNode) {
         runtimeNode.classList.add('is-hidden');
         runtimeNode.classList.remove('is-ready');
-        titleNode.textContent = 'Р“РѕС‚РѕРІРёРј Р±Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№';
+        titleNode.textContent = 'Готовим блок поддержки решений';
         metaNode.textContent = '';
         logsNode.textContent = '';
     }
@@ -337,15 +337,15 @@
         var meta = safeJob.meta || {};
 
         if (safeJob.reused) {
-            return 'РџРѕРґРєР»СЋС‡Р°РµРј СѓР¶Рµ Р·Р°РїСѓС‰РµРЅРЅС‹Р№ СЂР°СЃС‡С‘С‚';
+            return 'Подключаем уже запущенный расчёт';
         }
         if (meta.stage_label) {
             return String(meta.stage_label);
         }
         if (safeJob.status === 'pending') {
-            return 'Р“РѕС‚РѕРІРёРј Р±Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№';
+            return 'Готовим блок поддержки решений';
         }
-        return 'РЎРѕР±РёСЂР°РµРј Р±Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№';
+        return 'Собираем блок поддержки решений';
     }
 
     function getForecastJobRuntimeMeta(jobPayload) {
@@ -357,7 +357,7 @@
             metaParts.push(String(meta.stage_message));
         }
         if (safeJob.reused) {
-            metaParts.push('РёСЃРїРѕР»СЊР·СѓРµРј СѓР¶Рµ Р·Р°РїСѓС‰РµРЅРЅС‹Р№ СЂР°СЃС‡С‘С‚');
+            metaParts.push('используем уже запущенный расчёт');
         }
         return metaParts.join(' | ');
     }
@@ -387,17 +387,17 @@
         runtimeNode.classList.remove('is-ready');
         titleNode.textContent = getForecastJobRuntimeTitle(safeJob);
         metaNode.textContent = getForecastJobRuntimeMeta(safeJob);
-        logsNode.textContent = logs.length ? logs.join('\n') : 'РџРѕРєР°Р¶РµРј РїСЂРѕРіСЂРµСЃСЃ, РєР°Рє С‚РѕР»СЊРєРѕ СЂР°СЃС‡С‘С‚ РїРµСЂРµР№РґС‘С‚ Рє СЃР»РµРґСѓСЋС‰РµРјСѓ СЌС‚Р°РїСѓ.';
+        logsNode.textContent = logs.length ? logs.join('\n') : 'Покажем прогресс, как только расчёт перейдёт к следующему этапу.';
         return;
         /* Legacy technical runtime rendering removed.
         if (meta.cache_hit) {
-            metaParts.push('РєСЌС€');
+            metaParts.push('кэш');
         }
         if (safeJob.reused) {
-            metaParts.push('РїРµСЂРµРёСЃРїРѕР»СЊР·РѕРІР°РЅ');
+            metaParts.push('переиспользован');
         }
         metaNode.textContent = metaParts.join(' | ');
-        logsNode.textContent = logs.length ? logs.join('\n') : 'Р›РѕРіРё РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ Р·Р°РїСѓСЃРєР° С„РѕРЅРѕРІРѕР№ Р·Р°РґР°С‡Рё.';
+        logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
         */
     }
 
@@ -424,23 +424,23 @@
         var notes = [];
         var components = Array.isArray(safeProfile.components) ? safeProfile.components : [];
 
-        setText('forecastWeightProfileDescription', safeProfile.description || 'РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РїРѕРЅСЏС‚РЅРѕРµ РѕР±СЉСЏСЃРЅРµРЅРёРµ, РєР°РєРёРµ С„Р°РєС‚РѕСЂС‹ СЃРёР»СЊРЅРµРµ РІСЃРµРіРѕ РґРІРёРіР°СЋС‚ С‚РµСЂСЂРёС‚РѕСЂРёСЋ РІРІРµСЂС… РёР»Рё РІРЅРёР·.');
-        setText('forecastWeightModeBadge', safeProfile.status_label || 'РђРєС‚РёРІРЅС‹Р№ РїСЂРѕС„РёР»СЊ');
+        setText('forecastWeightProfileDescription', safeProfile.description || 'После расчета здесь появится понятное объяснение, какие факторы сильнее всего двигают территорию вверх или вниз.');
+        setText('forecastWeightModeBadge', safeProfile.status_label || 'Активный профиль');
         applyToneClass(byId('forecastWeightModeBadge'), safeProfile.status_tone || 'forest');
 
         if (cardsContainer) {
             if (!components.length) {
-                cardsContainer.innerHTML = '<div class="mini-empty">РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ СЃРїРёСЃРѕРє С„Р°РєС‚РѕСЂРѕРІ, РєРѕС‚РѕСЂС‹Рµ Р±РѕР»СЊС€Рµ РІСЃРµРіРѕ РІР»РёСЏСЋС‚ РЅР° РёС‚РѕРіРѕРІС‹Р№ Р±Р°Р»Р».</div>';
+                cardsContainer.innerHTML = '<div class="mini-empty">После расчета здесь появится список факторов, которые больше всего влияют на итоговый балл.</div>';
             } else {
                 cardsContainer.innerHTML = components.map(function (item) {
                     return '<article class="risk-weight-card">' +
-                        '<div class="risk-weight-head"><strong>' + escapeHtml(item.label || 'РљРѕРјРїРѕРЅРµРЅС‚') + '</strong><span>' + escapeHtml(item.current_weight_display || item.weight_display || '0%') + '</span></div>' +
+                        '<div class="risk-weight-head"><strong>' + escapeHtml(item.label || 'Компонент') + '</strong><span>' + escapeHtml(item.current_weight_display || item.weight_display || '0%') + '</span></div>' +
                         '<p>' + escapeHtml(item.description || '') + '</p>' +
                         '<div class="risk-weight-meta">' +
-                            '<span>Р­РєСЃРїРµСЂС‚: <strong>' + escapeHtml(item.expert_weight_display || item.weight_display || '0%') + '</strong></span>' +
-                            '<span>РўРµРєСѓС‰РёР№: <strong>' + escapeHtml(item.current_weight_display || item.weight_display || '0%') + '</strong></span>' +
-                            '<span>РљР°Р»РёР±СЂРѕРІРєР°: <strong>' + escapeHtml(item.calibration_shift_display || '0 Рї.Рї.') + '</strong></span>' +
-                            '<span>РЎРµР»СЊСЃРєРёР№ РєРѕРЅС‚СѓСЂ: <strong>' + escapeHtml(item.rural_weight_display || item.weight_display || '0%') + '</strong></span>' +
+                            '<span>Эксперт: <strong>' + escapeHtml(item.expert_weight_display || item.weight_display || '0%') + '</strong></span>' +
+                            '<span>Текущий: <strong>' + escapeHtml(item.current_weight_display || item.weight_display || '0%') + '</strong></span>' +
+                            '<span>Калибровка: <strong>' + escapeHtml(item.calibration_shift_display || '0 п.п.') + '</strong></span>' +
+                            '<span>Сельский контур: <strong>' + escapeHtml(item.rural_weight_display || item.weight_display || '0%') + '</strong></span>' +
                         '</div>' +
                     '</article>';
                 }).join('');
@@ -453,7 +453,7 @@
                 notes.push(text);
             }
         });
-        renderNotes('forecastWeightProfileNotes', notes, 'РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЏСЃРЅРµРЅРёСЏ, РїРѕС‡РµРјСѓ РїСЂРѕС„РёР»СЊ РІРµСЃРѕРІ РІС‹РіР»СЏРґРёС‚ РёРјРµРЅРЅРѕ С‚Р°Рє.');
+        renderNotes('forecastWeightProfileNotes', notes, 'После расчета здесь появятся пояснения, почему профиль весов выглядит именно так.');
     }
 
     function renderCommandCards(brief) {
@@ -465,7 +465,7 @@
         }
 
         if (!cards.length) {
-            container.innerHTML = '<div class="mini-empty">РљРѕСЂРѕС‚РєРёР№ РІС‹РІРѕРґ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р°.</div>';
+            container.innerHTML = '<div class="mini-empty">Короткий вывод появится после расчёта.</div>';
             return;
         }
 
@@ -480,7 +480,7 @@
 
     function renderCommandNotes(brief) {
         var notes = brief && Array.isArray(brief.notes) ? brief.notes.slice(0, 3) : [];
-        renderNotes('forecastCommandNotes', notes, 'РћРіСЂР°РЅРёС‡РµРЅРёСЏ Рё РїСЂРёРјРµС‡Р°РЅРёСЏ РїРѕСЏРІСЏС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р°.');
+        renderNotes('forecastCommandNotes', notes, 'Ограничения и примечания появятся после расчёта.');
     }
 
     function buildForecastBriefHref(filters) {
@@ -574,26 +574,26 @@
         });
 
         var lines = [
-            'РљСЂР°С‚РєР°СЏ СЃРїСЂР°РІРєР°: СЃС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР· Рё РїРѕРґРґРµСЂР¶РєР° СЂРµС€РµРЅРёР№',
-            'РЎС„РѕСЂРјРёСЂРѕРІР°РЅРѕ: ' + (data.generated_at || '-'),
+            'Краткая справка: сценарный прогноз и поддержка решений',
+            'Сформировано: ' + (data.generated_at || '-'),
             '',
-            'РЎСЂРµР· Р°РЅР°Р»РёР·Р°',
-            'РўР°Р±Р»РёС†Р°: ' + (summary.selected_table_label || 'Р’СЃРµ С‚Р°Р±Р»РёС†С‹'),
-            'РСЃС‚РѕСЂРёСЏ: ' + (summary.history_window_label || 'Р’СЃРµ РіРѕРґС‹'),
-            'РЎСЂРµР·: ' + (summary.slice_label || 'Р’СЃРµ РїРѕР¶Р°СЂС‹'),
-            'Р“РѕСЂРёР·РѕРЅС‚ РїСЂРѕРіРЅРѕР·Р°: ' + (summary.forecast_days_display || '0') + ' РґРЅРµР№',
+            'Срез анализа',
+            'Таблица: ' + (summary.selected_table_label || 'Все таблицы'),
+            'История: ' + (summary.history_window_label || 'Все годы'),
+            'Срез: ' + (summary.slice_label || 'Все пожары'),
+            'Горизонт прогноза: ' + (summary.forecast_days_display || '0') + ' дней',
             '',
-            'РќР°СЃРєРѕР»СЊРєРѕ РїСЂРѕРіРЅРѕР· РїРѕ РґРЅСЏРј РїРѕРїР°РґР°РµС‚ РІ РёСЃС‚РѕСЂРёСЋ',
-            'РЎС‚Р°С‚СѓСЃ: ' + (quality.title || 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё'),
-            'РљРѕРјРјРµРЅС‚Р°СЂРёР№: ' + (quality.subtitle || 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕС†РµРЅРєРё РєР°С‡РµСЃС‚РІР°.'),
+            'Насколько прогноз по дням попадает в историю',
+            'Статус: ' + (quality.title || 'Проверка на истории'),
+            'Комментарий: ' + (quality.subtitle || 'Недостаточно данных для оценки качества.'),
             '',
-            'РџРѕС‡РµРјСѓ С‚РµСЂСЂРёС‚РѕСЂРёСЏ РїРѕРґРЅСЏР»Р°СЃСЊ РІРІРµСЂС… РІ РїСЂРёРѕСЂРёС‚РµС‚Рµ',
-            'Р РµР¶РёРј: ' + (weightProfile.mode_label || 'Р­РєСЃРїРµСЂС‚РЅС‹Рµ РІРµСЃР°'),
-            'РћРїРёСЃР°РЅРёРµ: ' + (weightProfile.description || 'РќРµС‚ РѕРїРёСЃР°РЅРёСЏ.'),
+            'Почему территория поднялась вверх в приоритете',
+            'Режим: ' + (weightProfile.mode_label || 'Экспертные веса'),
+            'Описание: ' + (weightProfile.description || 'Нет описания.'),
         ];
 
         (quality.metric_cards || []).forEach(function (item) {
-            lines.push('- ' + (item.label || 'РњРµС‚СЂРёРєР°') + ': ' + (item.value || '-') + ' | ' + (item.meta || ''));
+            lines.push('- ' + (item.label || 'Метрика') + ': ' + (item.value || '-') + ' | ' + (item.meta || ''));
         });
         (quality.dissertation_points || []).forEach(function (item) {
             lines.push('- ' + item);
@@ -601,39 +601,39 @@
 
         if (Array.isArray(weightProfile.components) && weightProfile.components.length) {
             weightProfile.components.forEach(function (item) {
-                lines.push('- ' + (item.label || 'РљРѕРјРїРѕРЅРµРЅС‚') + ': СЌРєСЃРїРµСЂС‚ ' + (item.expert_weight_display || item.weight_display || '0%') + ', С‚РµРєСѓС‰РёР№ ' + (item.current_weight_display || item.weight_display || '0%') + ', РєР°Р»РёР±СЂРѕРІРєР° ' + (item.calibration_shift_display || '0 Рї.Рї.') + ', СЃРµР»СЊСЃРєРёР№ РєРѕРЅС‚СѓСЂ ' + (item.rural_weight_display || item.weight_display || '0%'));
+                lines.push('- ' + (item.label || 'Компонент') + ': эксперт ' + (item.expert_weight_display || item.weight_display || '0%') + ', текущий ' + (item.current_weight_display || item.weight_display || '0%') + ', калибровка ' + (item.calibration_shift_display || '0 п.п.') + ', сельский контур ' + (item.rural_weight_display || item.weight_display || '0%'));
             });
         }
 
-        lines.push('РќР°РґС‘Р¶РЅРѕСЃС‚СЊ РІС‹РІРѕРґР° РїРѕ С‚РµСЂСЂРёС‚РѕСЂРёРё-Р»РёРґРµСЂСѓ: ' + ((risk.top_territory_confidence_label || (territories[0] && territories[0].ranking_confidence_label) || 'РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ')) + ' (' + ((risk.top_territory_confidence_score_display || (territories[0] && territories[0].ranking_confidence_display) || '0 / 100')) + ')');
-        lines.push('РџРѕСЏСЃРЅРµРЅРёРµ: ' + ((risk.top_territory_confidence_note || (territories[0] && territories[0].ranking_confidence_note) || 'РќРµС‚ РїРѕСЏСЃРЅРµРЅРёСЏ РїРѕ РЅР°РґС‘Р¶РЅРѕСЃС‚Рё РІС‹РІРѕРґР°.')));
+        lines.push('Надёжность вывода по территории-лидеру: ' + ((risk.top_territory_confidence_label || (territories[0] && territories[0].ranking_confidence_label) || 'Ограниченная')) + ' (' + ((risk.top_territory_confidence_score_display || (territories[0] && territories[0].ranking_confidence_display) || '0 / 100')) + ')');
+        lines.push('Пояснение: ' + ((risk.top_territory_confidence_note || (territories[0] && territories[0].ranking_confidence_note) || 'Нет пояснения по надёжности вывода.')));
 
-        lines.push('', 'РџСЂРёРѕСЂРёС‚РµС‚РЅС‹Рµ С‚РµСЂСЂРёС‚РѕСЂРёРё');
+        lines.push('', 'Приоритетные территории');
         if (territories.length) {
             territories.slice(0, 5).forEach(function (item, index) {
-                lines.push((index + 1) + '. ' + (item.label || 'РўРµСЂСЂРёС‚РѕСЂРёСЏ'));
-                lines.push('   Р РёСЃРє: ' + (item.risk_display || '0 / 100') + ' | РљР»Р°СЃСЃ: ' + (item.risk_class_label || '-') + ' | РџСЂРёРѕСЂРёС‚РµС‚: ' + (item.priority_label || '-'));
-                lines.push('   Р¤РѕСЂРјСѓР»Р°: ' + (item.risk_formula_display || 'РќРµС‚ С„РѕСЂРјСѓР»С‹.'));
-                lines.push('   Р›РѕРіРёСЃС‚РёРєР°: travel-time ' + (item.travel_time_display || 'РЅ/Рґ') + ', РїРѕРєСЂС‹С‚РёРµ РџР§ ' + (item.fire_station_coverage_display || 'РЅ/Рґ') + ', СЃРµСЂРІРёСЃРЅР°СЏ Р·РѕРЅР° ' + (item.service_zone_label || 'РЅРµ РѕРїСЂРµРґРµР»РµРЅР°') + ', Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚ ' + (item.logistics_priority_display || '0 / 100') + '.');
+                lines.push((index + 1) + '. ' + (item.label || 'Территория'));
+                lines.push('   Риск: ' + (item.risk_display || '0 / 100') + ' | Класс: ' + (item.risk_class_label || '-') + ' | Приоритет: ' + (item.priority_label || '-'));
+                lines.push('   Формула: ' + (item.risk_formula_display || 'Нет формулы.'));
+                lines.push('   Логистика: travel-time ' + (item.travel_time_display || 'н/д') + ', покрытие ПЧ ' + (item.fire_station_coverage_display || 'н/д') + ', сервисная зона ' + (item.service_zone_label || 'не определена') + ', логистический приоритет ' + (item.logistics_priority_display || '0 / 100') + '.');
                 (item.component_scores || []).forEach(function (component) {
-                    lines.push('   - ' + (component.label || 'РљРѕРјРїРѕРЅРµРЅС‚') + ': ' + (component.score_display || '0 / 100') + ', РІРµСЃ ' + (component.weight_display || '0%') + ', РІРєР»Р°Рґ ' + (component.contribution_display || '0 Р±Р°Р»Р»Р°'));
+                    lines.push('   - ' + (component.label || 'Компонент') + ': ' + (component.score_display || '0 / 100') + ', вес ' + (component.weight_display || '0%') + ', вклад ' + (component.contribution_display || '0 балла'));
                 });
-                lines.push('   РџРѕС‡РµРјСѓ: ' + (item.ranking_reason || item.drivers_display || 'РќРµС‚ РїРѕСЏСЃРЅРµРЅРёСЏ.'));
-                lines.push('   РќР°РґС‘Р¶РЅРѕСЃС‚СЊ: ' + ((item.ranking_confidence_label || 'РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ')) + ' (' + (item.ranking_confidence_display || '0 / 100') + ')');
-                lines.push('   РџРѕСЏСЃРЅРµРЅРёРµ: ' + (item.ranking_confidence_note || 'РќРµС‚ РїРѕСЏСЃРЅРµРЅРёСЏ РїРѕ РЅР°РґС‘Р¶РЅРѕСЃС‚Рё.'));
-                lines.push('   Р§С‚Рѕ СЃРґРµР»Р°С‚СЊ РїРµСЂРІС‹Рј: ' + (item.action_label || 'РџР»Р°РЅРѕРІРѕРµ РЅР°Р±Р»СЋРґРµРЅРёРµ') + '. ' + (item.action_hint || ''));
+                lines.push('   Почему: ' + (item.ranking_reason || item.drivers_display || 'Нет пояснения.'));
+                lines.push('   Надёжность: ' + ((item.ranking_confidence_label || 'Ограниченная')) + ' (' + (item.ranking_confidence_display || '0 / 100') + ')');
+                lines.push('   Пояснение: ' + (item.ranking_confidence_note || 'Нет пояснения по надёжности.'));
+                lines.push('   Что сделать первым: ' + (item.action_label || 'Плановое наблюдение') + '. ' + (item.action_hint || ''));
             });
         } else {
-            lines.push('РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ С‚РµСЂСЂРёС‚РѕСЂРёР№.');
+            lines.push('Нет данных для ранжирования территорий.');
         }
 
-        lines.push('', 'РћРіСЂР°РЅРёС‡РµРЅРёСЏ Рё Р·Р°РјРµС‡Р°РЅРёСЏ');
+        lines.push('', 'Ограничения и замечания');
         if (notes.length) {
             notes.slice(0, 10).forEach(function (note, index) {
                 lines.push((index + 1) + '. ' + note);
             });
         } else {
-            lines.push('1. РЎСѓС‰РµСЃС‚РІРµРЅРЅС‹С… РѕРіСЂР°РЅРёС‡РµРЅРёР№ РІ С‚РµРєСѓС‰РµРј СЃСЂРµР·Рµ РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ.');
+            lines.push('1. Существенных ограничений в текущем срезе не зафиксировано.');
         }
 
         return lines.join('\r\n');
@@ -672,28 +672,28 @@
 
         currentForecastData = data;
 
-        setSelectOptions('forecastTableFilter', filters.available_tables, filters.table_name, 'РќРµС‚ С‚Р°Р±Р»РёС†');
-        setSelectOptions('forecastHistoryWindowFilter', filters.available_history_windows, filters.history_window, 'Р’СЃРµ РіРѕРґС‹');
-        setSelectOptions('forecastDistrictFilter', filters.available_districts, filters.district, 'Р’СЃРµ СЂР°Р№РѕРЅС‹');
-        setSelectOptions('forecastCauseFilter', filters.available_causes, filters.cause, 'Р’СЃРµ РїСЂРёС‡РёРЅС‹');
-        setSelectOptions('forecastObjectCategoryFilter', filters.available_object_categories, filters.object_category, 'Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё');
-        setSelectOptions('forecastDaysFilter', filters.available_forecast_days, filters.forecast_days, '14 РґРЅРµР№');
+        setSelectOptions('forecastTableFilter', filters.available_tables, filters.table_name, 'Нет таблиц');
+        setSelectOptions('forecastHistoryWindowFilter', filters.available_history_windows, filters.history_window, 'Все годы');
+        setSelectOptions('forecastDistrictFilter', filters.available_districts, filters.district, 'Все районы');
+        setSelectOptions('forecastCauseFilter', filters.available_causes, filters.cause, 'Все причины');
+        setSelectOptions('forecastObjectCategoryFilter', filters.available_object_categories, filters.object_category, 'Все категории');
+        setSelectOptions('forecastDaysFilter', filters.available_forecast_days, filters.forecast_days, '14 дней');
         setValue('forecastTemperatureInput', filters.temperature || '');
 
         setText('forecastModelDescription', data.model_description || '');
-        setText('forecastLeadSummary', summary.hero_summary || executiveBrief.lead || risk.top_territory_explanation || 'РџРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РєСЂР°С‚РєРёР№ РІС‹РІРѕРґ РїРѕ РґР°С‚Р°Рј, РіРґРµ СЃС†РµРЅР°СЂРёР№ РІС‹РіР»СЏРґРёС‚ РЅР°РїСЂСЏР¶С‘РЅРЅРµРµ.');
-        setText('forecastTableLabel', summary.selected_table_label || 'РќРµС‚ С‚Р°Р±Р»РёС†С‹');
-        setText('forecastHistoryMode', summary.history_window_label || 'Р’СЃРµ РіРѕРґС‹');
-        setText('forecastSliceLabel', summary.slice_label || 'Р’СЃРµ РїРѕР¶Р°СЂС‹');
-        setText('forecastTemperatureMode', summary.temperature_scenario_display || 'РСЃС‚РѕСЂРёС‡РµСЃРєР°СЏ СЃРµР·РѕРЅРЅРѕСЃС‚СЊ');
+        setText('forecastLeadSummary', summary.hero_summary || executiveBrief.lead || risk.top_territory_explanation || 'После расчёта здесь появится краткий вывод по датам, где сценарий выглядит напряжённее.');
+        setText('forecastTableLabel', summary.selected_table_label || 'Нет таблицы');
+        setText('forecastHistoryMode', summary.history_window_label || 'Все годы');
+        setText('forecastSliceLabel', summary.slice_label || 'Все пожары');
+        setText('forecastTemperatureMode', summary.temperature_scenario_display || 'Историческая сезонность');
         setText('forecastAverageValue', summary.average_probability_display || '0%');
-        setText('forecastDaysTotal', (summary.forecast_days_display || '0') + ' РґРЅРµР№');
+        setText('forecastDaysTotal', (summary.forecast_days_display || '0') + ' дней');
         setText('forecastHeroPriority', executiveBrief.top_territory_label || risk.top_territory_label || '-');
-        setText('forecastHeroPriorityMeta', executiveBrief.priority_reason || risk.top_territory_explanation || 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕРїСЂРµРґРµР»РµРЅРёСЏ С‚РµСЂСЂРёС‚РѕСЂРёРё РїРµСЂРІРѕРіРѕ РІРЅРёРјР°РЅРёСЏ.');
-        setText('forecastHeroConfidence', executiveBrief.confidence_label || risk.top_territory_confidence_label || leadTerritory.ranking_confidence_label || passport.confidence_label || 'РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ');
+        setText('forecastHeroPriorityMeta', executiveBrief.priority_reason || risk.top_territory_explanation || 'Недостаточно данных для определения территории первого внимания.');
+        setText('forecastHeroConfidence', executiveBrief.confidence_label || risk.top_territory_confidence_label || leadTerritory.ranking_confidence_label || passport.confidence_label || 'Ограниченная');
         setText('forecastHeroConfidenceScore', executiveBrief.confidence_score_display || risk.top_territory_confidence_score_display || leadTerritory.ranking_confidence_display || passport.confidence_score_display || '0 / 100');
-        setText('forecastHeroConfidenceMeta', executiveBrief.confidence_summary || risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'РџРѕСЏСЃРЅРµРЅРёРµ РїРѕ РЅР°РґРµР¶РЅРѕСЃС‚Рё С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРіРѕ РІС‹РІРѕРґР° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р°.');
-        setText('forecastCommandExportExcerpt', executiveBrief.export_excerpt || 'РљСЂР°С‚РєР°СЏ СЌРєСЃРїРѕСЂС‚РёСЂСѓРµРјР°СЏ СЃРїСЂР°РІРєР° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р°.');
+        setText('forecastHeroConfidenceMeta', executiveBrief.confidence_summary || risk.top_territory_confidence_note || leadTerritory.ranking_confidence_note || passport.validation_summary || 'Пояснение по надежности территориального вывода появится после расчета.');
+        setText('forecastCommandExportExcerpt', executiveBrief.export_excerpt || 'Краткая экспортируемая справка появится после расчёта.');
         setText('forecastFiresCount', summary.fires_count_display || '0');
         setText('forecastHistoryDays', summary.history_days_display || '0');
         setText('forecastActiveDays', summary.active_days_display || '0');
@@ -704,17 +704,17 @@
         setText('forecastPeakValue', summary.peak_forecast_probability_display || '0%');
         setText('forecastPeakRiskDay', summary.peak_forecast_day_display || '-');
         setText('forecastPeakRiskValue', summary.peak_forecast_probability_display || '0%');
-        setText('forecastSidebarTable', summary.selected_table_label || 'РќРµС‚ С‚Р°Р±Р»РёС†С‹');
-        setText('forecastSidebarHistory', summary.history_period_label || 'РќРµС‚ РґР°РЅРЅС‹С…');
-        setText('forecastSidebarHorizon', (summary.forecast_days_display || '0') + ' РґРЅ.');
+        setText('forecastSidebarTable', summary.selected_table_label || 'Нет таблицы');
+        setText('forecastSidebarHistory', summary.history_period_label || 'Нет данных');
+        setText('forecastSidebarHorizon', (summary.forecast_days_display || '0') + ' дн.');
         applyToneClass(byId('forecastHeroPriorityCard'), normalizeTone(executiveBrief.priority_tone || leadTerritory.risk_tone || 'low'));
         applyToneClass(byId('forecastHeroConfidenceCard'), normalizeTone(executiveBrief.confidence_tone || risk.top_territory_confidence_tone || leadTerritory.ranking_confidence_tone || passport.confidence_tone || 'fire'));
 
-        setText('forecastDailyChartTitle', 'Р§С‚Рѕ РѕР¶РёРґР°РµС‚СЃСЏ РїРѕ РґРЅСЏРј');
-        setText('forecastWeekdayChartTitle', 'РљР°РєРёРµ РґРЅРё РЅРµРґРµР»Рё С‡Р°С‰Рµ РЅР°РїСЂСЏР¶С‘РЅРЅРµРµ');
+        setText('forecastDailyChartTitle', 'Что ожидается по дням');
+        setText('forecastWeekdayChartTitle', 'Какие дни недели чаще напряжённее');
         setText('forecastRiskDescription', risk.model_description || '');
         setText('forecastRiskTopLabel', risk.top_territory_label || '-');
-        setText('forecastRiskTopExplanation', risk.top_territory_explanation || 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ Р»РёРґРёСЂСѓСЋС‰РµР№ С‚РµСЂСЂРёС‚РѕСЂРёРё.');
+        setText('forecastRiskTopExplanation', risk.top_territory_explanation || 'Недостаточно данных для лидирующей территории.');
 
         var summaryNode = byId('forecastSummaryLine');
         if (summaryNode) {
@@ -724,8 +724,8 @@
         renderInsights(data.insights || []);
         renderCommandCards(executiveBrief);
         renderCommandNotes(executiveBrief);
-        renderNotes('forecastNotesList', data.notes || [], 'Р—Р°РјРµС‡Р°РЅРёР№ РїРѕРєР° РЅРµС‚.');
-        renderNotes('forecastRiskNotes', risk.notes || [], 'РџРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° Р·РґРµСЃСЊ РїРѕСЏРІСЏС‚СЃСЏ РїСЂРёРјРµС‡Р°РЅРёСЏ Рѕ РіСЂР°РЅРёС†Р°С… РјРµР¶РґСѓ СЃС†РµРЅР°СЂРЅС‹Рј РїСЂРѕРіРЅРѕР·РѕРј, ML-РїСЂРѕРіРЅРѕР·РѕРј Рё С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Рј РїСЂРёРѕСЂРёС‚РµС‚РѕРј.');
+        renderNotes('forecastNotesList', data.notes || [], 'Замечаний пока нет.');
+        renderNotes('forecastRiskNotes', risk.notes || [], 'После расчёта здесь появятся примечания о границах между сценарным прогнозом, ML-прогнозом и территориальным приоритетом.');
         renderWeightProfile(risk.weight_profile || {});
         renderForecastTable(data.forecast_rows || []);
         renderRiskSummary(risk.summary_cards || []);

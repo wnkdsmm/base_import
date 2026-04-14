@@ -37,9 +37,9 @@ def _build_scatter_chart(
     cluster_frame: pd.DataFrame,
     entity_frame: pd.DataFrame,
 ) -> Dict[str, Any]:
-    title = "Р С™Р В»Р В°РЎРѓРЎвЂљР ВµРЎР‚РЎвЂ№ РЎвЂљР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘Р в„– Р Р…Р В° Р Т‘Р Р†РЎС“Р СР ВµРЎР‚Р Р…Р С•Р в„– Р С—РЎР‚Р С•Р ВµР С”РЎвЂ Р С‘Р С‘"
+    title = "Кластеры территорий на двумерной проекции"
     if not PLOTLY_AVAILABLE:
-        return build_plotly_unavailable_chart_bundle(title, "Plotly Р Р…Р ВµР Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р ВµР Р…, Р С—Р С•РЎРЊРЎвЂљР С•Р СРЎС“ Р С–РЎР‚Р В°РЎвЂћР С‘Р С” Р С”Р В»Р В°РЎРѓРЎвЂљР ВµРЎР‚Р С•Р Р† Р Р…Р Вµ Р С—Р С•РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р….")
+        return build_plotly_unavailable_chart_bundle(title, "Plotly недоступен, поэтому график кластеров не построен.")
 
     figure = go.Figure()
     palette = build_plotly_palette(
@@ -53,9 +53,9 @@ def _build_scatter_chart(
         for row_index in np.where(mask)[0]:
             entity_row = entity_frame.iloc[row_index]
             details = [
-                f"<b>{entity_row.get('Р СћР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘РЎРЏ', 'Р СћР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘РЎРЏ')}</b>",
-                f"Р В Р В°Р в„–Р С•Р Р…: {entity_row.get('Р В Р В°Р в„–Р С•Р Р…', 'РІР‚вЂќ')}",
-                f"Р С™Р С•Р Р…РЎвЂљР ВµР С”РЎРѓРЎвЂљ: {entity_row.get('Р СћР С‘Р С— РЎвЂљР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘Р С‘', 'РІР‚вЂќ')}",
+                f"<b>{entity_row.get('Территория', 'Территория')}</b>",
+                f"Район: {entity_row.get('Район', '—')}",
+                f"Контекст: {entity_row.get('Тип территории', '—')}",
             ]
             details.extend(
                 f"{column}: {_format_metric(column, cluster_frame.iloc[row_index][column])}" for column in preview_columns
@@ -83,8 +83,8 @@ def _build_scatter_chart(
     figure.update_layout(
         **merge_plotly_layout(
             build_service_plotly_layout("", height=420),
-            xaxis={"title": "Р С™Р С•Р СР С—Р С•Р Р…Р ВµР Р…РЎвЂљР В° 1 (PCA)", "showgrid": False, "zeroline": False},
-            yaxis={"title": "Р С™Р С•Р СР С—Р С•Р Р…Р ВµР Р…РЎвЂљР В° 2 (PCA)", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
+            xaxis={"title": "Компонента 1 (PCA)", "showgrid": False, "zeroline": False},
+            yaxis={"title": "Компонента 2 (PCA)", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
             legend=build_horizontal_legend(y=1.1),
         )
     )
@@ -97,14 +97,14 @@ def _build_distribution_chart(
     total_rows: int,
     entity_frame: pd.DataFrame,
 ) -> Dict[str, Any]:
-    title = "Р В Р В°Р В·Р СР ВµРЎР‚РЎвЂ№ Р С”Р В»Р В°РЎРѓРЎвЂљР ВµРЎР‚Р С•Р Р† Р С—Р С• РЎвЂЎР С‘РЎРѓР В»РЎС“ РЎвЂљР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘Р в„–"
+    title = "Размеры кластеров по числу территорий"
     if not PLOTLY_AVAILABLE:
-        return build_plotly_unavailable_chart_bundle(title, "Plotly Р Р…Р ВµР Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р ВµР Р…, Р С—Р С•РЎРЊРЎвЂљР С•Р СРЎС“ РЎР‚Р В°РЎРѓР С—РЎР‚Р ВµР Т‘Р ВµР В»Р ВµР Р…Р С‘Р Вµ Р С”Р В»Р В°РЎРѓРЎвЂљР ВµРЎР‚Р С•Р Р† Р Р…Р Вµ Р С—Р С•РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р…Р С•.")
+        return build_plotly_unavailable_chart_bundle(title, "Plotly недоступен, поэтому распределение кластеров не построено.")
 
     counts = [int(np.sum(labels == cluster_id)) for cluster_id in range(len(cluster_labels))]
     shares = [count / total_rows if total_rows else 0.0 for count in counts]
     fire_totals = [
-        int(entity_frame.loc[labels == cluster_id, "Р В§Р С‘РЎРѓР В»Р С• Р С—Р С•Р В¶Р В°РЎР‚Р С•Р Р†"].sum()) if "Р В§Р С‘РЎРѓР В»Р С• Р С—Р С•Р В¶Р В°РЎР‚Р С•Р Р†" in entity_frame.columns else 0
+        int(entity_frame.loc[labels == cluster_id, "Число пожаров"].sum()) if "Число пожаров" in entity_frame.columns else 0
         for cluster_id in range(len(cluster_labels))
     ]
     colors = build_plotly_palette(
@@ -121,13 +121,13 @@ def _build_distribution_chart(
                 textposition="outside",
                 marker={"color": colors[: len(cluster_labels)]},
                 customdata=fire_totals,
-                hovertemplate="<b>%{x}</b><br>Р СћР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘Р в„–: %{y}<br>Р вЂќР С•Р В»РЎРЏ: %{text}<br>Р СџР С•Р В¶Р В°РЎР‚Р С•Р Р† Р Р† Р С‘РЎРѓРЎвЂљР С•РЎР‚Р С‘Р С‘: %{customdata}<extra></extra>",
+                hovertemplate="<b>%{x}</b><br>Территорий: %{y}<br>Доля: %{text}<br>Пожаров в истории: %{customdata}<extra></extra>",
             )
         ]
     )
     figure.update_layout(
         **merge_plotly_layout(
-            plotly_layout("Р СћР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘Р в„–", height=340),
+            plotly_layout("Территорий", height=340),
             updates={"showlegend": False},
         )
     )
@@ -141,11 +141,11 @@ def _build_diagnostics_chart(
     best_silhouette_k: int | None,
     elbow_k: int | None,
 ) -> Dict[str, Any]:
-    title = "Р СџР С•Р Т‘РЎРѓР С”Р В°Р В·Р С”Р В° Р С—Р С• РЎвЂЎР С‘РЎРѓР В»РЎС“ Р С”Р В»Р В°РЎРѓРЎвЂљР ВµРЎР‚Р С•Р Р†"
+    title = "Подсказка по числу кластеров"
     if not rows:
-        return _empty_chart_bundle(title, "Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• РЎвЂљР ВµРЎР‚РЎР‚Р С‘РЎвЂљР С•РЎР‚Р С‘Р в„–, РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎРѓРЎР‚Р В°Р Р†Р Р…Р С‘РЎвЂљРЎРЉ Р С”Р С•РЎРЊРЎвЂћРЎвЂћР С‘РЎвЂ Р С‘Р ВµР Р…РЎвЂљ РЎРѓР С‘Р В»РЎС“РЎРЊРЎвЂљР В° Р С‘ Р СР ВµРЎвЂљР С•Р Т‘ Р В»Р С•Р С”РЎвЂљРЎРЏ Р С—Р С• Р Р…Р ВµРЎРѓР С”Р С•Р В»РЎРЉР С”Р С‘Р С Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘РЎРЏР С k.")
+        return _empty_chart_bundle(title, "Недостаточно территорий, чтобы сравнить коэффициент силуэта и метод локтя по нескольким значениям k.")
     if not PLOTLY_AVAILABLE:
-        return build_plotly_unavailable_chart_bundle(title, "Plotly Р Р…Р ВµР Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р ВµР Р…, Р С—Р С•РЎРЊРЎвЂљР С•Р СРЎС“ Р Т‘Р С‘Р В°Р С–Р Р…Р С•РЎРѓРЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘Р в„– Р С–РЎР‚Р В°РЎвЂћР С‘Р С” Р Р…Р Вµ Р С—Р С•РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р….")
+        return build_plotly_unavailable_chart_bundle(title, "Plotly недоступен, поэтому диагностический график не построен.")
 
     x = [item["cluster_count"] for item in rows]
     silhouette_values = [item["silhouette"] for item in rows]
@@ -159,10 +159,10 @@ def _build_diagnostics_chart(
             x=x,
             y=silhouette_values,
             mode="lines+markers",
-            name="Р С™Р С•РЎРЊРЎвЂћРЎвЂћР С‘РЎвЂ Р С‘Р ВµР Р…РЎвЂљ РЎРѓР С‘Р В»РЎС“РЎРЊРЎвЂљР В°",
+            name="Коэффициент силуэта",
             marker=build_plotly_marker(color=PLOTLY_PALETTE["forest"], size=8),
             line=build_plotly_line(color=PLOTLY_PALETTE["forest"], width=2),
-            hovertemplate="k=%{x}<br>Р С™Р С•РЎРЊРЎвЂћРЎвЂћР С‘РЎвЂ Р С‘Р ВµР Р…РЎвЂљ РЎРѓР С‘Р В»РЎС“РЎРЊРЎвЂљР В°=%{y:.3f}<extra></extra>",
+            hovertemplate="k=%{x}<br>Коэффициент силуэта=%{y:.3f}<extra></extra>",
         )
     )
     figure.add_trace(
@@ -170,22 +170,22 @@ def _build_diagnostics_chart(
             x=x,
             y=inertia_values,
             mode="lines+markers",
-            name="Р ВР Р…Р ВµРЎР‚РЎвЂ Р С‘РЎРЏ",
+            name="Инерция",
             yaxis="y2",
             marker=build_plotly_marker(color=PLOTLY_PALETTE["fire"], size=8),
             line=build_plotly_line(color=PLOTLY_PALETTE["fire"], width=2),
-            hovertemplate="k=%{x}<br>Р ВР Р…Р ВµРЎР‚РЎвЂ Р С‘РЎРЏ=%{y:.2f}<extra></extra>",
+            hovertemplate="k=%{x}<br>Инерция=%{y:.2f}<extra></extra>",
         )
     )
 
     figure.update_layout(
         **merge_plotly_layout(
-            plotly_layout("Р С™Р С•РЎРЊРЎвЂћРЎвЂћР С‘РЎвЂ Р С‘Р ВµР Р…РЎвЂљ РЎРѓР С‘Р В»РЎС“РЎРЊРЎвЂљР В°", height=340),
-            xaxis={"title": "Р В§Р С‘РЎРѓР В»Р С• Р С”Р В»Р В°РЎРѓРЎвЂљР ВµРЎР‚Р С•Р Р†", "tickmode": "array", "tickvals": x},
-            yaxis={"title": "Р С™Р С•РЎРЊРЎвЂћРЎвЂћР С‘РЎвЂ Р С‘Р ВµР Р…РЎвЂљ РЎРѓР С‘Р В»РЎС“РЎРЊРЎвЂљР В°", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
+            plotly_layout("Коэффициент силуэта", height=340),
+            xaxis={"title": "Число кластеров", "tickmode": "array", "tickvals": x},
+            yaxis={"title": "Коэффициент силуэта", "gridcolor": PLOTLY_PALETTE["grid"], "zeroline": False},
             legend=build_horizontal_legend(y=1.12),
             updates={
-                "yaxis2": {"title": "Р ВР Р…Р ВµРЎР‚РЎвЂ Р С‘РЎРЏ", "overlaying": "y", "side": "right", "showgrid": False},
+                "yaxis2": {"title": "Инерция", "overlaying": "y", "side": "right", "showgrid": False},
                 "shapes": build_unique_vertical_reference_lines(
                     [
                         (current_cluster_count, PLOTLY_PALETTE["sky"]),
@@ -197,10 +197,10 @@ def _build_diagnostics_chart(
                 "annotations": build_reference_annotations(
                     y_value=y_anchor,
                     references=[
-                        (current_cluster_count, "Р Р°Р±РѕС‡РёР№ k", PLOTLY_PALETTE["sky"]),
-                        (recommended_cluster_count, "Р РµРєРѕРјРµРЅРґСѓРµРјС‹Р№ k", PLOTLY_PALETTE["sand"]),
-                        (best_silhouette_k, "Р›СѓС‡С€РёР№ silhouette", PLOTLY_PALETTE["forest"]),
-                        (elbow_k, "Р›РѕРєРѕС‚СЊ", PLOTLY_PALETTE["fire"]),
+                        (current_cluster_count, "Рабочий k", PLOTLY_PALETTE["sky"]),
+                        (recommended_cluster_count, "Рекомендуемый k", PLOTLY_PALETTE["sand"]),
+                        (best_silhouette_k, "Лучший silhouette", PLOTLY_PALETTE["forest"]),
+                        (elbow_k, "Локоть", PLOTLY_PALETTE["fire"]),
                     ],
                 ),
             },
@@ -210,7 +210,7 @@ def _build_diagnostics_chart(
 
 
 def _format_metric(column_name: str, value: Any) -> str:
-    if column_name.startswith("Р вЂќР С•Р В»РЎРЏ") or column_name.startswith("Р СџР С•Р С”РЎР‚РЎвЂ№РЎвЂљР С‘Р Вµ"):
+    if column_name.startswith("Доля") or column_name.startswith("Покрытие"):
         return _format_percent(float(value))
     return _format_number(value, 2)
 
@@ -262,11 +262,10 @@ def _diagnostic_annotations(
     return build_reference_annotations(
         y_value=y_anchor,
         references=[
-            (current_cluster_count, "Р Р°Р±РѕС‡РёР№ k", PLOTLY_PALETTE["sky"]),
-            (recommended_cluster_count, "Р РµРєРѕРјРµРЅРґСѓРµРјС‹Р№ k", PLOTLY_PALETTE["sand"]),
-            (best_silhouette_k, "Р›СѓС‡С€РёР№ silhouette", PLOTLY_PALETTE["forest"]),
-            (elbow_k, "Р›РѕРєРѕС‚СЊ", PLOTLY_PALETTE["fire"]),
+            (current_cluster_count, "Рабочий k", PLOTLY_PALETTE["sky"]),
+            (recommended_cluster_count, "Рекомендуемый k", PLOTLY_PALETTE["sand"]),
+            (best_silhouette_k, "Лучший silhouette", PLOTLY_PALETTE["forest"]),
+            (elbow_k, "Локоть", PLOTLY_PALETTE["fire"]),
         ],
     )
-
 
