@@ -8,7 +8,7 @@
 }
 
 .map-frame-panel {
-    padding-bottom: 24px;
+    padding-bottom: var(--space-token-34);
 }
 
 .map-frame-shell {
@@ -50,7 +50,7 @@
 }
 
 .map-error-page h1 {
-    margin: 0 0 12px;
+    margin: var(--space-token-01);
     font-size: clamp(24px, 4vw, 28px);
 }
 

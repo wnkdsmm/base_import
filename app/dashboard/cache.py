@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+"""Dashboard cache orchestration.
+
+This module keeps dashboard-specific cache keys and invalidation logic on top of
+generic primitives from ``app.cache``.
+"""
+
 from typing import Any, Dict, Optional, Tuple
 
 from app.db_metadata import get_table_signature_cached, invalidate_db_metadata_cache
-from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
+from app.cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
 from app.table_catalog import select_user_table_names
 from app.statistics_constants import DASHBOARD_CACHE_TTL_SECONDS, METADATA_CACHE_TTL_SECONDS
 
@@ -69,3 +75,4 @@ __all__ = [
     "_metadata_table_names",
     "_set_dashboard_cache",
 ]
+

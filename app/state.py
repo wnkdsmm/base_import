@@ -7,7 +7,7 @@ from threading import RLock
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from app.runtime_cache import clone_mutable_payload, freeze_mutable_payload
+from app.cache import clone_mutable_payload, freeze_mutable_payload
 from config.paths import UPLOADS_DIR
 
 
@@ -322,3 +322,4 @@ class JobStore:
 
 
 job_store = JobStore()
+

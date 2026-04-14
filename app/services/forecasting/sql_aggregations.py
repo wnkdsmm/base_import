@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+"""Forecasting SQL aggregation builders with shared SQL-level TTL cache."""
+
 import hashlib
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
-from app.runtime_cache import CopyingTtlCache
+from app.cache import CopyingTtlCache
 from config.db import engine
 
 from .selection import _canonicalize_source_tables, _normalize_filter_value
@@ -388,3 +390,4 @@ class AggregationQueryBuilder(QueryBuilder):
             )
             current_date += timedelta(days=1)
         return history
+

@@ -4,7 +4,7 @@ from typing import Callable, List, Optional, Tuple
 
 from sqlalchemy import inspect
 
-from app.runtime_cache import CopyingTtlCache
+from app.cache import CopyingTtlCache
 from config.db import engine
 
 _METADATA_CACHE_TTL_SECONDS = 60.0
@@ -98,3 +98,4 @@ __all__ = [
     "register_table_order_cache_invalidator",
     "table_exists_cached",
 ]
+

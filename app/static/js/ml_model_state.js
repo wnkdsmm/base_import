@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
     var shared = global.FireUi || {};
     var byId = shared.byId;
 

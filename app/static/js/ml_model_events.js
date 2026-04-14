@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
     global.MlModelEvents = {
         bootstrap: function bootstrapMlModelPage() {
             if (!global.MlModelUi || typeof global.MlModelUi.init !== 'function') {

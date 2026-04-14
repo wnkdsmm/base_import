@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Deprecated compatibility layer for forecast-risk constants."""
+
 from app.domain.fire_columns import (
     AREA_COLUMN,
     ARRIVAL_TIME_COLUMN_CANDIDATES,
@@ -31,6 +33,5 @@ from app.domain.fire_columns import (
     WATER_SUPPLY_COUNT_COLUMN_CANDIDATES,
     WATER_SUPPLY_DETAILS_COLUMN_CANDIDATES,
 )
+from config.constants import MAX_TERRITORIES
 
-
-MAX_TERRITORIES = 12

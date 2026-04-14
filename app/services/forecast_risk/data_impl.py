@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from sqlalchemy import text
 
 from app.db_metadata import get_table_columns_cached
+from app.services.shared.sql_helpers import build_scope_conditions, build_select_parts
 from config.db import engine
 
 from .constants import (
@@ -111,31 +112,20 @@ def _build_scope_conditions(
     object_category: str = "all",
     selected_year: Optional[int] = None,
 ) -> tuple[Optional[str], list[str], Dict[str, Any], bool]:
-    date_column = resolved_columns["date"]
-    if not date_column:
-        return None, [], {}, True
-
-    date_expression = _date_expression(date_column)
-    conditions = [f"{date_expression} IS NOT NULL"]
-    params: Dict[str, Any] = {}
-    if min_year is not None:
-        conditions.append(f"EXTRACT(YEAR FROM {date_expression}) >= :min_year")
-        params["min_year"] = min_year
-    if selected_year is not None:
-        conditions.append(f"EXTRACT(YEAR FROM {date_expression}) = :selected_year")
-        params["selected_year"] = selected_year
-
-    for field_name, selected_value in (("district", district), ("cause", cause), ("object_category", object_category)):
-        normalized_value = str(selected_value or "").strip() or "all"
-        if normalized_value == "all":
-            continue
-        column_name = resolved_columns.get(field_name)
-        if not column_name:
-            return date_expression, conditions, params, False
-        conditions.append(f"{_text_expression(column_name)} = :{field_name}")
-        params[field_name] = normalized_value
-
-    return date_expression, conditions, params, True
+    return build_scope_conditions(
+        resolved_columns,
+        date_field="date",
+        date_expression_builder=_date_expression,
+        text_expression_builder=_text_expression,
+        text_filters=(
+            ("district", district),
+            ("cause", cause),
+            ("object_category", object_category),
+        ),
+        min_year=min_year,
+        selected_year=selected_year,
+        all_value="all",
+    )
 
 
 def _collect_risk_inputs(
@@ -246,12 +236,15 @@ def _load_risk_records(
         "injuries": "injuries_value",
         "deaths": "deaths_value",
     }
-    for key, alias in text_aliases.items():
-        if resolved_columns.get(key):
-            select_parts.append(f"{_text_expression(resolved_columns[key])} AS {alias}")
-    for key, alias in numeric_aliases.items():
-        if resolved_columns.get(key):
-            select_parts.append(f"{_numeric_expression_for_column(resolved_columns[key])} AS {alias}")
+    select_parts.extend(
+        build_select_parts(
+            resolved_columns,
+            text_aliases=text_aliases,
+            numeric_aliases=numeric_aliases,
+            text_expression_builder=_text_expression,
+            numeric_expression_builder=_numeric_expression_for_column,
+        )
+    )
 
     query = text(
         f"""

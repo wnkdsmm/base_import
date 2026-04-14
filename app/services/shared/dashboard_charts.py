@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Sequence
 from app.services.charting import (
     build_empty_chart_bundle,
     build_empty_plotly_payload,
-    build_horizontal_legend,
     build_item_horizontal_bar_payload,
     build_item_chart_bundle,
     build_item_pie_payload,
@@ -15,12 +14,15 @@ from app.services.charting import (
     build_plotly_bar_payload,
     build_plotly_bar_trace,
     build_plotly_line,
-    build_plotly_layout,
     build_plotly_marker,
-    build_plotly_palette,
     build_plotly_payload_from_traces,
     build_plotly_scatter_payload,
     build_plotly_scatter_trace,
+)
+from app.services.chart_utils import (
+    build_horizontal_legend,
+    build_plotly_layout,
+    build_plotly_palette,
     merge_plotly_layout,
 )
 from app.statistics_constants import PLOTLY_PALETTE

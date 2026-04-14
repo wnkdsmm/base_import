@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from app.runtime_cache import CopyingTtlCache
+from app.cache import CopyingTtlCache
 from app.table_catalog import get_user_table_options, resolve_selected_table_value
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
@@ -102,3 +102,4 @@ def get_fire_map_page_context(table_name: str = "") -> Dict[str, Any]:
         "risk_prediction": risk_prediction,
         "has_data": bool(selected_table),
     }
+

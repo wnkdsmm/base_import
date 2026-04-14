@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Deprecated compatibility layer for access-points constants.
+
+Canonical sources:
+- non-UI constants: ``config.constants``
+- domain metadata/columns: ``app.domain.*``
+"""
+
 from app.domain.access_points_metadata import (
     ACCESS_POINTS_DESCRIPTION,
     ACCESS_POINTS_TITLE,
@@ -38,34 +45,14 @@ from app.domain.fire_columns import (
     WATER_SUPPLY_COUNT_COLUMN_CANDIDATES,
     WATER_SUPPLY_DETAILS_COLUMN_CANDIDATES,
 )
-
-
-ACCESS_POINT_LIMIT_OPTIONS = [10, 25, 50, 100]
-DEFAULT_ACCESS_POINT_LIMIT = 25
-MIN_ACCESS_POINT_SUPPORT = 3
-TOP_POINT_CARD_COUNT = 5
-MAX_INCOMPLETE_POINTS = 6
-MAX_NOTES = 7
-MAX_ACCESS_POINT_FEATURE_OPTIONS = 10
-
-POINT_FEATURE_COLUMNS = (
-    "incident_count",
-    "incidents_per_year",
-    "average_response_minutes",
-    "response_coverage_share",
-    "long_arrival_share",
-    "average_distance_km",
-    "distance_coverage_share",
-    "no_water_share",
-    "water_coverage_share",
-    "water_unknown_share",
-    "severe_share",
-    "victim_share",
-    "major_damage_share",
-    "night_share",
-    "heating_share",
-    "rural_share",
-    "rural_flag",
-    "low_support",
-    "support_weight",
+from config.constants import (
+    ACCESS_POINT_LIMIT_OPTIONS,
+    DEFAULT_ACCESS_POINT_LIMIT,
+    MAX_ACCESS_POINT_FEATURE_OPTIONS,
+    MAX_INCOMPLETE_POINTS,
+    MAX_NOTES,
+    MIN_ACCESS_POINT_SUPPORT,
+    POINT_FEATURE_COLUMNS,
+    TOP_POINT_CARD_COUNT,
 )
+

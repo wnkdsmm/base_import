@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var shared = window.FireUi;
     if (!shared) {
         return;

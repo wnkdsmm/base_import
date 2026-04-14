@@ -113,16 +113,17 @@ def _prepare_cluster_frame(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, int]:
     return _LOADER.prepare_cluster_frame(feature_frame, entity_frame, selected_features)
 
+def _aggregate_territory_frame(records: Sequence[Dict[str, Any]]) -> pd.DataFrame:
+    return _impl._aggregate_territory_frame(records)
 
-def _reexport_impl(module: object, excluded_names: Sequence[str]) -> list[str]:
-    exported: list[str] = []
-    excluded = set(excluded_names)
-    for name, value in vars(module).items():
-        if name.startswith("__") or name in excluded:
-            continue
-        globals()[name] = value
-        exported.append(name)
-    return exported
+
+def _shrink_rate(
+    successes: float,
+    support: float,
+    prior_rate: float | None,
+    prior_strength: float,
+) -> float:
+    return _impl._shrink_rate(successes, support, prior_rate, prior_strength)
 
 
 __all__ = [
@@ -136,9 +137,6 @@ __all__ = [
     "_resolve_selected_features",
     "_build_feature_options",
     "_prepare_cluster_frame",
+    "_aggregate_territory_frame",
+    "_shrink_rate",
 ]
-__all__.extend(_reexport_impl(_impl, __all__))
-__all__ = list(dict.fromkeys(__all__))
-
-
-del _reexport_impl

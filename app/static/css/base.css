@@ -65,6 +65,118 @@
     --sidebar-end: #144a97;
     --sidebar-surface: #24569f;
     --sidebar-border: #4c79be;
+
+    /* Status badges */
+    --color-bg-page: #f4f8ff;
+    --color-accent-light: #dbeafe;
+    --color-accent-primary: #3467b7;
+    --color-accent-hover: #2a5ea9;
+    --color-accent-primary-hover: #3569b5;
+    --color-accent-light-hover: #4477c0;
+    --color-badge-active-bg: #2d5f9c;
+    --color-badge-active-text: #eff6ff;
+    --color-badge-live-bg: #2f7a5f;
+    --color-badge-live-text: #d8ffe8;
+    --color-text-dark: #223247;
+    --color-success-surface: #eff8f3;
+    --color-warning-surface: #fff9f4;
+    --color-info-surface: #e8f0f7;
+    --color-highlight-blue: #dfeaff;
+    --color-highlight-blue-2: #e4ecff;
+    --color-highlight-green: #dff0e8;
+    --color-highlight-red: #ffe5df;
+
+    /* Extracted hardcoded tokens */
+    /* Colors */
+    --color-token-01: #027a48;
+    --color-token-02: #20486a;
+    --color-token-03: #2b6b55;
+    --color-token-04: #304258;
+    --color-token-05: #334155;
+    --color-token-06: #475569;
+    --color-token-07: #64748b;
+    --color-token-08: #8a5d00;
+    --color-token-09: #9a4029;
+    --color-token-10: #d8e5fb;
+    --color-token-11: #e2e8f0;
+    --color-token-12: #edf8f2;
+    --color-token-13: #eef8f2;
+    --color-token-14: #f0f6ff;
+    --color-token-15: #fff2ee;
+    --color-token-16: #fff7ed;
+    --color-token-17: #fffaf2;
+    --color-token-18: rgba(148, 163, 184, 0.14);
+    --color-token-19: rgba(148, 163, 184, 0.18);
+    --color-token-20: rgba(148, 163, 184, 0.2);
+    --color-token-21: rgba(15, 118, 110, 0.12);
+    --color-token-22: rgba(184, 129, 34, 0.18);
+    --color-token-23: rgba(186, 72, 44, 0.18);
+    --color-token-24: rgba(217, 93, 57, 0.18);
+    --color-token-25: rgba(217, 93, 57, 0.2);
+    --color-token-26: rgba(217, 93, 57, 0.28);
+    --color-token-27: rgba(228, 197, 147, 0.34);
+    --color-token-28: rgba(236, 244, 255, 0.72);
+    --color-token-29: rgba(238, 246, 255, 0.92);
+    --color-token-30: rgba(255, 255, 255, 0.72);
+    --color-token-31: rgba(255, 255, 255, 0.86);
+    --color-token-32: rgba(37, 99, 235, 0.24);
+    --color-token-33: rgba(47, 122, 95, 0.16);
+    --color-token-34: rgba(47, 122, 95, 0.24);
+    --color-token-35: rgba(71, 120, 214, 0.18);
+    --color-token-36: rgba(71, 120, 214, 0.22);
+    --color-token-37: rgba(71, 120, 214, 0.32);
+    /* Spacing */
+    --space-token-01: 0 0 12px;
+    --space-token-02: 0 14px;
+    --space-token-03: 0 16px;
+    --space-token-04: 0 18px;
+    --space-token-05: 10px;
+    --space-token-06: 10px 0;
+    --space-token-07: 10px 0 0;
+    --space-token-08: 10px 12px;
+    --space-token-09: 10px 14px;
+    --space-token-10: 12px 0 0;
+    --space-token-11: 12px 0 8px;
+    --space-token-12: 12px 14px;
+    --space-token-13: 12px 16px;
+    --space-token-14: 14px 0 0;
+    --space-token-15: 14px 14px 12px;
+    --space-token-16: 14px 16px;
+    --space-token-17: 14px 18px;
+    --space-token-18: 16px 18px;
+    --space-token-19: 18px 20px;
+    --space-token-20: 18px 22px;
+    --space-token-21: 22px;
+    --space-token-22: 28px;
+    --space-token-23: 4px;
+    --space-token-24: 4px 10px;
+    --space-token-25: 6px;
+    --space-token-26: 6px 10px;
+    --space-token-27: 6px 12px;
+    --space-token-28: 8px;
+    /* Font sizes */
+    --font-size-token-01: 11px;
+    --font-size-token-02: 13px;
+    --font-size-token-03: 15px;
+    --font-size-token-04: 17px;
+    --font-size-token-05: 30px;
+    --font-size-token-06: 34px;
+    /* Spacing aliases */
+    --space-token-29: 12px;
+    --space-token-30: 14px;
+    --space-token-31: 16px;
+    --space-token-32: 18px;
+    --space-token-33: 20px;
+    --space-token-34: 24px;
+    --space-token-35: clamp(16px, 2vw, 28px);
+    /* Font aliases */
+    --font-size-token-07: 12px;
+    --font-size-token-08: 14px;
+    --font-size-token-09: 16px;
+    --font-size-token-10: 18px;
+    --font-size-token-11: 22px;
+    --font-size-token-12: 24px;
+    --font-size-token-13: 28px;
 }
 
 * {
@@ -106,7 +218,7 @@ input:focus-visible {
     left: 16px;
     top: -64px;
     z-index: var(--z-overlay);
-    padding: 12px 16px;
+    padding: var(--space-token-13);
     border-radius: var(--radius-control);
     color: var(--text-inverse-soft);
     background: var(--accent);
@@ -130,4 +242,215 @@ img,
 iframe,
 svg {
     max-width: 100%;
+}
+
+/* Extracted forecasting/profiling shared declarations */
+
+.details-panel summary::after,
+.details-table th,
+.file-path,
+.forecast-cell-note,
+.forecast-feature-card p,
+.info-note-card p,
+.log-run-label,
+.log-run-note,
+.mandatory-card p,
+.mandatory-card-meta,
+.metric-hint,
+.metric-label,
+.quality-summary-text,
+.reason-meta,
+.risk-component-card p,
+.risk-drivers,
+.risk-formula,
+.risk-metrics-grid span,
+.risk-recommendation-item span,
+.risk-territory-callout p,
+.risk-territory-callout span,
+.risk-territory-meta span,
+.risk-weight-card p,
+.risk-weight-meta,
+.section-copy,
+.table-select-label,
+.threshold-field label,
+.threshold-field small {
+    color: var(--muted);
+}
+.column-pairs-grid,
+.forecast-feature-list,
+.forecast-layout,
+.forecast-primary,
+.forecast-secondary,
+.info-note-list,
+.log-run-summary,
+.mandatory-catalog-grid,
+.profiling-layout .profiling-page,
+.profiling-main-grid,
+.profiling-page .hero-side,
+.profiling-side-stack,
+.result-card .panel-head,
+.results-grid,
+.results-section-compact,
+.risk-components-grid,
+.risk-decision-grid,
+.risk-grid,
+.risk-metrics-grid,
+.risk-recommendation-list,
+.risk-side-stack,
+.risk-territory-list,
+.risk-territory-meta,
+.risk-weight-grid,
+.risk-weight-meta,
+.run-summary-panel .panel-head,
+.selector-panel .panel-head,
+.summary-grid,
+.table-select-block,
+.threshold-grid {
+    display: grid;
+}
+.details-panel summary,
+.details-table td,
+.file-label,
+.forecast-feature-source,
+.info-note-card strong,
+.log-run-value,
+.mandatory-card-head strong,
+.metric-value,
+.reason-title,
+.risk-component-head strong,
+.risk-drivers strong,
+.risk-formula strong,
+.risk-metrics-grid strong,
+.risk-recommendation-item strong,
+.risk-territory-callout strong,
+.risk-territory-head strong,
+.risk-territory-meta strong,
+.risk-weight-head strong,
+.risk-weight-meta strong,
+.status-idle,
+.table-select,
+.threshold-field input {
+    color: var(--ink);
+}
+.info-note-card strong,
+.log-run-label,
+.log-run-value,
+.metric-label,
+.risk-component-bar span,
+.risk-metrics-grid span,
+.risk-recommendation-item span,
+.risk-recommendation-item strong,
+.risk-score-bar span,
+.risk-territory-callout span,
+.risk-territory-callout strong,
+.risk-territory-head strong,
+.risk-territory-meta span,
+.threshold-field label,
+.threshold-field small {
+    display: block;
+}
+.action-row,
+.chip-list,
+.file-list,
+.forecast-feature-head,
+.mandatory-card-head,
+.reason-list,
+.risk-component-head,
+.risk-territory-head,
+.risk-territory-tags,
+.risk-weight-head,
+.selector-panel {
+    display: flex;
+}
+.empty-state,
+.info-note-list,
+.mandatory-catalog-grid,
+.risk-components-grid,
+.risk-metrics-grid,
+.risk-recommendation-list,
+.risk-territory-callout,
+.risk-territory-meta,
+.risk-weight-grid,
+.status-banner {
+    margin-top: var(--space-token-31);
+}
+.chip,
+.empty-state,
+.selection-note,
+.text-link {
+    color: var(--accent-deep);
+}
+.profiling-page .hero-stat-card,
+.risk-recommendation-item,
+.risk-territory-callout,
+.risk-weight-card {
+    padding: var(--space-token-16);
+}
+.chip,
+.forecast-badge,
+.forecast-scenario-pill {
+    display: inline-flex;
+}
+.mandatory-card p,
+.risk-component-card p,
+.risk-drivers,
+.risk-formula,
+.risk-weight-card p {
+    margin: var(--space-token-07);
+}
+.action-row, .result-card .chip-list, .result-card .file-list, .result-card .reason-list, .risk-weight-meta, .selection-note, .threshold-grid {
+    margin-top: var(--space-token-29);
+}
+.forecast-note-list li + li, .mandatory-synonyms, .profiling-page .hero-tags, .risk-component-bar, .risk-component-meta, .risk-territory-tags {
+    margin-top: var(--space-token-05);
+}
+.details-table td,
+.details-table th,
+.log-run-card,
+.risk-metrics-grid div,
+.selection-note {
+    padding: var(--space-token-12);
+}
+.mandatory-card-meta,
+.removed-columns-list,
+.risk-score-bar,
+.table-select-block {
+    margin-top: var(--space-token-30);
+}
+.file-path,
+.log-run-value,
+.reason-meta {
+    margin-top: var(--space-token-25);
+}
+.forecast-cell-note,
+.forecast-feature-source,
+.metric-hint,
+.risk-recommendation-item span {
+    margin-top: var(--space-token-28);
+}
+.info-note-card,
+.risk-territory-card {
+    padding: var(--space-token-32);
+}
+.details-panel summary::-webkit-details-marker,
+.details-table.table-stack-mobile td::before,
+.results-section-compact > .details-panel:last-of-type,
+.risk-map-panel.is-compact .forecast-plot {
+    display: none;
+}
+.forecast-note-list,
+.section-copy {
+    margin: 0;
+}
+.forecast-feature-card p,
+.profiling-page .subtitle,
+.risk-territory-callout p {
+    margin: 8px 0 0;
+}
+.risk-territory-meta span, .threshold-field input {
+    padding: var(--space-token-08);
+}
+.forecast-feature-card,
+.metric-card {
+    padding: var(--space-token-18);
 }

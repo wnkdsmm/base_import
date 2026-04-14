@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from sqlalchemy import text
 
 from app.db_metadata import get_table_columns_cached
+from app.services.shared.sql_helpers import select_expression_or_fallback
 from app.services.shared.data_utils import (
     _calculate_response_minutes,
     _clean_text,
@@ -122,15 +123,19 @@ def _load_table_metadata(table_name: str) -> Dict[str, Any]:
 
 
 def _optional_text_expression(column_name: Optional[str], fallback: str = "''") -> str:
-    if not column_name:
-        return fallback
-    return _text_expression(column_name)
+    return select_expression_or_fallback(
+        column_name,
+        _text_expression,
+        fallback=fallback,
+    )
 
 
 def _optional_numeric_expression(column_name: Optional[str], fallback: str = "NULL") -> str:
-    if not column_name:
-        return fallback
-    return _numeric_expression_for_column(column_name)
+    return select_expression_or_fallback(
+        column_name,
+        _numeric_expression_for_column,
+        fallback=fallback,
+    )
 
 
 def _build_source_sql(table_name: str, resolved_columns: Dict[str, Optional[str]]) -> str:

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
-from app.runtime_cache import build_immutable_payload_lru_cache
+from app.cache import build_immutable_payload_lru_cache
 from app.services.forecasting.data import (
     _build_daily_history_sql,
     _build_forecasting_table_options,
@@ -322,5 +322,6 @@ def clear_ml_model_cache() -> None:
     clear_ml_model_input_cache()
     clear_training_artifact_cache()
     clear_forecasting_sql_cache()
+
 
 

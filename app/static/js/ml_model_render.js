@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
     var shared = global.FireUi || {};
     var api = global.MlModelApi || {};
     var charts = global.MlModelCharts || {};

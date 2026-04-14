@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Sequence, Tuple
 
 from app.plotly_bundle import get_plotly_bundle
-from app.runtime_cache import CopyingTtlCache
+from app.cache import CopyingTtlCache
 from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
 
 from .constants import (
@@ -212,3 +212,4 @@ def _empty_clustering_data(
             "available_features": [],
         },
     }
+

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Sequence
 
-from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
+from app.cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
 
 from .selection import _canonicalize_source_tables, _normalize_filter_value
+from .types import ForecastingBaseInputs, ForecastingMetadataInputs
 
 ForecastingDeps = Dict[str, Callable[..., Any]]
 
@@ -84,7 +85,7 @@ def load_forecasting_metadata_inputs(
     cause: str,
     object_category: str,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingMetadataInputs:
     bundle = _load_forecasting_metadata_bundle(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -110,7 +111,7 @@ def load_base_forecasting_inputs(
     cause: str,
     object_category: str,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingBaseInputs:
     metadata_inputs = load_forecasting_metadata_inputs(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -188,3 +189,4 @@ def _load_forecasting_metadata_bundle(
         ),
     }
     return _FORECASTING_METADATA_BUNDLE_CACHE.set(cache_key, payload)
+

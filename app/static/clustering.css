@@ -15,8 +15,8 @@
 .cluster-feature-picker {
     display: grid;
     gap: 16px;
-    margin-top: 8px;
-    padding: 22px;
+    margin-top: var(--space-token-28);
+    padding: var(--space-token-21);
     border-radius: var(--radius-panel);
     border: 1px solid var(--line);
     background: var(--surface-panel);
@@ -33,7 +33,7 @@
     grid-template-columns: auto minmax(0, 1fr);
     gap: 12px;
     align-items: start;
-    padding: 16px;
+    padding: var(--space-token-31);
     border-radius: var(--radius-card);
     border: 1px solid var(--line);
     background: var(--surface-panel);
@@ -55,7 +55,7 @@
 .cluster-feature-option input {
     width: 18px;
     height: 18px;
-    margin-top: 4px;
+    margin-top: var(--space-token-23);
 }
 
 .cluster-feature-copy {
@@ -72,17 +72,17 @@
 
 .cluster-feature-meta {
     display: block;
-    margin-top: 6px;
+    margin-top: var(--space-token-25);
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--font-size-token-02);
     line-height: 1.45;
 }
 
 .cluster-feature-help {
-    padding-top: 8px;
+    padding-top: var(--space-token-28);
     border-top: 1px dashed rgba(46, 83, 140, 0.16);
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--font-size-token-02);
     line-height: 1.5;
 }
 
@@ -125,7 +125,7 @@
 }
 
 .cluster-overview-card {
-    padding: 16px;
+    padding: var(--space-token-31);
     border-radius: var(--radius-card);
     border: 1px solid var(--line);
 }
@@ -146,17 +146,17 @@
     align-items: center;
     justify-content: center;
     min-width: 76px;
-    padding: 6px 10px;
+    padding: var(--space-token-26);
     border-radius: var(--radius-pill);
-    color: #f8fbff;
-    font-size: 12px;
+    color: var(--paper);
+    font-size: var(--font-size-token-07);
     background: var(--accent);
 }
 
 .cluster-overview-meta,
 .cluster-overview-foot {
     display: block;
-    margin-top: 8px;
+    margin-top: var(--space-token-28);
     color: var(--muted);
     line-height: 1.45;
 }

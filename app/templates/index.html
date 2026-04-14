@@ -56,6 +56,9 @@ window.__FIRE_DASHBOARD_INITIAL_DATA__ = {{ dashboard.initial_data | tojson }};
 {% block scripts %}
 <script src="/assets/plotly.js"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/dashboard_state.js?v={{ dashboard_js_version }}"></script>
+<script src="/static/js/dashboard_render.js?v={{ dashboard_js_version }}"></script>
+<script src="/static/js/dashboard_events.js?v={{ dashboard_js_version }}"></script>
 <script src="/static/js/dashboard.js?v={{ dashboard_js_version }}"></script>
 {{ super() }}
 {% endblock %}

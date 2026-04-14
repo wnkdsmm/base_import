@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Sequence, Tuple
 from app.perf import current_perf_trace, profiled
 from config.db import engine
 
-from .constants import HIGH_THRESHOLD, MIN_ROWS_PER_CLUSTER
+from .constants import MIN_ROWS_PER_CLUSTER
 from .core_algorithms import _run_clustering_model_stage
 from .core_context import (
     _CLUSTERING_CACHE,

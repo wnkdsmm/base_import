@@ -8,6 +8,12 @@ from . import selection as _selection
 from . import shaping as _shaping
 from . import sources as _sources
 from . import sql as _sql
+from .types import (
+    ForecastingDailyHistoryRow,
+    ForecastingInputRecord,
+    ForecastingOptionCatalog,
+    ForecastingTableMetadata,
+)
 
 
 class ForecastingDataLoader(DataLoader):
@@ -17,7 +23,7 @@ class ForecastingDataLoader(DataLoader):
     def build_forecasting_table_options(self) -> List[Dict[str, str]]:
         return _selection._build_forecasting_table_options()
 
-    def collect_forecasting_metadata(self, source_tables: Sequence[str]) -> tuple[List[Dict[str, Any]], List[str]]:
+    def collect_forecasting_metadata(self, source_tables: Sequence[str]) -> tuple[List[ForecastingTableMetadata], List[str]]:
         return _sources._collect_forecasting_metadata(source_tables)
 
     def collect_forecasting_inputs(
@@ -27,7 +33,7 @@ class ForecastingDataLoader(DataLoader):
         cause: str = "all",
         object_category: str = "all",
         history_window: str = "all",
-    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+    ) -> tuple[List[ForecastingTableMetadata], List[ForecastingInputRecord], List[str]]:
         return _sources._collect_forecasting_inputs(
             source_tables,
             district=district,
@@ -40,8 +46,8 @@ class ForecastingDataLoader(DataLoader):
         self,
         source_tables: Sequence[str],
         history_window: str = "all",
-        metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-    ) -> Dict[str, List[Dict[str, str]]]:
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    ) -> ForecastingOptionCatalog:
         return _sql._build_option_catalog_sql(
             source_tables,
             history_window=history_window,
@@ -55,8 +61,8 @@ class ForecastingDataLoader(DataLoader):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
-    ) -> List[Dict[str, Any]]:
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    ) -> List[ForecastingDailyHistoryRow]:
         return _sql._build_daily_history_sql(
             source_tables,
             history_window=history_window,
@@ -73,7 +79,7 @@ class ForecastingDataLoader(DataLoader):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        metadata_items: Optional[Sequence[Dict[str, Any]]] = None,
+        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
     ) -> int:
         return _sql._count_forecasting_records_sql(
             source_tables,

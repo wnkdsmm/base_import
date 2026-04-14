@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.domain.column_matching import (
     COLUMN_CATEGORY_RULES,

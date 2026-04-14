@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
     var render = global.MlModelRender || {};
     var stateFactory = global.MlModelState && typeof global.MlModelState.create === 'function'
         ? global.MlModelState.create

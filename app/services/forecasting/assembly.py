@@ -4,21 +4,22 @@ from datetime import datetime
 from statistics import mean
 from typing import Any, Callable, Dict, Sequence
 
-from app.runtime_cache import clone_mutable_payload
+from app.cache import clone_mutable_payload
 
 from .inputs import load_base_forecasting_inputs, load_forecasting_metadata_inputs
+from .types import ForecastingPayload, ForecastingRequestState, TableOption
 
 ForecastingDeps = Dict[str, Callable[..., Any]]
 
 
 def build_forecasting_metadata_payload(
-    metadata_payload: Dict[str, Any],
+    metadata_payload: ForecastingPayload,
     *,
     source_tables: Sequence[str],
     source_table_notes: Sequence[str],
     selected_history_window: str,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingPayload:
     metadata_inputs = load_forecasting_metadata_inputs(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -398,7 +399,7 @@ def _build_base_forecasting_presentation(
 
 def build_forecasting_base_payload(
     *,
-    table_options: Sequence[Dict[str, Any]],
+    table_options: Sequence[TableOption],
     selected_table: str,
     source_tables: Sequence[str],
     source_table_notes: Sequence[str],
@@ -411,7 +412,7 @@ def build_forecasting_base_payload(
     selected_history_window: str,
     include_decision_support: bool,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingPayload:
     inputs = _load_base_forecasting_inputs(
         source_tables=source_tables,
         selected_history_window=selected_history_window,
@@ -500,11 +501,11 @@ def build_forecasting_base_payload(
 
 def complete_forecasting_decision_support_payload(
     *,
-    base_payload: Dict[str, Any],
-    request_state: Dict[str, Any],
+    base_payload: ForecastingPayload,
+    request_state: ForecastingRequestState,
     progress_callback: Callable[[str, str], None] | None,
     deps: ForecastingDeps,
-) -> Dict[str, Any]:
+) -> ForecastingPayload:
     filters = base_payload.get("filters") or {}
     available_tables = filters.get("available_tables") or request_state["table_options"]
     selected_table = str(filters.get("table_name") or request_state["selected_table"] or "all")
@@ -644,3 +645,4 @@ def _build_decision_support_block(
         )
         risk_prediction["notes"].append(f"Техническая причина: {exc}")
         return risk_prediction, {}, False, False, True, decision_support_status_message
+

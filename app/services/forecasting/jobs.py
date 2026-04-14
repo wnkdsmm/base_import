@@ -21,6 +21,7 @@ from .core import (
     _build_forecasting_request_state,
     get_forecasting_decision_support_data,
 )
+from .types import ForecastingJobStatus
 
 _FORECASTING_DECISION_SUPPORT_EXECUTOR = ThreadPoolExecutor(
     max_workers=2,
@@ -39,7 +40,7 @@ def start_forecasting_decision_support_job(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-) -> Dict[str, Any]:
+) -> ForecastingJobStatus:
     request_state = _build_forecasting_request_state(
         table_name=table_name,
         district=district,
@@ -94,7 +95,7 @@ def start_forecasting_decision_support_job(
     )
 
 
-def get_forecasting_decision_support_job_status(session_id: str, job_id: str) -> Dict[str, Any]:
+def get_forecasting_decision_support_job_status(session_id: str, job_id: str) -> ForecastingJobStatus:
     return build_standard_job_status_payload(session_id, job_id, reused=False)
 
 

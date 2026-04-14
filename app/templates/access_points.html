@@ -51,6 +51,9 @@ window.__FIRE_ACCESS_POINTS_INITIAL__ = {{ data | tojson }};
 {% block scripts %}
 <script src="/assets/plotly.js"></script>
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/access_points_state.js?v={{ access_points_js_version }}"></script>
+<script src="/static/js/access_points_render.js?v={{ access_points_js_version }}"></script>
+<script src="/static/js/access_points_events.js?v={{ access_points_js_version }}"></script>
 <script src="/static/js/access_points.js?v={{ access_points_js_version }}"></script>
 {{ super() }}
 {% endblock %}

@@ -7,7 +7,6 @@ from typing import Any
 
 _MODULE_EXPORTS = {
     "data_access": ".data_access",
-    "data_access_impl": ".data_access_impl",
     "forecast_bounds": ".forecast_bounds",
     "forecast_calibration": ".forecast_calibration",
     "forecast_intervals": ".forecast_intervals",

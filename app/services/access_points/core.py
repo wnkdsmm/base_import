@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 from app.perf import profiled
-from app.runtime_cache import CopyingTtlCache
+from app.cache import CopyingTtlCache
 from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
 from app.services.shared.formatting import _format_datetime
 from config.db import engine
@@ -419,3 +419,4 @@ def get_access_points_data(
         "notes": notes,
     }
     return _ACCESS_POINTS_CACHE.set(request_state["cache_key"], _sanitize_json_payload(payload))
+

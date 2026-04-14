@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
     function boot() {
         if (!global.MlModelEvents || typeof global.MlModelEvents.bootstrap !== 'function') {
             return;

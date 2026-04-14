@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+"""Forecasting SQL facade.
+
+Role split:
+- Keeps forecasting SQL/public helpers and routes calls to specialized builders.
+- Uses builder-owned SQL cache for query/materialized-view metadata reuse.
+- Delegates generic TTL/LRU behavior to ``app.cache`` via ``sql_aggregations``.
+"""
+
 from collections import Counter
 from datetime import date
 from typing import Any, Dict, List, Optional, Sequence

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 from app.perf import current_perf_trace, profiled
 from app.plotly_bundle import get_plotly_bundle
-from app.runtime_cache import build_immutable_payload_ttl_cache
+from app.cache import build_immutable_payload_ttl_cache
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
     compose_executive_brief_text,
@@ -65,6 +65,7 @@ from .presentation import (
     _build_summary,
 )
 from .quality import _build_scenario_quality_assessment, _run_scenario_backtesting
+from .types import ForecastingContext, ForecastingPayload
 from .utils import (
     _format_datetime,
     _format_float_for_input,
@@ -289,7 +290,7 @@ def get_forecasting_page_context(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-) -> Dict[str, Any]:
+) -> ForecastingContext:
     try:
         initial_data = get_forecasting_data(
             table_name=table_name,
@@ -335,7 +336,7 @@ def get_forecasting_shell_context(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-) -> Dict[str, Any]:
+) -> ForecastingContext:
     perf = current_perf_trace()
     request_state = _build_forecasting_request_state(
         table_name=table_name,
@@ -454,7 +455,7 @@ def get_forecasting_metadata(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
-) -> Dict[str, Any]:
+) -> ForecastingPayload:
     perf = current_perf_trace()
     with perf.span("filter_prep") if perf is not None else nullcontext():
         metadata_payload = _build_forecasting_shell_data(
@@ -517,7 +518,7 @@ def get_forecasting_data(
     forecast_days: str = "14",
     history_window: str = "all",
     include_decision_support: bool = True,
-) -> Dict[str, Any]:
+) -> ForecastingPayload:
     perf = current_perf_trace()
     request_state = _build_forecasting_request_state(
         table_name=table_name,
@@ -635,7 +636,7 @@ def get_forecasting_decision_support_data(
     forecast_days: str = "14",
     history_window: str = "all",
     progress_callback: Callable[[str, str], None] | None = None,
-) -> Dict[str, Any]:
+) -> ForecastingPayload:
     request_state = _build_forecasting_request_state(
         table_name=table_name,
         district=district,
@@ -723,3 +724,4 @@ def _forecasting_assembly_dependencies() -> Dict[str, Callable[..., Any] | Any]:
         "temperature_quality_from_daily_history": _temperature_quality_from_daily_history,
         "build_daily_history_sql": _build_daily_history_sql,
     }
+

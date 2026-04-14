@@ -1,124 +1,164 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields, replace
-from typing import Any, Callable, Dict, Iterable, Optional, Self
+from typing import Any, Callable, Dict, Iterable, Optional, Self, TypedDict
 
 from app.domain.predictive_settings import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
+from app.labels import (
+    ML_COUNT_MODEL_LABELS as L_ML_COUNT_MODEL_LABELS,
+    ML_COUNT_SELECTION_RULE as L_ML_COUNT_SELECTION_RULE,
+    ML_EVENT_BASELINE_METHOD_LABEL as L_ML_EVENT_BASELINE_METHOD_LABEL,
+    ML_EVENT_BASELINE_ROLE_LABEL as L_ML_EVENT_BASELINE_ROLE_LABEL,
+    ML_EVENT_CLASSIFIER_ROLE_LABEL as L_ML_EVENT_CLASSIFIER_ROLE_LABEL,
+    ML_EVENT_HEURISTIC_METHOD_LABEL as L_ML_EVENT_HEURISTIC_METHOD_LABEL,
+    ML_EVENT_HEURISTIC_ROLE_LABEL as L_ML_EVENT_HEURISTIC_ROLE_LABEL,
+    ML_EVENT_MODEL_LABEL as L_ML_EVENT_MODEL_LABEL,
+    ML_EVENT_SELECTION_RULE as L_ML_EVENT_SELECTION_RULE,
+    ML_FEATURE_LABELS as L_ML_FEATURE_LABELS,
+    ML_HISTORY_WINDOW_LABELS as L_ML_HISTORY_WINDOW_LABELS,
+    ML_MODEL_NAME as L_ML_MODEL_NAME,
+    ML_PREDICTION_INTERVAL_BLOCKED_CV_LABEL as L_ML_PREDICTION_INTERVAL_BLOCKED_CV_LABEL,
+    ML_PREDICTION_INTERVAL_FIXED_CHRONO_LABEL as L_ML_PREDICTION_INTERVAL_FIXED_CHRONO_LABEL,
+    ML_PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL as L_ML_PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL,
+    ML_PREDICTION_INTERVAL_METHOD_LABEL as L_ML_PREDICTION_INTERVAL_METHOD_LABEL,
+    ML_PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL as L_ML_PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL,
+    ML_PREDICTIVE_BLOCK_DESCRIPTION as L_ML_PREDICTIVE_BLOCK_DESCRIPTION,
+)
+from config.constants import (
+    CLASSIFICATION_THRESHOLD as C_CLASSIFICATION_THRESHOLD,
+    COUNT_MODEL_CONTINUOUS_COLUMNS as C_COUNT_MODEL_CONTINUOUS_COLUMNS,
+    COUNT_MODEL_KEYS as C_COUNT_MODEL_KEYS,
+    COUNT_MODEL_SELECTION_TOLERANCE as C_COUNT_MODEL_SELECTION_TOLERANCE,
+    EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE,
+    EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION,
+    EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS,
+    EVENT_RATE_SATURATION_MARGIN as C_EVENT_RATE_SATURATION_MARGIN,
+    EXPLAINABLE_COUNT_MODEL_KEY as C_EXPLAINABLE_COUNT_MODEL_KEY,
+    FEATURE_COLUMNS as C_FEATURE_COLUMNS,
+    LOGISTIC_PARAMS as C_LOGISTIC_PARAMS,
+    MAX_BACKTEST_POINTS as C_MAX_BACKTEST_POINTS,
+    MAX_HISTORY_POINTS as C_MAX_HISTORY_POINTS,
+    MIN_BACKTEST_POINTS as C_MIN_BACKTEST_POINTS,
+    MIN_DAILY_HISTORY as C_MIN_DAILY_HISTORY,
+    MIN_EVENT_CLASS_COUNT as C_MIN_EVENT_CLASS_COUNT,
+    MIN_FEATURE_ROWS as C_MIN_FEATURE_ROWS,
+    MIN_INTERVAL_BIN_RESIDUALS as C_MIN_INTERVAL_BIN_RESIDUALS,
+    MIN_INTERVAL_CALIBRATION_WINDOWS as C_MIN_INTERVAL_CALIBRATION_WINDOWS,
+    MIN_INTERVAL_EVALUATION_WINDOWS as C_MIN_INTERVAL_EVALUATION_WINDOWS,
+    MIN_POSITIVE_PREDICTION as C_MIN_POSITIVE_PREDICTION,
+    ML_CACHE_LIMIT as C_ML_CACHE_LIMIT,
+    ML_CACHE_SCHEMA_VERSION,
+    ML_FORECAST_DAY_OPTIONS as C_ML_FORECAST_DAY_OPTIONS,
+    ML_HISTORY_WINDOWS as C_ML_HISTORY_WINDOWS,
+    NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS as C_NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS,
+    NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD as C_NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD,
+    PERMUTATION_REPEATS as C_PERMUTATION_REPEATS,
+    POISSON_PARAMS as C_POISSON_PARAMS,
+    PREDICTION_INTERVAL_CALIBRATION_FRACTION as C_PREDICTION_INTERVAL_CALIBRATION_FRACTION,
+    PREDICTION_INTERVAL_LEVEL as C_PREDICTION_INTERVAL_LEVEL,
+    PREDICTION_INTERVAL_TARGET_BINS as C_PREDICTION_INTERVAL_TARGET_BINS,
+    ROLLING_MIN_TRAIN_ROWS as C_ROLLING_MIN_TRAIN_ROWS,
+    WARNING_INSTABILITY_MESSAGE_TOKENS,
+)
 
-MODEL_NAME = 'ML-прогноз по числу пожаров'
+MODEL_NAME = L_ML_MODEL_NAME
 
-FORECAST_DAY_OPTIONS = [7, 14, 30]
+FORECAST_DAY_OPTIONS = list(C_ML_FORECAST_DAY_OPTIONS)
 HISTORY_WINDOW_OPTIONS = [
-    {'value': 'all', 'label': 'Все годы'},
-    {'value': 'recent_3', 'label': 'Последние 3 года'},
-    {'value': 'recent_5', 'label': 'Последние 5 лет'},
+    {"value": value, "label": L_ML_HISTORY_WINDOW_LABELS.get(value, value)}
+    for value in C_ML_HISTORY_WINDOWS
 ]
 
-FEATURE_LABELS = {
-    'temp_value': 'Температура',
-    'weekday': 'День недели',
-    'month': 'Месяц',
-    'lag_1': 'Пожары вчера',
-    'lag_7': 'Пожары 7 дней назад',
-    'lag_14': 'Пожары 14 дней назад',
-    'rolling_7': 'Среднее за 7 дней',
-    'rolling_28': 'Среднее за 28 дней',
-    'trend_gap': 'Разница 7/28 дней',
-}
+FEATURE_LABELS = L_ML_FEATURE_LABELS
 
-COUNT_MODEL_LABELS = {
-    'poisson': 'Регрессия Пуассона',
-    'negative_binomial': 'Negative Binomial GLM',
-    'heuristic_forecast': 'Сценарный эвристический прогноз',
-    'seasonal_baseline': 'Сезонная базовая модель',
-}
-EVENT_MODEL_LABEL = 'Логистическая регрессия'
+COUNT_MODEL_LABELS = L_ML_COUNT_MODEL_LABELS
+EVENT_MODEL_LABEL = L_ML_EVENT_MODEL_LABEL
 
-MIN_DAILY_HISTORY = 60
-MIN_FEATURE_ROWS = 24
-MIN_BACKTEST_POINTS = 8
-MIN_EVENT_CLASS_COUNT = 8
-EVENT_RATE_SATURATION_MARGIN = 0.05
-MAX_HISTORY_POINTS = 900
-MAX_BACKTEST_POINTS = 45
-PERMUTATION_REPEATS = 8
-ROLLING_MIN_TRAIN_ROWS = 28
-COUNT_MODEL_SELECTION_TOLERANCE = 0.05
+MIN_DAILY_HISTORY = C_MIN_DAILY_HISTORY
+MIN_FEATURE_ROWS = C_MIN_FEATURE_ROWS
+MIN_BACKTEST_POINTS = C_MIN_BACKTEST_POINTS
+MIN_EVENT_CLASS_COUNT = C_MIN_EVENT_CLASS_COUNT
+EVENT_RATE_SATURATION_MARGIN = C_EVENT_RATE_SATURATION_MARGIN
+MAX_HISTORY_POINTS = C_MAX_HISTORY_POINTS
+MAX_BACKTEST_POINTS = C_MAX_BACKTEST_POINTS
+PERMUTATION_REPEATS = C_PERMUTATION_REPEATS
+ROLLING_MIN_TRAIN_ROWS = C_ROLLING_MIN_TRAIN_ROWS
+COUNT_MODEL_SELECTION_TOLERANCE = C_COUNT_MODEL_SELECTION_TOLERANCE
 
-FEATURE_COLUMNS = ['temp_value', 'weekday', 'month', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
+FEATURE_COLUMNS = list(C_FEATURE_COLUMNS)
 NON_TEMPERATURE_FEATURE_COLUMNS = [column for column in FEATURE_COLUMNS if column != 'temp_value']
-COUNT_MODEL_CONTINUOUS_COLUMNS = ['temp_value', 'lag_1', 'lag_7', 'lag_14', 'rolling_7', 'rolling_28', 'trend_gap']
-COUNT_MODEL_KEYS = ['poisson', 'negative_binomial']
-EXPLAINABLE_COUNT_MODEL_KEY = 'poisson'
-NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD = 1.35
-NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS = 56
-MIN_POSITIVE_PREDICTION = 1e-6
-CLASSIFICATION_THRESHOLD = 0.5
-PREDICTION_INTERVAL_LEVEL = 0.8
-PREDICTION_INTERVAL_CALIBRATION_FRACTION = 0.6
-MIN_INTERVAL_CALIBRATION_WINDOWS = 6
-MIN_INTERVAL_EVALUATION_WINDOWS = 4
-PREDICTION_INTERVAL_TARGET_BINS = 3
-MIN_INTERVAL_BIN_RESIDUALS = 2
-PREDICTION_INTERVAL_METHOD_LABEL = 'Adaptive conformal interval with predicted-count bins'
-PREDICTION_INTERVAL_FIXED_CHRONO_LABEL = 'Fixed 60/40 chrono split conformal'
-PREDICTION_INTERVAL_BLOCKED_CV_LABEL = 'Blocked forward CV conformal'
-PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL = 'Forward rolling split conformal'
-PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL = 'Jackknife+ for time series'
+COUNT_MODEL_CONTINUOUS_COLUMNS = list(C_COUNT_MODEL_CONTINUOUS_COLUMNS)
+COUNT_MODEL_KEYS = list(C_COUNT_MODEL_KEYS)
+EXPLAINABLE_COUNT_MODEL_KEY = C_EXPLAINABLE_COUNT_MODEL_KEY
+NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD = C_NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD
+NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS = C_NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS
+MIN_POSITIVE_PREDICTION = C_MIN_POSITIVE_PREDICTION
+CLASSIFICATION_THRESHOLD = C_CLASSIFICATION_THRESHOLD
+PREDICTION_INTERVAL_LEVEL = C_PREDICTION_INTERVAL_LEVEL
+PREDICTION_INTERVAL_CALIBRATION_FRACTION = C_PREDICTION_INTERVAL_CALIBRATION_FRACTION
+MIN_INTERVAL_CALIBRATION_WINDOWS = C_MIN_INTERVAL_CALIBRATION_WINDOWS
+MIN_INTERVAL_EVALUATION_WINDOWS = C_MIN_INTERVAL_EVALUATION_WINDOWS
+PREDICTION_INTERVAL_TARGET_BINS = C_PREDICTION_INTERVAL_TARGET_BINS
+MIN_INTERVAL_BIN_RESIDUALS = C_MIN_INTERVAL_BIN_RESIDUALS
+PREDICTION_INTERVAL_METHOD_LABEL = L_ML_PREDICTION_INTERVAL_METHOD_LABEL
+PREDICTION_INTERVAL_FIXED_CHRONO_LABEL = L_ML_PREDICTION_INTERVAL_FIXED_CHRONO_LABEL
+PREDICTION_INTERVAL_BLOCKED_CV_LABEL = L_ML_PREDICTION_INTERVAL_BLOCKED_CV_LABEL
+PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL = L_ML_PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL
+PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL = L_ML_PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL
 
-EVENT_SELECTION_RULE = (
-    'Минимум Brier score, затем log-loss и ROC-AUC; при близком качестве '
-    'сохраняется более простой и интерпретируемый метод.'
-)
+EVENT_SELECTION_RULE = L_ML_EVENT_SELECTION_RULE
 
-COUNT_SELECTION_RULE = (
-    'Минимум Poisson deviance, затем MAE и RMSE среди seasonal baseline, heuristic forecast и count-model; '
-    'если heuristic forecast почти не хуже лучшей count-model, сохраняется более объяснимый рабочий метод; внутри ML-паритета предпочитается Poisson.'
-)
+COUNT_SELECTION_RULE = L_ML_COUNT_SELECTION_RULE
 
-EVENT_BASELINE_METHOD_LABEL = 'Сезонная событийная базовая модель'
-EVENT_BASELINE_ROLE_LABEL = 'Базовая модель'
-EVENT_HEURISTIC_METHOD_LABEL = 'Сценарная эвристическая вероятность'
-EVENT_HEURISTIC_ROLE_LABEL = 'Сценарный прогноз'
-EVENT_CLASSIFIER_ROLE_LABEL = 'Классификатор'
-EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS = 'too_few_comparable_windows'
-EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION = 'single_class_evaluation'
-EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE = 'saturated_event_rate'
-WARNING_INSTABILITY_MESSAGE_TOKENS = (
-    'perfect separation',
-    'perfect prediction',
-    'parameter may not be identified',
-    'parameters are not identified',
-    'failed to converge',
-    'did not converge',
-    'singular',
-    'hessian',
-)
+EVENT_BASELINE_METHOD_LABEL = L_ML_EVENT_BASELINE_METHOD_LABEL
+EVENT_BASELINE_ROLE_LABEL = L_ML_EVENT_BASELINE_ROLE_LABEL
+EVENT_HEURISTIC_METHOD_LABEL = L_ML_EVENT_HEURISTIC_METHOD_LABEL
+EVENT_HEURISTIC_ROLE_LABEL = L_ML_EVENT_HEURISTIC_ROLE_LABEL
+EVENT_CLASSIFIER_ROLE_LABEL = L_ML_EVENT_CLASSIFIER_ROLE_LABEL
 
-ML_PREDICTIVE_BLOCK_DESCRIPTION = (
-    'ML-прогноз открывают, когда нужно оценить ожидаемое число пожаров по датам для выбранного среза. '
-    'Ниже показаны прогноз количества, качество модели и факторы, которые сильнее всего влияют на результат. '
-    'Этот экран не ранжирует территории и не заменяет сценарный прогноз по вероятности пожара.'
-)
+ML_PREDICTIVE_BLOCK_DESCRIPTION = L_ML_PREDICTIVE_BLOCK_DESCRIPTION
 
-ML_CACHE_SCHEMA_VERSION = 2
-
-_CACHE_LIMIT = 128
-
-_POISSON_PARAMS = {
-    'alpha': 0.40,
-    'max_iter': 2000,
-}
-
-_LOGISTIC_PARAMS = {
-    'solver': 'liblinear',
-    'max_iter': 500,
-    'class_weight': 'balanced',
-    'random_state': 42,
-}
+_CACHE_LIMIT = C_ML_CACHE_LIMIT
+_POISSON_PARAMS = C_POISSON_PARAMS
+_LOGISTIC_PARAMS = C_LOGISTIC_PARAMS
 
 
 MlProgressCallback = Optional[Callable[[str, str], None]]
+
+
+class PredictionIntervalAdaptiveBin(TypedDict, total=False):
+    bin_index: int
+    prediction_min: Optional[float]
+    prediction_max: Optional[float]
+    lower_edge: Optional[float]
+    upper_edge: Optional[float]
+    residual_count: int
+    absolute_error_quantile: float
+    fallback_to_global: bool
+
+
+class PredictionIntervalCalibration(TypedDict, total=False):
+    level: float
+    level_display: str
+    absolute_error_quantile: float
+    residual_count: int
+    adaptive_binning_strategy: str
+    adaptive_bin_count: int
+    adaptive_bin_edges: list[float]
+    adaptive_bins: list[PredictionIntervalAdaptiveBin]
+    method_label: str
+    coverage_validated: bool
+    validated_coverage: Optional[float]
+    coverage_note: str
+    calibration_window_count: int
+    evaluation_window_count: int
+    calibration_window_range_label: str
+    evaluation_window_range_label: str
+    validation_scheme_key: str
+    validation_scheme_label: str
+    validation_scheme_explanation: str
+    reference_scheme_key: str
+    reference_scheme_label: str
 
 
 def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: str) -> None:
@@ -169,7 +209,7 @@ class MappingAccessMixin:
     def clone(self, **changes: Any) -> Self:
         return replace(self, **changes)
 
-    def copy(self) -> Dict[str, Any]:
+    def copy(self) -> dict[str, object]:
         return {key: getattr(self, key) for key in self.keys()}
 
 
@@ -472,7 +512,7 @@ class HorizonSummary(MappingAccessMixin):
 
 @dataclass
 class PredictionIntervalCalibrationByHorizon(MappingAccessMixin):
-    by_horizon: Dict[int, Dict[str, Any]] = field(default_factory=dict)
+    by_horizon: dict[int, PredictionIntervalCalibration] = field(default_factory=dict)
 
     @classmethod
     def coerce(cls, value: Any) -> "PredictionIntervalCalibrationByHorizon":
@@ -595,7 +635,7 @@ class BacktestSuccess(MappingAccessMixin):
     selected_count_model_reason: str = ""
     selected_count_model_reason_short: str = ""
     selected_metrics: CountMetrics = field(default_factory=CountMetrics)
-    prediction_interval_calibration: Dict[str, Any] = field(default_factory=dict)
+    prediction_interval_calibration: PredictionIntervalCalibration = field(default_factory=dict)
     prediction_interval_calibration_by_horizon: PredictionIntervalCalibrationByHorizon = field(
         default_factory=PredictionIntervalCalibrationByHorizon
     )
