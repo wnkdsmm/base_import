@@ -184,7 +184,7 @@
     border-radius: var(--radius-pill);
     color: var(--color-text-ice);
     font-size: var(--font-size-token-01);
-    background: rgba(37, 99, 235, 0.84);
+    background: rgba(var(--color-accent-blue-rgb), 0.84);
 }
 
 .column-tag-muted {

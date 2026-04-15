@@ -141,12 +141,12 @@
 }
 
 .point-card.tone-critical {
-    border-color: rgba(190, 24, 93, 0.28);
+    border-color: rgba(var(--color-pink-rgb), 0.28);
     background: var(--tone-critical-soft);
 }
 
 .point-card.tone-warning {
-    border-color: rgba(217, 119, 6, 0.26);
+    border-color: rgba(var(--color-amber-rgb), 0.26);
     background: var(--color-token-16);
 }
 

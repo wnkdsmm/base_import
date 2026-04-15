@@ -104,7 +104,7 @@
 }
 
 .table-action-status[data-tone="info"] {
-    border-color: rgba(37, 99, 235, 0.18);
+    border-color: rgba(var(--color-accent-blue-rgb), 0.18);
     background: var(--surface-panel-accent);
 }
 

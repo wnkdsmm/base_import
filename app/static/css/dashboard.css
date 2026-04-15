@@ -266,7 +266,7 @@
     margin-top: var(--space-token-30);
     padding: var(--space-token-12);
     border-radius: var(--radius-control);
-    border: 1px solid rgba(71, 120, 214, 0.14);
+    border: 1px solid rgba(var(--color-periwinkle-rgb), 0.14);
     background: var(--color-token-14);
 }
 

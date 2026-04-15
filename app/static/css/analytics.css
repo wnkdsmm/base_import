@@ -388,7 +388,7 @@
 }
 
 .ranking-row-table {
-    border-left: 4px solid rgba(143, 99, 48, 0.45);
+    border-left: 4px solid rgba(var(--color-brown-rgb), 0.45);
 }
 
 .ranking-row-year {
