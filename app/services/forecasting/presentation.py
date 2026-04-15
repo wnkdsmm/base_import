@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from .bootstrap import _build_slice_label
 from .selection import _table_selection_label

@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from app.services.model_quality import compute_count_metrics
 
-from .data import _build_forecast_rows
+from .shaping import _build_forecast_rows
 from .utils import _format_integer, _format_number, _format_signed_percent
 
 

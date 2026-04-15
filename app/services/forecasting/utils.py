@@ -186,10 +186,6 @@ def _forecast_stability_hint(daily_history: List[dict[str, Any]]) -> Tuple[str, 
     return "Ниже средней", "данных мало или они слишком редкие, поэтому важнее смотреть на общий тренд"
 
 
-def _probability_from_expected_count(value: float) -> float:
-    return _clamp(1.0 - math.exp(-max(0.0, float(value))), 0.0, 0.995)
-
-
 def _format_probability(value: float) -> str:
     return _format_percent(value * 100.0)
 

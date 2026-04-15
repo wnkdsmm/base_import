@@ -77,11 +77,9 @@ def _build_forecast_history_stats(daily_history: List[Dict[str, object]]) -> Dic
     overall_positive_counts = [value for value in history_counts if value > 0]
     very_recent_counts = history_counts[-14:] if len(history_counts) >= 14 else history_counts
     previous_counts = (
-        history_counts[-56:-28]
-        if len(history_counts) >= 56
-        else history_counts[: -len(recent_counts)]
-        if len(history_counts) > len(recent_counts)
-        else []
+        history_counts[-28:-14]
+        if len(history_counts) >= 28
+        else history_counts[: max(0, len(history_counts) - len(very_recent_counts))]
     )
     recent_average = mean(recent_counts) if recent_counts else overall_average
     very_recent_average = mean(very_recent_counts) if very_recent_counts else recent_average
@@ -368,7 +366,9 @@ def _build_forecast_rows(
 
     for step in range(1, forecast_days + 1):
         target_date = last_observed_date + timedelta(days=step)
-        seasonal_factor = weekday_factor.get(target_date.weekday(), 1.0) * month_factor.get(target_date.month, 1.0)
+        wf = weekday_factor.get(target_date.weekday(), 1.0)
+        mf = month_factor.get(target_date.month, 1.0)
+        seasonal_factor = wf + mf - 1.0
         usual_for_day = max(0.0, base_recent_level * seasonal_factor)
         trend_effect = base_recent_level * trend_ratio * (0.75 - 0.45 * ((step - 1) / max(1, forecast_days - 1)))
 
@@ -382,7 +382,7 @@ def _build_forecast_rows(
         )
 
         estimate = _clamp(usual_for_day + trend_effect + temperature_effect, 0.0, robust_ceiling)
-        spread = max(0.75, volatility * (0.95 + step * 0.03))
+        spread = max(0.75, volatility * (0.9 + 0.15 * (step ** 0.5)))
         lower_bound = max(0.0, estimate - spread)
         upper_bound = min(robust_ceiling + spread, estimate + spread)
         rounded_estimate = round(estimate, 2)
