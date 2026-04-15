@@ -330,9 +330,24 @@ def _build_access_point_score_series(
                 frame_index,
                 active_reason_codes,
                 (
-                    (0.42, DISTANCE_CODE, factors.distance_norm),
-                    (0.34, RESPONSE_CODE, factors.response_norm),
-                    (0.24, LONG_ARRIVAL_CODE, base.long_arrival_share),
+                    (
+                        FACTOR_WEIGHTS[DISTANCE_CODE]
+                        / (FACTOR_WEIGHTS[DISTANCE_CODE] + FACTOR_WEIGHTS[RESPONSE_CODE] + FACTOR_WEIGHTS[LONG_ARRIVAL_CODE]),
+                        DISTANCE_CODE,
+                        factors.distance_norm,
+                    ),
+                    (
+                        FACTOR_WEIGHTS[RESPONSE_CODE]
+                        / (FACTOR_WEIGHTS[DISTANCE_CODE] + FACTOR_WEIGHTS[RESPONSE_CODE] + FACTOR_WEIGHTS[LONG_ARRIVAL_CODE]),
+                        RESPONSE_CODE,
+                        factors.response_norm,
+                    ),
+                    (
+                        FACTOR_WEIGHTS[LONG_ARRIVAL_CODE]
+                        / (FACTOR_WEIGHTS[DISTANCE_CODE] + FACTOR_WEIGHTS[RESPONSE_CODE] + FACTOR_WEIGHTS[LONG_ARRIVAL_CODE]),
+                        LONG_ARRIVAL_CODE,
+                        base.long_arrival_share,
+                    ),
                 ),
             ),
             "water_score": base.no_water_share * (100.0 if WATER_CODE in active_reason_codes else 0.0),
@@ -341,9 +356,24 @@ def _build_access_point_score_series(
                 frame_index,
                 active_reason_codes,
                 (
-                    (0.72, RECURRENCE_CODE, factors.recurrence_factor),
-                    (0.18, NIGHT_CODE, base.night_share),
-                    (0.10, HEATING_CODE, base.heating_share),
+                    (
+                        FACTOR_WEIGHTS[RECURRENCE_CODE]
+                        / (FACTOR_WEIGHTS[RECURRENCE_CODE] + FACTOR_WEIGHTS[NIGHT_CODE] + FACTOR_WEIGHTS[HEATING_CODE]),
+                        RECURRENCE_CODE,
+                        factors.recurrence_factor,
+                    ),
+                    (
+                        FACTOR_WEIGHTS[NIGHT_CODE]
+                        / (FACTOR_WEIGHTS[RECURRENCE_CODE] + FACTOR_WEIGHTS[NIGHT_CODE] + FACTOR_WEIGHTS[HEATING_CODE]),
+                        NIGHT_CODE,
+                        base.night_share,
+                    ),
+                    (
+                        FACTOR_WEIGHTS[HEATING_CODE]
+                        / (FACTOR_WEIGHTS[RECURRENCE_CODE] + FACTOR_WEIGHTS[NIGHT_CODE] + FACTOR_WEIGHTS[HEATING_CODE]),
+                        HEATING_CODE,
+                        base.heating_share,
+                    ),
                 ),
             ),
             "data_gap_score": factors.uncertainty_factor * 100.0,

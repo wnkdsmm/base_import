@@ -210,11 +210,13 @@ def _build_access_point_score_decomposition(
     return score_decomposition
 
 def _score_total_and_uncertainty_penalty(score_decomposition: Sequence[dict[str, Any]]) -> tuple[float, float]:
-    total_score = 0.0
+    pure_score = 0.0
     uncertainty_penalty: float | None = None
     for item in score_decomposition:
         contribution_points = float(item.get("contribution_points") or 0.0)
-        total_score += contribution_points
-        if uncertainty_penalty is None and item.get("code") == UNCERTAINTY_CODE:
-            uncertainty_penalty = contribution_points
-    return total_score, 0.0 if uncertainty_penalty is None else uncertainty_penalty
+        if bool(item.get("is_penalty")):
+            if uncertainty_penalty is None and item.get("code") == UNCERTAINTY_CODE:
+                uncertainty_penalty = contribution_points
+            continue
+        pure_score += contribution_points
+    return pure_score, 0.0 if uncertainty_penalty is None else uncertainty_penalty

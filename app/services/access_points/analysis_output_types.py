@@ -82,7 +82,11 @@ def _make_decomposition_item(
         "weight_points": round(weight_points, 2),
         "weight_points_display": _format_number(weight_points),
         "contribution_points": round(contribution_points, 2),
-        "contribution_display": f"+{_format_number(contribution_points)}",
+        "contribution_display": (
+            f"±{_format_number(contribution_points)}"
+            if is_penalty
+            else f"+{_format_number(contribution_points)}"
+        ),
         "value_display": value_display,
         "is_penalty": is_penalty,
         "tone": _component_tone(contribution_points * 5.0),

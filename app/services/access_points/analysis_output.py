@@ -118,10 +118,11 @@ def _build_access_point_score_context(
         active_reason_codes=active_reason_codes,
         normalized_factor_weights=normalized_factor_weights,
     )
-    total_score, uncertainty_penalty = _score_total_and_uncertainty_penalty(score_decomposition)
+    pure_score, uncertainty_penalty = _score_total_and_uncertainty_penalty(score_decomposition)
+    total_score = pure_score + uncertainty_penalty
     investigation_score = min(
         100.0,
-        (0.72 * total_score) + (0.28 * (uncertainty_penalty * 100.0 / UNCERTAINTY_PENALTY_MAX)),
+        (0.72 * pure_score) + (0.28 * (uncertainty_penalty * 100.0 / UNCERTAINTY_PENALTY_MAX)),
     )
     total_score_payload = round(total_score, 1)
     uncertainty_penalty_payload = round(uncertainty_penalty, 2)
