@@ -73,7 +73,7 @@ POINT_FEATURE_COLUMNS = (
     "support_weight",
 )
 
-CLUSTER_COUNT_OPTIONS = [2, 3, 4, 5, 6]
+CLUSTER_COUNT_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10]
 SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000]
 SAMPLING_STRATEGY_VALUES = ["stratified", "random"]
 CARD_TONES = ["group", "area", "table", "fire", "muted"]
