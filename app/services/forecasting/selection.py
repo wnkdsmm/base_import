@@ -21,7 +21,7 @@ def _history_window_year_span(history_window: str) -> int:
 def _build_forecasting_table_options() -> List[Dict[str, str]]:
     options = []
     seen = set()
-    for option in get_user_table_options():
+    for option in get_user_table_options(prefer_clean=True):
         value = str(option.get("value") or "").strip()
         if not value or value == "all" or value in seen:
             continue

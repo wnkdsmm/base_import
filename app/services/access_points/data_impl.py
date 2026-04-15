@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -70,7 +70,7 @@ from .types import (
 
 
 def _build_access_points_table_options() -> List[OptionItem]:
-    return [{"value": "all", "label": "\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"}, *get_user_table_options()]
+    return [{"value": "all", "label": "\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"}, *get_user_table_options(prefer_clean=True)]
 
 
 def _resolve_selected_table(table_options: Sequence[OptionItem], table_name: str) -> str:
@@ -399,7 +399,7 @@ def _build_priority_rows(records: Sequence[PointRecord]) -> List[PriorityRow]:
                 "without_water_supply": water_supply["without_water_supply"],
                 "heating_season_fires": sum(1 for item in items if _is_heating_season(item.get("event_date"))),
                 "top_object_category": Counter(
-                    _clean_text(item.get("object_category")) or "Не указано"
+                    _clean_text(item.get("object_category")) or "�� �������"
                     for item in items
                 ).most_common(1)[0][0],
             }
@@ -428,9 +428,9 @@ def get_access_points_data(
         return {
             "table_options": table_options,
             "selected_table": selected_table,
-            "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "Все таблицы"),
-            "district_options": [{"value": "all", "label": "Все районы"}],
-            "year_options": [{"value": "all", "label": "Все годы"}],
+            "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "��� �������"),
+            "district_options": [{"value": "all", "label": "��� ������"}],
+            "year_options": [{"value": "all", "label": "��� ����"}],
             "selected_district": "all",
             "selected_year": "all",
             "summary": {"total_points": 0, "total_points_display": "0"},
@@ -452,7 +452,7 @@ def get_access_points_data(
     return {
         "table_options": table_options,
         "selected_table": selected_table,
-        "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "Все таблицы"),
+        "selected_table_label": next((item["label"] for item in table_options if item["value"] == selected_table), "��� �������"),
         "district_options": district_options,
         "year_options": year_options,
         "selected_district": selected_district,

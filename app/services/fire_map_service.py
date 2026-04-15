@@ -53,7 +53,7 @@ def build_fire_map_html(table_name: str) -> str:
 
 def get_fire_map_page_context(table_name: str = "") -> dict[str, Any]:
     generated_at = datetime.now().strftime("%d.%m.%Y %H:%M")
-    table_options = get_user_table_options()
+    table_options = get_user_table_options(prefer_clean=True)
     selected_table = resolve_selected_table_value(table_options, table_name)
     brief = empty_executive_brief()
     risk_prediction: dict[str, Any] = {

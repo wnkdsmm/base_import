@@ -81,7 +81,7 @@ def _build_forecast_history_stats(daily_history: List[Dict[str, object]]) -> Dic
         if len(history_counts) >= 28
         else history_counts[: max(0, len(history_counts) - len(very_recent_counts))]
     )
-    recent_average = mean(recent_counts) if recent_counts else overall_average
+    recent_average = mean(previous_counts) if previous_counts else overall_average
     very_recent_average = mean(very_recent_counts) if very_recent_counts else recent_average
     previous_average = mean(previous_counts) if previous_counts else recent_average
     recent_event_rate = mean(recent_events) if recent_events else (mean(history_events) if history_events else 0.0)
@@ -368,8 +368,8 @@ def _build_forecast_rows(
         target_date = last_observed_date + timedelta(days=step)
         wf = weekday_factor.get(target_date.weekday(), 1.0)
         mf = month_factor.get(target_date.month, 1.0)
-        seasonal_factor = wf + mf - 1.0
-        usual_for_day = max(0.0, base_recent_level * seasonal_factor)
+        seasonal_factor = max(0.05, wf + mf - 1.0)
+        usual_for_day = base_recent_level * seasonal_factor
         trend_effect = base_recent_level * trend_ratio * (0.75 - 0.45 * ((step - 1) / max(1, forecast_days - 1)))
 
         temperature_for_day, temperature_effect = _forecast_temperature_effect(

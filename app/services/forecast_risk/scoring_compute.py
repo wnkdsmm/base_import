@@ -68,10 +68,11 @@ def _normalized_risk_fields(
     normalization: Dict[str, float],
 ) -> RiskFactors:
     incidents = bucket["incidents"]
+    safe_incidents = max(1, incidents)
     history_pressure = incidents / max(1, normalization["max_incidents"])
     recency_pressure = bucket["weighted_history"] / max(1.0, normalization["max_weighted"])
     seasonal_alignment = _clamp(
-        0.62 * (bucket["seasonal_month_sum"] / incidents) + 0.38 * (bucket["seasonal_weekday_sum"] / incidents),
+        0.62 * (bucket["seasonal_month_sum"] / safe_incidents) + 0.38 * (bucket["seasonal_weekday_sum"] / safe_incidents),
         0.0,
         1.0,
     )

@@ -22,12 +22,57 @@ from .data_access import _fetch_table_years, _resolve_table_column_name
 from .utils import _extract_year_from_name, _parse_year
 
 
+def _is_clean_source_table(table_name: str) -> bool:
+    normalized = str(table_name or "").strip()
+    return normalized.casefold().startswith("clean_") and len(normalized) > len("clean_")
+
+
+def _source_table_canonical_key(table_name: str) -> str:
+    normalized = str(table_name or "").strip()
+    if _is_clean_source_table(normalized):
+        normalized = normalized[len("clean_") :]
+    return normalized.casefold()
+
+
+def _prefer_original_source_tables(table_names: Sequence[str]) -> List[str]:
+    selected_by_key: Dict[str, str] = {}
+    for raw_name in table_names:
+        normalized = str(raw_name or "").strip()
+        if not normalized:
+            continue
+        key = _source_table_canonical_key(normalized)
+        current = selected_by_key.get(key)
+        if current is None:
+            selected_by_key[key] = normalized
+            continue
+        current_is_clean = _is_clean_source_table(current)
+        normalized_is_clean = _is_clean_source_table(normalized)
+        if current_is_clean and not normalized_is_clean:
+            selected_by_key[key] = normalized
+    return list(selected_by_key.values())
+
+
+def _resolve_original_table_name(table_name: str, available_tables: Sequence[str]) -> str:
+    normalized = str(table_name or "").strip()
+    if not normalized:
+        return normalized
+    canonical = _source_table_canonical_key(normalized)
+    for candidate in available_tables:
+        candidate_name = str(candidate or "").strip()
+        if not candidate_name:
+            continue
+        if _source_table_canonical_key(candidate_name) == canonical and not _is_clean_source_table(candidate_name):
+            return candidate_name
+    return normalized
+
+
 def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> dict[str, Any]:
     resolved_table_names = (
         list(table_names)
         if table_names is not None
         else list(select_user_table_names(list(get_table_signature_cached())))
     )
+    resolved_table_names = _prefer_original_source_tables(resolved_table_names)
 
     tables: List[dict[str, Any]] = []
     errors: List[str] = []
@@ -138,7 +183,8 @@ def _resolve_dashboard_filters(
     year: str,
     group_column: str,
 ) -> dict[str, Any]:
-    selected_tables = _resolve_selected_tables(metadata["tables"], table_name)
+    resolved_table_name = _resolve_original_table_name(table_name, [table["name"] for table in metadata["tables"]])
+    selected_tables = _resolve_selected_tables(metadata["tables"], resolved_table_name)
     available_years = _collect_year_options(selected_tables)
     requested_year = _parse_year(year)
     available_year_values = {item["value"] for item in available_years}
@@ -149,7 +195,11 @@ def _resolve_dashboard_filters(
         available_group_columns,
         metadata["default_group_column"],
     )
-    selected_table_name = table_name if any(item["value"] == table_name for item in metadata["table_options"]) else "all"
+    selected_table_name = (
+        resolved_table_name
+        if any(item["value"] == resolved_table_name for item in metadata["table_options"])
+        else "all"
+    )
     return {
         "selected_tables": selected_tables,
         "available_years": available_years,

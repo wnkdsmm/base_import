@@ -208,7 +208,7 @@ def _build_historical_windows(
     while cursor <= latest_cutoff:
         cutoffs.append(cursor)
         cursor += timedelta(days=step_days)
-    cutoffs = cutoffs[-6:]
+    cutoffs = cutoffs[-12:]
 
     windows: List[HistoricalWindow] = []
     skipped_no_future = 0
@@ -418,8 +418,8 @@ def _compute_ndcg_at_k(actual_counts: Counter, ranked_labels: Sequence[str], k_v
     if not ranked_labels or k_value <= 0:
         return 0.0
     effective_k = max(1, min(k_value, len(ranked_labels)))
-    predicted_relevance = [float(actual_counts.get(label, 0)) for label in ranked_labels[:effective_k]]
-    ideal_relevance = sorted((float(value) for value in actual_counts.values()), reverse=True)[:effective_k]
+    predicted_relevance = [min(float(actual_counts.get(label, 0)), 5.0) for label in ranked_labels[:effective_k]]
+    ideal_relevance = sorted((min(float(v), 5.0) for v in actual_counts.values()), reverse=True)[:effective_k]
     dcg = _discounted_gain(predicted_relevance)
     idcg = _discounted_gain(ideal_relevance)
     if idcg <= 0:

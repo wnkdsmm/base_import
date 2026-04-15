@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from app.db_metadata import get_table_names_cached
+from app.table_catalog import get_user_table_names
 
 from app.services.forecast_risk.data import _collect_risk_inputs
 from app.services.forecast_risk.utils import _counter_top_label, _is_rural_label
@@ -84,7 +84,7 @@ def _summarize_support(entity_frame: pd.DataFrame) -> Dict[str, float]:
 
 def _build_table_options() -> List[ClusteringTableOption]:
     tables = []
-    for table_name in get_table_names_cached():
+    for table_name in get_user_table_names(prefer_clean=True):
         if table_name.startswith(TABLE_EXCLUDED_PREFIXES):
             continue
         tables.append({"value": table_name, "label": table_name})

@@ -43,7 +43,7 @@ def _run_scenario_backtesting(daily_history: List[dict[str, Any]]) -> dict[str, 
             "overview": {"folds": 0, "min_train_days": min_train_days, "validation_horizon_days": 1},
         }
 
-    start_index = len(daily_history) - min(45, available_points)
+    start_index = len(daily_history) - min(90, available_points)
     rows: List[dict[str, Any]] = []
     for index in range(start_index, len(daily_history)):
         train_history = daily_history[:index]
