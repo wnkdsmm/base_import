@@ -18,43 +18,43 @@ class MapCreatorExportMixin:
         }
 
     def _build_analysis_markdown(self, tables: List[MapTablePayload]) -> str:
-        lines = ['# РџСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅР°СЏ Р°РЅР°Р»РёС‚РёРєР° РїРѕР¶Р°СЂРѕРІ', '']
+        lines = ['# Пространственная аналитика пожаров', '']
         for table in tables:
             analytics = table.get('spatial_analytics', {})
             quality = analytics.get('quality', {})
             logistics = analytics.get('logistics', {})
             summary = analytics.get('summary', {})
             lines.append(f"## {table['name']}")
-            lines.append(f"- Р РµР¶РёРј Р°РЅР°Р»РёР·Р°: {quality.get('mode_label', 'РќРµ РѕРїСЂРµРґРµР»С‘РЅ')}")
-            lines.append(f"- РџРѕРєСЂС‹С‚РёРµ РєРѕРѕСЂРґРёРЅР°С‚: {quality.get('coordinate_coverage_display', '0')}")
-            lines.append(f"- Р”Р°С‚С‹ РґР»СЏ hotspot: {quality.get('date_coverage_display', 'РЅ/Рґ')}")
-            lines.append(f"- Hotspot-РѕРІ: {len(analytics.get('hotspots', []))}")
-            lines.append(f"- DBSCAN РєР»Р°СЃС‚РµСЂРѕРІ: {analytics.get('dbscan', {}).get('cluster_count', 0)}")
-            lines.append(f"- РџСЂРёРѕСЂРёС‚РµС‚РЅС‹С… С‚РµСЂСЂРёС‚РѕСЂРёР№: {len(analytics.get('priority_territories', []))}")
-            lines.append(f"- РњРµС‚РѕРґС‹: {', '.join(summary.get('methods', [])) or 'РўРѕС‡РµС‡РЅС‹Р№ СЃР»РѕР№ РїРѕР¶Р°СЂРѕРІ'}")
+            lines.append(f"- \u0420\u0435\u0436\u0438\u043c \u0430\u043d\u0430\u043b\u0438\u0437\u0430: {quality.get('mode_label', '\u041d\u0435 \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0451\u043d')}")
+            lines.append(f"- Покрытие координат: {quality.get('coordinate_coverage_display', '0')}")
+            lines.append(f"- \u0414\u0430\u0442\u044b \u0434\u043b\u044f hotspot: {quality.get('date_coverage_display', '\u043d/\u0434')}")
+            lines.append(f"- Hotspot-ов: {len(analytics.get('hotspots', []))}")
+            lines.append(f"- DBSCAN кластеров: {analytics.get('dbscan', {}).get('cluster_count', 0)}")
+            lines.append(f"- Приоритетных территорий: {len(analytics.get('priority_territories', []))}")
+            lines.append(f"- Методы: {', '.join(summary.get('methods', [])) or 'Точечный слой пожаров'}")
             lines.append('')
             if summary.get('insights'):
-                lines.append('### РљР»СЋС‡РµРІС‹Рµ РІС‹РІРѕРґС‹')
+                lines.append('### Ключевые выводы')
                 for item in summary.get('insights', []):
                     lines.append(f"- {item}")
                 lines.append('')
             if analytics.get('priority_territories'):
-                lines.append('### РџСЂРёРѕСЂРёС‚РµС‚РЅС‹Рµ С‚РµСЂСЂРёС‚РѕСЂРёРё')
+                lines.append('### Приоритетные территории')
                 for item in analytics.get('priority_territories', [])[:5]:
                     lines.append(
-                        f"- {item['priority_label']}: {item['label']} | СЂРёСЃРє {item['risk_score_display']} | РџР§ {item['avg_station_distance_display']} | РїСЂРёР±С‹С‚РёРµ {item['avg_response_display']}"
+                        f"- {item['priority_label']}: {item['label']} | риск {item['risk_score_display']} | ПЧ {item['avg_station_distance_display']} | прибытие {item['avg_response_display']}"
                     )
                 lines.append('')
             logistics_text = logistics.get('summary') or logistics.get('coverage_note')
             if logistics_text:
-                lines.append('### Р›РѕРіРёСЃС‚РёРєР°')
+                lines.append('### Логистика')
                 lines.append(logistics_text)
                 lines.append('')
             if quality.get('fallback_message'):
-                lines.append('### РћРіСЂР°РЅРёС‡РµРЅРёСЏ')
+                lines.append('### Ограничения')
                 lines.append(quality['fallback_message'])
                 lines.append('')
-            lines.append('### РўРµРєСЃС‚ РґР»СЏ РјР°РіРёСЃС‚РµСЂСЃРєРѕР№')
+            lines.append('### Текст для магистерской')
             for paragraph in summary.get('thesis_paragraphs', []):
                 lines.append(paragraph)
                 lines.append('')
@@ -64,3 +64,4 @@ class MapCreatorExportMixin:
     # =====================================================
 
 __all__ = ["MapCreatorExportMixin"]
+

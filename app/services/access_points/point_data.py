@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -70,7 +70,7 @@ def _resolve_point_identity(record: PointRecord) -> PointIdentity:
         return {
             "point_id": f"address:{normalized_address}|{normalized_address_object}",
             "label": label,
-            "entity_type": "РћР±СЉРµРєС‚ / Р°РґСЂРµСЃ",
+            "entity_type": "Объект / адрес",
             "entity_code": "address",
             "granularity_rank": 5,
         }
@@ -79,7 +79,7 @@ def _resolve_point_identity(record: PointRecord) -> PointIdentity:
         return {
             "point_id": f"object:{normalized_object}",
             "label": object_name,
-            "entity_type": "РћР±СЉРµРєС‚",
+            "entity_type": "Объект",
             "entity_code": "object",
             "granularity_rank": 4,
         }
@@ -87,11 +87,11 @@ def _resolve_point_identity(record: PointRecord) -> PointIdentity:
     if latitude is not None and longitude is not None:
         rounded_lat = round(float(latitude), 4)
         rounded_lon = round(float(longitude), 4)
-        base_label = settlement or territory_label or district or "РљРѕРѕСЂРґРёРЅР°С‚РЅР°СЏ С‚РѕС‡РєР°"
+        base_label = settlement or territory_label or district or "Координатная точка"
         return {
             "point_id": f"coords:{rounded_lat:.4f}:{rounded_lon:.4f}",
             "label": f"{base_label} ({rounded_lat:.4f}, {rounded_lon:.4f})",
-            "entity_type": "РўРѕС‡РЅР°СЏ Р»РѕРєР°С†РёСЏ",
+            "entity_type": "Точная локация",
             "entity_code": "coordinates",
             "granularity_rank": 4,
         }
@@ -100,7 +100,7 @@ def _resolve_point_identity(record: PointRecord) -> PointIdentity:
         return {
             "point_id": f"settlement:{normalized_settlement}",
             "label": settlement,
-            "entity_type": "РќР°СЃРµР»С‘РЅРЅС‹Р№ РїСѓРЅРєС‚",
+            "entity_type": "Населённый пункт",
             "entity_code": "settlement",
             "granularity_rank": 3,
         }
@@ -118,15 +118,15 @@ def _resolve_point_identity(record: PointRecord) -> PointIdentity:
         return {
             "point_id": f"district:{normalized_district}",
             "label": district,
-            "entity_type": "Р Р°Р№РѕРЅ",
+            "entity_type": "Район",
             "entity_code": "district",
             "granularity_rank": 1,
         }
 
     return {
         "point_id": "unknown:unresolved",
-        "label": "РќРµСѓС‚РѕС‡РЅС‘РЅРЅР°СЏ С‚РѕС‡РєР°",
-        "entity_type": "РќРµСѓС‚РѕС‡РЅС‘РЅРЅР°СЏ Р»РѕРєР°С†РёСЏ",
+        "label": "Неуточнённая точка",
+        "entity_type": "Неуточнённая локация",
         "entity_code": "unknown",
         "granularity_rank": 0,
     }
@@ -455,7 +455,7 @@ def _build_point_bucket_row(
         "source_tables": source_tables,
         "source_tables_display": ", ".join(source_tables),
         "object_category": object_category,
-        "location_hint": " | ".join(location_parts) if location_parts else "Р›РѕРєР°С†РёСЏ РѕРїСЂРµРґРµР»РµРЅР° РїРѕ Р»СѓС‡С€РµР№ РґРѕСЃС‚СѓРїРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё",
+        "location_hint": " | ".join(location_parts) if location_parts else "Локация определена по лучшей доступной сущности",
         "latitude": latitude,
         "longitude": longitude,
     }

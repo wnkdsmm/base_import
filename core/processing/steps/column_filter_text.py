@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Set
 from ...types import CategoryRule, ColumnTermPayload, MandatoryFeatureSpec
 
 def _normalize_column_text(value: str) -> str:
-    text = str(value).lower().replace("С‘", "Рµ")
+    text = str(value).lower().replace("?", "?")
     text = re.sub(r"[_/#-]+", " ", text)
     text = re.sub(r"[^\w\s]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -86,3 +86,4 @@ def _build_category_lemma_map(
                 continue
         category_lemmas[rule["id"]] = lemmas
     return category_lemmas
+

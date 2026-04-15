@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 from typing import Any, Dict, List, Optional, Sequence
@@ -51,10 +51,10 @@ def _normalization_fields(
     }
 
 def _territory_identity_fields(bucket: TerritoryBucket) -> TerritoryIdentity:
-    dominant_object_category = _counter_top_label(bucket["object_categories"], "РќРµ СѓРєР°Р·Р°РЅРѕ")
-    dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "РќРµ СѓРєР°Р·Р°РЅРѕ")
+    dominant_object_category = _counter_top_label(bucket["object_categories"], "Не указано")
+    dominant_settlement_type = _counter_top_label(bucket["settlement_types"], "Не указано")
     is_rural = _is_rural_label(dominant_settlement_type) or _is_rural_label(bucket["label"])
-    settlement_context_label = "РЎРµР»СЊСЃРєР°СЏ С‚РµСЂСЂРёС‚РѕСЂРёСЏ" if is_rural else "РўРµСЂСЂРёС‚РѕСЂРёСЏ Р±РµР· РІС‹СЂР°Р¶РµРЅРЅРѕРіРѕ СЃРµР»СЊСЃРєРѕРіРѕ РїСЂРѕС„РёР»СЏ"
+    settlement_context_label = "Сельская территория" if is_rural else "Территория без выраженного сельского профиля"
     return {
         "dominant_object_category": dominant_object_category,
         "dominant_settlement_type": dominant_settlement_type,
@@ -316,7 +316,7 @@ def _territory_row_payload(
         "priority_label": priority_label,
         "priority_tone": priority_tone,
         "weight_mode": profile.get("mode") or DEFAULT_RISK_WEIGHT_MODE,
-        "weight_mode_label": profile.get("mode_label") or "Р­РєСЃРїРµСЂС‚РЅС‹Рµ РІРµСЃР°",
+        "weight_mode_label": profile.get("mode_label") or "Экспертные веса",
         "component_scores": component_scores,
         "component_score_map": component_score_map,
         "fire_probability": risk_fields["fire_probability"],
@@ -331,9 +331,9 @@ def _territory_row_payload(
         "history_count_display": _format_integer(risk_fields["incidents"]),
         "last_fire_display": bucket["last_fire"].strftime("%d.%m.%Y") if bucket["last_fire"] else "-",
         "avg_response_minutes": round(avg_response, 1) if avg_response is not None else None,
-        "response_time_display": f"{_format_number(avg_response)} РјРёРЅ" if avg_response is not None else "РќРµС‚ РґР°РЅРЅС‹С…",
+        "response_time_display": f"{_format_number(avg_response)} мин" if avg_response is not None else "Нет данных",
         "avg_distance_km": round(avg_distance, 1) if avg_distance is not None else None,
-        "distance_display": f"{_format_number(avg_distance)} РєРј" if avg_distance is not None else "РќРµС‚ РґР°РЅРЅС‹С…",
+        "distance_display": f"{_format_number(avg_distance)} км" if avg_distance is not None else "Нет данных",
         "travel_time_minutes": logistics_profile["travel_time_minutes"],
         "travel_time_display": logistics_profile["travel_time_display"],
         "travel_time_source": logistics_profile["travel_time_source"],
@@ -356,9 +356,9 @@ def _territory_row_payload(
         "action_hint": action_hint,
         "recommendations": recommendations,
         "explanation": (
-            f"РС‚РѕРіРѕРІС‹Р№ СЂРёСЃРє { _format_number(risk_score) } / 100. "
-            f"Р¤РѕСЂРјСѓР»Р°: {formula_display}. "
-            f"РљР»СЋС‡РµРІС‹Рµ РїСЂРёС‡РёРЅС‹: {drivers_display}."
+            f"Итоговый риск { _format_number(risk_score) } / 100. "
+            f"Формула: {formula_display}. "
+            f"Ключевые причины: {drivers_display}."
         ),
         "bar_width": f"{max(10, min(100, round(risk_score)))}%",
         "history_pressure": round(risk_fields["history_pressure"], 3),
@@ -452,7 +452,7 @@ def _score_component(
         signal_rows.append(
             {
                 "key": signal.get("key") or "",
-                "label": signal.get("label") or signal.get("key") or "РЎРёРіРЅР°Р»",
+                "label": signal.get("label") or signal.get("key") or "Сигнал",
                 "value": round(signal_value, 4),
                 "value_display": f"{_format_number(signal_value * 100.0)} / 100",
                 "weight": signal_weight,
@@ -468,19 +468,19 @@ def _score_component(
 
     result = {
         "key": component_weight.get("key") or "component",
-        "label": component_weight.get("label") or component_spec.get("label") or "РљРѕРјРїРѕРЅРµРЅС‚",
+        "label": component_weight.get("label") or component_spec.get("label") or "Компонент",
         "description": component_weight.get("description") or component_spec.get("description") or "",
         "score": round(score, 1),
         "score_display": f"{_format_number(score)} / 100",
         "weight": round(float(component_weight.get("weight", 0.0)), 4),
         "weight_display": component_weight.get("weight_display") or "0%",
         "contribution": round(contribution, 1),
-        "contribution_display": f"{_format_number(contribution)} Р±Р°Р»Р»Р°",
+        "contribution_display": f"{_format_number(contribution)} балла",
         "tone": tone,
         "signals": signal_rows,
         "bar_width": f"{max(12, min(100, round(score)))}%",
     }
-    result["summary"] = f"Р’РµСЃ {result['weight_display']}, РІРєР»Р°Рґ {result['contribution_display']}."
+    result["summary"] = f"Вес {result['weight_display']}, вклад {result['contribution_display']}."
     result["rationale"] = _component_rationale(result["key"], score, context)
     result["driver_text"] = _component_driver_text(result["key"], score, context)
     return result
@@ -495,61 +495,61 @@ def _component_tone(score: float, thresholds: dict[str, Any]) -> str:
 
 def _component_rationale(component_key: str, score: float, context: ScoreContext) -> str:
     if component_key == "fire_frequency":
-        parts = [f"Р’ РёСЃС‚РѕСЂРёРё {_format_integer(context['incidents'])} РїРѕР¶Р°СЂРѕРІ."]
+        parts = [f"В истории {_format_integer(context['incidents'])} пожаров."]
         if context["history_pressure"] >= 0.65:
-            parts.append("РўРµСЂСЂРёС‚РѕСЂРёСЏ СѓР¶Рµ РЅР°РєР°РїР»РёРІР°Р»Р° РјРЅРѕРіРѕ СЃР»СѓС‡Р°РµРІ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РІС‹Р±СЂР°РЅРЅРѕРіРѕ СЃСЂРµР·Р°.")
+            parts.append("Территория уже накапливала много случаев относительно выбранного среза.")
         if context["recency_pressure"] >= 0.60:
-            parts.append("Р§Р°СЃС‚СЊ РїРѕР¶Р°СЂРѕРІ СЃРІРµР¶Р°СЏ Рё РІР»РёСЏРµС‚ РЅР° Р±Р»РёР¶Р°Р№С€РёР№ РіРѕСЂРёР·РѕРЅС‚.")
+            parts.append("Часть пожаров свежая и влияет на ближайший горизонт.")
         if context["seasonal_alignment"] >= 0.55:
-            parts.append("РџСЂРѕС„РёР»СЊ С…РѕСЂРѕС€Рѕ СЃРѕРІРїР°РґР°РµС‚ СЃ С‚РµРєСѓС‰РёРј СЃРµР·РѕРЅРЅС‹Рј РѕРєРЅРѕРј.")
+            parts.append("Профиль хорошо совпадает с текущим сезонным окном.")
         if context["heating_share"] >= 0.50 and context["is_rural"]:
-            parts.append("Р”Р»СЏ СЃРµР»СЊСЃРєРѕР№ С‚РµСЂСЂРёС‚РѕСЂРёРё Р·Р°РјРµС‚РµРЅ РѕС‚РѕРїРёС‚РµР»СЊРЅС‹Р№ РєРѕРЅС‚СѓСЂ СЂРёСЃРєР°.")
+            parts.append("Для сельской территории заметен отопительный контур риска.")
         if score < 35:
-            parts.append("РџРѕРІС‚РѕСЂСЏРµРјРѕСЃС‚СЊ РїРѕРєР° СѓРјРµСЂРµРЅРЅР°СЏ.")
+            parts.append("Повторяемость пока умеренная.")
         return " ".join(parts[:4])
 
     if component_key == "consequence_severity":
         parts = []
         if context["severe_rate"] >= 0.25:
-            parts.append(f"РўСЏР¶С‘Р»С‹Рµ РїРѕСЃР»РµРґСЃС‚РІРёСЏ Р±С‹Р»Рё РІ {_format_probability(context['severe_rate'])} СЃР»СѓС‡Р°РµРІ.")
+            parts.append(f"Тяжёлые последствия были в {_format_probability(context['severe_rate'])} случаев.")
         if context["victims_rate"] >= 0.08:
-            parts.append("Р’ РёСЃС‚РѕСЂРёРё РµСЃС‚СЊ РїРѕСЃС‚СЂР°РґР°РІС€РёРµ РёР»Рё РїРѕРіРёР±С€РёРµ.")
+            parts.append("В истории есть пострадавшие или погибшие.")
         if context["damage_rate"] >= 0.30:
-            parts.append("РЈС‰РµСЂР± Рё СѓРЅРёС‡С‚РѕР¶РµРЅРёРµ С„РёРєСЃРёСЂРѕРІР°Р»РёСЃСЊ С‡Р°СЃС‚Рѕ.")
+            parts.append("Ущерб и уничтожение фиксировались часто.")
         if context["risk_factor"] >= 0.56:
-            parts.append("РљР°С‚РµРіРѕСЂРёСЏ СЂРёСЃРєР° РїРѕ РѕР±СЉРµРєС‚Р°Рј РІС‹С€Рµ СЃСЂРµРґРЅРµР№.")
+            parts.append("Категория риска по объектам выше средней.")
         if not parts:
-            parts.append("РСЃС‚РѕСЂРёСЏ С‚СЏР¶С‘Р»С‹С… РїРѕСЃР»РµРґСЃС‚РІРёР№ РїРѕРєР° СѓРјРµСЂРµРЅРЅР°СЏ.")
+            parts.append("История тяжёлых последствий пока умеренная.")
         return " ".join(parts[:4])
 
     if component_key == "long_arrival_risk":
         parts = []
         parts.append(
-            f"Travel-time РґРѕРµР·РґР° {_format_number(context['travel_time_minutes'])} РјРёРЅ ({context['travel_time_source']})."
+            f"Travel-time доезда {_format_number(context['travel_time_minutes'])} мин ({context['travel_time_source']})."
         )
         parts.append(
-            f"РџРѕРєСЂС‹С‚РёРµ РџР§ {context['service_coverage_display']}, СЃРµСЂРІРёСЃРЅР°СЏ Р·РѕРЅР°: {context['service_zone_label']}."
+            f"Покрытие ПЧ {context['service_coverage_display']}, сервисная зона: {context['service_zone_label']}."
         )
         if context["long_arrival_rate"] >= 0.25:
-            parts.append(f"Р”РѕР»РіРёРµ РїСЂРёР±С‹С‚РёСЏ Р±С‹Р»Рё РІ {_format_probability(context['long_arrival_rate'])} СЃР»СѓС‡Р°РµРІ.")
+            parts.append(f"Долгие прибытия были в {_format_probability(context['long_arrival_rate'])} случаев.")
         if context["avg_distance"] is not None and context["avg_distance"] >= 15.0:
-            parts.append(f"РЈРґР°Р»С‘РЅРЅРѕСЃС‚СЊ РґРѕ РџР§ {_format_number(context['avg_distance'])} РєРј.")
+            parts.append(f"Удалённость до ПЧ {_format_number(context['avg_distance'])} км.")
         if context["logistics_priority_score"] >= 55:
             parts.append(
-                f"Р›РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚ { _format_number(context['logistics_priority_score']) } / 100."
+                f"Логистический приоритет { _format_number(context['logistics_priority_score']) } / 100."
             )
         return " ".join(parts[:4])
 
     parts = []
     if context["water_known"] > 0:
         water_share = context["water_available"] / max(1, context["water_known"])
-        parts.append(f"РџРѕРґС‚РІРµСЂР¶РґС‘РЅРЅР°СЏ РІРѕРґР° РµСЃС‚СЊ С‚РѕР»СЊРєРѕ РІ {_format_probability(water_share)} СЃР»СѓС‡Р°РµРІ.")
+        parts.append(f"Подтверждённая вода есть только в {_format_probability(water_share)} случаев.")
     else:
-        parts.append("РџРѕРґС‚РІРµСЂР¶РґС‘РЅРЅС‹С… Р·Р°РїРёСЃРµР№ Рѕ РІРѕРґРµ РЅРµС‚, РїРѕСЌС‚РѕРјСѓ РёСЃРїРѕР»СЊР·РѕРІР°РЅ РѕСЃС‚РѕСЂРѕР¶РЅС‹Р№ Р±Р°Р·РѕРІС‹Р№ СѓСЂРѕРІРµРЅСЊ СЂРёСЃРєР°.")
+        parts.append("Подтверждённых записей о воде нет, поэтому использован осторожный базовый уровень риска.")
     if context["tanker_dependency"] >= 0.55:
-        parts.append("РР·-Р·Р° СѓРґР°Р»С‘РЅРЅРѕСЃС‚Рё С‚РµСЂСЂРёС‚РѕСЂРёСЏ СЃРёР»СЊРЅРµРµ Р·Р°РІРёСЃРёС‚ РѕС‚ РїРѕРґРІРѕР·Р° РІРѕРґС‹.")
+        parts.append("Из-за удалённости территория сильнее зависит от подвоза воды.")
     if context["is_rural"]:
-        parts.append("Р”Р»СЏ СЃРµР»СЊСЃРєРѕР№ С‚РµСЂСЂРёС‚РѕСЂРёРё Р·Р°РїР°СЃ РІРѕРґС‹ Рё РїРѕРґСЉРµР·Рґ Рє РёСЃС‚РѕС‡РЅРёРєР°Рј РѕСЃРѕР±РµРЅРЅРѕ РєСЂРёС‚РёС‡РЅС‹.")
+        parts.append("Для сельской территории запас воды и подъезд к источникам особенно критичны.")
     return " ".join(parts[:4])
 
 def _component_driver_text(component_key: str, score: float, context: ScoreContext) -> str:
@@ -557,20 +557,20 @@ def _component_driver_text(component_key: str, score: float, context: ScoreConte
         return ""
     if component_key == "fire_frequency":
         if context["heating_share"] >= 0.50 and context["is_rural"]:
-            return "РїРѕР¶Р°СЂС‹ Р·РґРµСЃСЊ РїРѕРІС‚РѕСЂСЏСЋС‚СЃСЏ Рё СѓСЃРёР»РёРІР°СЋС‚СЃСЏ РІ РѕС‚РѕРїРёС‚РµР»СЊРЅС‹Р№ РїРµСЂРёРѕРґ"
-        return "РїРѕР¶Р°СЂС‹ Р·РґРµСЃСЊ РїРѕРІС‚РѕСЂСЏСЋС‚СЃСЏ С‡Р°С‰Рµ С„РѕРЅРѕРІРѕРіРѕ СѓСЂРѕРІРЅСЏ"
+            return "пожары здесь повторяются и усиливаются в отопительный период"
+        return "пожары здесь повторяются чаще фонового уровня"
     if component_key == "consequence_severity":
-        return "РёСЃС‚РѕСЂРёСЏ РїРѕСЃР»РµРґСЃС‚РІРёР№ Р·РґРµСЃСЊ С‚СЏР¶РµР»РµРµ СЃСЂРµРґРЅРµРіРѕ"
+        return "история последствий здесь тяжелее среднего"
     if component_key == "long_arrival_risk":
         if context["service_coverage_ratio"] < 0.45:
-            return "С‚РµСЂСЂРёС‚РѕСЂРёСЏ РІС‹С…РѕРґРёС‚ РёР· СѓСЃС‚РѕР№С‡РёРІРѕРіРѕ РїСЂРёРєСЂС‹С‚РёСЏ РџР§"
+            return "территория выходит из устойчивого прикрытия ПЧ"
         if context["avg_distance"] is not None and context["avg_distance"] >= 15.0:
-            return "РµСЃС‚СЊ СЂРёСЃРє РґРѕР»РіРѕРіРѕ РїСЂРёР±С‹С‚РёСЏ РёР·-Р·Р° СѓРґР°Р»С‘РЅРЅРѕСЃС‚Рё"
-        return "travel-time Рё СЃРµСЂРІРёСЃРЅР°СЏ Р·РѕРЅР° РїРѕРІС‹С€Р°СЋС‚ Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ СЂРёСЃРє"
-    return "РЅРµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ СЃС‚Р°Р±РёР»СЊРЅС‹Р№ РґРѕСЃС‚СѓРї Рє РІРѕРґРµ РґР»СЏ С‚СѓС€РµРЅРёСЏ"
+            return "есть риск долгого прибытия из-за удалённости"
+        return "travel-time и сервисная зона повышают логистический риск"
+    return "не подтверждён стабильный доступ к воде для тушения"
 
 def _build_risk_drivers(component_scores: Sequence[ComponentScore]) -> List[str]:
     drivers = [item.get("driver_text") or "" for item in component_scores if item.get("driver_text")]
     if not drivers:
-        return ["РїСЂРѕС„РёР»СЊ СЂРёСЃРєР° РїРѕРєР° СѓРјРµСЂРµРЅРЅС‹Р№ Рё Р±РµР· СЏРІРЅРѕРіРѕ РґРѕРјРёРЅРёСЂСѓСЋС‰РµРіРѕ С„Р°РєС‚РѕСЂР°"]
+        return ["профиль риска пока умеренный и без явного доминирующего фактора"]
     return drivers[:3]

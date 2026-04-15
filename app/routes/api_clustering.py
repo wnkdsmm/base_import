@@ -1,6 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, Body, Request
+
+from app.services.clustering.core import get_clustering_data
 
 from .api_common import (
     coerce_string_list,
@@ -27,13 +29,6 @@ _FAILED_CLUSTERING_JOB_MESSAGE = (
     "\u0444\u043e\u043d\u043e\u0432\u0443\u044e clustering-\u0437\u0430\u0434\u0430\u0447\u0443. "
     "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
 )
-
-
-def get_clustering_data(**kwargs):
-    from app.services.clustering.core import get_clustering_data as _get_clustering_data
-
-    return _get_clustering_data(**kwargs)
-
 
 def start_clustering_job(**kwargs):
     from app.services.clustering.jobs import start_clustering_job as _start_clustering_job

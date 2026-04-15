@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
@@ -160,12 +160,12 @@ def analytics_heatmap_config(analytics: SpatialAnalyticsPayload) -> Dict[str, ob
 
 def analytics_layer_definitions(analytics_layers: AnalyticsLayersPayload) -> List[tuple[str, str, str, bool]]:
     return [
-        ("incidents", "&#128506;", "\u0422\u043e\u0447\u043a\u0438 \u043f\u043e\u0436\u0430\u0440\u043e\u0432", True),
-        ("heatmap", "&#128293;", "KDE / heatmap", bool(analytics_layers.get("heatmap", {}).get("features"))),
-        ("hotspots", "&#128205;", "Hotspot detection", bool(analytics_layers.get("hotspots", {}).get("features"))),
-        ("clusters", "&#129517;", "DBSCAN \u043a\u043b\u0430\u0441\u0442\u0435\u0440\u044b", bool(analytics_layers.get("clusters", {}).get("features"))),
-        ("risk_zones", "&#9888;", "\u0417\u043e\u043d\u044b \u0440\u0438\u0441\u043a\u0430", bool(analytics_layers.get("risk_zones", {}).get("features"))),
-        ("priorities", "&#127919;", "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u044b\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0438", bool(analytics_layers.get("priorities", {}).get("features"))),
+        ("incidents", "🗺", "\u0422\u043e\u0447\u043a\u0438 \u043f\u043e\u0436\u0430\u0440\u043e\u0432", True),
+        ("heatmap", "🔥", "KDE / heatmap", bool(analytics_layers.get("heatmap", {}).get("features"))),
+        ("hotspots", "📍", "Hotspot detection", bool(analytics_layers.get("hotspots", {}).get("features"))),
+        ("clusters", "🧭", "DBSCAN \u043a\u043b\u0430\u0441\u0442\u0435\u0440\u044b", bool(analytics_layers.get("clusters", {}).get("features"))),
+        ("risk_zones", "⚠", "\u0417\u043e\u043d\u044b \u0440\u0438\u0441\u043a\u0430", bool(analytics_layers.get("risk_zones", {}).get("features"))),
+        ("priorities", "🎯", "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u044b\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043e\u0440\u0438\u0438", bool(analytics_layers.get("priorities", {}).get("features"))),
     ]
 
 

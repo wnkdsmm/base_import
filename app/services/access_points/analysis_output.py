@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from statistics import mean, median
 from typing import Any, Sequence
@@ -254,8 +254,8 @@ def _build_access_point_payload_row(
         or metrics.completeness_share < 0.6
     )
     missing_data_priority = uncertainty_flag and score_context.total_score < HIGH_THRESHOLD
-    label = _clean_text(record.get("label")) or "РўРѕС‡РєР°"
-    location_hint = _clean_text(record.get("location_hint")) or "Р›РѕРєР°С†РёСЏ РѕРїСЂРµРґРµР»РµРЅР° РїРѕ Р»СѓС‡С€РµР№ РґРѕСЃС‚СѓРїРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё"
+    label = _clean_text(record.get("label")) or "Точка"
+    location_hint = _clean_text(record.get("location_hint")) or "Локация определена по лучшей доступной сущности"
     low_support_note = _build_low_support_note(
         low_support=low_support,
         incident_count=metrics.incident_count,
@@ -319,7 +319,7 @@ def _build_typology_rows(rows: Sequence[AccessPointPayloadRow]) -> list[AccessPo
             code,
             {
                 "code": code,
-                "label": row.get("typology_label") or "РљРѕРјР±РёРЅРёСЂРѕРІР°РЅРЅС‹Р№ СЂРёСЃРє",
+                "label": row.get("typology_label") or "Комбинированный риск",
                 "count": 0,
                 "max_score": 0.0,
                 "lead_label": "",
@@ -371,7 +371,7 @@ def _build_score_distribution(rows: Sequence[AccessPointPayloadRow]) -> AccessPo
             bucket_counts[3] += 1
 
     bands = []
-    for code, label in (("low", "РќРёР·РєРёР№"), ("medium", "РЎСЂРµРґРЅРёР№"), ("high", "Р’С‹СЃРѕРєРёР№"), ("critical", "РљСЂРёС‚РёС‡РµСЃРєРёР№")):
+    for code, label in (("low", "Низкий"), ("medium", "Средний"), ("high", "Высокий"), ("critical", "Критический")):
         count = band_counts[code]
         bands.append(
             {
@@ -441,7 +441,7 @@ def _build_reason_breakdown(rows: Sequence[AccessPointPayloadRow]) -> list[Acces
 
 def _build_uncertainty_notes(rows: Sequence[AccessPointPayloadRow]) -> list[str]:
     if not rows:
-        return ["РќРµРѕРїСЂРµРґРµР»С‘РЅРЅРѕСЃС‚СЊ Р±СѓРґРµС‚ РѕС†РµРЅРµРЅР° РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° СЂРµР№С‚РёРЅРіР°."]
+        return ["Неопределённость будет оценена после расчёта рейтинга."]
 
     low_support_count = 0
     uncertainty_count = 0
@@ -454,18 +454,18 @@ def _build_uncertainty_notes(rows: Sequence[AccessPointPayloadRow]) -> list[str]
         if float(row.get("uncertainty_penalty") or 0.0) >= 3.0:
             high_penalty_count += 1
     notes = [
-        "РќРµРїРѕР»РЅРѕС‚Р° РґР°РЅРЅС‹С… РґР°С‘С‚ РѕС‚РґРµР»СЊРЅС‹Р№ penalty, РЅРѕ РЅРµ СЏРІР»СЏРµС‚СЃСЏ РіР»Р°РІРЅС‹Рј РґСЂР°Р№РІРµСЂРѕРј СЂРёСЃРєР°: РµС‘ РІРєР»Р°Рґ РѕРіСЂР°РЅРёС‡РµРЅ 6 Р±Р°Р»Р»Р°РјРё.",
+        "Неполнота данных даёт отдельный penalty, но не является главным драйвером риска: её вклад ограничен 6 баллами.",
     ]
     if low_support_count:
         notes.append(
-            f"Р”Р»СЏ {_format_integer(low_support_count)} С‚РѕС‡РµРє РѕРїРѕСЂР° РЅРёР¶Рµ РјРёРЅРёРјР°Р»СЊРЅРѕРіРѕ РїРѕСЂРѕРіР°, РїРѕСЌС‚РѕРјСѓ РґРѕР»РµРІС‹Рµ РїСЂРёР·РЅР°РєРё СЃРіР»Р°Р¶РµРЅС‹, Р° РёС‚РѕРіРѕРІС‹Р№ СЂРёСЃРє РѕСЃР»Р°Р±Р»РµРЅ РєРѕСЌС„С„РёС†РёРµРЅС‚РѕРј РїРѕРґРґРµСЂР¶РєРё."
+            f"Для {_format_integer(low_support_count)} точек опора ниже минимального порога, поэтому долевые признаки сглажены, а итоговый риск ослаблен коэффициентом поддержки."
         )
     if uncertainty_count:
         notes.append(
-            f"РЈ {_format_integer(uncertainty_count)} С‚РѕС‡РµРє РµСЃС‚СЊ uncertainty flag РёР·-Р·Р° РїСЂРѕРїСѓСЃРєРѕРІ РїРѕ РІРѕРґРµ, РІСЂРµРјРµРЅРё РїСЂРёР±С‹С‚РёСЏ, РґРёСЃС‚Р°РЅС†РёРё РґРѕ РџР§ РёР»Рё РјР°Р»РѕРіРѕ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ."
+            f"У {_format_integer(uncertainty_count)} точек есть uncertainty flag из-за пропусков по воде, времени прибытия, дистанции до ПЧ или малого числа пожаров."
         )
     if high_penalty_count:
         notes.append(
-            f"РЈ {_format_integer(high_penalty_count)} С‚РѕС‡РµРє penalty Р·Р° РЅРµРїРѕР»РЅРѕС‚Сѓ РґР°РЅРЅС‹С… СѓР¶Рµ Р·Р°РјРµС‚РµРЅ Рё С‚СЂРµР±СѓРµС‚ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєРѕР№ РІРµСЂРёС„РёРєР°С†РёРё."
+            f"У {_format_integer(high_penalty_count)} точек penalty за неполноту данных уже заметен и требует управленческой верификации."
         )
     return notes[:4]

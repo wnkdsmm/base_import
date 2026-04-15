@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from datetime import timedelta
@@ -36,7 +36,7 @@ def _history_date_bounds(records: Sequence[RiskEventRecord]) -> tuple[Any, Any]:
     return history_start, history_end
 
 def _territory_label(record: RiskEventRecord) -> str:
-    return record["territory_label"] or record["district"] or "РўРµСЂСЂРёС‚РѕСЂРёСЏ РЅРµ СѓРєР°Р·Р°РЅР°"
+    return record["territory_label"] or record["district"] or "Территория не указана"
 
 def _horizon_context(
     records: Sequence[RiskEventRecord],

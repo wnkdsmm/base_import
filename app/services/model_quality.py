@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 from typing import Dict, Optional, Sequence
@@ -13,7 +13,7 @@ from sklearn.metrics import (
     silhouette_score,
 )
 
-MIN_POSITIVE_VALUE = 1e-6
+from config.constants import MIN_POSITIVE_PREDICTION
 
 
 def _as_float_array(values: Sequence[float]) -> np.ndarray:
@@ -34,15 +34,15 @@ def smape(actuals: Sequence[float], predictions: Sequence[float]) -> float:
     actual = _as_float_array(actuals)
     predicted = _as_float_array(predictions)
     denominator = np.abs(actual) + np.abs(predicted)
-    safe_denominator = np.where(denominator <= MIN_POSITIVE_VALUE, 1.0, denominator)
+    safe_denominator = np.where(denominator <= MIN_POSITIVE_PREDICTION, 1.0, denominator)
     values = 2.0 * np.abs(predicted - actual) / safe_denominator
-    values = np.where(denominator <= MIN_POSITIVE_VALUE, 0.0, values)
+    values = np.where(denominator <= MIN_POSITIVE_PREDICTION, 0.0, values)
     return float(np.mean(values) * 100.0)
 
 
 def mean_poisson_deviance(actuals: Sequence[float], predictions: Sequence[float]) -> float:
     actual = _as_float_array(actuals)
-    predicted = np.clip(_as_float_array(predictions), MIN_POSITIVE_VALUE, None)
+    predicted = np.clip(_as_float_array(predictions), MIN_POSITIVE_PREDICTION, None)
     ratio_term = np.zeros_like(actual, dtype=float)
     positive_mask = actual > 0.0
     ratio_term[positive_mask] = actual[positive_mask] * np.log(actual[positive_mask] / predicted[positive_mask])

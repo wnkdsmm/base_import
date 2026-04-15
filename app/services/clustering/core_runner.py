@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from contextlib import nullcontext
 from typing import Any, Callable, Dict, Sequence, Tuple
@@ -79,20 +79,20 @@ def _load_clustering_stage(
     selected_features = feature_selection["selected_features"]
 
     if len(candidate_features) < 2:
-        base["notes"].append("Р’ С‚Р°Р±Р»РёС†Рµ РЅРµ С…РІР°С‚РёР»Рѕ Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹С… РїСЂРёР·РЅР°РєРѕРІ СЃ РІР°СЂРёР°С‚РёРІРЅРѕСЃС‚СЊСЋ, С‡С‚РѕР±С‹ СЃС‚Р°Р±РёР»СЊРЅРѕ РєР»Р°СЃС‚РµСЂРёР·РѕРІР°С‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё.")
+        base["notes"].append("В таблице не хватило агрегированных признаков с вариативностью, чтобы стабильно кластеризовать территории.")
         _emit_clustering_progress(
             progress_callback,
             "clustering.completed",
-            "РџРѕСЃР»Рµ Р°РіСЂРµРіР°С†РёРё РѕРєР°Р·Р°Р»РѕСЃСЊ РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РІР°СЂРёР°С‚РёРІРЅС‹С… РїСЂРёР·РЅР°РєРѕРІ РґР»СЏ СѓСЃС‚РѕР№С‡РёРІРѕР№ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё.",
+            "После агрегации оказалось недостаточно вариативных признаков для устойчивой кластеризации.",
         )
         return {"error_payload": base}
 
     if len(selected_features) < 2:
-        base["notes"].append("Р”Р»СЏ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё РЅСѓР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РјРёРЅРёРјСѓРј РґРІР° Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹С… РїСЂРёР·РЅР°РєР° С‚РµСЂСЂРёС‚РѕСЂРёРё.")
+        base["notes"].append("Для кластеризации нужно выбрать минимум два агрегированных признака территории.")
         _emit_clustering_progress(
             progress_callback,
             "clustering.completed",
-            "Р”Р»СЏ СЂР°СЃС‡РµС‚Р° РЅСѓР¶РЅРѕ РјРёРЅРёРјСѓРј РґРІР° Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹С… РїСЂРёР·РЅР°РєР°, РїРѕСЌС‚РѕРјСѓ СЂРµР·СѓР»СЊС‚Р°С‚ РѕСЃС‚Р°Р»СЃСЏ РІ placeholder-СЂРµР¶РёРјРµ.",
+            "Для расчета нужно минимум два агрегированных признака, поэтому результат остался в placeholder-режиме.",
         )
         return {"error_payload": base}
 
@@ -126,11 +126,11 @@ def _build_clustering_model_stage_context(
     excluded_entities = model_inputs["excluded_entities"]
 
     if len(cluster_frame) < max(12, requested_cluster_count * MIN_ROWS_PER_CLUSTER):
-        base["notes"].append("РџРѕСЃР»Рµ РѕС‚Р±РѕСЂР° Рё Р·Р°РїРѕР»РЅРµРЅРёСЏ РїСЂРѕРїСѓСЃРєРѕРІ РѕСЃС‚Р°Р»РѕСЃСЊ СЃР»РёС€РєРѕРј РјР°Р»Рѕ С‚РµСЂСЂРёС‚РѕСЂРёР№ РґР»СЏ СѓСЃС‚РѕР№С‡РёРІРѕР№ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё.")
+        base["notes"].append("После отбора и заполнения пропусков осталось слишком мало территорий для устойчивой кластеризации.")
         _emit_clustering_progress(
             progress_callback,
             "clustering.completed",
-            "РџРѕСЃР»Рµ РїРѕРґРіРѕС‚РѕРІРєРё РІС‹Р±РѕСЂРєРё РѕСЃС‚Р°Р»РѕСЃСЊ СЃР»РёС€РєРѕРј РјР°Р»Рѕ С‚РµСЂСЂРёС‚РѕСЂРёР№ РґР»СЏ СѓСЃС‚РѕР№С‡РёРІРѕР№ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё.",
+            "После подготовки выборки осталось слишком мало территорий для устойчивой кластеризации.",
         )
         return {"error_payload": base}
 
@@ -138,7 +138,7 @@ def _build_clustering_model_stage_context(
     actual_cluster_count = model_inputs["actual_cluster_count"]
     if requested_working_cluster_count != requested_cluster_count:
         base["notes"].append(
-            f"РљРѕР»РёС‡РµСЃС‚РІРѕ РєР»Р°СЃС‚РµСЂРѕРІ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё СЃРєРѕСЂСЂРµРєС‚РёСЂРѕРІР°РЅРѕ РґРѕ {actual_cluster_count}, С‡С‚РѕР±С‹ РІ РєР°Р¶РґРѕРј С‚РёРїРµ С‚РµСЂСЂРёС‚РѕСЂРёР№ Р±С‹Р»Рѕ РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РЅР°Р±Р»СЋРґРµРЅРёР№."
+            f"Количество кластеров автоматически скорректировано до {actual_cluster_count}, чтобы в каждом типе территорий было достаточно наблюдений."
         )
 
     model_bundle = _run_clustering_model_stage(
@@ -179,7 +179,7 @@ def _render_clustering_payload_stage(
     _emit_clustering_progress(
         progress_callback,
         "clustering.render",
-        "РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РёС‚РѕРіРѕРІС‹Рµ С‚Р°Р±Р»РёС†С‹, РїСЂРѕС„РёР»Рё РєР»Р°СЃС‚РµСЂРѕРІ Рё РІРёР·СѓР°Р»РёР·Р°С†РёРё.",
+        "Подготавливаем итоговые таблицы, профили кластеров и визуализации.",
     )
     with (perf.span("payload_render") if perf is not None else nullcontext()):
         payload = _build_clustering_success_payload(
@@ -219,7 +219,7 @@ def _render_clustering_payload_stage(
         _emit_clustering_progress(
             progress_callback,
             "clustering.completed",
-            "РљР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ Р·Р°РІРµСЂС€РµРЅР°, СЂРµР·СѓР»СЊС‚Р°С‚С‹ Рё РіСЂР°С„РёРєРё РіРѕС‚РѕРІС‹.",
+            "Кластеризация завершена, результаты и графики готовы.",
         )
         return result
 
@@ -264,7 +264,7 @@ def get_clustering_data(
         _emit_clustering_progress(
             progress_callback,
             "clustering.completed",
-            "РљР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ СѓР¶Рµ Р±С‹Р»Р° СЂР°СЃСЃС‡РёС‚Р°РЅР° СЂР°РЅРµРµ Рё РІР·СЏС‚Р° РёР· РєСЌС€Р°.",
+            "Кластеризация уже была рассчитана ранее и взята из кэша.",
         )
         return cached_payload
 
@@ -278,11 +278,11 @@ def get_clustering_data(
         sampling_strategy=selected_sampling_strategy,
     )
     if not selected_table:
-        base["notes"].append("Р’С‹Р±РµСЂРёС‚Рµ С‚Р°Р±Р»РёС†Сѓ, С‡С‚РѕР±С‹ СЃРіСЂСѓРїРїРёСЂРѕРІР°С‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё РїРѕ РёС… РїРѕР¶Р°СЂРЅРѕРјСѓ РїСЂРѕС„РёР»СЋ Рё С‚РёРїСѓ СЂРёСЃРєР°.")
+        base["notes"].append("Выберите таблицу, чтобы сгруппировать территории по их пожарному профилю и типу риска.")
         _emit_clustering_progress(
             progress_callback,
             "clustering.completed",
-            "РўР°Р±Р»РёС†Р° РЅРµ РІС‹Р±СЂР°РЅР°, РїРѕСЌС‚РѕРјСѓ СЂР°СЃС‡РµС‚ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё РЅРµ Р·Р°РїСѓСЃРєР°Р»СЃСЏ.",
+            "Таблица не выбрана, поэтому расчет кластеризации не запускался.",
         )
         return _CLUSTERING_CACHE.set(cache_key, base)
 

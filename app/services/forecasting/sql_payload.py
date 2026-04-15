@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
@@ -71,9 +71,9 @@ class PayloadQueryBuilder(QueryBuilder):
             category_counter.update(table_counters.get("object_category", Counter()))
 
         payload = {
-            "districts": self._build_options_from_counter(district_counter, "Р’СЃРµ СЂР°Р№РѕРЅС‹"),
-            "causes": self._build_options_from_counter(cause_counter, "Р’СЃРµ РїСЂРёС‡РёРЅС‹"),
-            "object_categories": self._build_options_from_counter(category_counter, "Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё"),
+            "districts": self._build_options_from_counter(district_counter, "Все районы"),
+            "causes": self._build_options_from_counter(cause_counter, "Все причины"),
+            "object_categories": self._build_options_from_counter(category_counter, "Все категории"),
         }
         return self.cache.set(cache_key, payload)
 

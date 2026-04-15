@@ -6,6 +6,7 @@
 
     global.ClusteringRender = {
         create: function createClusteringRender() {
+            var uiHelpers = global.FireUiHelpers || {};
             var byId = shared.byId;
             var escapeHtml = shared.escapeHtml;
             var renderChart = shared.renderPlotlyFigure;
@@ -14,6 +15,15 @@
             var setSectionHidden = shared.setSectionHidden;
             var setSelectOptions = shared.setSelectOptions;
             var setText = shared.setText;
+            var setHidden = typeof uiHelpers.setHidden === 'function'
+                ? uiHelpers.setHidden
+                : function (nodeOrId, hidden) {
+                    var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
+                    if (!node) {
+                        return;
+                    }
+                    node.classList.toggle('is-hidden', !!hidden);
+                };
 
 function syncClusteringAsyncContainer() {
         var errorNode = byId('clusteringErrorState');
@@ -29,7 +39,7 @@ function syncClusteringAsyncContainer() {
         if (!errorNode) {
             return;
         }
-        errorNode.classList.add('is-hidden');
+        setHidden(errorNode, true);
         setText('clusteringErrorMessage', '');
         syncClusteringAsyncContainer();
     }
@@ -37,9 +47,7 @@ function syncClusteringAsyncContainer() {
     function showClusteringError(message) {
         var errorNode = byId('clusteringErrorState');
         setText('clusteringErrorMessage', message || 'Не удалось пересчитать кластеры. Попробуйте еще раз.');
-        if (errorNode) {
-            errorNode.classList.remove('is-hidden');
-        }
+        setHidden(errorNode, false);
         syncClusteringAsyncContainer();
     }
 

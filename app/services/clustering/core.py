@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from .core_algorithms import (
     _method_comparison_from_diagnostics,

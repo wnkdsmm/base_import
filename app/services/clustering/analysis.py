@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from . import analysis_features as _analysis_features
 from . import analysis_metrics as _analysis_metrics

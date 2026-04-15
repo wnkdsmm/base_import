@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
@@ -29,7 +29,7 @@ from app.services.forecasting.utils import (
 from app.services.shared.request_state import build_ml_request_state as _build_ml_request_state_impl
 from config.db import engine
 
-from .ml_model_types import ML_CACHE_SCHEMA_VERSION, MlProgressCallback, _CACHE_LIMIT, _emit_progress
+from .ml_model_config_types import ML_CACHE_SCHEMA_VERSION, MlProgressCallback, _CACHE_LIMIT, _emit_progress
 from .training.data_access import (
     clear_ml_model_input_cache,
     load_ml_aggregation_inputs as _load_ml_aggregation_inputs_impl,
@@ -67,7 +67,7 @@ def _build_ml_deferred_shell_data(
     )
     initial_data['bootstrap_mode'] = 'deferred'
     initial_data['charts']['importance']['empty_message'] = (
-        'РЎРѕР±РёСЂР°РµРј РґСЂР°Р№РІРµСЂС‹ РїСЂРѕРіРЅРѕР·Р°: Р±Р»РѕРє Р·Р°РїРѕР»РЅРёС‚СЃСЏ РїРѕСЃР»Рµ С„РѕРЅРѕРІРѕРіРѕ СЂР°СЃС‡С‘С‚Р°.'
+        'Собираем драйверы прогноза: блок заполнится после фонового расчёта.'
     )
     initial_data['notes'].extend(request_state['source_table_notes'])
     initial_data['notes'] = _compact_ui_notes(initial_data['notes'])

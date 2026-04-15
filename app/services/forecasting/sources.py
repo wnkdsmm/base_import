@@ -1,11 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
 from app.db_metadata import get_table_columns_cached
-from app.domain.predictive_settings import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
+from config.constants import MIN_TEMPERATURE_COVERAGE, MIN_TEMPERATURE_NON_NULL_DAYS
 from config.db import engine
 
 from .constants import (
@@ -92,13 +92,13 @@ def _build_temperature_quality(non_null_days: int, total_days: int) -> Forecasti
     )
     if normalized_non_null_days <= 0:
         quality_key = "missing"
-        quality_label = "РќРµС‚ РёР·РјРµСЂРµРЅРёР№"
+        quality_label = "Нет измерений"
     elif usable:
         quality_key = "good"
-        quality_label = "Р”РѕСЃС‚Р°С‚РѕС‡РЅРѕРµ РїРѕРєСЂС‹С‚РёРµ"
+        quality_label = "Достаточное покрытие"
     else:
         quality_key = "sparse"
-        quality_label = "РќРёР·РєРѕРµ РїРѕРєСЂС‹С‚РёРµ"
+        quality_label = "Низкое покрытие"
     return {
         "non_null_days": normalized_non_null_days,
         "total_days": normalized_total_days,
@@ -159,13 +159,13 @@ def _load_table_metadata(table_name: str) -> ForecastingTableMetadata:
     try:
         columns = get_table_columns_cached(table_name)
     except ValueError as exc:
-        raise ValueError(f"РўР°Р±Р»РёС†Р° '{table_name}' РЅРµ РЅР°Р№РґРµРЅР° РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С….") from exc
+        raise ValueError(f"Таблица '{table_name}' не найдена в базе данных.") from exc
     resolved_columns = {
         "date": _resolve_column_name(columns, [DATE_COLUMN]),
         "district": _resolve_column_name(columns, DISTRICT_COLUMN_CANDIDATES),
         "temperature": _resolve_column_name(columns, TEMPERATURE_COLUMN_CANDIDATES),
         "cause": _resolve_column_name(columns, CAUSE_COLUMN_CANDIDATES),
-        "object_category": _resolve_column_name(columns, [OBJECT_CATEGORY_COLUMN, "РљР°С‚РµРіРѕСЂРёСЏ РѕР±СЉРµРєС‚Р° РїРѕР¶Р°СЂР°"]),
+        "object_category": _resolve_column_name(columns, [OBJECT_CATEGORY_COLUMN, "Категория объекта пожара"]),
         "latitude": _resolve_column_name(columns, LATITUDE_COLUMN_CANDIDATES),
         "longitude": _resolve_column_name(columns, LONGITUDE_COLUMN_CANDIDATES),
     }

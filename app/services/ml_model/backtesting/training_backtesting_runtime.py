@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -8,27 +8,8 @@ import pandas as pd
 from app.perf import current_perf_trace
 from app.services.model_quality import compute_count_metrics
 
-from ..ml_model_types import (
-    BacktestFailure,
-    BacktestOverview,
-    BacktestRunResult,
-    BacktestSuccess,
-    BacktestWindowRow,
-    CLASSIFICATION_THRESHOLD,
-    COUNT_MODEL_KEYS,
-    COUNT_SELECTION_RULE,
-    CountMetrics,
-    EVENT_SELECTION_RULE,
-    EventMetrics,
-    HorizonSummary,
-    MAX_BACKTEST_POINTS,
-    MIN_BACKTEST_POINTS,
-    MIN_FEATURE_ROWS,
-    MlProgressCallback,
-    PredictionIntervalCalibrationByHorizon,
-    ROLLING_MIN_TRAIN_ROWS,
-    _emit_progress,
-)
+from ..ml_model_config_types import CLASSIFICATION_THRESHOLD, COUNT_MODEL_KEYS, COUNT_SELECTION_RULE, EVENT_SELECTION_RULE, MAX_BACKTEST_POINTS, MIN_BACKTEST_POINTS, MIN_FEATURE_ROWS, MlProgressCallback, ROLLING_MIN_TRAIN_ROWS, _emit_progress
+from ..ml_model_result_types import BacktestFailure, BacktestOverview, BacktestRunResult, BacktestSuccess, BacktestWindowRow, CountMetrics, EventMetrics, HorizonSummary, PredictionIntervalCalibrationByHorizon
 from .training_backtesting_baselines import _baseline_event_probability, _baseline_expected_count
 from .training_backtesting_events import _compute_event_metrics
 from .training_backtesting_horizons import (

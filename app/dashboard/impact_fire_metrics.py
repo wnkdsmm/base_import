@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence
@@ -37,7 +37,7 @@ from .types import (
 )
 from .utils import _date_expression, _format_number, _quote_identifier
 
-_AREA_BUCKET_ORDER = ["Р”Рѕ 1 РіР°", "1-5 РіР°", "5-20 РіР°", "20-100 РіР°", "100+ РіР°", "РќРµ СѓРєР°Р·Р°РЅРѕ"]
+_AREA_BUCKET_ORDER = ["До 1 га", "1-5 га", "5-20 га", "20-100 га", "100+ га", "Не указано"]
 _IMPACT_TIMELINE_METRIC_KEYS = ("deaths", "injuries", "evacuated", "evacuated_children", "rescued_children")
 
 
@@ -54,7 +54,7 @@ def _collect_cause_counts(selected_tables: List[DashboardTableRef], selected_yea
             query = text(
                 f"""
                 SELECT
-                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(cause_column)} AS TEXT)), ''), 'РќРµ СѓРєР°Р·Р°РЅРѕ') AS label,
+                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(cause_column)} AS TEXT)), ''), 'Не указано') AS label,
                     COUNT(*) AS fire_count
                 FROM {_quote_identifier(table['name'])}
                 WHERE {where_clause}
@@ -80,8 +80,8 @@ def _build_cause_chart(
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:12]
     ]
-    title = "РџСЂРёС‡РёРЅС‹ РІРѕР·РіРѕСЂР°РЅРёР№"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїСЂРёС‡РёРЅР°Рј РІРѕР·РіРѕСЂР°РЅРёСЏ."
+    title = "Причины возгораний"
+    empty_message = "Нет данных по причинам возгорания."
     return _finalize_chart(title, items, empty_message, plotly=_build_cause_plotly(title, items, empty_message))
 
 
@@ -118,7 +118,7 @@ def _collect_month_counts(selected_tables: List[DashboardTableRef], selected_yea
 
 
 def _column_label_expression(column_name: str) -> str:
-    return f"COALESCE(NULLIF(TRIM(CAST({_quote_identifier(column_name)} AS TEXT)), ''), 'РќРµ СѓРєР°Р·Р°РЅРѕ')"
+    return f"COALESCE(NULLIF(TRIM(CAST({_quote_identifier(column_name)} AS TEXT)), ''), 'Не указано')"
 
 
 def _resolve_grouped_count_query_context(
@@ -441,11 +441,11 @@ def _collect_dashboard_grouped_counts(
         label = row["label"]
         fire_count = int(row["fire_count"] or 0)
         if metric_kind == "cause":
-            cause_counts[str(label or "РќРµ СѓРєР°Р·Р°РЅРѕ")] += fire_count
+            cause_counts[str(label or "Не указано")] += fire_count
         elif metric_kind == "distribution":
-            distribution_counts[str(label or "РќРµ СѓРєР°Р·Р°РЅРѕ")] += fire_count
+            distribution_counts[str(label or "Не указано")] += fire_count
         elif metric_kind == "district":
-            district_counts[str(label or "РќРµ СѓРєР°Р·Р°РЅРѕ")] += fire_count
+            district_counts[str(label or "Не указано")] += fire_count
         elif metric_kind == "month":
             try:
                 month_value = int(label)
@@ -454,7 +454,7 @@ def _collect_dashboard_grouped_counts(
             if 1 <= month_value <= 12:
                 month_counts[month_value] += fire_count
         elif metric_kind == "area_bucket":
-            area_bucket_counts[str(label or "РќРµ СѓРєР°Р·Р°РЅРѕ")] += fire_count
+            area_bucket_counts[str(label or "Не указано")] += fire_count
         elif metric_kind == "positive_column_bundle":
             for index, column_name in enumerate(positive_columns):
                 positive_column_counts[column_name] += int(row[f"positive_metric_{index}"] or 0)
@@ -490,14 +490,14 @@ def _build_monthly_profile_chart(
                 }
             )
 
-    title = "РЎРµР·РѕРЅРЅРѕСЃС‚СЊ РїРѕ РјРµСЃСЏС†Р°Рј"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃРµР·РѕРЅРЅРѕРіРѕ РїСЂРѕС„РёР»СЏ."
+    title = "Сезонность по месяцам"
+    empty_message = "Нет данных для сезонного профиля."
     return _finalize_chart(title, items, empty_message, plotly=_build_monthly_profile_plotly(title, items, empty_message))
 
 
 def _build_area_buckets_chart(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> DistributionResult:
     grouped: Dict[str, int] = defaultdict(int)
-    bucket_order = ["Р”Рѕ 1 РіР°", "1-5 РіР°", "5-20 РіР°", "20-100 РіР°", "100+ РіР°", "РќРµ СѓРєР°Р·Р°РЅРѕ"]
+    bucket_order = ["До 1 га", "1-5 га", "5-20 га", "20-100 га", "100+ га", "Не указано"]
 
     with engine.connect() as conn:
         for table in selected_tables:
@@ -527,8 +527,8 @@ def _build_area_buckets_chart(selected_tables: List[DashboardTableRef], selected
         for bucket in bucket_order
         if bucket in grouped
     ]
-    title = "РЎС‚СЂСѓРєС‚СѓСЂР° РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°."
+    title = "Структура по площади пожара"
+    empty_message = "Нет данных по площади пожара."
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
 
 
@@ -542,8 +542,8 @@ def _build_area_buckets_chart_from_counts(bucket_counts: Dict[str, int]) -> Dist
         for bucket in _AREA_BUCKET_ORDER
         if int(bucket_counts.get(bucket, 0) or 0) > 0
     ]
-    title = "РЎС‚СЂСѓРєС‚СѓСЂР° РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїР»РѕС‰Р°РґРё РїРѕР¶Р°СЂР°."
+    title = "Структура по площади пожара"
+    empty_message = "Нет данных по площади пожара."
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
 
 

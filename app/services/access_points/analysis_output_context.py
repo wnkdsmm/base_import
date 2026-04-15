@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
@@ -76,8 +76,8 @@ def _build_low_support_note(*, low_support: bool, incident_count: int) -> str:
     if not low_support:
         return ""
     return (
-        f"РўРѕС‡РєР° СЃРѕР±СЂР°РЅР° РІСЃРµРіРѕ РїРѕ {_format_integer(incident_count)} РїРѕР¶Р°СЂР°Рј, "
-        "РґРѕР»РµРІС‹Рµ РїСЂРёР·РЅР°РєРё СЃРіР»Р°Р¶РµРЅС‹."
+        f"Точка собрана всего по {_format_integer(incident_count)} пожарам, "
+        "долевые признаки сглажены."
     )
 
 def _build_incomplete_note(
@@ -89,13 +89,13 @@ def _build_incomplete_note(
 ) -> str:
     if uncertainty_flag:
         return (
-            f"РќРµРѕРїСЂРµРґРµР»С‘РЅРЅРѕСЃС‚СЊ РґРѕР±Р°РІР»СЏРµС‚ {uncertainty_penalty_display} Рї. "
-            "Рё С‚СЂРµР±СѓРµС‚ РІРµСЂРёС„РёРєР°С†РёРё РІРѕРґС‹, РІСЂРµРјРµРЅРё РїСЂРёР±С‹С‚РёСЏ Рё РґРёСЃС‚Р°РЅС†РёРё."
+            f"Неопределённость добавляет {uncertainty_penalty_display} п. "
+            "и требует верификации воды, времени прибытия и дистанции."
         )
     if missing_data_priority:
         return (
-            "Р’С‹СЃРѕРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚ РїСЂРѕРІРµСЂРєРё СЃРІСЏР·Р°РЅ РїСЂРµР¶РґРµ РІСЃРµРіРѕ СЃ "
-            "РїСЂРѕРїСѓСЃРєР°РјРё РїРѕ РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё, РІРѕРґРµ РёР»Рё РІСЂРµРјРµРЅРё РїСЂРёР±С‹С‚РёСЏ."
+            "Высокий приоритет проверки связан прежде всего с "
+            "пропусками по доступности, воде или времени прибытия."
         )
     return low_support_note
 
@@ -168,7 +168,7 @@ def _access_point_decomposition_components(
     if SEVERITY_CODE in active_reason_codes:
         components.append((SEVERITY_CODE, metrics.severity_factor * 100.0, metrics.severity_factor, displays.severe_share_display))
     if RECURRENCE_CODE in active_reason_codes:
-        components.append((RECURRENCE_CODE, metrics.recurrence_factor * 100.0, metrics.recurrence_factor, f"{_format_number(metrics.incidents_per_year)} РІ РіРѕРґ"))
+        components.append((RECURRENCE_CODE, metrics.recurrence_factor * 100.0, metrics.recurrence_factor, f"{_format_number(metrics.incidents_per_year)} в год"))
     if NIGHT_CODE in active_reason_codes:
         components.append((NIGHT_CODE, metrics.night_share * 100.0, metrics.night_share, displays.night_share_display))
     if HEATING_CODE in active_reason_codes:
@@ -203,7 +203,7 @@ def _build_access_point_score_decomposition(
             factor_score=metrics.uncertainty_factor * 100.0,
             weight_points=UNCERTAINTY_PENALTY_MAX,
             contribution_points=UNCERTAINTY_PENALTY_MAX * metrics.uncertainty_factor,
-            value_display=f"РїРѕР»РЅРѕС‚Р° {displays.completeness_display}",
+            value_display=f"полнота {displays.completeness_display}",
             is_penalty=True,
         )
     )

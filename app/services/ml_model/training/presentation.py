@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from . import presentation_backtesting as _presentation_backtesting
 from . import presentation_meta as _presentation_meta

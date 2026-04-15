@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any, Sequence
@@ -48,7 +48,7 @@ def _format_float_for_input(value: float) -> str:
 
 def _format_period(values: Sequence[date]) -> str:
     if not values:
-        return "РќРµС‚ РґР°РЅРЅС‹С…"
+        return "Нет данных"
     ordered = sorted(values)
     return f"{ordered[0].strftime('%d.%m.%Y')} - {ordered[-1].strftime('%d.%m.%Y')}"
 

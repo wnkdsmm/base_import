@@ -5,6 +5,7 @@
     }
 
     var modules = window.ForecastingModules = window.ForecastingModules || {};
+    var uiHelpers = window.FireUiHelpers || {};
     var applyToneClass = shared.applyToneClass;
     var byId = shared.byId;
     var escapeHtml = shared.escapeHtml;
@@ -12,6 +13,16 @@
     var setSelectOptions = shared.setSelectOptions;
     var setText = shared.setText;
     var setValue = shared.setValue;
+    var renderList = typeof uiHelpers.renderList === 'function' ? uiHelpers.renderList : null;
+    var setHidden = typeof uiHelpers.setHidden === 'function'
+        ? uiHelpers.setHidden
+        : function (nodeOrId, hidden) {
+            var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
+            if (!node) {
+                return;
+            }
+            node.classList.toggle('is-hidden', !!hidden);
+        };
 
     modules.createForecastingRender = function createForecastingRender(options) {
         var chartsApi = options && options.charts ? options.charts : {};
@@ -44,6 +55,10 @@
     }
 
     function renderNotes(containerId, notes, emptyMessage) {
+        if (renderList) {
+            renderList(containerId, notes, emptyMessage);
+            return;
+        }
         var container = byId(containerId);
         if (!container) {
             return;
@@ -223,11 +238,7 @@
     var currentForecastData = window.__FIRE_FORECAST_INITIAL__ || null;
 
     function setForecastAsyncVisibility(visible) {
-        var asyncNode = byId('forecastAsyncState');
-        if (!asyncNode) {
-            return;
-        }
-        asyncNode.classList.toggle('is-hidden', !visible);
+        setHidden('forecastAsyncState', !visible);
     }
 
     function setForecastStageVisibility(stageName, visible) {
@@ -264,7 +275,7 @@
         if (!errorNode) {
             return;
         }
-        errorNode.classList.add('is-hidden');
+        setHidden(errorNode, true);
         setText('forecastErrorMessage', '');
         if (!runtimeNode || runtimeNode.classList.contains('is-hidden')) {
             setForecastAsyncVisibility(false);
@@ -276,7 +287,7 @@
         setForecastAsyncVisibility(true);
         setText('forecastErrorMessage', message || 'Не удалось пересчитать прогноз. Попробуйте еще раз.');
         if (errorNode) {
-            errorNode.classList.remove('is-hidden');
+            setHidden(errorNode, false);
         }
     }
 
@@ -773,5 +784,4 @@
         };
     };
 })();
-
 

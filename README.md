@@ -136,3 +136,10 @@ Generated/local-only артефактами считаются:
 
 Важно: generated outputs и runtime uploads больше не должны попадать в git.
 Если нужен воспроизводимый ручной сценарий, используйте sample-файлы из `sample_data/uploads/`, а результаты генерируйте локально.
+
+## Core vs App boundaries
+
+- `core/` keeps reusable processing/mapping pipeline primitives and legacy desktop entrypoint compatibility.
+- `app/` owns HTTP/API orchestration, request/response schemas, and web-oriented services.
+- Current FastAPI services still import selected pipeline steps from `core.processing.*`, so `core/` is not removable yet without a staged migration.
+- `app/domain/predictive_settings.py` now acts as compatibility re-export; canonical predictive thresholds live in `config/constants.py`.

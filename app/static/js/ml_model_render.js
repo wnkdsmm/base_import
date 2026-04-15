@@ -1,5 +1,6 @@
 (function (global) {
     var shared = global.FireUi || {};
+    var uiHelpers = global.FireUiHelpers || {};
     var api = global.MlModelApi || {};
     var charts = global.MlModelCharts || {};
 
@@ -7,13 +8,21 @@
     var createTimerGroup = shared.createTimerGroup;
     var escapeHtml = shared.escapeHtml;
     var renderMetricCards = shared.renderMetricCards;
-    var runProgressSequence = shared.runProgressSequence;
     var setHref = shared.setHref;
     var setSectionHidden = shared.setSectionHidden;
     var setSelectOptions = shared.setSelectOptions;
     var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
     var setValue = shared.setValue;
+    var setHidden = typeof uiHelpers.setHidden === 'function'
+        ? uiHelpers.setHidden
+        : function (nodeOrId, hidden) {
+            var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
+            if (!node) {
+                return;
+            }
+            node.classList.toggle('is-hidden', !!hidden);
+        };
 
     var currentMlData = null;
     var progressTimers = createTimerGroup();
@@ -416,15 +425,6 @@
         });
     }
 
-    function startProgressSequence() {
-        runProgressSequence(progressTimers, updateProgressStep, [
-            { activeIndex: 0 },
-            { activeIndex: 1, delay: 350 },
-            { activeIndex: 2, delay: 1100 },
-            { activeIndex: 3, delay: 1800 }
-        ]);
-    }
-
     function setRefreshButtonState(isBusy) {
         var button = byId('mlRefreshButton');
         if (!button) {
@@ -455,15 +455,9 @@
         var asyncState = byId('mlAsyncState');
         var loadingState = byId('mlLoadingState');
         var errorState = byId('mlErrorState');
-        if (asyncState) {
-            asyncState.classList.remove('is-hidden');
-        }
-        if (loadingState) {
-            loadingState.classList.remove('is-hidden');
-        }
-        if (errorState) {
-            errorState.classList.add('is-hidden');
-        }
+        setHidden(asyncState, false);
+        setHidden(loadingState, false);
+        setHidden(errorState, true);
         setText('mlErrorMessage', '');
         setLoadingStateMode('pending');
     }
@@ -472,11 +466,9 @@
         var asyncState = byId('mlAsyncState');
         var loadingState = byId('mlLoadingState');
         var errorState = byId('mlErrorState');
-        if (loadingState) {
-            loadingState.classList.add('is-hidden');
-        }
+        setHidden(loadingState, true);
         if (asyncState && errorState && errorState.classList.contains('is-hidden')) {
-            asyncState.classList.add('is-hidden');
+            setHidden(asyncState, true);
         }
     }
 
@@ -487,15 +479,9 @@
         var activeIndex = 0;
         var currentJobState = api.getCurrentJobState ? api.getCurrentJobState() : null;
 
-        if (asyncState) {
-            asyncState.classList.remove('is-hidden');
-        }
-        if (loadingState) {
-            loadingState.classList.remove('is-hidden');
-        }
-        if (errorState) {
-            errorState.classList.remove('is-hidden');
-        }
+        setHidden(asyncState, false);
+        setHidden(loadingState, false);
+        setHidden(errorState, false);
         if (currentJobState && currentJobState.status === 'running') {
             activeIndex = 1;
         }
@@ -516,12 +502,10 @@
         var asyncState = byId('mlAsyncState');
         var loadingState = byId('mlLoadingState');
         var errorState = byId('mlErrorState');
-        if (errorState) {
-            errorState.classList.add('is-hidden');
-        }
+        setHidden(errorState, true);
         setText('mlErrorMessage', '');
         if (asyncState && loadingState && loadingState.classList.contains('is-hidden')) {
-            asyncState.classList.add('is-hidden');
+            setHidden(asyncState, true);
         }
     }
 
@@ -685,5 +669,3 @@
         updateMlScreenLinks: updateMlScreenLinks
     };
 }(window));
-
-

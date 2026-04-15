@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Sequence
 
@@ -33,26 +33,26 @@ from .types import (
 from .utils import _unique_non_empty
 from .validation import build_historical_validation_payload, empty_historical_validation_payload
 
-DECISION_SUPPORT_TITLE = "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№: СЂР°РЅР¶РёСЂРѕРІР°РЅРёРµ С‚РµСЂСЂРёС‚РѕСЂРёР№"
+DECISION_SUPPORT_TITLE = "Блок поддержки решений: ранжирование территорий"
 DECISION_SUPPORT_DESCRIPTION = (
-    "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ РѕС‚РєСЂС‹РІР°СЋС‚ РїРѕСЃР»Рµ СЃС†РµРЅР°СЂРЅРѕРіРѕ РїСЂРѕРіРЅРѕР·Р°, РєРѕРіРґР° РЅСѓР¶РЅРѕ РїРѕРЅСЏС‚СЊ, РєР°РєРёРµ С‚РµСЂСЂРёС‚РѕСЂРёРё Р±СЂР°С‚СЊ РІ СЂР°Р±РѕС‚Сѓ РїРµСЂРІС‹РјРё. "
-    "РћРЅ РЅРµ РїРѕРєР°Р·С‹РІР°РµС‚ РєР°Р»РµРЅРґР°СЂСЊ РїРѕ РґРЅСЏРј Рё РЅРµ РѕС†РµРЅРёРІР°РµС‚ РѕР¶РёРґР°РµРјРѕРµ С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ: РµРіРѕ Р·Р°РґР°С‡Р° - СЂР°РЅР¶РёСЂРѕРІР°С‚СЊ С‚РµСЂСЂРёС‚РѕСЂРёРё РїРѕ СЃРѕС‡РµС‚Р°РЅРёСЋ "
-    "С‡Р°СЃС‚РѕС‚С‹ РїРѕР¶Р°СЂРѕРІ, С‚СЏР¶РµСЃС‚Рё РїРѕСЃР»РµРґСЃС‚РІРёР№, Р»РѕРіРёСЃС‚РёРєРё РїСЂРёР±С‹С‚РёСЏ Рё РѕР±РµСЃРїРµС‡РµРЅРЅРѕСЃС‚Рё РІРѕРґРѕР№. "
-    "РљРѕРјРїРѕРЅРµРЅС‚С‹ РїРѕРєР°Р·Р°РЅС‹ РїСЂРѕР·СЂР°С‡РЅРѕ, С‡С‚РѕР±С‹ СЂРµС€РµРЅРёРµ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ РѕР±СЉСЏСЃРЅРёС‚СЊ Р±РµР· С‡РµСЂРЅРѕРіРѕ СЏС‰РёРєР°."
+    "Блок поддержки решений открывают после сценарного прогноза, когда нужно понять, какие территории брать в работу первыми. "
+    "Он не показывает календарь по дням и не оценивает ожидаемое число пожаров: его задача - ранжировать территории по сочетанию "
+    "частоты пожаров, тяжести последствий, логистики прибытия и обеспеченности водой. "
+    "Компоненты показаны прозрачно, чтобы решение можно было объяснить без черного ящика."
 )
 
 
 def _feature_coverage_display(feature_cards: Sequence[FeatureCard]) -> str:
     if not feature_cards:
-        return "0 РёР· 0"
+        return "0 из 0"
     available_count = sum(1 for item in feature_cards if item["status"] != "missing")
-    return f"{available_count} РёР· {len(feature_cards)}"
+    return f"{available_count} из {len(feature_cards)}"
 
 
 def _placeholder_decision_support_notes(preload_notes: Sequence[str]) -> list[str]:
     return _unique_non_empty(
         list(preload_notes[:2])
-        + ["РџРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РїРѕ РІС‹Р±СЂР°РЅРЅРѕРјСѓ СЃСЂРµР·Сѓ РґР»СЏ РїСЂРёРѕСЂРёС‚РёР·Р°С†РёРё С‚РµСЂСЂРёС‚РѕСЂРёР№."]
+        + ["Пока недостаточно данных по выбранному срезу для приоритизации территорий."]
     )
 
 
@@ -80,7 +80,7 @@ def _build_placeholder_decision_support_payload(
         feature_cards=feature_cards,
         weight_profile=requested_weight_profile,
         historical_validation=empty_historical_validation_payload(
-            requested_weight_profile.get("mode_label") or "РђРґР°РїС‚РёРІРЅС‹Рµ РІРµСЃР°"
+            requested_weight_profile.get("mode_label") or "Адаптивные веса"
         ),
         notes=notes,
         geo_summary=geo_summary,
@@ -158,7 +158,7 @@ def build_decision_support_payload(
             if progress_callback is not None:
                 progress_callback(
                     "decision_support.loading",
-                    "РЎРѕР±РёСЂР°РµРј РІС…РѕРґРЅС‹Рµ РґР°РЅРЅС‹Рµ Рё РїСЂРёР·РЅР°РєРё РґР»СЏ Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№.",
+                    "Собираем входные данные и признаки для блока поддержки решений.",
                 )
             metadata_items, filtered_records, preload_notes = _collect_risk_inputs(
                 source_tables,
@@ -181,7 +181,7 @@ def build_decision_support_payload(
             if progress_callback is not None:
                 progress_callback(
                     "decision_support.aggregation",
-                    "РЎС‚СЂРѕРёРј СЂР°РЅР¶РёСЂРѕРІР°РЅРёРµ С‚РµСЂСЂРёС‚РѕСЂРёР№, РїР°СЃРїРѕСЂС‚ РєР°С‡РµСЃС‚РІР° Рё РЅСѓР¶РЅС‹Рµ Р°РіСЂРµРіР°С‚С‹.",
+                    "Строим ранжирование территорий, паспорт качества и нужные агрегаты.",
                 )
             if include_geo_prediction and geo_prediction is None and filtered_records:
                 geo_prediction = _build_geo_prediction(filtered_records, planning_horizon_days)
@@ -194,7 +194,7 @@ def build_decision_support_payload(
                 if progress_callback is not None:
                     progress_callback(
                         "decision_support.render",
-                        "РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј placeholder-СЂРµР·СѓР»СЊС‚Р°С‚ Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№.",
+                        "Подготавливаем placeholder-результат блока поддержки решений.",
                     )
                 notes = _placeholder_decision_support_notes(preload_notes)
                 payload = _build_placeholder_decision_support_payload(
@@ -210,7 +210,7 @@ def build_decision_support_payload(
                 if progress_callback is not None:
                     progress_callback(
                         "decision_support.completed",
-                        "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ Р·Р°РІРµСЂС€РµРЅ РІ СЂРµР¶РёРјРµ placeholder.",
+                        "Блок поддержки решений завершен в режиме placeholder.",
                     )
                 return payload
 
@@ -219,9 +219,9 @@ def build_decision_support_payload(
                 progress_callback(
                     "decision_support.training",
                     (
-                        "РћС†РµРЅРёРІР°РµРј СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ СЂР°РЅР¶РёСЂРѕРІР°РЅРёСЏ Рё РїСЂРѕРІРµСЂСЏРµРј РёСЃС‚РѕСЂРёС‡РµСЃРєСѓСЋ РІР°Р»РёРґР°С†РёСЋ."
+                        "Оцениваем устойчивость ранжирования и проверяем историческую валидацию."
                         if include_historical_validation
-                        else "РЎРѕР±РёСЂР°РµРј ranking РїРѕ С‚РµСЂСЂРёС‚РѕСЂРёСЏРј Р±РµР· РїРѕР»РЅРѕР№ РёСЃС‚РѕСЂРёС‡РµСЃРєРѕР№ РІР°Р»РёРґР°С†РёРё."
+                        else "Собираем ranking по территориям без полной исторической валидации."
                     ),
                 )
             resolved_profile = resolve_weight_profile_for_records(
@@ -230,7 +230,7 @@ def build_decision_support_payload(
                 weight_mode=weight_mode,
                 enable_calibration=include_historical_validation,
                 disabled_summary=(
-                    "Р”Р»СЏ РѕР±Р»РµРіС‡РµРЅРЅРѕРіРѕ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРіРѕ snapshot Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ РєР°Р»РёР±СЂРѕРІРєР° РІРµСЃРѕРІ РЅРµ Р·Р°РїСѓСЃРєР°Р»Р°СЃСЊ; РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ Р±Р°Р·РѕРІС‹Р№ РїСЂРѕС„РёР»СЊ."
+                    "Для облегченного территориального snapshot автоматическая калибровка весов не запускалась; используется базовый профиль."
                     if not include_historical_validation
                     else ""
                 ),
@@ -242,7 +242,7 @@ def build_decision_support_payload(
                 profile_override=resolved_profile,
             )
             historical_validation = empty_historical_validation_payload(
-                resolved_profile.get("mode_label") or "РђРґР°РїС‚РёРІРЅС‹Рµ РІРµСЃР°"
+                resolved_profile.get("mode_label") or "Адаптивные веса"
             )
             if include_historical_validation:
                 historical_validation = build_historical_validation_payload(
@@ -262,7 +262,7 @@ def build_decision_support_payload(
             if progress_callback is not None:
                 progress_callback(
                     "decision_support.render",
-                    "РЎРѕР±РёСЂР°РµРј СЂРµРєРѕРјРµРЅРґР°С†РёРё, РєР°СЂС‚С‹ Рё РёС‚РѕРіРѕРІС‹Р№ payload.",
+                    "Собираем рекомендации, карты и итоговый payload.",
             )
             notes = _build_risk_notes(feature_cards, preload_notes, weight_profile, historical_validation)
             payload = _build_ranked_decision_support_payload(
@@ -281,7 +281,7 @@ def build_decision_support_payload(
                 payload_notes=len(notes),
             )
             if progress_callback is not None:
-                progress_callback("decision_support.completed", "Р‘Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ РіРѕС‚РѕРІ.")
+                progress_callback("decision_support.completed", "Блок поддержки решений готов.")
             return payload
 
 

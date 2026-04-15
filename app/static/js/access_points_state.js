@@ -1,36 +1,54 @@
 (function (global) {
+    var factory = global.FireStateFactory || {};
+    var createStateManager = factory.createStateManager;
+
     global.AccessPointsState = {
         create: function createAccessPointsState(options) {
             var initialData = options && options.initialData ? options.initialData : null;
-            var currentController = null;
-            var latestRequestId = 0;
+            var fallbackCurrentController = null;
+            var fallbackLatestRequestId = 0;
+            var manager = typeof createStateManager === 'function'
+                ? createStateManager({
+                    currentController: null,
+                    initialData: initialData,
+                    latestRequestId: 0
+                })
+                : null;
 
             function getInitialData() {
-                return initialData;
+                return manager ? manager.get('initialData') : initialData;
             }
 
             function getCurrentController() {
-                return currentController;
+                return manager ? manager.get('currentController') : fallbackCurrentController;
             }
 
             function setCurrentController(controller) {
-                currentController = controller || null;
-                return currentController;
+                if (!manager) {
+                    fallbackCurrentController = controller || null;
+                    return fallbackCurrentController;
+                }
+                return manager.set('currentController', controller || null);
             }
 
             function clearController(controller) {
+                var currentController = getCurrentController();
                 if (currentController === controller) {
-                    currentController = null;
+                    setCurrentController(null);
                 }
-                return currentController;
+                return getCurrentController();
             }
 
             function nextRequestId() {
-                latestRequestId += 1;
-                return latestRequestId;
+                if (!manager) {
+                    fallbackLatestRequestId += 1;
+                    return fallbackLatestRequestId;
+                }
+                return manager.set('latestRequestId', Number(manager.get('latestRequestId') || 0) + 1);
             }
 
             function isLatestRequest(requestId) {
+                var latestRequestId = manager ? manager.get('latestRequestId') : fallbackLatestRequestId;
                 return requestId == latestRequestId;
             }
 

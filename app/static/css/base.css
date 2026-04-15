@@ -1,7 +1,6 @@
 /* Base */
 :root {
     --bg: #edf4ff;
-    --bg-soft: #f7fbff;
     --paper: #f8fbff;
     --paper-strong: #fbfdff;
     --ink: #182230;
@@ -25,16 +24,29 @@
     --forest: #2f7a5f;
     --forest-deep: #1f5d47;
     --sky: #2d6c8f;
-    --sky-deep: #184d6a;
     --sand: #d1a15f;
-    --sand-deep: #8f6330;
-    --berry: #8c4b3f;
     --sidebar-width: 292px;
     --content-gap: 18px;
     --page-padding: clamp(16px, 2vw, 28px);
     --section-gap: clamp(16px, 1.4vw, 20px);
     --chart-height-lg: clamp(320px, 52vh, 420px);
     --chart-height-md: clamp(260px, 44vh, 360px);
+    /* Responsive breakpoints (reference constants for per-page media queries) */
+    --bp-xxs: 540px;
+    --bp-xs: 640px;
+    --bp-sm: 720px;
+    --bp-sm-plus: 760px;
+    --bp-md: 820px;
+    --bp-md-plus: 900px;
+    --bp-lg: 980px;
+    --bp-lg-plus: 1040px;
+    --bp-xl: 1100px;
+    --bp-2xl: 1180px;
+    --bp-3xl: 1280px;
+    --bp-4xl: 1320px;
+    --bp-5xl: 1360px;
+    --bp-6xl: 1380px;
+    --bp-reference: var(--bp-xxs) var(--bp-xs) var(--bp-sm) var(--bp-sm-plus) var(--bp-md) var(--bp-md-plus) var(--bp-lg) var(--bp-lg-plus) var(--bp-xl) var(--bp-2xl) var(--bp-3xl) var(--bp-4xl) var(--bp-5xl) var(--bp-6xl);
     --radius-xl: 24px;
     --radius-lg: 18px;
     --radius-md: 16px;
@@ -47,7 +59,6 @@
     --ink-strong: #0f172a;
     --teal-deep: #0f766e;
     --text-inverse-soft: #fffdf8;
-    --text-sand-contrast: #24364f;
     --tone-sky-soft: #edf6ff;
     --tone-forest-soft: #edf9f3;
     --tone-sand-soft: #fff6e2;
@@ -69,7 +80,6 @@
     --z-sticky: 1;
     --z-sticky-top: 2;
     --z-overlay: 12;
-    --sidebar-start: #092452;
     --sidebar-end: #144a97;
     --sidebar-surface: #24569f;
     --sidebar-border: #4c79be;
@@ -88,7 +98,6 @@
     --color-badge-live-bg: #2f7a5f;
     --color-badge-live-text: #d8ffe8;
     --color-text-dark: #223247;
-    --color-success-surface: #eff8f3;
     --color-warning-surface: #fff9f4;
     --color-info-surface: #e8f0f7;
     --color-highlight-blue: #dfeaff;
@@ -204,6 +213,7 @@ body {
     color: var(--ink);
     font-family: Bahnschrift, "Segoe UI", "Trebuchet MS", sans-serif;
     background: var(--bg);
+    grid-template-columns: var(--bp-reference);
 }
 
 a {
@@ -258,7 +268,6 @@ svg {
 
 .details-panel summary::after,
 .details-table th,
-.file-path,
 .forecast-cell-note,
 .forecast-feature-card p,
 .info-note-card p,
@@ -269,7 +278,6 @@ svg {
 .metric-hint,
 .metric-label,
 .quality-summary-text,
-.reason-meta,
 .risk-component-card p,
 .risk-drivers,
 .risk-formula,
@@ -320,13 +328,11 @@ svg {
 }
 .details-panel summary,
 .details-table td,
-.file-label,
 .forecast-feature-source,
 .info-note-card strong,
 .log-run-value,
 .mandatory-card-head strong,
 .metric-value,
-.reason-title,
 .risk-component-head strong,
 .risk-drivers strong,
 .risk-formula strong,
@@ -386,8 +392,7 @@ svg {
 }
 .chip,
 .empty-state,
-.selection-note,
-.text-link {
+.selection-note {
     color: var(--accent-deep);
 }
 .profiling-page .hero-stat-card,
@@ -427,9 +432,7 @@ svg {
 .table-select-block {
     margin-top: var(--space-token-30);
 }
-.file-path,
-.log-run-value,
-.reason-meta {
+.log-run-value {
     margin-top: var(--space-token-25);
 }
 .forecast-cell-note,
@@ -444,8 +447,7 @@ svg {
 }
 .details-panel summary::-webkit-details-marker,
 .details-table.table-stack-mobile td::before,
-.results-section-compact > .details-panel:last-of-type,
-.risk-map-panel.is-compact .forecast-plot {
+.results-section-compact > .details-panel:last-of-type {
     display: none;
 }
 .forecast-note-list,

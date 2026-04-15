@@ -1,4 +1,4 @@
-﻿"""ML service package facade with lazy public API exports."""
+"""ML service package facade with lazy public API exports."""
 
 from __future__ import annotations
 

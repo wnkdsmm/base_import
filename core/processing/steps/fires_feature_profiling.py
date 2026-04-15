@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import os
 import warnings
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class FiresFeatureProfilingStep(PipelineStep):
     def __init__(self, settings):
-        super().__init__("РџСЂРѕС„РёР»РёСЂРѕРІР°РЅРёРµ РїСЂРёР·РЅР°РєРѕРІ РїРѕР¶Р°СЂРѕРІ")
+        super().__init__("Профилирование признаков пожаров")
         self.settings = settings
 
     def _get_thresholds(self) -> dict[str, float]:
@@ -38,23 +38,23 @@ class FiresFeatureProfilingStep(PipelineStep):
         return [
             (
                 "drop_null",
-                "РњРЅРѕРіРѕ РїСЂРѕРїСѓСЃРєРѕРІ",
-                f"Р”РѕР»СЏ РїСѓСЃС‚С‹С… Р·РЅР°С‡РµРЅРёР№ РІС‹С€Рµ {thresholds['null_threshold'] * 100:.0f}%.",
+                "Много пропусков",
+                f"Доля пустых значений выше {thresholds['null_threshold'] * 100:.0f}%.",
             ),
             (
                 "drop_constant",
-                "РљРѕРЅСЃС‚Р°РЅС‚РЅР°СЏ РєРѕР»РѕРЅРєР°",
-                "Р’Рѕ РІСЃРµР№ РєРѕР»РѕРЅРєРµ С‚РѕР»СЊРєРѕ РѕРґРЅРѕ Р·РЅР°С‡РµРЅРёРµ РёР»Рё РґР°РЅРЅС‹С… РЅРµС‚ СЃРѕРІСЃРµРј.",
+                "Константная колонка",
+                "Во всей колонке только одно значение или данных нет совсем.",
             ),
             (
                 "low_variance",
-                "РџРѕС‡С‚Рё РЅРµС‚ СЂР°Р·Р±СЂРѕСЃР°",
-                f"Р§РёСЃР»РѕРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїРѕС‡С‚Рё РЅРµ РјРµРЅСЏСЋС‚СЃСЏ, РґРёСЃРїРµСЂСЃРёСЏ РЅРёР¶Рµ {thresholds['low_variance_threshold']}.",
+                "Почти нет разброса",
+                f"Числовые значения почти не меняются, дисперсия ниже {thresholds['low_variance_threshold']}.",
             ),
             (
                 "almost_constant",
-                "РџРѕС‡С‚Рё РІСЃРµРіРґР° РѕРґРЅРѕ Рё С‚Рѕ Р¶Рµ Р·РЅР°С‡РµРЅРёРµ",
-                f"РћРґРЅРѕ Р·РЅР°С‡РµРЅРёРµ Р·Р°РЅРёРјР°РµС‚ Р±РѕР»СЊС€Рµ {thresholds['dominant_value_threshold'] * 100:.0f}% РєРѕР»РѕРЅРєРё.",
+                "Почти всегда одно и то же значение",
+                f"Одно значение занимает больше {thresholds['dominant_value_threshold'] * 100:.0f}% колонки.",
             ),
         ]
 
@@ -66,11 +66,11 @@ class FiresFeatureProfilingStep(PipelineStep):
         if isinstance(cached_df, pd.DataFrame):
             return cached_df
 
-        logger.info("Р§РёС‚Р°РµРј С‚Р°Р±Р»РёС†Сѓ РёР· Р±Р°Р·С‹ РґР°РЅРЅС‹С…...")
+        logger.info("Читаем таблицу из базы данных...")
         try:
             return pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
         except Exception:
-            logger.exception("РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ С‚Р°Р±Р»РёС†Сѓ: %s", table_name)
+            logger.exception("Не удалось прочитать таблицу: %s", table_name)
             raise
 
     def run(self, data=None):
@@ -88,17 +88,17 @@ class FiresFeatureProfilingStep(PipelineStep):
         output_csv = os.path.join(output_folder, f"{table_name}{PROFILING_CSV_SUFFIX}")
         output_xlsx = os.path.join(output_folder, f"{table_name}{PROFILING_XLSX_SUFFIX}")
 
-        logger.info("РўР°Р±Р»РёС†Р° РґР»СЏ РїСЂРѕС„РёР»РёСЂРѕРІР°РЅРёСЏ: %s", table_name)
-        logger.info("РџР°РїРєР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ: %s", output_folder)
+        logger.info("Таблица для профилирования: %s", table_name)
+        logger.info("Папка результатов: %s", output_folder)
         logger.info(
-            "РџРѕСЂРѕРіРё: РїСЂРѕРїСѓСЃРєРё > %.0f%%, РґРѕРјРёРЅРёСЂСѓСЋС‰РµРµ Р·РЅР°С‡РµРЅРёРµ > %.0f%%, РґРёСЃРїРµСЂСЃРёСЏ < %s",
+            "Пороги: пропуски > %.0f%%, доминирующее значение > %.0f%%, дисперсия < %s",
             thresholds["null_threshold"] * 100,
             thresholds["dominant_value_threshold"] * 100,
             thresholds["low_variance_threshold"],
         )
 
         df = self._resolve_source_df(data if isinstance(data, pd.DataFrame) else None, table_name)
-        logger.info("Р—Р°РіСЂСѓР¶РµРЅРѕ СЃС‚СЂРѕРє: %s, РєРѕР»РѕРЅРѕРє: %s", df.shape[0], df.shape[1])
+        logger.info("Загружено строк: %s, колонок: %s", df.shape[0], df.shape[1])
 
         n_rows = len(df)
         string_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
@@ -206,12 +206,12 @@ class FiresFeatureProfilingStep(PipelineStep):
         )
         candidate_details = candidate_export_frame.to_dict(orient="records")
 
-        logger.info("РџСЂРѕС„РёР»РёСЂРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ.")
-        logger.info("РћС‚С‡С‘С‚ CSV: %s", output_csv)
-        logger.info("РћС‚С‡С‘С‚ Excel: %s", output_xlsx)
-        logger.info("Р’СЃРµРіРѕ РєРѕР»РѕРЅРѕРє: %s", len(profile_df_sorted))
-        logger.info("РџРѕРјРµС‡РµРЅРѕ РЅР° РёСЃРєР»СЋС‡РµРЅРёРµ: %s", len(candidates))
-        logger.info("РћСЃС‚Р°РЅРµС‚СЃСЏ РІ РѕС‡РёС‰РµРЅРЅРѕР№ С‚Р°Р±Р»РёС†Рµ: %s", len(kept_columns))
+        logger.info("Профилирование завершено.")
+        logger.info("Отчёт CSV: %s", output_csv)
+        logger.info("Отчёт Excel: %s", output_xlsx)
+        logger.info("Всего колонок: %s", len(profile_df_sorted))
+        logger.info("Помечено на исключение: %s", len(candidates))
+        logger.info("Останется в очищенной таблице: %s", len(kept_columns))
 
         self.settings._pipeline_source_df = df
         self.settings._pipeline_profile_df = profile_df_sorted

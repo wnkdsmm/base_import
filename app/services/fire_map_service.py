@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
@@ -82,7 +82,7 @@ def get_fire_map_page_context(table_name: str = "") -> dict[str, Any]:
                 )
             except Exception as exc:
                 brief = empty_executive_brief()
-                brief["notes"] = [f"РўРµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Р№ РїСЂРёРѕСЂРёС‚РµС‚ РЅР° РєР°СЂС‚Рµ РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРµРЅ: {exc}"]
+                brief["notes"] = [f"Территориальный приоритет на карте временно недоступен: {exc}"]
                 risk_prediction = {"territories": [], "notes": list(brief["notes"])}
 
             _FIRE_MAP_BRIEF_CACHE.set(

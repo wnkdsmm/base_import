@@ -1,4 +1,4 @@
-﻿"""Public clustering service modules without eager submodule imports."""
+"""Public clustering service modules without eager submodule imports."""
 
 from __future__ import annotations
 

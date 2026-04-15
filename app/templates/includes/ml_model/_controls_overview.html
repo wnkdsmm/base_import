@@ -55,7 +55,7 @@
         </form>
         <div id="mlAsyncState" class="analysis-async ml-async-state{% if data.bootstrap_mode == 'deferred' %}{% else %} is-hidden{% endif %}">
             <div id="mlLoadingState" class="analysis-status-card ml-loading-state{% if data.bootstrap_mode == 'deferred' %} is-pending{% else %} is-hidden{% endif %}" aria-live="polite">
-                <div class="analysis-status-head ml-loading-head">
+                <div class="analysis-status-head u-flex-between-gap-12 ml-loading-head">
                     <div class="analysis-status-copy">
                         <strong id="mlLoadingLead" class="analysis-status-lead">Подготавливаем ML-страницу</strong>
                         <span id="mlLoadingMessage" class="analysis-status-message">Сначала отдаем легкий shell, затем подтягиваем расчет отдельно.</span>

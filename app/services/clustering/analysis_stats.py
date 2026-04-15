@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 from itertools import combinations
@@ -92,10 +92,10 @@ def _build_sample_weights(
 ) -> np.ndarray:
     if (
         weighting_strategy in {WEIGHTING_STRATEGY_UNIFORM, WEIGHTING_STRATEGY_NOT_APPLICABLE}
-        or "Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ" not in entity_frame.columns
+        or "Число пожаров" not in entity_frame.columns
     ):
         return np.ones(len(entity_frame), dtype=float)
-    counts = pd.to_numeric(entity_frame["Р§РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ"], errors="coerce").fillna(1.0).clip(lower=1.0).to_numpy(dtype=float)
+    counts = pd.to_numeric(entity_frame["Число пожаров"], errors="coerce").fillna(1.0).clip(lower=1.0).to_numpy(dtype=float)
     weights = np.log1p(counts)
     mean_weight = float(np.mean(weights))
     if mean_weight <= 0:

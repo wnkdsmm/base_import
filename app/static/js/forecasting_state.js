@@ -6,17 +6,26 @@
 
     var modules = window.ForecastingModules = window.ForecastingModules || {};
     var byId = shared.byId;
+    var factory = window.FireStateFactory || {};
+    var createStateManager = factory.createStateManager;
 
     modules.createForecastingState = function createForecastingState(options) {
-        var currentData = options && options.initialData ? options.initialData : null;
+        var initialData = options && options.initialData ? options.initialData : null;
+        var manager = typeof createStateManager === 'function'
+            ? createStateManager({ currentData: initialData })
+            : null;
+        var currentData = initialData;
 
         function setCurrentData(data) {
-            currentData = data || null;
-            return currentData;
+            if (!manager) {
+                currentData = data || null;
+                return currentData;
+            }
+            return manager.set('currentData', data || null);
         }
 
         function getCurrentData() {
-            return currentData;
+            return manager ? manager.get('currentData') : currentData;
         }
 
         function collectSelectedFilters() {

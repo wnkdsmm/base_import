@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"F:/filesFires/base_import\" -not -path \"*/.claude/*\" -not -path \"*/__pycache__/*\" -not -path \"*/.git/*\" -not -path \"*/.pytest_cache/*\" -type f \\\\\\( -name \"*.py\" -o -name \"*.js\" -o -name \"*.css\" -o -name \"*.html\" -o -name \"*.txt\" -o -name \"*.md\" -o -name \"*.json\" \\\\\\) -exec wc -l {} +)"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List
@@ -6,12 +6,7 @@ from typing import Any, Dict, List
 from app.services.forecasting.presentation import _build_feature_cards_with_quality
 from app.services.forecasting.utils import _format_datetime, _format_float_for_input, _history_window_label
 
-from .ml_model_types import (
-    FORECAST_DAY_OPTIONS,
-    HISTORY_WINDOW_OPTIONS,
-    ML_PREDICTIVE_BLOCK_DESCRIPTION,
-    MODEL_NAME,
-)
+from .ml_model_config_types import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS, ML_PREDICTIVE_BLOCK_DESCRIPTION, MODEL_NAME
 from .training.presentation import (
     _build_forecast_chart,
     _build_importance_chart,
@@ -103,7 +98,7 @@ def _build_ml_payload(
             'available_tables': table_options,
             'available_causes': option_catalog['causes'],
             'available_object_categories': option_catalog['object_categories'],
-            'available_forecast_days': [{'value': str(item), 'label': f'{item} РґРЅРµР№'} for item in FORECAST_DAY_OPTIONS],
+            'available_forecast_days': [{'value': str(item), 'label': f'{item} дней'} for item in FORECAST_DAY_OPTIONS],
             'available_history_windows': HISTORY_WINDOW_OPTIONS,
         },
     }
@@ -116,57 +111,57 @@ def _empty_ml_model_data(
     temperature: str,
     history_window: str,
 ) -> dict[str, Any]:
-    empty_result = _empty_ml_result('РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СѓС‡РµРЅРёСЏ РјРѕРґРµР»Рё.')
+    empty_result = _empty_ml_result('Недостаточно данных для обучения модели.')
     return {
         'generated_at': _format_datetime(datetime.now()),
         'has_data': False,
         'model_description': '',
         'summary': {
-            'selected_table_label': 'Р’СЃРµ С‚Р°Р±Р»РёС†С‹' if selected_table == 'all' else (selected_table or 'РќРµС‚ С‚Р°Р±Р»РёС†С‹'),
-            'slice_label': 'Р’СЃРµ РїРѕР¶Р°СЂС‹',
-            'hero_summary': 'РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РєСЂР°С‚РєРёР№ РІС‹РІРѕРґ РїРѕ РѕР¶РёРґР°РµРјРѕРјСѓ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ РЅР° Р±Р»РёР¶Р°Р№С€РёРµ РґР°С‚С‹.',
-            'history_period_label': 'РќРµС‚ РґР°РЅРЅС‹С…',
+            'selected_table_label': 'Все таблицы' if selected_table == 'all' else (selected_table or 'Нет таблицы'),
+            'slice_label': 'Все пожары',
+            'hero_summary': 'После расчета здесь появится краткий вывод по ожидаемому числу пожаров на ближайшие даты.',
+            'history_period_label': 'Нет данных',
             'history_window_label': _history_window_label(history_window),
             'model_label': MODEL_NAME,
-            'count_model_label': 'Р РµРіСЂРµСЃСЃРёСЏ РџСѓР°СЃСЃРѕРЅР°',
-            'event_model_label': 'РќРµ РѕР±СѓС‡РµРЅ',
-            'event_backtest_model_label': 'РќРµ РїРѕРєР°Р·Р°РЅ',
-            'backtest_method_label': 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё РЅРµ РІС‹РїРѕР»РЅРµРЅР°',
+            'count_model_label': 'Регрессия Пуассона',
+            'event_model_label': 'Не обучен',
+            'event_backtest_model_label': 'Не показан',
+            'backtest_method_label': 'Проверка на истории не выполнена',
             'fires_count_display': '0',
             'history_days_display': '0',
             'forecast_days_display': str(forecast_days),
             'last_observed_date': '-',
             'count_mae_display': '-',
             'count_rmse_display': '-',
-            'count_smape_display': 'вЂ”',
+            'count_smape_display': '—',
             'count_poisson_deviance_display': '-',
             'baseline_count_mae_display': '-',
             'baseline_count_rmse_display': '-',
-            'baseline_count_smape_display': 'вЂ”',
+            'baseline_count_smape_display': '—',
             'heuristic_count_mae_display': '-',
             'heuristic_count_rmse_display': '-',
-            'heuristic_count_smape_display': 'вЂ”',
+            'heuristic_count_smape_display': '—',
             'heuristic_count_poisson_deviance_display': '-',
             'mae_vs_baseline_display': '-',
-            'brier_display': 'вЂ”',
-            'baseline_brier_display': 'вЂ”',
-            'heuristic_brier_display': 'вЂ”',
-            'roc_auc_display': 'вЂ”',
-            'baseline_roc_auc_display': 'вЂ”',
-            'heuristic_roc_auc_display': 'вЂ”',
-            'f1_display': 'вЂ”',
-            'baseline_f1_display': 'вЂ”',
-            'heuristic_f1_display': 'вЂ”',
-            'log_loss_display': 'вЂ”',
+            'brier_display': '—',
+            'baseline_brier_display': '—',
+            'heuristic_brier_display': '—',
+            'roc_auc_display': '—',
+            'baseline_roc_auc_display': '—',
+            'heuristic_roc_auc_display': '—',
+            'f1_display': '—',
+            'baseline_f1_display': '—',
+            'heuristic_f1_display': '—',
+            'log_loss_display': '—',
             'top_feature_label': '-',
-            'temperature_scenario_display': temperature.strip() or 'РСЃС‚РѕСЂРёС‡РµСЃРєР°СЏ С‚РµРјРїРµСЂР°С‚СѓСЂР°',
+            'temperature_scenario_display': temperature.strip() or 'Историческая температура',
             'predicted_total_display': '0',
             'average_expected_count_display': '0',
             'peak_expected_count_display': '0',
             'peak_expected_count_day_display': '-',
             'elevated_risk_days_display': '0',
-            'average_event_probability_display': 'вЂ”',
-            'peak_event_probability_display': 'вЂ”',
+            'average_event_probability_display': '—',
+            'peak_event_probability_display': '—',
             'peak_event_probability_day_display': '-',
             'event_probability_enabled': False,
             'event_backtest_available': False,
@@ -174,7 +169,7 @@ def _empty_ml_model_data(
         'quality_assessment': _build_quality_assessment(empty_result),
         'features': [],
         'charts': {
-            'forecast': _empty_light_chart('ML-РїСЂРѕРіРЅРѕР· РѕР¶РёРґР°РµРјРѕРіРѕ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ', 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СѓС‡РµРЅРёСЏ РјРѕРґРµР»Рё.'),
+            'forecast': _empty_light_chart('ML-прогноз ожидаемого числа пожаров', 'Недостаточно данных для обучения модели.'),
             'importance': _build_importance_chart([], note=''),
         },
         'forecast_rows': [],
@@ -188,9 +183,9 @@ def _empty_ml_model_data(
             'forecast_days': str(forecast_days),
             'history_window': history_window,
             'available_tables': table_options,
-            'available_causes': [{'value': 'all', 'label': 'Р’СЃРµ РїСЂРёС‡РёРЅС‹'}],
-            'available_object_categories': [{'value': 'all', 'label': 'Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё'}],
-            'available_forecast_days': [{'value': str(item), 'label': f'{item} РґРЅРµР№'} for item in FORECAST_DAY_OPTIONS],
+            'available_causes': [{'value': 'all', 'label': 'Все причины'}],
+            'available_object_categories': [{'value': 'all', 'label': 'Все категории'}],
+            'available_forecast_days': [{'value': str(item), 'label': f'{item} дней'} for item in FORECAST_DAY_OPTIONS],
             'available_history_windows': HISTORY_WINDOW_OPTIONS,
         },
     }

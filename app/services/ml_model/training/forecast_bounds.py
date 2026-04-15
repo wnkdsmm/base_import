@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
@@ -39,7 +39,7 @@ def _resolve_interval_calibration(interval_calibration: dict[str, Any], horizon_
 
 def _format_ratio_percent(value: Optional[float]) -> str:
     if value is None:
-        return 'вЂ”'
+        return '—'
     return f"{_format_number(float(value) * 100.0)}%"
 
 
@@ -104,14 +104,14 @@ def _risk_index(prediction: float, sorted_history_counts: np.ndarray) -> float:
 
 def _risk_band_from_index(risk_index: float) -> Tuple[str, str]:
     if risk_index >= 90.0:
-        return 'РћС‡РµРЅСЊ РІС‹СЃРѕРєРёР№', 'critical'
+        return 'Очень высокий', 'critical'
     if risk_index >= 75.0:
-        return 'Р’С‹СЃРѕРєРёР№', 'high'
+        return 'Высокий', 'high'
     if risk_index >= 50.0:
-        return 'РЎСЂРµРґРЅРёР№', 'medium'
+        return 'Средний', 'medium'
     if risk_index >= 25.0:
-        return 'РќРёР¶Рµ СЃСЂРµРґРЅРµРіРѕ', 'low'
-    return 'РќРёР·РєРёР№', 'minimal'
+        return 'Ниже среднего', 'low'
+    return 'Низкий', 'minimal'
 
 
 def _bound_probability(value: float) -> float:
@@ -120,5 +120,5 @@ def _bound_probability(value: float) -> float:
 
 def _format_probability(value: Optional[float]) -> str:
     if value is None:
-        return 'вЂ”'
+        return '—'
     return _format_percent(float(value) * 100.0)

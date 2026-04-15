@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import warnings
 from typing import Any, List, Optional, Tuple
@@ -37,16 +37,7 @@ except Exception:  # pragma: no cover - optional dependency
     HessianInversionWarning = None
     PerfectSeparationWarning = None
 
-from ..ml_model_types import (
-    COUNT_MODEL_CONTINUOUS_COLUMNS,
-    MIN_EVENT_CLASS_COUNT,
-    NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS,
-    NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD,
-    MIN_POSITIVE_PREDICTION,
-    WARNING_INSTABILITY_MESSAGE_TOKENS,
-    _LOGISTIC_PARAMS,
-    _POISSON_PARAMS,
-)
+from ..ml_model_config_types import COUNT_MODEL_CONTINUOUS_COLUMNS, MIN_EVENT_CLASS_COUNT, NEGATIVE_BINOMIAL_MIN_TRAIN_ROWS, NEGATIVE_BINOMIAL_OVERDISPERSION_THRESHOLD, MIN_POSITIVE_PREDICTION, WARNING_INSTABILITY_MESSAGE_TOKENS, _LOGISTIC_PARAMS, _POISSON_PARAMS
 from .training_dataset import _build_design_matrix
 
 

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import OrderedDict
 from contextlib import nullcontext
@@ -17,18 +17,8 @@ from . import training_models as _models
 from . import training_result as _result
 from . import training_selection as _selection
 from . import training_temperature as _temperature
-from ..ml_model_types import (
-    BacktestSuccess,
-    COUNT_MODEL_KEYS,
-    COUNT_MODEL_LABELS,
-    EXPLAINABLE_COUNT_MODEL_KEY,
-    MlProgressCallback,
-    MAX_HISTORY_POINTS,
-    MIN_DAILY_HISTORY,
-    MIN_FEATURE_ROWS,
-    _emit_progress,
-    coerce_backtest_result,
-)
+from ..ml_model_config_types import COUNT_MODEL_KEYS, COUNT_MODEL_LABELS, EXPLAINABLE_COUNT_MODEL_KEY, MlProgressCallback, MAX_HISTORY_POINTS, MIN_DAILY_HISTORY, MIN_FEATURE_ROWS, _emit_progress
+from ..ml_model_result_types import BacktestSuccess, coerce_backtest_result
 from .types import (
     TrainingFeatureImportanceRow,
     TrainingForecastRow,
@@ -291,7 +281,7 @@ def _run_training_backtest(
     forecast_days: int,
     progress_callback: MlProgressCallback,
 ) -> Any:
-    _emit_progress(progress_callback, 'ml_backtest.pending', 'Р“РѕС‚РѕРІРёРј rolling-origin backtesting РЅР° РІС‹Р±СЂР°РЅРЅРѕР№ РёСЃС‚РѕСЂРёРё.')
+    _emit_progress(progress_callback, 'ml_backtest.pending', 'Готовим rolling-origin backtesting на выбранной истории.')
     return coerce_backtest_result(
         _run_backtest(
             seed.frame,
@@ -316,7 +306,7 @@ def _fit_final_training_models(
     )
     final_dataset_error = _ensure_min_feature_rows(
         final_dataset,
-        'РџРѕСЃР»Рµ РїРѕРґРіРѕС‚РѕРІРєРё РїРѕР»РЅРѕР№ РѕР±СѓС‡Р°СЋС‰РµР№ РІС‹Р±РѕСЂРєРё РѕСЃС‚Р°Р»РѕСЃСЊ С‚РѕР»СЊРєРѕ {rows} РЅР°Р±Р»СЋРґРµРЅРёР№: СЌС‚РѕРіРѕ РјР°Р»Рѕ РґР»СЏ РёС‚РѕРіРѕРІРѕРіРѕ РѕР±СѓС‡РµРЅРёСЏ ML-РјРѕРґРµР»Рё.',
+        'После подготовки полной обучающей выборки осталось только {rows} наблюдений: этого мало для итогового обучения ML-модели.',
     )
     if final_dataset_error is not None:
         return final_dataset_error
@@ -326,7 +316,7 @@ def _fit_final_training_models(
     _emit_progress(
         progress_callback,
         'ml_model.running',
-        f"РћР±СѓС‡Р°РµРј РёС‚РѕРіРѕРІСѓСЋ count-РјРѕРґРµР»СЊ {COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)} РЅР° РїРѕР»РЅРѕР№ РёСЃС‚РѕСЂРёРё.",
+        f"Обучаем итоговую count-модель {COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)} на полной истории.",
     )
     final_count_model = (
         _fit_count_model(selected_count_model_key, final_dataset, feature_columns=feature_columns)
@@ -334,7 +324,7 @@ def _fit_final_training_models(
         else None
     )
     if selected_count_model_key in COUNT_MODEL_KEYS and final_count_model is None:
-        return _empty_ml_result('РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±СѓС‡РёС‚СЊ РёС‚РѕРіРѕРІСѓСЋ РјРѕРґРµР»СЊ РїРѕ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ РЅР° РїРѕР»РЅРѕР№ РІС‹Р±РѕСЂРєРµ.')
+        return _empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
 
     selected_event_model_key = backtest.event_metrics.selected_model_key
     classifier_validated = (
@@ -396,8 +386,8 @@ def _build_feature_importance_artifacts(
         )
         source_label = COUNT_MODEL_LABELS.get(feature_importance_model_key, feature_importance_model_key)
         feature_importance_note = (
-            f'Р Р°Р±РѕС‡РёР№ РјРµС‚РѕРґ РїСЂРѕРіРЅРѕР·Р°: {selected_label}. '
-            f'Р”СЂР°Р№РІРµСЂС‹ РЅРёР¶Рµ РїРѕРєР°Р·Р°РЅС‹ РїРѕ {source_label}, РїРѕС‚РѕРјСѓ С‡С‚Рѕ СЌС‚Рѕ РѕР±СЉСЏСЃРЅРёРјР°СЏ ML-РјРѕРґРµР»СЊ РґР»СЏ СЂР°Р·Р±РѕСЂР° С„Р°РєС‚РѕСЂРѕРІ.'
+            f'Рабочий метод прогноза: {selected_label}. '
+            f'Драйверы ниже показаны по {source_label}, потому что это объяснимая ML-модель для разбора факторов.'
         )
     return _FeatureImportanceArtifacts(
         rows=feature_importance,
@@ -440,7 +430,7 @@ def _train_ml_model(
     perf = current_perf_trace()
     if len(daily_history) < MIN_DAILY_HISTORY or forecast_days <= 0:
         return _empty_ml_result(
-            f'Р”Р»СЏ ML-Р±Р»РѕРєР° РЅСѓР¶РЅРѕ РјРёРЅРёРјСѓРј {MIN_DAILY_HISTORY} РґРЅРµР№ РЅРµРїСЂРµСЂС‹РІРЅРѕР№ РґРЅРµРІРЅРѕР№ РёСЃС‚РѕСЂРёРё, С‡С‚РѕР±С‹ РІС‹РїРѕР»РЅРёС‚СЊ rolling-origin backtesting Рё РѕР±СѓС‡РёС‚СЊ РјРѕРґРµР»СЊ.'
+            f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить rolling-origin backtesting и обучить модель.'
         )
 
     artifact_cache_key = _training_artifact_cache_key(daily_history, forecast_days)
@@ -467,13 +457,13 @@ def _train_ml_model(
     if perf is not None:
         perf.update(training_artifact_cache_hit=False)
 
-    _emit_progress(progress_callback, 'ml_model.running', 'РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РїСЂРёР·РЅР°РєРё Рё РѕР±СѓС‡Р°СЋС‰СѓСЋ РІС‹Р±РѕСЂРєСѓ РґР»СЏ ML-РјРѕРґРµР»Рё.')
+    _emit_progress(progress_callback, 'ml_model.running', 'Подготавливаем признаки и обучающую выборку для ML-модели.')
     feature_prep_context = perf.span('feature_prep') if perf is not None else nullcontext()
     with feature_prep_context:
         seed = _build_training_seed(daily_history, perf=perf)
     dataset_error = _ensure_min_feature_rows(
         seed.dataset,
-        'РџРѕСЃР»Рµ С„РѕСЂРјРёСЂРѕРІР°РЅРёСЏ Р»Р°РіРѕРІ Рё СЃРєРѕР»СЊР·СЏС‰РёС… РїСЂРёР·РЅР°РєРѕРІ РѕСЃС‚Р°Р»РѕСЃСЊ С‚РѕР»СЊРєРѕ {rows} РЅР°Р±Р»СЋРґРµРЅРёР№: СЌС‚РѕРіРѕ РјР°Р»Рѕ РґР»СЏ РєРѕСЂСЂРµРєС‚РЅРѕРіРѕ rolling-origin backtesting.',
+        'После формирования лагов и скользящих признаков осталось только {rows} наблюдений: этого мало для корректного rolling-origin backtesting.',
     )
     if dataset_error is not None:
         return dataset_error
@@ -495,7 +485,7 @@ def _train_ml_model(
     if isinstance(training_models, dict):
         return training_models
 
-    _emit_progress(progress_callback, 'ml_model.running', 'РЎС‚СЂРѕРёРј РїСЂРѕРіРЅРѕР· РїРѕ Р±СѓРґСѓС‰РёРј РґР°С‚Р°Рј Рё РёРЅС‚РµСЂРІР°Р»С‹ РЅРµРѕРїСЂРµРґРµР»С‘РЅРЅРѕСЃС‚Рё.')
+    _emit_progress(progress_callback, 'ml_model.running', 'Строим прогноз по будущим датам и интервалы неопределённости.')
     forecast_rows = _forecast_intervals._build_future_forecast_rows(
         frame=training_models.final_frame,
         selected_count_model_key=training_models.selected_count_model_key,
@@ -511,7 +501,7 @@ def _train_ml_model(
         temperature_stats=training_models.final_temperature_stats,
     )
 
-    _emit_progress(progress_callback, 'ml_model.running', 'РћС†РµРЅРёРІР°РµРј РІР°Р¶РЅРѕСЃС‚СЊ РїСЂРёР·РЅР°РєРѕРІ Рё СЃРѕР±РёСЂР°РµРј РёС‚РѕРіРѕРІС‹Р№ ML-РѕС‚С‡С‘С‚.')
+    _emit_progress(progress_callback, 'ml_model.running', 'Оцениваем важность признаков и собираем итоговый ML-отчёт.')
     result_render_context = perf.span('result_render') if perf is not None else nullcontext()
     with result_render_context:
         feature_importance = _build_feature_importance_artifacts(training_models)

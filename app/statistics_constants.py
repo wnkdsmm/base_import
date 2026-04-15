@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.domain.analytics_metadata import (
     COLUMN_LABELS,

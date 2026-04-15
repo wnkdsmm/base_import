@@ -1,10 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ..ml_model_types import BacktestWindowRow, COUNT_MODEL_KEYS, MIN_POSITIVE_PREDICTION
+from ..ml_model_config_types import COUNT_MODEL_KEYS, MIN_POSITIVE_PREDICTION
+from ..ml_model_result_types import BacktestWindowRow
 
 
 def _optional_float(value: Any) -> Optional[float]:

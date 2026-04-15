@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 """Deprecated compatibility layer for forecast-risk constants."""
 
@@ -21,7 +21,6 @@ from app.domain.fire_columns import (
     GENERAL_CAUSE_COLUMN,
     HEATING_TYPE_COLUMN_CANDIDATES,
     INJURIES_COLUMN_CANDIDATES,
-    LONG_RESPONSE_THRESHOLD_MINUTES,
     OBJECT_CATEGORY_COLUMN,
     OPEN_AREA_CAUSE_COLUMN,
     REGISTERED_DAMAGE_COLUMN_CANDIDATES,
@@ -33,5 +32,4 @@ from app.domain.fire_columns import (
     WATER_SUPPLY_COUNT_COLUMN_CANDIDATES,
     WATER_SUPPLY_DETAILS_COLUMN_CANDIDATES,
 )
-from config.constants import MAX_TERRITORIES
-
+from config.constants import LONG_RESPONSE_THRESHOLD_MINUTES, MAX_TERRITORIES

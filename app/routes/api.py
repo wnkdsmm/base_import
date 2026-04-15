@@ -1,4 +1,39 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
+# ROUTE DEPENDENCY GRAPH (endpoint -> service module -> shared dependencies)
+# API endpoints
+# - GET /api/dashboard-data -> app.dashboard.service.get_dashboard_data -> app.routes.api_common, app.state
+# - GET /api/forecasting-data -> app.services.forecasting.core.get_forecasting_data|get_forecasting_decision_support_data -> app.routes.api_common, app.state
+# - GET /api/forecasting-metadata -> app.services.forecasting.core.get_forecasting_metadata -> app.routes.api_common, app.state
+# - POST /api/forecasting-decision-support-jobs -> app.services.forecasting.jobs.start_forecasting_decision_support_job -> app.routes.api_common, app.state
+# - GET /api/forecasting-decision-support-jobs/{job_id} -> app.services.forecasting.jobs.get_forecasting_decision_support_job_status -> app.routes.api_common, app.state
+# - GET /api/clustering-data -> app.services.clustering.core.get_clustering_data -> app.routes.api_common, app.state
+# - POST /api/clustering-jobs -> app.services.clustering.jobs.start_clustering_job -> app.routes.api_common, app.state
+# - GET /api/clustering-jobs/{job_id} -> app.services.clustering.jobs.get_clustering_job_status -> app.routes.api_common, app.state
+# - GET /api/ml-model-data -> app.services.ml_model.core.get_ml_model_data -> app.routes.api_common, app.state
+# - POST /api/ml-model-jobs -> app.services.ml_model.jobs.start_ml_model_job -> app.routes.api_common, app.state
+# - GET /api/ml-model-jobs/{job_id} -> app.services.ml_model.jobs.get_ml_job_status -> app.routes.api_common, app.state
+# - GET /api/access-points-data -> app.services.access_points.core.get_access_points_data -> app.routes.api_common, app.state
+# - GET /api/column-search -> app.services.table_workflows.build_column_search_payload -> app.routes.api_common
+# - POST /api/column-search/preview -> app.services.table_workflows.build_column_search_preview_payload -> app.routes.api_common
+# - POST /api/column-search/create-modify-table -> app.services.table_workflows.build_create_modify_table_payload -> app.routes.api_common
+# - GET /api/tables/{table_name}/page -> app.services.table_workflows.build_table_page_api_payload -> app.routes.api_common
+# - DELETE /api/tables/{table_name} -> app.table_operations.delete_table -> app.routes.api_common
+# - POST /api/tables/delete -> app.table_operations.delete_tables -> app.routes.api_common
+# - POST /upload -> app.services.pipeline_service.save_uploaded_file -> app.routes.api_common, app.state
+# - POST /import_data -> app.services.pipeline_service.import_uploaded_data -> app.routes.api_common, app.state
+# - POST /run_profiling -> app.services.pipeline_service.run_profiling_for_table -> app.routes.api_common, app.state
+# - GET /logs -> app.services.ops_service.build_logs_payload -> app.routes.api_common, app.state
+# - POST /clear_logs -> app.services.ops_service.clear_logs_payload -> app.routes.api_common, app.state
+# - GET /health -> app.services.ops_service.build_health_payload -> app.routes.api_common, app.state
+#
+# Page endpoints (defined in app.routes.pages)
+# - /, /forecasting, /ml-model, /backtesting, /clustering, /access-points, /column-search,
+#   /fire-map, /fire-map/embed, /tables, /tables/{table_name}, /select_table, /brief/*, /assets/plotly.js
+#   -> app.dashboard.service | app.services.forecasting.core | app.services.ml_model.core |
+#      app.services.clustering.core | app.services.access_points.core | app.services.fire_map_service |
+#      app.services.table_workflows | app.table_metadata | app.plotly_bundle
+#   -> shared page dependencies: app.routes.page_common (templates/assets helpers), app.state (session job context)
 
 from fastapi import APIRouter
 

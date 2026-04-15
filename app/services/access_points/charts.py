@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, Sequence
 
@@ -16,12 +16,12 @@ from app.services.chart_utils import (
 from app.statistics_constants import PLOTLY_PALETTE
 
 TYPOLOGY_LABELS: Dict[str, str] = {
-    "access": "Р”Р°Р»СЊРЅРёР№ РІС‹РµР·Рґ",
-    "water": "Р”РµС„РёС†РёС‚ РІРѕРґС‹",
-    "severity": "РўСЏР¶РµР»С‹Рµ РїРѕСЃР»РµРґСЃС‚РІРёСЏ",
-    "recurrence": "РџРѕРІС‚РѕСЂСЏСЋС‰РёР№СЃСЏ РѕС‡Р°Рі",
-    "needs_data": "Р”Р°РЅРЅС‹Рµ РЅРµРїРѕР»РЅС‹Рµ",
-    "mixed": "РљРѕРјР±РёРЅРёСЂРѕРІР°РЅРЅС‹Р№ СЂРёСЃРє",
+    "access": "Дальний выезд",
+    "water": "Дефицит воды",
+    "severity": "Тяжелые последствия",
+    "recurrence": "Повторяющийся очаг",
+    "needs_data": "Данные неполные",
+    "mixed": "Комбинированный риск",
 }
 
 TYPOLOGY_COLORS: Dict[str, str] = {
@@ -66,11 +66,11 @@ def _resolve_typology(row: dict[str, Any]) -> tuple[str, str]:
 
 
 def _build_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    title = "РџСЂРѕР±Р»РµРјРЅС‹Рµ С‚РѕС‡РєРё РЅР° РґРІСѓРјРµСЂРЅРѕР№ РїСЂРѕРµРєС†РёРё СЂРёСЃРєР°"
+    title = "Проблемные точки на двумерной проекции риска"
     if not rows:
-        return _empty_chart_bundle(title, "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С…, С‡С‚РѕР±С‹ РїРѕРєР°Р·Р°С‚СЊ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє.")
+        return _empty_chart_bundle(title, "Недостаточно данных, чтобы показать распределение проблемных точек.")
     if not PLOTLY_AVAILABLE:
-        return _empty_chart_bundle(title, "Plotly РЅРµРґРѕСЃС‚СѓРїРµРЅ, РїРѕСЌС‚РѕРјСѓ РіСЂР°С„РёРє РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє РЅРµ РїРѕСЃС‚СЂРѕРµРЅ.")
+        return _empty_chart_bundle(title, "Plotly недоступен, поэтому график проблемных точек не построен.")
 
     figure = go.Figure()
     coordinates = build_component_projection(
@@ -109,16 +109,16 @@ def _build_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any
             hover_texts.append(
                 "<br>".join(
                     [
-                        f"<b>{row.get('label') or 'РўРѕС‡РєР°'}</b>",
-                        f"РўРёРї: {row.get('entity_type') or '-'}",
-                        f"Р Р°Р№РѕРЅ: {row.get('district') or '-'}",
-                        f"РС‚РѕРіРѕРІС‹Р№ score: {row.get('score_display') or '0'}",
-                        f"РџРѕР¶Р°СЂРѕРІ: {row.get('incident_count_display') or '0'}",
-                        f"Р”РѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РџР§: {row.get('access_score', 0)}",
-                        f"Р’РѕРґР°: {row.get('water_score', 0)}",
-                        f"РџРѕСЃР»РµРґСЃС‚РІРёСЏ: {row.get('severity_score', 0)}",
-                        f"Р§Р°СЃС‚РѕС‚Р° Рё РєРѕРЅС‚РµРєСЃС‚: {row.get('recurrence_score', 0)}",
-                        f"РќРµРїРѕР»РЅРѕС‚Р° РґР°РЅРЅС‹С…: {row.get('data_gap_score', 0)}",
+                        f"<b>{row.get('label') or 'Точка'}</b>",
+                        f"Тип: {row.get('entity_type') or '-'}",
+                        f"Район: {row.get('district') or '-'}",
+                        f"Итоговый score: {row.get('score_display') or '0'}",
+                        f"Пожаров: {row.get('incident_count_display') or '0'}",
+                        f"Доступность ПЧ: {row.get('access_score', 0)}",
+                        f"\u0412\u043e\u0434\u0430: {row.get('water_score', 0)}",
+                        f"Последствия: {row.get('severity_score', 0)}",
+                        f"Частота и контекст: {row.get('recurrence_score', 0)}",
+                        f"Неполнота данных: {row.get('data_gap_score', 0)}",
                     ]
                 )
             )
@@ -145,8 +145,8 @@ def _build_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any
 
     figure.update_layout(
         **build_service_scatter_layout(
-            xaxis_title="РљРѕРјРїРѕРЅРµРЅС‚Р° 1",
-            yaxis_title="РљРѕРјРїРѕРЅРµРЅС‚Р° 2",
+            xaxis_title="Компонента 1",
+            yaxis_title="Компонента 2",
             height=420,
             include_xy_axes=False,
             legend_y=1.1,

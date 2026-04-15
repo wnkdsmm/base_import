@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from .impact_fire_metrics import (
     _build_area_buckets_chart,

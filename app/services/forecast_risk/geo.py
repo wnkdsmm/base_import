@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from datetime import timedelta
@@ -6,7 +6,7 @@ import math
 from typing import Any, Dict, List, Sequence, Tuple
 
 from app.services.shared.formatting import _format_integer, _format_number
-from app.domain.predictive_settings import GEO_LOOKBACK_DAYS, MAX_GEO_CHART_POINTS, MAX_GEO_HOTSPOTS
+from config.constants import GEO_LOOKBACK_DAYS, MAX_GEO_CHART_POINTS, MAX_GEO_HOTSPOTS
 
 
 def _build_geo_prediction(
@@ -21,13 +21,13 @@ def _build_geo_prediction(
     if not geo_records:
         return {
             "has_coordinates": False,
-            "model_description": "РљР°СЂС‚Р° Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ РїРѕСЏРІРёС‚СЃСЏ, РєРѕРіРґР° РІ РІС‹Р±СЂР°РЅРЅС‹С… РїРѕР¶Р°СЂР°С… РµСЃС‚СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ РЁРёСЂРѕС‚Р° Рё Р”РѕР»РіРѕС‚Р°.",
-            "coverage_display": "0 СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё",
+            "model_description": "Карта блока поддержки решений появится, когда в выбранных пожарах есть координаты Широта и Долгота.",
+            "coverage_display": "0 с координатами",
             "cell_size_display": "-",
             "top_risk_display": "0 / 100",
             "hotspots_count_display": "0",
             "top_zone_label": "-",
-            "top_explanation": "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СЉСЏСЃРЅРµРЅРёСЏ Р·РѕРЅС‹ СЂРёСЃРєР°.",
+            "top_explanation": "Нет данных для объяснения зоны риска.",
             "legend": _geo_risk_legend(),
             "districts": [],
             "hotspots": [],
@@ -98,9 +98,9 @@ def _build_geo_prediction(
                 "centroid_lon": round(centroid_lon, 6),
                 "last_fire": cell["last_fire"],
                 "freshness_days": freshness_days,
-                "dominant_district": _counter_top_label(cell["districts"], "Р‘РµР· СЂР°Р№РѕРЅР°"),
-                "dominant_cause": _counter_top_label(cell["causes"], "РќРµ СѓРєР°Р·Р°РЅР°"),
-                "dominant_object_category": _counter_top_label(cell["object_categories"], "РќРµ СѓРєР°Р·Р°РЅР°"),
+                "dominant_district": _counter_top_label(cell["districts"], "Без района"),
+                "dominant_cause": _counter_top_label(cell["causes"], "Не указана"),
+                "dominant_object_category": _counter_top_label(cell["object_categories"], "Не указана"),
             }
         )
 
@@ -112,10 +112,10 @@ def _build_geo_prediction(
         risk_score = round((cell["raw_risk"] / max_risk) * 100, 1) if max_risk > 0 else 0.0
         risk_level_label, risk_tone = _geo_risk_level(risk_score)
         confidence_score = min(96.0, 42.0 + cell["incidents"] * 7.0 + max(0.0, 25.0 - cell["freshness_days"] * 0.18))
-        short_label = cell["dominant_district"] if cell["dominant_district"] != "Р‘РµР· СЂР°Р№РѕРЅР°" else f"РЎРµРєС‚РѕСЂ {rank}"
+        short_label = cell["dominant_district"] if cell["dominant_district"] != "Без района" else f"Сектор {rank}"
         explanation = (
-            f"{_format_integer(cell['incidents'])} РїРѕР¶Р°СЂРѕРІ РІ СЏС‡РµР№РєРµ, РїРѕСЃР»РµРґРЅРёР№ РѕС‡Р°Рі {_format_days_ago(cell['freshness_days'])}, "
-            f"С‚РёРїРѕРІР°СЏ РїСЂРёС‡РёРЅР°: {cell['dominant_cause']}"
+            f"{_format_integer(cell['incidents'])} пожаров в ячейке, последний очаг {_format_days_ago(cell['freshness_days'])}, "
+            f"типовая причина: {cell['dominant_cause']}"
         )
         points.append(
             {
@@ -144,7 +144,7 @@ def _build_geo_prediction(
 
     districts_map: Dict[str, Dict[str, float]] = {}
     for point in points:
-        district_name = point["dominant_district"] or "Р‘РµР· СЂР°Р№РѕРЅР°"
+        district_name = point["dominant_district"] or "Без района"
         bucket = districts_map.setdefault(
             district_name,
             {"zones": 0, "incidents": 0, "peak_risk": 0.0, "risk_sum": 0.0},
@@ -175,14 +175,14 @@ def _build_geo_prediction(
     chart_points = points[:MAX_GEO_CHART_POINTS]
     hotspots = points[:MAX_GEO_HOTSPOTS]
     top_zone_label = hotspots[0]["short_label"] if hotspots else "-"
-    top_explanation = hotspots[0]["explanation"] if hotspots else "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РѕР±СЉСЏСЃРЅРµРЅРёСЏ Р·РѕРЅС‹ СЂРёСЃРєР°."
+    top_explanation = hotspots[0]["explanation"] if hotspots else "Нет данных для объяснения зоны риска."
     return {
         "has_coordinates": True,
         "model_description": (
-            "РљР°СЂС‚Р° РѕС‚РЅРѕСЃРёС‚СЃСЏ Рє Р±Р»РѕРєСѓ РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№ Рё РёСЃРїРѕР»СЊР·СѓРµС‚ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅСѓСЋ РёСЃС‚РѕСЂРёСЋ РѕС‡Р°РіРѕРІ, С‡С‚РѕР±С‹ РїРѕРґСЃРІРµС‚РёС‚СЊ Р·РѕРЅС‹ РїРѕРІС‚РѕСЂСЏРµРјРѕРіРѕ СЂРёСЃРєР°. "
-            "Р­С‚Рѕ РЅРµ ML-РїСЂРѕРіРЅРѕР· Рё РЅРµ РґРЅРµРІРЅРѕР№ СЃС†РµРЅР°СЂРЅС‹Р№ РїСЂРѕРіРЅРѕР·, Р° РѕС‚РґРµР»СЊРЅР°СЏ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅР°СЏ РѕС†РµРЅРєР° РґР»СЏ РїСЂРёРѕСЂРёС‚РёР·Р°С†РёРё С‚РµСЂСЂРёС‚РѕСЂРёР№."
+            "Карта относится к блоку поддержки решений и использует пространственную историю очагов, чтобы подсветить зоны повторяемого риска. "
+            "Это не ML-прогноз и не дневной сценарный прогноз, а отдельная пространственная оценка для приоритизации территорий."
         ),
-        "coverage_display": f"{_format_integer(len(geo_records))} СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё РёР· {_format_integer(len(records))}",
+        "coverage_display": f"{_format_integer(len(geo_records))} с координатами из {_format_integer(len(records))}",
         "cell_size_display": f"{_format_number(cell_size)}В°",
         "top_risk_display": f"{_format_number(hotspots[0]['risk_score'])} / 100" if hotspots else "0 / 100",
         "hotspots_count_display": _format_integer(len(points)),
@@ -220,28 +220,28 @@ def _counter_top_label(counter: Counter, fallback: str) -> str:
 
 def _geo_risk_level(value: float) -> Tuple[str, str]:
     if value >= 80:
-        return "РљСЂРёС‚РёС‡РµСЃРєРёР№", "critical"
+        return "Критический", "critical"
     if value >= 60:
-        return "Р’С‹СЃРѕРєРёР№", "high"
+        return "Высокий", "high"
     if value >= 35:
-        return "РЎСЂРµРґРЅРёР№", "medium"
-    return "РќР°Р±Р»СЋРґРµРЅРёРµ", "watch"
+        return "Средний", "medium"
+    return "Наблюдение", "watch"
 
 
 def _geo_risk_legend() -> List[Dict[str, str]]:
     return [
-        {"label": "РљСЂРёС‚РёС‡РµСЃРєРёР№", "range_label": "80-100", "tone": "critical"},
-        {"label": "Р’С‹СЃРѕРєРёР№", "range_label": "60-79", "tone": "high"},
-        {"label": "РЎСЂРµРґРЅРёР№", "range_label": "35-59", "tone": "medium"},
-        {"label": "РќР°Р±Р»СЋРґРµРЅРёРµ", "range_label": "0-34", "tone": "watch"},
+        {"label": "Критический", "range_label": "80-100", "tone": "critical"},
+        {"label": "Высокий", "range_label": "60-79", "tone": "high"},
+        {"label": "Средний", "range_label": "35-59", "tone": "medium"},
+        {"label": "Наблюдение", "range_label": "0-34", "tone": "watch"},
     ]
 
 
 def _format_days_ago(days: int) -> str:
     if days <= 0:
-        return "СЃРµРіРѕРґРЅСЏ"
+        return "сегодня"
     if days == 1:
-        return "1 РґРµРЅСЊ РЅР°Р·Р°Рґ"
+        return "1 день назад"
     if 2 <= days <= 4:
-        return f"{days} РґРЅСЏ РЅР°Р·Р°Рґ"
-    return f"{days} РґРЅРµР№ РЅР°Р·Р°Рґ"
+        return f"{days} дня назад"
+    return f"{days} дней назад"

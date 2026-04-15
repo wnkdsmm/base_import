@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 import math
@@ -27,9 +27,9 @@ def _format_number(value: Any, digits: int = 1) -> str:
     try:
         numeric = float(value)
     except Exception:
-        return "вЂ”"
+        return "—"
     if not math.isfinite(numeric):
-        return "вЂ”"
+        return "—"
     if abs(numeric - round(numeric)) < 1e-9:
         return _format_integer(numeric)
     return f"{numeric:.{digits}f}".replace(".", ",")
@@ -38,4 +38,4 @@ def _format_number(value: Any, digits: int = 1) -> str:
 
 def _format_percent(value: float) -> str:
     formatted = _format_number(value * 100.0, 1)
-    return f"{formatted}%" if formatted != "вЂ”" else "вЂ”"
+    return f"{formatted}%" if formatted != "—" else "—"

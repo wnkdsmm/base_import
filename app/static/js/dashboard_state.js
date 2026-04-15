@@ -1,13 +1,18 @@
 (function (global) {
     var shared = global.FireUi || {};
     var byId = shared.byId;
+    var factory = global.FireStateFactory || {};
+    var createStateManager = factory.createStateManager;
 
     global.DashboardState = {
         create: function createDashboardState(options) {
             var initialData = options && options.initialData ? options.initialData : null;
+            var manager = typeof createStateManager === 'function'
+                ? createStateManager({ initialData: initialData })
+                : null;
 
             function getInitialData() {
-                return initialData;
+                return manager ? manager.get('initialData') : initialData;
             }
 
             function collectSelectedFilters() {

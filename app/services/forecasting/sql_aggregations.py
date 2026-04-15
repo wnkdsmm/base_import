@@ -1,14 +1,15 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 """Forecasting SQL aggregation builders with shared SQL-level TTL cache."""
 
 import hashlib
 from datetime import date, timedelta
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import text
 
 from app.cache import CopyingTtlCache
+from app.services.shared.sql_aggregations import QueryBuilder as SharedQueryBuilder
 from config.db import engine
 
 from .selection import _canonicalize_source_tables, _normalize_filter_value
@@ -24,28 +25,9 @@ from .utils import (
 _FORECASTING_SQL_CACHE = CopyingTtlCache(ttl_seconds=120.0)
 
 
-class QueryBuilder:
-    def __init__(self, hook_resolver: Optional[Callable[[str], Any]] = None) -> None:
-        self._hook_resolver = hook_resolver
-
-    @property
-    def cache(self) -> CopyingTtlCache:
-        return _FORECASTING_SQL_CACHE
-
-    def set_hook_resolver(self, hook_resolver: Optional[Callable[[str], Any]]) -> None:
-        self._hook_resolver = hook_resolver
-
-    def _resolve_hook(self, name: str, default: Callable[..., Any]) -> Callable[..., Any]:
-        if self._hook_resolver is None:
-            return default
-        try:
-            candidate = self._hook_resolver(name)
-        except Exception:
-            return default
-        return candidate if callable(candidate) else default
-
-    def _build_sql_cache_key(self, prefix: str, source_tables: Sequence[str], *parts: Any) -> tuple[Any, ...]:
-        return (prefix, *tuple(source_tables), *parts)
+class QueryBuilder(SharedQueryBuilder):
+    def __init__(self, hook_resolver=None) -> None:
+        super().__init__(hook_resolver, cache=_FORECASTING_SQL_CACHE)
 
     def _filtered_record_count_cache_key(
         self,
@@ -391,4 +373,3 @@ class AggregationQueryBuilder(QueryBuilder):
             )
             current_date += timedelta(days=1)
         return history
-

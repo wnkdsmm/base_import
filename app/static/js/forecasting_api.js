@@ -10,7 +10,7 @@
         var ui = options && options.ui ? options.ui : {};
         var byId = shared.byId;
         var createSingleTimer = shared.createSingleTimer;
-        var fetchJson = shared.fetchJson;
+        var apiCall = shared.apiCall || shared.fetchJson;
         var getForecastErrorMessage = shared.getErrorMessage;
         var decisionSupportJobPollTimer = createSingleTimer();
         var forecastRequestToken = 0;
@@ -58,7 +58,7 @@
         }
 
         async function requestForecastApiPayload(endpoint, query, requestOptions) {
-            var result = await fetchJson(
+            var result = await apiCall(
                 endpoint + '?' + query,
                 { headers: { Accept: 'application/json' } },
                 'Не удалось выполнить запрос прогноза.',
@@ -105,7 +105,7 @@
             }
 
             try {
-                var result = await fetchJson('/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId), {
+                var result = await apiCall('/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId), {
                     headers: { Accept: 'application/json' }
                 }, 'Фоновая задача decision support завершилась с ошибкой.');
                 response = result.response;
@@ -147,7 +147,7 @@
             var payload = null;
             stopDecisionSupportPolling();
             try {
-                var result = await fetchJson('/api/forecasting-decision-support-jobs', {
+                var result = await apiCall('/api/forecasting-decision-support-jobs', {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
@@ -274,3 +274,4 @@
         };
     };
 })();
+

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 """Deprecated compatibility layer for access-points constants.
 
@@ -33,7 +33,6 @@ from app.domain.fire_columns import (
     INJURIES_COLUMN_CANDIDATES,
     LATITUDE_COLUMN_CANDIDATES,
     LONGITUDE_COLUMN_CANDIDATES,
-    LONG_RESPONSE_THRESHOLD_MINUTES,
     OBJECT_CATEGORY_COLUMN,
     OBJECT_CATEGORY_COLUMN_CANDIDATES,
     OBJECT_NAME_COLUMN_CANDIDATES,
@@ -48,6 +47,7 @@ from app.domain.fire_columns import (
 from config.constants import (
     ACCESS_POINT_LIMIT_OPTIONS,
     DEFAULT_ACCESS_POINT_LIMIT,
+    LONG_RESPONSE_THRESHOLD_MINUTES,
     MAX_ACCESS_POINT_FEATURE_OPTIONS,
     MAX_INCOMPLETE_POINTS,
     MAX_NOTES,
@@ -55,4 +55,3 @@ from config.constants import (
     POINT_FEATURE_COLUMNS,
     TOP_POINT_CARD_COUNT,
 )
-

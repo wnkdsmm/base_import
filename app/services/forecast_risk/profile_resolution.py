@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence
@@ -34,7 +34,7 @@ def resolve_weight_profile_for_records(
         return _build_uncalibrated_profile(
             requested_profile=requested_profile,
             summary=disabled_summary
-            or "РђРІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ РєР°Р»РёР±СЂРѕРІРєР° РІРµСЃРѕРІ РІСЂРµРјРµРЅРЅРѕ РѕС‚РєР»СЋС‡РµРЅР° РґР»СЏ РѕР±Р»РµРіС‡РµРЅРЅРѕРіРѕ СЃС†РµРЅР°СЂРёСЏ С‡С‚РµРЅРёСЏ; РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ Р±Р°Р·РѕРІС‹Р№ РїСЂРѕС„РёР»СЊ.",
+            or "Автоматическая калибровка весов временно отключена для облегченного сценария чтения; используется базовый профиль.",
         )
 
     from . import validation as validation_module
@@ -44,7 +44,7 @@ def resolve_weight_profile_for_records(
         calibration = profile.get("calibration") or {}
         calibration["ready"] = False
         calibration["used_fallback"] = False
-        calibration["summary"] = "Р­РєСЃРїРµСЂС‚РЅС‹Р№ СЂРµР¶РёРј РІС‹Р±СЂР°РЅ СЏРІРЅРѕ, РїРѕСЌС‚РѕРјСѓ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ РєР°Р»РёР±СЂРѕРІРєР° РїРѕ РёСЃС‚РѕСЂРёРё РЅРµ РїСЂРёРјРµРЅСЏР»Р°СЃСЊ."
+        calibration["summary"] = "Экспертный режим выбран явно, поэтому автоматическая калибровка по истории не применялась."
         calibration["notes"] = _unique_non_empty(list(calibration.get("notes") or []) + [calibration["summary"]])
         profile["calibration"] = calibration
         return profile
@@ -58,7 +58,7 @@ def resolve_weight_profile_for_records(
             windows_bundle=windows_bundle,
             reason=(
                 windows_bundle.get("reason")
-                or "РСЃС‚РѕСЂРёРё РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»СЏ СѓСЃС‚РѕР№С‡РёРІРѕР№ РєР°Р»РёР±СЂРѕРІРєРё РІРµСЃРѕРІ РїРѕ РёСЃС‚РѕСЂРёС‡РµСЃРєРёРј РѕРєРЅР°Рј."
+                or "Истории пока недостаточно для устойчивой калибровки весов по историческим окнам."
             ),
         )
 
@@ -104,7 +104,7 @@ def resolve_weight_profile_for_records(
             requested_profile=requested_profile,
             expert_profile=expert_profile,
             windows_bundle=windows_bundle,
-            reason="РќРµ СѓРґР°Р»РѕСЃСЊ СѓСЃС‚РѕР№С‡РёРІРѕ РѕС†РµРЅРёС‚СЊ РЅРё РѕРґРёРЅ РЅР°Р±РѕСЂ РІРµСЃРѕРІ РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РѕРєРЅР°С….",
+            reason="Не удалось устойчиво оценить ни один набор весов на исторических окнах.",
         )
 
     best_entry = max(
@@ -175,17 +175,17 @@ def _generate_weight_candidates(profile: RiskProfile) -> List[WeightCandidate]:
         seen.add(signature)
         candidates.append({"key": key, "label": label, "weights": normalized})
 
-    add_candidate("expert", "Р­РєСЃРїРµСЂС‚РЅС‹Р№ РїСЂРѕС„РёР»СЊ", base_weights)
+    add_candidate("expert", "Экспертный профиль", base_weights)
     add_candidate(
         "balanced",
-        "РЎР±Р°Р»Р°РЅСЃРёСЂРѕРІР°РЅРЅС‹Р№ РїСЂРѕС„РёР»СЊ",
+        "Сбалансированный профиль",
         {component: 1.0 / max(1, len(component_order)) for component in component_order},
     )
 
     for receiver in component_order:
         focused = {component: 0.18 for component in component_order}
         focused[receiver] = 0.46
-        add_candidate(f"focus_{receiver}", f"Р¤РѕРєСѓСЃ: {receiver}", focused)
+        add_candidate(f"focus_{receiver}", f"Фокус: {receiver}", focused)
 
     for donor in component_order:
         for receiver in component_order:
@@ -197,7 +197,7 @@ def _generate_weight_candidates(profile: RiskProfile) -> List[WeightCandidate]:
                 shifted[receiver] = shifted.get(receiver, 0.0) + shift
                 add_candidate(
                     f"shift_{donor}_to_{receiver}_{int(round(shift * 100))}",
-                    f"РЎРґРІРёРі {donor}->{receiver}",
+                    f"Сдвиг {donor}->{receiver}",
                     shifted,
                 )
     return candidates
@@ -256,7 +256,7 @@ def _build_metric_comparison(
     }
     k_value = int(selected_metrics.get("k_value") or expert_metrics.get("k_value") or 3)
     comparison["summary"] = (
-        f"РЎСЂР°РІРЅРµРЅРёРµ СЃ СЌРєСЃРїРµСЂС‚РЅС‹Рј РїСЂРѕС„РёР»РµРј: Top-1 {_format_delta(comparison['top1_hit_delta'], percent=True)}, "
+        f"Сравнение с экспертным профилем: Top-1 {_format_delta(comparison['top1_hit_delta'], percent=True)}, "
         f"Top-{k_value} capture {_format_delta(comparison['topk_capture_delta'], percent=True)}, "
         f"Precision@{k_value} {_format_delta(comparison['precision_at_k_delta'], percent=True)}, "
         f"NDCG@{k_value} {_format_delta(comparison['ndcg_at_k_delta'])}."
@@ -287,13 +287,13 @@ def _build_expert_fallback_profile(
     reason: str,
 ) -> RiskProfile:
     profile = _profile_with_weights(requested_profile, expert_profile, expert_profile.get("component_weights") or {})
-    profile["status_label"] = "Р­РєСЃРїРµСЂС‚РЅС‹Р№ fallback"
+    profile["status_label"] = "Экспертный fallback"
     profile["status_tone"] = "sand"
     profile["description"] = (
-        "РСЃС‚РѕСЂРёРё РїРѕРєР° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»СЏ СѓСЃС‚РѕР№С‡РёРІРѕР№ РєР°Р»РёР±СЂРѕРІРєРё РІРµСЃРѕРІ, РїРѕСЌС‚РѕРјСѓ СЃРµСЂРІРёСЃ РёСЃРїРѕР»СЊР·СѓРµС‚ СЌРєСЃРїРµСЂС‚РЅС‹Р№ РїСЂРѕС„РёР»СЊ РєР°Рє СЂРµР·РµСЂРІРЅС‹Р№ СЂРµР¶РёРј."
+        "Истории пока недостаточно для устойчивой калибровки весов, поэтому сервис использует экспертный профиль как резервный режим."
     )
     summary = (
-        f"РљР°Р»РёР±СЂРѕРІРєР° РїРѕ РёСЃС‚РѕСЂРёРё РЅРµ РІРєР»СЋС‡РёР»Р°СЃСЊ: {reason} РЎРµР№С‡Р°СЃ РґРѕСЃС‚СѓРїРЅРѕ {_format_integer(windows_bundle.get('history_days') or 0)} РґРЅРµР№ РёСЃС‚РѕСЂРёРё."
+        f"Калибровка по истории не включилась: {reason} Сейчас доступно {_format_integer(windows_bundle.get('history_days') or 0)} дней истории."
     )
     notes = _unique_non_empty(list(profile.get("notes") or []) + [summary])
     calibration = deepcopy(profile.get("calibration") or {})
@@ -306,7 +306,7 @@ def _build_expert_fallback_profile(
             "summary": summary,
             "notes": _unique_non_empty(
                 list(calibration.get("notes") or [])
-                + [reason, "РСЃРїРѕР»СЊР·РѕРІР°РЅС‹ СЌРєСЃРїРµСЂС‚РЅС‹Рµ РІРµСЃР° РєР°Рє fallback."]
+                + [reason, "Использованы экспертные веса как fallback."]
             ),
         }
     )
@@ -323,11 +323,11 @@ def _build_expert_retained_profile(
     improvement: float,
 ) -> RiskProfile:
     profile = _profile_with_weights(requested_profile, expert_profile, expert_profile.get("component_weights") or {})
-    profile["status_label"] = "Р­РєСЃРїРµСЂС‚РЅС‹Рµ РІРµСЃР° СѓРґРµСЂР¶Р°РЅС‹"
+    profile["status_label"] = "Экспертные веса удержаны"
     profile["status_tone"] = "sky"
     summary = (
-        "РСЃС‚РѕСЂРёС‡РµСЃРєРёРµ РѕРєРЅР° РїСЂРѕРІРµСЂРµРЅС‹, РЅРѕ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹Рµ РІРµСЃР° РЅРµ РїРѕРєР°Р·Р°Р»Рё СѓСЃС‚РѕР№С‡РёРІРѕРіРѕ РІС‹РёРіСЂС‹С€Р° РїРѕ ranking-РјРµС‚СЂРёРєР°Рј. "
-        "РЎРµСЂРІРёСЃ РѕСЃС‚Р°РІРёР» СЌРєСЃРїРµСЂС‚РЅС‹Р№ РїСЂРѕС„РёР»СЊ РєР°Рє Р±РѕР»РµРµ СЃС‚Р°Р±РёР»СЊРЅС‹Р№."
+        "Исторические окна проверены, но альтернативные веса не показали устойчивого выигрыша по ranking-метрикам. "
+        "Сервис оставил экспертный профиль как более стабильный."
     )
     notes = _unique_non_empty(list(profile.get("notes") or []) + [summary])
     calibration = deepcopy(profile.get("calibration") or {})
@@ -349,9 +349,9 @@ def _build_expert_retained_profile(
             "notes": _unique_non_empty(
                 list(calibration.get("notes") or [])
                 + [
-                    f"Р›СѓС‡С€РёР№ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹Р№ РїСЂРѕС„РёР»СЊ РґР°Р» РїСЂРёСЂРѕСЃС‚ РІСЃРµРіРѕ {_format_decimal(improvement)} Рє С†РµР»РµРІРѕР№ С„СѓРЅРєС†РёРё ranking-РєР°С‡РµСЃС‚РІР°.",
+                    f"Лучший альтернативный профиль дал прирост всего {_format_decimal(improvement)} к целевой функции ranking-качества.",
                     expert_comparison.get("summary") or "",
-                    "Р Р°Р·РЅРёС†Р° РѕРєР°Р·Р°Р»Р°СЃСЊ РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕР№, РїРѕСЌС‚РѕРјСѓ СЃРµСЂРІРёСЃ РѕСЃС‚Р°РІРёР» СЌРєСЃРїРµСЂС‚РЅС‹Рµ РІРµСЃР°.",
+                    "Разница оказалась недостаточной, поэтому сервис оставил экспертные веса.",
                 ]
             ),
         }
@@ -370,7 +370,7 @@ def _build_calibrated_profile(
     improvement: float,
 ) -> RiskProfile:
     profile = _profile_with_weights(requested_profile, expert_profile, selected_entry.get("weights") or {})
-    profile["status_label"] = "РљР°Р»РёР±СЂРѕРІР°РЅ РїРѕ РёСЃС‚РѕСЂРёРё"
+    profile["status_label"] = "Калиброван по истории"
     profile["status_tone"] = "forest"
     k_value = int((selected_entry.get("aggregate") or {}).get("k_value") or 3)
     comparison = _build_metric_comparison(
@@ -378,7 +378,7 @@ def _build_calibrated_profile(
         expert_entry.get("aggregate") or {},
     )
     summary = (
-        f"Р’РµСЃР° РїРѕРґРѕР±СЂР°РЅС‹ РїРѕ РёСЃС‚РѕСЂРёС‡РµСЃРєРёРј РѕРєРЅР°Рј: Top-{k_value} capture "
+        f"Веса подобраны по историческим окнам: Top-{k_value} capture "
         f"{_format_probability(float((selected_entry.get('aggregate') or {}).get('topk_capture_rate') or 0.0))}, "
         f"Precision@{k_value} {_format_probability(float((selected_entry.get('aggregate') or {}).get('precision_at_k') or 0.0))}, "
         f"NDCG@{k_value} {_format_decimal(float((selected_entry.get('aggregate') or {}).get('ndcg_at_k') or 0.0))}."
@@ -399,9 +399,9 @@ def _build_calibrated_profile(
             "notes": _unique_non_empty(
                 list(calibration.get("notes") or [])
                 + [
-                    f"РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ СЌРєСЃРїРµСЂС‚РЅРѕРіРѕ РїСЂРѕС„РёР»СЏ С†РµР»РµРІР°СЏ С„СѓРЅРєС†РёСЏ ranking-РєР°С‡РµСЃС‚РІР° СѓР»СѓС‡С€РёР»Р°СЃСЊ РЅР° {_format_decimal(improvement)}.",
+                    f"Относительно экспертного профиля целевая функция ranking-качества улучшилась на {_format_decimal(improvement)}.",
                     comparison.get("summary") or "",
-                    "РЎРёРіРЅР°Р»С‹ РІРЅСѓС‚СЂРё РєРѕРјРїРѕРЅРµРЅС‚РѕРІ РЅРµ РјРµРЅСЏР»РёСЃСЊ; РїРѕРґСЃС‚СЂРѕРµРЅС‹ С‚РѕР»СЊРєРѕ РІРµСЃР° С‡РµС‚С‹СЂРµС… РєРѕРјРїРѕРЅРµРЅС‚РѕРІ СЂРёСЃРєР°.",
+                    "Сигналы внутри компонентов не менялись; подстроены только веса четырех компонентов риска.",
                 ]
             ),
         }

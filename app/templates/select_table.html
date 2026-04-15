@@ -96,7 +96,7 @@
                 <div class="action-row"><button id="runButton" class="primary-action primary-action-success" type="button" disabled>Запустить очистку</button></div>
                 <div id="statusBanner" class="analysis-runtime-card status-banner status-idle">Выберите таблицу, при необходимости измените пороги и запустите очистку.</div>
                 <div id="profilingLoadingState" class="analysis-status-card is-hidden" aria-live="polite">
-                    <div class="analysis-status-head">
+                    <div class="analysis-status-head u-flex-between-gap-12">
                         <div class="analysis-status-copy">
                             <strong id="profilingLoadingLead" class="analysis-status-lead">Подготавливаем очистку таблицы</strong>
                             <span id="profilingLoadingMessage" class="analysis-status-message">Проверяем выбранную таблицу, считаем метрики и собираем итоговые файлы.</span>
@@ -289,6 +289,9 @@
 
 {% block scripts %}
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/state_factory.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/api_client.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/ui_helpers.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/select_table.js?v={{ select_table_js_version }}"></script>
 {{ super() }}
 {% endblock %}

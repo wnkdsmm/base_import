@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from datetime import datetime
@@ -80,7 +80,7 @@ def _format_signed_number(value: float, integer: bool = False) -> str:
 
 def _format_period_label(years: List[int]) -> str:
     if not years:
-        return "РќРµС‚ РґР°РЅРЅС‹С…"
+        return "Нет данных"
     normalized = sorted(set(years))
     if len(normalized) == 1:
         return str(normalized[0])

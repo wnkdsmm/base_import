@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -6,14 +6,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from ..ml_model_types import (
-    BacktestEvaluationRow,
-    BacktestWindowRow,
-    CountMetrics,
-    EventComparisonRow,
-    EventMetrics,
-    HorizonSummary,
-)
+from ..ml_model_result_types import BacktestEvaluationRow, BacktestWindowRow, CountMetrics, EventComparisonRow, EventMetrics, HorizonSummary
 
 
 @dataclass

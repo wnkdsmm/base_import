@@ -2,7 +2,7 @@
     var shared = global.FireUi || {};
     var byId = shared.byId;
     var createSingleTimer = shared.createSingleTimer;
-    var fetchJson = shared.fetchJson;
+    var apiCall = shared.apiCall || shared.fetchJson;
     var getErrorMessage = shared.getErrorMessage;
 
     var jobPollTimer = createSingleTimer();
@@ -85,7 +85,7 @@
         }
 
         try {
-            var result = await fetchJson('/api/ml-model-jobs/' + encodeURIComponent(jobId), {
+            var result = await apiCall('/api/ml-model-jobs/' + encodeURIComponent(jobId), {
                 headers: { Accept: 'application/json' }
             }, 'Фоновая ML-задача завершилась с ошибкой.');
             payload = result.payload;
@@ -123,7 +123,7 @@
         }
 
         try {
-            var result = await fetchJson('/api/ml-model-jobs', {
+            var result = await apiCall('/api/ml-model-jobs', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
@@ -172,3 +172,4 @@
         stopJobPolling: stopJobPolling
     };
 }(window));
+

@@ -1,18 +1,27 @@
 (function (global) {
     var shared = global.FireUi || {};
     var byId = shared.byId;
+    var factory = global.FireStateFactory || {};
+    var createStateManager = factory.createStateManager;
 
     global.MlModelState = {
         create: function createMlModelState(options) {
-            var currentData = options && options.initialData ? options.initialData : null;
+            var initialData = options && options.initialData ? options.initialData : null;
+            var manager = typeof createStateManager === 'function'
+                ? createStateManager({ currentData: initialData })
+                : null;
+            var currentData = initialData;
 
             function setCurrentData(data) {
-                currentData = data || null;
-                return currentData;
+                if (!manager) {
+                    currentData = data || null;
+                    return currentData;
+                }
+                return manager.set('currentData', data || null);
             }
 
             function getCurrentData() {
-                return currentData;
+                return manager ? manager.get('currentData') : currentData;
             }
 
             function collectSelectedFilters() {

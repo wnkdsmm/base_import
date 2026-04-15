@@ -7,6 +7,7 @@ from typing import Any, Iterable, List, Sequence
 import pandas as pd
 
 from app.domain.column_matching import MANDATORY_FEATURE_REGISTRY
+from app.services.shared.summary_cards import build_summary_cards
 
 
 FEATURE_GROUPS = [
@@ -41,7 +42,7 @@ _EMPTY_TEXT_VALUES = {"", "nan", "nat", "none", "null", "n/a", "na", "-", "вЂ�
 
 
 def _normalize_text(value: Any) -> str:
-    text = str(value or "").lower().replace("С‘", "Рµ")
+    text = str(value or "").lower().replace("?", "?")
     text = re.sub(r"[_/#-]+", " ", text)
     text = re.sub(r"[^\w\s]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -393,7 +394,7 @@ def _build_summary_cards(
             }
         )
 
-    return cards
+    return build_summary_cards(cards)
 
 
 def _build_group_cards(feature_stats: dict[str, dict[str, Any]]) -> List[Dict[str, str]]:  # one-off
@@ -479,3 +480,4 @@ def build_table_page_summary(
 
     summary["scope_note"] = scope_note
     return summary
+

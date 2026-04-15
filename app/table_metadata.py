@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.db_metadata import (
     get_table_column_set_cached,

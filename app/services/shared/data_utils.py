@@ -166,7 +166,7 @@ def _quote_identifier(identifier: str) -> str:
 
 @lru_cache(maxsize=16384)
 def _normalize_match_text(value: str) -> str:
-    return " ".join(str(value).lower().replace("С‘", "Рµ").replace("/", " ").replace("-", " ").split())
+    return " ".join(str(value).lower().replace("?", "?").replace("/", " ").replace("-", " ").split())
 
 
 def _text_expression(column_name: str) -> str:
@@ -190,3 +190,4 @@ def _date_expression(column_name: str) -> str:
         f"WHEN {text_value} ~ '^[0-9]{{4}}/[0-9]{{2}}/[0-9]{{2}}' THEN TO_DATE(SUBSTRING({text_value} FROM 1 FOR 10), 'YYYY/MM/DD') "
         "ELSE NULL END"
     )
+

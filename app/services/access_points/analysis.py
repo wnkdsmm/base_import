@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from . import analysis_factors as _analysis_factors
 from . import analysis_output as _analysis_output

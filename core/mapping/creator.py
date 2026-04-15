@@ -24,36 +24,36 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         "deaths": MarkerStyle(
             color="rgba(255, 0, 0, 0.8)",
             stroke="darkred",
-            icon="рџ”ґ",
-            label="Р•СЃС‚СЊ РїРѕРіРёР±С€РёРµ",
+            icon="🔴",
+            label="Есть погибшие",
             radius=8
         ),
         "injured": MarkerStyle(
             color="rgba(255, 165, 0, 0.8)",
             stroke="orange",
-            icon="рџџ ",
-            label="Р•СЃС‚СЊ С‚СЂР°РІРјРёСЂРѕРІР°РЅРЅС‹Рµ",
+            icon="🩹",
+            label="Есть травмированные",
             radius=8
         ),
         "children": MarkerStyle(
             color="rgba(173, 216, 230, 0.8)",
             stroke="blue",
-            icon="рџ”µ",
-            label="Р•СЃС‚СЊ РґРµС‚Рё",
+            icon="👶",
+            label="Есть дети",
             radius=8
         ),
         "evacuated": MarkerStyle(
             color="rgba(0, 255, 0, 0.6)",
             stroke="green",
-            icon="рџџў",
-            label="Р•СЃС‚СЊ СЌРІР°РєСѓРёСЂРѕРІР°РЅРЅС‹Рµ",
+            icon="👥",
+            label="Есть эвакуированные",
             radius=8
         ),
         "other": MarkerStyle(
             color="rgba(128, 128, 128, 0.5)",
             stroke="gray",
-            icon="вљЄ",
-            label="Р”СЂСѓРіРёРµ РїРѕР¶Р°СЂС‹",
+            icon="⚪",
+            label="Другие пожары",
             radius=6
         )
     }
@@ -245,3 +245,4 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         return output_file
 
 __all__ = ["MapCreator"]
+

@@ -127,7 +127,7 @@ def _build_limit_options() -> List[Dict[str, str]]:
 def _empty_access_points_charts(message: str) -> dict[str, Any]:
     return {
         "scatter": _empty_chart_bundle(
-            "РџСЂРѕР±Р»РµРјРЅС‹Рµ С‚РѕС‡РєРё РЅР° РїСЂРѕРµРєС†РёРё РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё Рё РїРѕСЃР»РµРґСЃС‚РІРёР№",
+            "Проблемные точки на проекции доступности и последствий",
             message,
         )
     }
@@ -204,12 +204,12 @@ def get_access_points_shell_context(
     selected_table_label = _selection_label(
         request_state["table_options"],
         request_state["selected_table"],
-        "Р’СЃРµ С‚Р°Р±Р»РёС†С‹",
+        "Все таблицы",
     )
     selected_district_label = (
-        request_state["selected_district"] if request_state["selected_district"] != "all" else "Р’СЃРµ СЂР°Р№РѕРЅС‹"
+        request_state["selected_district"] if request_state["selected_district"] != "all" else "Все районы"
     )
-    selected_year_label = request_state["selected_year"] if request_state["selected_year"] != "all" else "Р’СЃРµ РіРѕРґС‹"
+    selected_year_label = request_state["selected_year"] if request_state["selected_year"] != "all" else "Все годы"
 
     filters = {
         "table_name": request_state["selected_table"],
@@ -218,8 +218,8 @@ def get_access_points_shell_context(
         "limit": str(request_state["limit"]),
         "feature_columns": list(request_state["feature_columns"]),
         "available_tables": request_state["table_options"],
-        "available_districts": _shell_options(request_state["selected_district"], "Р’СЃРµ СЂР°Р№РѕРЅС‹"),
-        "available_years": _shell_options(request_state["selected_year"], "Р’СЃРµ РіРѕРґС‹"),
+        "available_districts": _shell_options(request_state["selected_district"], "Все районы"),
+        "available_years": _shell_options(request_state["selected_year"], "Все годы"),
         "available_limits": _build_limit_options(),
         "available_features": _build_access_point_shell_feature_options(request_state["feature_columns"]),
     }
@@ -236,12 +236,12 @@ def get_access_points_shell_context(
         filters=filters,
         summary=summary,
         notes=[
-            "РћС‚РєСЂС‹С‚ Р»С‘РіРєРёР№ shell-СЂРµР¶РёРј СЃС‚СЂР°РЅРёС†С‹. РџРѕР»РЅС‹Р№ ranking РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє РґРѕРіСЂСѓР¶Р°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅС‹Рј Р·Р°РїСЂРѕСЃРѕРј.",
+            "Открыт облегчённый shell-режим страницы. Полный ranking проблемных точек догружается отдельным запросом.",
         ],
         bootstrap_mode="deferred",
     )
-    initial_data["charts"] = _empty_access_points_charts("Р“СЂР°С„РёРє РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ С„РѕРЅРѕРІРѕРіРѕ СЂР°СЃС‡С‘С‚Р° РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє.")
-    initial_data["loading_status_message"] = "РЎРѕР±РёСЂР°РµРј incidents РїРѕ С‚РѕС‡РєР°Рј, СЃС‡РёС‚Р°РµРј score РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё Рё РѕР±СЉСЏСЃРЅРµРЅРёСЏ."
+    initial_data["charts"] = _empty_access_points_charts("График появится после фонового расчёта проблемных точек.")
+    initial_data["loading_status_message"] = "Собираем инциденты по точкам, считаем score доступности и пояснения."
     return {
         "generated_at": _format_datetime(datetime.now()),
         "initial_data": initial_data,
@@ -277,23 +277,23 @@ def get_access_points_data(
         "limit": str(request_state["limit"]),
         "feature_columns": list(request_state["feature_columns"]),
         "available_tables": request_state["table_options"],
-        "available_districts": [{"value": "all", "label": "Р’СЃРµ СЂР°Р№РѕРЅС‹"}],
-        "available_years": [{"value": "all", "label": "Р’СЃРµ РіРѕРґС‹"}],
+        "available_districts": [{"value": "all", "label": "Все районы"}],
+        "available_years": [{"value": "all", "label": "Все годы"}],
         "available_limits": _build_limit_options(),
         "available_features": _build_access_point_shell_feature_options(request_state["feature_columns"]),
     }
     selected_table_label = _selection_label(
         request_state["table_options"],
         request_state["selected_table"],
-        "Р’СЃРµ С‚Р°Р±Р»РёС†С‹",
+        "Все таблицы",
     )
 
     if not request_state["source_tables"]:
         summary = _build_summary(
             [],
             selected_table_label=selected_table_label,
-            selected_district_label="Р’СЃРµ СЂР°Р№РѕРЅС‹",
-            selected_year_label="Р’СЃРµ РіРѕРґС‹",
+            selected_district_label="Все районы",
+            selected_year_label="Все годы",
             limit=request_state["limit"],
             total_incidents=0,
             incomplete_points=[],
@@ -304,9 +304,9 @@ def get_access_points_data(
                 **_empty_access_points_data(
                 filters=filters,
                 summary=summary,
-                notes=["РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С‚Р°Р±Р»РёС† РґР»СЏ СЂР°СЃС‡С‘С‚Р° РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє."],
+                notes=["Нет доступных таблиц для расчёта проблемных точек."],
                 ),
-                "charts": _empty_access_points_charts("РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… РґР°РЅРЅС‹С… РґР»СЏ РїРѕСЃС‚СЂРѕРµРЅРёСЏ РіСЂР°С„РёРєР°."),
+                "charts": _empty_access_points_charts("Нет доступных данных для построения графика."),
             }),
         )
 
@@ -316,12 +316,12 @@ def get_access_points_data(
         metadata_items=metadata_items,
     )
     selected_district = _resolve_option_value(
-        option_catalog.get("districts") or [{"value": "all", "label": "Р’СЃРµ СЂР°Р№РѕРЅС‹"}],
+        option_catalog.get("districts") or [{"value": "all", "label": "Все районы"}],
         request_state["selected_district"],
         default="all",
     )
     selected_year_value = _resolve_option_value(
-        option_catalog.get("years") or [{"value": "all", "label": "Р’СЃРµ РіРѕРґС‹"}],
+        option_catalog.get("years") or [{"value": "all", "label": "Все годы"}],
         request_state["selected_year"],
         default="all",
     )
@@ -334,13 +334,13 @@ def get_access_points_data(
         "limit": str(request_state["limit"]),
         "feature_columns": list(request_state["feature_columns"]),
         "available_tables": request_state["table_options"],
-        "available_districts": option_catalog.get("districts") or [{"value": "all", "label": "Р’СЃРµ СЂР°Р№РѕРЅС‹"}],
-        "available_years": option_catalog.get("years") or [{"value": "all", "label": "Р’СЃРµ РіРѕРґС‹"}],
+        "available_districts": option_catalog.get("districts") or [{"value": "all", "label": "Все районы"}],
+        "available_years": option_catalog.get("years") or [{"value": "all", "label": "Все годы"}],
         "available_limits": _build_limit_options(),
         "available_features": _build_access_point_shell_feature_options(request_state["feature_columns"]),
     }
-    selected_district_label = _selection_label(filters["available_districts"], selected_district, "Р’СЃРµ СЂР°Р№РѕРЅС‹")
-    selected_year_label = _selection_label(filters["available_years"], selected_year_value, "Р’СЃРµ РіРѕРґС‹")
+    selected_district_label = _selection_label(filters["available_districts"], selected_district, "Все районы")
+    selected_year_label = _selection_label(filters["available_years"], selected_year_value, "Все годы")
 
     dataset = _load_access_point_dataset(
         request_state["source_tables"],
@@ -382,7 +382,7 @@ def get_access_points_data(
                 summary=summary,
                 notes=notes,
                 ),
-                "charts": _empty_access_points_charts("РџРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РіСЂР°С„РёРє СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїСЂРѕР±Р»РµРјРЅС‹С… С‚РѕС‡РµРє."),
+                "charts": _empty_access_points_charts("После расчёта здесь появится график распределения проблемных точек."),
             }),
         )
 
@@ -391,11 +391,11 @@ def get_access_points_data(
         "bootstrap_mode": "resolved",
         "loading": False,
         "has_data": True,
-        "title": "РџСЂРѕР±Р»РµРјРЅС‹Рµ С‚РѕС‡РєРё",
+        "title": "Проблемные точки",
         "model_description": (
-            "Р РµР№С‚РёРЅРі СЃС‚СЂРѕРёС‚СЃСЏ РїРѕ individual points, Р° РЅРµ РїРѕ РєР»Р°СЃС‚РµСЂР°Рј С‚РµСЂСЂРёС‚РѕСЂРёР№: СЃРЅР°С‡Р°Р»Р° Р°РґСЂРµСЃ/РѕР±СЉРµРєС‚, Р·Р°С‚РµРј РєРѕРѕСЂРґРёРЅР°С‚РЅР°СЏ С‚РѕС‡РєР°,"
-            " РґР°Р»РµРµ РЅР°СЃРµР»С‘РЅРЅС‹Р№ РїСѓРЅРєС‚ РёР»Рё territory label. РС‚РѕРіРѕРІС‹Р№ score РєРѕРјР±РёРЅРёСЂСѓРµС‚ РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РџР§, РІСЂРµРјСЏ РїСЂРёР±С‹С‚РёСЏ,"
-            " РїРѕРґС‚РІРµСЂР¶РґС‘РЅРЅРѕСЃС‚СЊ РІРѕРґРѕСЃРЅР°Р±Р¶РµРЅРёСЏ, С‚СЏР¶РµСЃС‚СЊ РїРѕСЃР»РµРґСЃС‚РІРёР№, РїРѕРІС‚РѕСЂСЏРµРјРѕСЃС‚СЊ РїРѕР¶Р°СЂРѕРІ Рё РѕС‚РґРµР»СЊРЅС‹Р№ СЃР»РѕР№ РЅРµРїРѕР»РЅРѕС‚С‹ РґР°РЅРЅС‹С…."
+            "Рейтинг строится по individual points, а не по кластерам территорий: сначала адрес/объект, затем координатная точка,"
+            " далее населённый пункт или territory label. Итоговый score комбинирует доступность ПЧ, время прибытия,"
+            " подтверждённость водоснабжения, тяжесть последствий, повторяемость пожаров и отдельный слой неполноты данных."
         ),
         "filters": filters,
         "summary": summary,

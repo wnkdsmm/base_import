@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, List, Optional
 
@@ -6,7 +6,7 @@ import numpy as np
 
 from app.services.forecasting.utils import _format_integer, _format_number, _format_period, _history_window_label
 
-from ..ml_model_types import MODEL_NAME
+from ..ml_model_config_types import MODEL_NAME
 from .types import ForecastingDailyHistoryRow, TrainingFeatureImportanceRow, TrainingMlResultPayload
 from .presentation_backtesting import _prediction_interval_display_context
 from .presentation_meta import (
@@ -42,9 +42,9 @@ def _empty_light_chart(title: str, empty_message: str, kind: str = 'line') -> di
 
 
 def _build_forecast_chart(daily_history: List[ForecastingDailyHistoryRow], ml_result: TrainingMlResultPayload) -> dict[str, Any]:  # one-off
-    title = 'ML-РїСЂРѕРіРЅРѕР· РѕР¶РёРґР°РµРјРѕРіРѕ С‡РёСЃР»Р° РїРѕР¶Р°СЂРѕРІ'
+    title = 'ML-прогноз ожидаемого числа пожаров'
     if not daily_history or not ml_result.get('is_ready'):
-        return _empty_light_chart(title, ml_result.get('message') or 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РїРѕСЃС‚СЂРѕРµРЅРёСЏ РїСЂРѕРіРЅРѕР·Р°.')
+        return _empty_light_chart(title, ml_result.get('message') or 'Недостаточно данных для построения прогноза.')
 
     history_tail = daily_history[-120:]
     history_points = [
@@ -84,10 +84,10 @@ def _build_forecast_chart(daily_history: List[ForecastingDailyHistoryRow], ml_re
         'empty_message': '',
         'value_format': 'count',
         'legend': [
-            {'label': 'РСЃС‚РѕСЂРёСЏ', 'color': '#F97316'},
-            {'label': 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё: С„Р°РєС‚', 'color': '#94A3B8'},
-            {'label': 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё: РїСЂРѕРіРЅРѕР·', 'color': '#64748B'},
-            {'label': 'ML-РїСЂРѕРіРЅРѕР·', 'color': '#0F766E'},
+            {'label': 'История', 'color': '#F97316'},
+            {'label': 'Проверка на истории: факт', 'color': '#94A3B8'},
+            {'label': 'Проверка на истории: прогноз', 'color': '#64748B'},
+            {'label': 'ML-прогноз', 'color': '#0F766E'},
         ],
         'series': {
             'history': history_points,
@@ -100,9 +100,9 @@ def _build_forecast_chart(daily_history: List[ForecastingDailyHistoryRow], ml_re
 
 
 def _build_importance_chart(feature_importance: List[TrainingFeatureImportanceRow], note: str = '') -> dict[str, Any]:  # one-off
-    title = 'Р’Р°Р¶РЅРѕСЃС‚СЊ РїСЂРёР·РЅР°РєРѕРІ ML-Р±Р»РѕРєР°'
+    title = 'Важность признаков ML-блока'
     if not feature_importance:
-        payload = _empty_light_chart(title, 'РњРѕРґРµР»СЊ РµС‰С‘ РЅРµ РѕР±СѓС‡РµРЅР°: РІР°Р¶РЅРѕСЃС‚СЊ РїСЂРёР·РЅР°РєРѕРІ РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ СЂР°СЃС‡С‘С‚Р°.', kind='bars')
+        payload = _empty_light_chart(title, 'Модель ещё не обучена: важность признаков появится после расчёта.', kind='bars')
         payload['note'] = note
         return payload
     top_items = feature_importance[:8]
@@ -138,9 +138,9 @@ def _build_summary(
     history_dates = [item['date'] for item in daily_history]
     slice_parts = []
     if selected_cause != 'all':
-        slice_parts.append(f'РџСЂРёС‡РёРЅР°: {selected_cause}')
+        slice_parts.append(f'Причина: {selected_cause}')
     if selected_object_category != 'all':
-        slice_parts.append(f'РљР°С‚РµРіРѕСЂРёСЏ: {selected_object_category}')
+        slice_parts.append(f'Категория: {selected_object_category}')
 
     forecast_rows = ml_result.get('forecast_rows', [])
     average_expected_count = (
@@ -174,24 +174,24 @@ def _build_summary(
     interval_context = _prediction_interval_display_context(ml_result, backtest_overview)
     event_context = _event_probability_context(ml_result, backtest_overview)
     hero_summary = (
-        f"РџРёРє РїРѕ РіРѕСЂРёР·РѕРЅС‚Сѓ РѕР¶РёРґР°РµС‚СЃСЏ {_format_optional_text(peak_row.get('date_display'))}: "
-        f"РѕР¶РёРґР°РµРјРѕРµ С‡РёСЃР»Рѕ РїРѕР¶Р°СЂРѕРІ вЂ” {_format_row_display(peak_row, 'forecast_value_display', 'forecast_value', _format_optional_number)}. "
-        f"РЎСЂРµРґРЅРµРµ РѕР¶РёРґР°РµРјРѕРµ Р·РЅР°С‡РµРЅРёРµ РїРѕ РґРЅСЏРј вЂ” {_format_optional_number(average_expected_count)}."
+        f"Пик по горизонту ожидается {_format_optional_text(peak_row.get('date_display'))}: "
+        f"ожидаемое число пожаров — {_format_row_display(peak_row, 'forecast_value_display', 'forecast_value', _format_optional_number)}. "
+        f"Среднее ожидаемое значение по дням — {_format_optional_number(average_expected_count)}."
         if peak_row
-        else 'РџРѕСЃР»Рµ СЂР°СЃС‡РµС‚Р° Р·РґРµСЃСЊ РїРѕСЏРІРёС‚СЃСЏ РєСЂР°С‚РєРёР№ РІС‹РІРѕРґ РїРѕ РѕР¶РёРґР°РµРјРѕРјСѓ С‡РёСЃР»Сѓ РїРѕР¶Р°СЂРѕРІ РЅР° Р±Р»РёР¶Р°Р№С€РёРµ РґР°С‚С‹.'
+        else 'После расчета здесь появится краткий вывод по ожидаемому числу пожаров на ближайшие даты.'
     )
 
     return {
-        'selected_table_label': 'Р’СЃРµ С‚Р°Р±Р»РёС†С‹' if selected_table == 'all' else (selected_table or 'РќРµС‚ С‚Р°Р±Р»РёС†С‹'),
-        'slice_label': ' | '.join(slice_parts) if slice_parts else 'Р’СЃРµ РїРѕР¶Р°СЂС‹ РІС‹Р±СЂР°РЅРЅРѕР№ РёСЃС‚РѕСЂРёРё',
+        'selected_table_label': 'Все таблицы' if selected_table == 'all' else (selected_table or 'Нет таблицы'),
+        'slice_label': ' | '.join(slice_parts) if slice_parts else 'Все пожары выбранной истории',
         'hero_summary': hero_summary,
         'history_period_label': _format_period(history_dates),
         'history_window_label': _history_window_label(history_window),
         'model_label': MODEL_NAME,
         'count_model_label': ml_result.get('count_model_label') or MODEL_NAME,
-        'event_model_label': ml_result.get('event_model_label') or 'РќРµ РѕР±СѓС‡РµРЅ',
-        'event_backtest_model_label': ml_result.get('selected_event_model_label') or 'РќРµ РїРѕРєР°Р·Р°РЅ',
-        'backtest_method_label': ml_result.get('backtest_method_label') or 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё РЅРµ РІС‹РїРѕР»РЅРµРЅР°',
+        'event_model_label': ml_result.get('event_model_label') or 'Не обучен',
+        'event_backtest_model_label': ml_result.get('selected_event_model_label') or 'Не показан',
+        'backtest_method_label': ml_result.get('backtest_method_label') or 'Проверка на истории не выполнена',
         'fires_count_display': _format_integer(filtered_records_count),
         'history_days_display': _format_integer(len(daily_history)),
         'forecast_days_display': _format_integer(len(forecast_rows)),
@@ -220,7 +220,7 @@ def _build_summary(
         'log_loss_display': _format_optional_number(ml_result.get('log_loss')),
         'top_feature_label': _format_optional_text(ml_result.get('top_feature_label')),
         'temperature_scenario_display': (
-            f"{_format_number(scenario_temperature)} В°C" if scenario_temperature is not None else 'РСЃС‚РѕСЂРёС‡РµСЃРєР°СЏ С‚РµРјРїРµСЂР°С‚СѓСЂР°'
+            f"{_format_number(scenario_temperature)} °C" if scenario_temperature is not None else 'Историческая температура'
         ),
         'predicted_total_display': _format_optional_number(predicted_total),
         'average_expected_count_display': _format_optional_number(average_expected_count),

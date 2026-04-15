@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence
@@ -57,7 +57,7 @@ from .types import (
 from .utils import _format_number, _quote_identifier
 
 _DAMAGE_THEME_COLUMNS = {
-    "РќРµРґРІРёР¶РёРјРѕСЃС‚СЊ": [
+    "Недвижимость": [
         BUILDINGS_DESTROYED_COLUMN,
         BUILDINGS_DAMAGED_COLUMN,
         APARTMENTS_DESTROYED_COLUMN,
@@ -65,15 +65,15 @@ _DAMAGE_THEME_COLUMNS = {
         APART_HOTEL_DESTROYED_COLUMN,
         APART_HOTEL_DAMAGED_COLUMN,
     ],
-    "РџР»РѕС‰Р°РґСЊ РїРѕР¶Р°СЂР°": [
+    "Площадь пожара": [
         AREA_DESTROYED_COLUMN,
         AREA_DAMAGED_COLUMN,
     ],
-    "РўРµС…РЅРёРєР°": [
+    "Техника": [
         VEHICLES_DESTROYED_COLUMN,
         VEHICLES_DAMAGED_COLUMN,
     ],
-    "РЎРµР»СЊС…РѕР·РїРѕС‚РµСЂРё": [
+    "Сельхозпотери": [
         GRAIN_DESTROYED_COLUMN,
         GRAIN_DAMAGED_COLUMN,
         FEED_DESTROYED_COLUMN,
@@ -81,12 +81,12 @@ _DAMAGE_THEME_COLUMNS = {
         TECH_CROPS_DESTROYED_COLUMN,
         TECH_CROPS_DAMAGED_COLUMN,
     ],
-    "Р–РёРІРѕС‚РЅС‹Рµ Рё РїС‚РёС†Р°": [
+    "Животные и птица": [
         LARGE_CATTLE_DESTROYED_COLUMN,
         SMALL_CATTLE_DESTROYED_COLUMN,
         BIRDS_DESTROYED_COLUMN,
     ],
-    "РџСЂСЏРјРѕР№ СѓС‰РµСЂР±": [
+    "Прямой ущерб": [
         REGISTERED_DAMAGE_COLUMN,
     ],
 }
@@ -140,12 +140,12 @@ def _build_distribution_chart(
     grouped_counts: Optional[Dict[str, int]] = None,
 ) -> DistributionResult:
     if not group_column:
-        empty_message = "РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… РєРѕР»РѕРЅРѕРє РґР»СЏ СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ."
+        empty_message = "Нет доступных колонок для распределения."
         return _finalize_chart(
-            "Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕ РєРѕР»РѕРЅРєРµ",
+            "Распределение по колонке",
             [],
             empty_message,
-            plotly=_build_empty_plotly_chart("Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕ РєРѕР»РѕРЅРєРµ", empty_message),
+            plotly=_build_empty_plotly_chart("Распределение по колонке", empty_message),
         )
 
     grouped: Dict[str, int] = defaultdict(int)
@@ -164,7 +164,7 @@ def _build_distribution_chart(
                 query = text(
                     f"""
                     SELECT
-                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(resolved_group_column)} AS TEXT)), ''), 'РќРµ СѓРєР°Р·Р°РЅРѕ') AS label,
+                    COALESCE(NULLIF(TRIM(CAST({_quote_identifier(resolved_group_column)} AS TEXT)), ''), 'Не указано') AS label,
                         COUNT(*) AS fire_count
                     FROM {_quote_identifier(table['name'])}
                     WHERE {where_clause}
@@ -180,8 +180,8 @@ def _build_distribution_chart(
         {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
         for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:12]
     ]
-    title = f"Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ: {COLUMN_LABELS.get(group_column, group_column)}"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ РІС‹Р±СЂР°РЅРЅРѕР№ РєРѕР»РѕРЅРєРё Рё С„РёР»СЊС‚СЂРѕРІ."
+    title = f"Распределение: {COLUMN_LABELS.get(group_column, group_column)}"
+    empty_message = "Нет данных для выбранной колонки и фильтров."
     plotly_builder = _build_distribution_pie_plotly if group_column == RISK_CATEGORY_COLUMN else _build_distribution_plotly
     return _finalize_chart(title, items, empty_message, plotly=plotly_builder(title, items, empty_message))
 
@@ -336,9 +336,9 @@ def _build_damage_overview_chart(
 ) -> DistributionResult:
     items = _resolve_damage_category_items(selected_tables, selected_year, items)
     top_items = items[:12]
-    title = "РЈС‰РµСЂР±: С‡С‚Рѕ СЃС‚СЂР°РґР°РµС‚ С‡Р°С‰Рµ РІСЃРµРіРѕ"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РєР°С‚РµРіРѕСЂРёСЏРј СѓС‰РµСЂР±Р°."
-    description = "РљР°С‚РµРіРѕСЂРёРё РїРѕС‚РµСЂСЊ РїРѕ РѕР±СЉРµРєС‚Р°Рј Рё СЂРµСЃСѓСЂСЃР°Рј: Р·РґР°РЅРёСЏ, РєРІР°СЂС‚РёСЂС‹, РїР»РѕС‰Р°РґСЊ РїРѕР¶Р°СЂР°, С‚РµС…РЅРёРєР°, СѓСЂРѕР¶Р°Р№ Рё РґСЂСѓРіРёРµ РїРѕРєР°Р·Р°С‚РµР»Рё."
+    title = "Ущерб: что страдает чаще всего"
+    empty_message = "Нет данных по категориям ущерба."
+    description = "Категории потерь по объектам и ресурсам: здания, квартиры, площадь пожара, техника, урожай и другие показатели."
     return _finalize_chart(
         title,
         top_items,
@@ -356,9 +356,9 @@ def _build_damage_pairs_chart(
 ) -> DistributionResult:
     items = _resolve_damage_category_items(selected_tables, selected_year, items)
     items = [item for item in items if "destroyed" in item or "damaged" in item]
-    title = "РЈС‰РµСЂР±: СѓРЅРёС‡С‚РѕР¶РµРЅРѕ Рё РїРѕРІСЂРµР¶РґРµРЅРѕ"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РїР°СЂР°Рј РїРѕРєР°Р·Р°С‚РµР»РµР№ СѓС‰РµСЂР±Р°."
-    description = "РЎСЂР°РІРЅРµРЅРёРµ РїРѕ РєР°С‚РµРіРѕСЂРёСЏРј СѓС‰РµСЂР±Р°: РіРґРµ С‡Р°С‰Рµ С„РёРєСЃРёСЂСѓРµС‚СЃСЏ СѓРЅРёС‡С‚РѕР¶РµРЅРёРµ, Р° РіРґРµ РїРѕРІСЂРµР¶РґРµРЅРёРµ РёРјСѓС‰РµСЃС‚РІР° Рё СЂРµСЃСѓСЂСЃРѕРІ."
+    title = "Ущерб: уничтожено и повреждено"
+    empty_message = "Нет данных по парам показателей ущерба."
+    description = "Сравнение по категориям ущерба: где чаще фиксируется уничтожение, а где повреждение имущества и ресурсов."
     return _finalize_chart(
         title,
         items,
@@ -375,9 +375,9 @@ def _build_damage_standalone_chart(
     items: Optional[Sequence[DistributionItem]] = None,
 ) -> DistributionResult:
     items = _resolve_damage_theme_items(selected_tables, selected_year, items)
-    title = "РЈС‰РµСЂР±: РЅР°РїСЂР°РІР»РµРЅРёСЏ РїРѕС‚РµСЂСЊ"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ СѓРєСЂСѓРїРЅРµРЅРЅС‹Рј РЅР°РїСЂР°РІР»РµРЅРёСЏРј СѓС‰РµСЂР±Р°."
-    description = "РљСЂСѓРїРЅС‹Рµ Р±Р»РѕРєРё РїРѕС‚РµСЂСЊ: РЅРµРґРІРёР¶РёРјРѕСЃС‚СЊ, РїР»РѕС‰Р°РґСЊ РїРѕР¶Р°СЂР°, С‚РµС…РЅРёРєР°, СЃРµР»СЊС…РѕР·СЂРµСЃСѓСЂСЃС‹, Р¶РёРІРѕС‚РЅС‹Рµ Рё РїСЂСЏРјРѕР№ СѓС‰РµСЂР±."
+    title = "Ущерб: направления потерь"
+    empty_message = "Нет данных по укрупненным направлениям ущерба."
+    description = "Крупные блоки потерь: недвижимость, площадь пожара, техника, сельхозресурсы, животные и прямой ущерб."
     return _finalize_chart(
         title,
         items,
@@ -403,9 +403,9 @@ def _build_damage_share_chart(
         for item in items
     ]
     top_pie_items = pie_items[:10]
-    title = "РЈС‰РµСЂР±: СЃС‚СЂСѓРєС‚СѓСЂР° РїРѕС‚РµСЂСЊ"
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃС‚СЂСѓРєС‚СѓСЂРЅРѕРіРѕ РіСЂР°С„РёРєР° РїРѕ СѓС‰РµСЂР±Сѓ."
-    description = "Р”РѕР»СЏ РѕСЃРЅРѕРІРЅС‹С… РЅР°РїСЂР°РІР»РµРЅРёР№ РїРѕС‚РµСЂСЊ РІ С‚РµРєСѓС‰РµРј С„РёР»СЊС‚СЂРµ: С‡С‚Рѕ РґРѕРјРёРЅРёСЂСѓРµС‚ РІ СѓС‰РµСЂР±Рµ С‡Р°С‰Рµ РІСЃРµРіРѕ."
+    title = "Ущерб: структура потерь"
+    empty_message = "Нет данных для структурного графика по ущербу."
+    description = "Доля основных направлений потерь в текущем фильтре: что доминирует в ущербе чаще всего."
     return _finalize_chart(
         title,
         top_pie_items,
@@ -458,13 +458,13 @@ def _build_table_breakdown_chart(
 
     items.sort(key=lambda item: item["value"], reverse=True)
     items = items[:12]
-    empty_message = "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РІС‹Р±СЂР°РЅРЅС‹Рј С‚Р°Р±Р»РёС†Р°Рј Рё РіРѕРґСѓ."
+    empty_message = "Нет данных по выбранным таблицам и году."
     return _finalize_chart(
-        "РљРѕР»РёС‡РµСЃС‚РІРѕ РїРѕР¶Р°СЂРѕРІ РїРѕ С‚Р°Р±Р»РёС†Р°Рј",
+        "Количество пожаров по таблицам",
         items,
         empty_message,
         plotly=(
-            _build_table_breakdown_plotly("РљРѕР»РёС‡РµСЃС‚РІРѕ РїРѕР¶Р°СЂРѕРІ РїРѕ С‚Р°Р±Р»РёС†Р°Рј", items, empty_message)
+            _build_table_breakdown_plotly("Количество пожаров по таблицам", items, empty_message)
             if include_plotly
             else None
         ),

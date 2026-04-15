@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -7,24 +7,8 @@ from sklearn.metrics import log_loss, roc_auc_score
 
 from app.services.model_quality import compute_classification_metrics
 
-from ..ml_model_types import (
-    BacktestEvaluationRow,
-    EventComparisonRow,
-    EventMetrics,
-    CLASSIFICATION_THRESHOLD,
-    EVENT_BASELINE_METHOD_LABEL,
-    EVENT_BASELINE_ROLE_LABEL,
-    EVENT_CLASSIFIER_ROLE_LABEL,
-    EVENT_HEURISTIC_METHOD_LABEL,
-    EVENT_HEURISTIC_ROLE_LABEL,
-    EVENT_MODEL_LABEL,
-    EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE,
-    EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION,
-    EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS,
-    EVENT_RATE_SATURATION_MARGIN,
-    EVENT_SELECTION_RULE,
-    MIN_BACKTEST_POINTS,
-)
+from ..ml_model_config_types import CLASSIFICATION_THRESHOLD, EVENT_BASELINE_METHOD_LABEL, EVENT_BASELINE_ROLE_LABEL, EVENT_CLASSIFIER_ROLE_LABEL, EVENT_HEURISTIC_METHOD_LABEL, EVENT_HEURISTIC_ROLE_LABEL, EVENT_MODEL_LABEL, EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE, EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION, EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS, EVENT_RATE_SATURATION_MARGIN, EVENT_SELECTION_RULE, MIN_BACKTEST_POINTS
+from ..ml_model_result_types import BacktestEvaluationRow, EventComparisonRow, EventMetrics
 from .training_backtesting_support import (
     _empty_float_array,
     _empty_int_array,
@@ -66,34 +50,34 @@ def _event_probability_note(
     if reason_code == EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS:
         if rows_used > 0:
             return (
-                'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІ rolling-origin backtesting РґРѕСЃС‚СѓРїРЅРѕ С‚РѕР»СЊРєРѕ '
-                f'{rows_used} СЃРѕРїРѕСЃС‚Р°РІРёРјС‹С… РѕРєРѕРЅ, РіРґРµ РјРѕР¶РЅРѕ РєРѕСЂСЂРµРєС‚РЅРѕ СЃСЂР°РІРЅРёС‚СЊ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё.'
+                'Вероятностный блок события пожара скрыт: в rolling-origin backtesting доступно только '
+                f'{rows_used} сопоставимых окон, где можно корректно сравнить вероятности.'
             )
         return (
-            'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІ rolling-origin backtesting СЃР»РёС€РєРѕРј РјР°Р»Рѕ СЃРѕРїРѕСЃС‚Р°РІРёРјС‹С… РѕРєРѕРЅ, '
-            'РіРґРµ РјРѕР¶РЅРѕ РєРѕСЂСЂРµРєС‚РЅРѕ СЃСЂР°РІРЅРёС‚СЊ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё.'
+            'Вероятностный блок события пожара скрыт: в rolling-origin backtesting слишком мало сопоставимых окон, '
+            'где можно корректно сравнить вероятности.'
         )
     if reason_code == EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION:
         class_note = (
-            'С‚РѕР»СЊРєРѕ РґРЅРё СЃ РїРѕР¶Р°СЂРѕРј'
+            'только дни с пожаром'
             if event_rate is not None and event_rate >= 0.5
-            else 'С‚РѕР»СЊРєРѕ РґРЅРё Р±РµР· РїРѕР¶Р°СЂР°'
+            else 'только дни без пожара'
         )
         if rows_used > 0:
             return (
-                'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: '
-                f'РІСЃРµ {rows_used} evaluation-РѕРєРѕРЅ rolling-origin backtesting РѕС‚РЅРѕСЃСЏС‚СЃСЏ Рє РѕРґРЅРѕРјСѓ РєР»Р°СЃСЃСѓ ({class_note}), '
-                'РїРѕСЌС‚РѕРјСѓ РІРµСЂРѕСЏС‚РЅРѕСЃС‚РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РЅРµРєРѕСЂСЂРµРєС‚РЅР°.'
+                'Вероятностный блок события пожара скрыт: '
+                f'все {rows_used} evaluation-окон rolling-origin backtesting относятся к одному классу ({class_note}), '
+                'поэтому вероятностная валидация некорректна.'
             )
         return (
-            'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚РЅС‹Р№ Р±Р»РѕРє СЃРѕР±С‹С‚РёСЏ РїРѕР¶Р°СЂР° СЃРєСЂС‹С‚: РІ evaluation-РѕРєРЅР°С… rolling-origin backtesting РЅР°Р±Р»СЋРґР°Р»СЃСЏ '
-            f'С‚РѕР»СЊРєРѕ РѕРґРёРЅ РєР»Р°СЃСЃ ({class_note}), РїРѕСЌС‚РѕРјСѓ РІРµСЂРѕСЏС‚РЅРѕСЃС‚РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РЅРµРєРѕСЂСЂРµРєС‚РЅР°.'
+            'Вероятностный блок события пожара скрыт: в evaluation-окнах rolling-origin backtesting наблюдался '
+            f'только один класс ({class_note}), поэтому вероятностная валидация некорректна.'
         )
     if reason_code == EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE and event_rate is not None:
         return (
-            'Р’РµСЂРѕСЏС‚РЅРѕСЃС‚СЊ P(>=1 РїРѕР¶Р°СЂР°) СЃРєСЂС‹С‚Р°: '
-            f'РґРѕР»СЏ СЃРѕР±С‹С‚РёСЏ РІ evaluation-РѕРєРЅР°С… rolling-origin backtesting СЃРѕСЃС‚Р°РІРёР»Р° {event_rate * 100.0:.1f}%, '
-            'РїРѕСЌС‚РѕРјСѓ СЃРѕР±С‹С‚РёРµ РїРѕС‡С‚Рё С‚СЂРёРІРёР°Р»СЊРЅРѕ Рё РЅРµРёРЅС„РѕСЂРјР°С‚РёРІРЅРѕ.'
+            'Вероятность P(>=1 пожара) скрыта: '
+            f'доля события в evaluation-окнах rolling-origin backtesting составила {event_rate * 100.0:.1f}%, '
+            'поэтому событие почти тривиально и неинформативно.'
         )
     return None
 

@@ -55,6 +55,9 @@ window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
 
 {% block scripts %}
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/state_factory.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/api_client.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/ui_helpers.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/ml_model_charts.js?v={{ ml_model_js_version }}"></script>
 <script src="/static/js/ml_model_api.js?v={{ ml_model_js_version }}"></script>
 <script src="/static/js/ml_model_state.js?v={{ ml_model_js_version }}"></script>

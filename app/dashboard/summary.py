@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence
@@ -241,7 +241,7 @@ def _build_summary(
         "years_covered": len(years_covered),
         "years_covered_display": _format_number(len(years_covered), integer=True),
         "period_label": _format_period_label(sorted(years_covered)),
-        "year_label": str(selected_year) if selected_year is not None else "Р’СЃРµ РіРѕРґС‹",
+        "year_label": str(selected_year) if selected_year is not None else "Все годы",
         "deaths": impact_totals["deaths"],
         "deaths_display": _format_number(impact_totals["deaths"], integer=True),
         "injuries": impact_totals["injuries"],
@@ -300,8 +300,8 @@ def _build_yearly_chart(
             }
         )
 
-    title = "РљРѕР»РёС‡РµСЃС‚РІРѕ РїРѕР¶Р°СЂРѕРІ РїРѕ РіРѕРґР°Рј" if metric == "count" else "РџР»РѕС‰Р°РґСЊ РїРѕР¶Р°СЂРѕРІ РїРѕ РіРѕРґР°Рј"
-    empty_message = "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РїРѕСЃС‚СЂРѕРµРЅРёСЏ РіСЂР°С„РёРєР° РїРѕ РіРѕРґР°Рј."
+    title = "Количество пожаров по годам" if metric == "count" else "Площадь пожаров по годам"
+    empty_message = "Недостаточно данных для построения графика по годам."
     return _finalize_chart(
         title,
         items,
@@ -337,38 +337,38 @@ def _build_trend(yearly_fires: DistributionResult) -> DashboardSection:
     items = yearly_fires["items"]
     if not items:
         return {
-            "title": "Р”РёРЅР°РјРёРєР° РїРѕСЃР»РµРґРЅРµРіРѕ РіРѕРґР°",
+            "title": "Динамика последнего года",
             "current_year": "-",
             "current_value_display": "0",
             "previous_year": "",
-            "delta_display": "РќРµС‚ Р±Р°Р·С‹ СЃСЂР°РІРЅРµРЅРёСЏ",
+            "delta_display": "Нет базы сравнения",
             "direction": "flat",
-            "description": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СЃСЂР°РІРЅРµРЅРёСЏ РїРѕ РіРѕРґР°Рј.",
+            "description": "Недостаточно данных для сравнения по годам.",
         }
 
     latest = items[-1]
     previous = items[-2] if len(items) > 1 else None
     if previous is None:
         return {
-            "title": "Р”РёРЅР°РјРёРєР° РїРѕСЃР»РµРґРЅРµРіРѕ РіРѕРґР°",
+            "title": "Динамика последнего года",
             "current_year": latest["label"],
             "current_value_display": latest["value_display"],
             "previous_year": "",
-            "delta_display": "РќРµС‚ Р±Р°Р·С‹ СЃСЂР°РІРЅРµРЅРёСЏ",
+            "delta_display": "Нет базы сравнения",
             "direction": "flat",
-            "description": f"Р•СЃС‚СЊ РґР°РЅРЅС‹Рµ С‚РѕР»СЊРєРѕ Р·Р° {latest['label']} РіРѕРґ.",
+            "description": f"Есть данные только за {latest['label']} год.",
         }
 
     delta = float(latest["value"]) - float(previous["value"])
     direction = "up" if delta > 0 else "down" if delta < 0 else "flat"
     return {
-        "title": "Р”РёРЅР°РјРёРєР° РїРѕСЃР»РµРґРЅРµРіРѕ РіРѕРґР°",
+        "title": "Динамика последнего года",
         "current_year": latest["label"],
         "current_value_display": latest["value_display"],
         "previous_year": previous["label"],
         "delta_display": _format_signed_number(delta, integer=True),
         "direction": direction,
-        "description": f"РЎСЂР°РІРЅРµРЅРёРµ {latest['label']} Рє {previous['label']} РіРѕРґСѓ.",
+        "description": f"Сравнение {latest['label']} к {previous['label']} году.",
     }
 
 
@@ -382,27 +382,27 @@ def _build_highlights(
 
     return [
         {
-            "label": "РџРёРєРѕРІС‹Р№ РіРѕРґ",
+            "label": "Пиковый год",
             "value": peak_fire["label"] if peak_fire else "-",
-            "meta": f"{peak_fire['value_display']} РїРѕР¶Р°СЂРѕРІ" if peak_fire else "РќРµС‚ РґР°РЅРЅС‹С… РїРѕ РіРѕРґР°Рј",
+            "meta": f"{peak_fire['value_display']} пожаров" if peak_fire else "Нет данных по годам",
             "tone": "fire",
         },
         {
-            "label": "Р“Р»Р°РІРЅР°СЏ РїСЂРёС‡РёРЅР°",
-            "value": dominant_cause["label"] if dominant_cause else "РќРµС‚ РґР°РЅРЅС‹С…",
-            "meta": f"{dominant_cause['value_display']} СЃР»СѓС‡Р°РµРІ" if dominant_cause else "РџСЂРёС‡РёРЅС‹ РЅРµ Р·Р°РїРѕР»РЅРµРЅС‹",
+            "label": "Главная причина",
+            "value": dominant_cause["label"] if dominant_cause else "Нет данных",
+            "meta": f"{dominant_cause['value_display']} случаев" if dominant_cause else "Причины не заполнены",
             "tone": "group",
         },
         {
-            "label": "РџРѕРіРёР±С€РёРµ",
+            "label": "Погибшие",
             "value": summary["deaths_display"],
-            "meta": f"РўСЂР°РІРјРёСЂРѕРІР°РЅРѕ: {summary['injuries_display']}",
+            "meta": f"Травмировано: {summary['injuries_display']}",
             "tone": "fire",
         },
         {
-            "label": "Р­РІР°РєСѓР°С†РёСЏ",
+            "label": "Эвакуация",
             "value": summary["evacuated_display"],
-            "meta": f"Р­РІР°РєСѓРёСЂРѕРІР°РЅРѕ РґРµС‚РµР№: {summary['evacuated_children_display']} | РЎРїР°СЃРµРЅРѕ РґРµС‚РµР№: {summary['rescued_children_display']}",
+            "meta": f"Эвакуировано детей: {summary['evacuated_children_display']} | Спасено детей: {summary['rescued_children_display']}",
             "tone": "sky",
         },
     ]

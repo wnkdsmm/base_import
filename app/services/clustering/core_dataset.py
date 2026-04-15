@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from contextlib import nullcontext
 from typing import Any, Callable, Dict, Sequence
@@ -109,7 +109,7 @@ def _load_clustering_dataset_for_request(
     _emit_clustering_progress(
         progress_callback,
         "clustering.loading",
-        "Р—Р°РіСЂСѓР¶Р°РµРј С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Рµ РґР°РЅРЅС‹Рµ Рё РІС‹Р±СЂР°РЅРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё.",
+        "Загружаем территориальные данные и выбранные параметры кластеризации.",
     )
     aggregation_context = perf.span("aggregation") if perf is not None else nullcontext()
     with aggregation_context:
@@ -135,7 +135,7 @@ def _build_clustering_feature_context(
     _emit_clustering_progress(
         progress_callback,
         "clustering.aggregation",
-        "РЎРѕР±РёСЂР°РµРј Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹Рµ РїСЂРёР·РЅР°РєРё С‚РµСЂСЂРёС‚РѕСЂРёРё Рё РїСЂРѕРІРµСЂСЏРµРј РёС… Р·Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ.",
+        "Собираем агрегированные признаки территории и проверяем их заполненность.",
     )
     filter_prep_context = perf.span("filter_prep") if perf is not None else nullcontext()
     with filter_prep_context:
@@ -166,7 +166,7 @@ def _build_clustering_model_inputs(
     _emit_clustering_progress(
         progress_callback,
         "clustering.training",
-        "РЎС‚СЂРѕРёРј РєР»Р°СЃС‚РµСЂС‹, СЃСЂР°РІРЅРёРІР°РµРј Р°Р»РіРѕСЂРёС‚РјС‹ Рё РѕС†РµРЅРёРІР°РµРј СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ СЃРµРіРјРµРЅС‚Р°С†РёРё.",
+        "Строим кластеры, сравниваем алгоритмы и оцениваем устойчивость сегментации.",
     )
     clustering_run_context = perf.span("model_training") if perf is not None else nullcontext()
     with clustering_run_context:
@@ -196,8 +196,8 @@ def _build_clustering_model_description(
     return " ".join(
         part
         for part in [
-            "РљР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ СЃС‚СЂРѕРёС‚СЃСЏ РЅРµ РїРѕ РѕС‚РґРµР»СЊРЅС‹Рј РёРЅС†РёРґРµРЅС‚Р°Рј, Р° РїРѕ Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹Рј С‚РµСЂСЂРёС‚РѕСЂРёСЏРј Рё РЅР°СЃРµР»С‘РЅРЅС‹Рј РїСѓРЅРєС‚Р°Рј.",
-            "Р”Р»СЏ С‚РµСЂСЂРёС‚РѕСЂРёР№ СЃ РєРѕСЂРѕС‚РєРѕР№ РёСЃС‚РѕСЂРёРµР№ РґРѕР»РµРІС‹Рµ РїСЂРёР·РЅР°РєРё СЃС‡РёС‚Р°СЋС‚СЃСЏ С‡РµСЂРµР· empirical Bayes shrinkage Рє РіР»РѕР±Р°Р»СЊРЅРѕРјСѓ СЃСЂРµРґРЅРµРјСѓ.",
+            "Кластеризация строится не по отдельным инцидентам, а по агрегированным территориям и населённым пунктам.",
+            "Для территорий с короткой историей долевые признаки считаются через empirical Bayes shrinkage к глобальному среднему.",
             str(cluster_count_guidance.get("model_note") or ""),
             str(runtime_feature_context.get("weighting_note") or ""),
             str(runtime_feature_context.get("volume_note") or ""),

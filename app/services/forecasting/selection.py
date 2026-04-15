@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Dict, List, Sequence
 
@@ -27,7 +27,7 @@ def _build_forecasting_table_options() -> List[Dict[str, str]]:
             continue
         seen.add(value)
         options.append({"value": value, "label": str(option.get("label") or value)})
-    return [{"value": "all", "label": "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"}] + options
+    return [{"value": "all", "label": "Все таблицы"}] + options
 
 
 def _normalize_source_table_name(table_name: str) -> str:
@@ -48,8 +48,8 @@ def _source_table_canonical_key(table_name: str) -> str:
 
 def _source_table_deduplication_note(raw_table: str, clean_table: str) -> str:
     return (
-        f"РўР°Р±Р»РёС†Р° '{raw_table}' РёСЃРєР»СЋС‡РµРЅР° РєР°Рє РґСѓР±Р»РёРєР°С‚ clean-РІРµСЂСЃРёРё "
-        f"'{clean_table}', С‡С‚РѕР±С‹ РёСЃС‚РѕСЂРёСЏ РЅРµ СѓС‡РёС‚С‹РІР°Р»Р°СЃСЊ РґРІР°Р¶РґС‹."
+        f"Таблица '{raw_table}' исключена как дубликат clean-версии "
+        f"'{clean_table}', чтобы история не учитывалась дважды."
     )
 
 
@@ -112,5 +112,5 @@ def _selected_source_tables(table_options: List[Dict[str, str]], selected_table:
 
 def _table_selection_label(selected_table: str) -> str:
     if selected_table == "all":
-        return "Р’СЃРµ С‚Р°Р±Р»РёС†С‹"
-    return selected_table or "РќРµС‚ С‚Р°Р±Р»РёС†С‹"
+        return "Все таблицы"
+    return selected_table or "Нет таблицы"

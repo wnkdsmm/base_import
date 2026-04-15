@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Dict, List
@@ -18,7 +18,7 @@ except Exception:  # pragma: no cover - graceful fallback for older sklearn
 
 from app.services.forecasting.utils import _format_number
 
-from ..ml_model_types import FEATURE_LABELS, PERMUTATION_REPEATS
+from ..ml_model_config_types import FEATURE_LABELS, PERMUTATION_REPEATS
 from .training_dataset import _build_design_matrix
 
 

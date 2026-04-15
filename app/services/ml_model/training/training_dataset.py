@@ -1,11 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from ..ml_model_types import FEATURE_COLUMNS, NON_TEMPERATURE_FEATURE_COLUMNS
+from ..ml_model_config_types import FEATURE_COLUMNS, NON_TEMPERATURE_FEATURE_COLUMNS
 
 
 def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:

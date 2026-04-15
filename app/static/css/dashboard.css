@@ -198,10 +198,7 @@
 }
 
 .executive-section-head {
-    display: flex;
-    justify-content: space-between;
     align-items: end;
-    gap: 12px;
     margin-bottom: var(--space-token-29);
 }
 

@@ -1,10 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-SERVICE_TIME_TARGET_MINUTES = 20.0
-SERVICE_DISTANCE_TARGET_KM = 12.0
-CORE_SERVICE_TIME_MINUTES = 14.0
+from config.constants import CORE_SERVICE_TIME_MINUTES, SERVICE_DISTANCE_TARGET_KM, SERVICE_TIME_TARGET_MINUTES
 
 
 def build_explainable_logistics_profile(
@@ -39,16 +37,16 @@ def build_explainable_logistics_profile(
     if safe_response is not None and estimated_from_distance is not None:
         observed_weight = 0.72 if response_observations >= 3 else 0.58
         travel_time_minutes = safe_response * observed_weight + estimated_from_distance * (1.0 - observed_weight)
-        travel_time_source = 'Р¤Р°РєС‚ РїСЂРёР±С‹С‚РёСЏ + РјРѕРґРµР»СЊ РїРѕ СЂР°СЃСЃС‚РѕСЏРЅРёСЋ'
+        travel_time_source = 'Факт прибытия + модель по расстоянию'
     elif safe_response is not None:
         travel_time_minutes = safe_response
-        travel_time_source = 'Р¤Р°РєС‚РёС‡РµСЃРєРѕРµ РІСЂРµРјСЏ РїСЂРёР±С‹С‚РёСЏ'
+        travel_time_source = 'Фактическое время прибытия'
     elif estimated_from_distance is not None:
         travel_time_minutes = estimated_from_distance
-        travel_time_source = 'РњРѕРґРµР»СЊ РїРѕ СЂР°СЃСЃС‚РѕСЏРЅРёСЋ РґРѕ РџР§'
+        travel_time_source = 'Модель по расстоянию до ПЧ'
     else:
         travel_time_minutes = 24.0 if is_rural else 18.0
-        travel_time_source = 'РћСЃС‚РѕСЂРѕР¶РЅС‹Р№ fallback Р±РµР· РїСЂСЏРјРѕР№ Р»РѕРіРёСЃС‚РёРєРё'
+        travel_time_source = 'Осторожный fallback без прямой логистики'
 
     distance_pressure = _clamp(((safe_distance or 14.0) - 6.0) / 24.0, 0.0, 1.0)
     response_pressure = (
@@ -75,17 +73,17 @@ def build_explainable_logistics_profile(
 
     if response_coverage is not None and distance_observations > 0:
         service_coverage_ratio = 0.50 * response_coverage + 0.30 * travel_time_coverage + 0.20 * distance_coverage
-        coverage_source = 'Р¤Р°РєС‚ РїСЂРёР±С‹С‚РёСЏ + СѓРґР°Р»С‘РЅРЅРѕСЃС‚СЊ'
+        coverage_source = 'Факт прибытия + удалённость'
     elif response_coverage is not None:
         service_coverage_ratio = 0.72 * response_coverage + 0.28 * travel_time_coverage
-        coverage_source = 'Р¤Р°РєС‚РёС‡РµСЃРєРѕРµ РїСЂРёР±С‹С‚РёРµ'
+        coverage_source = 'Фактическое прибытие'
     elif distance_observations > 0 or estimated_from_distance is not None:
         service_coverage_ratio = 0.62 * travel_time_coverage + 0.38 * distance_coverage
-        coverage_source = 'Р Р°СЃСЃС‚РѕСЏРЅРёРµ Рё РјРѕРґРµР»СЊ travel-time'
+        coverage_source = 'Расстояние и модель travel-time'
     else:
         fallback_coverage = 0.46 if is_rural else 0.58
         service_coverage_ratio = fallback_coverage
-        coverage_source = 'РћСЃС‚РѕСЂРѕР¶РЅС‹Р№ fallback'
+        coverage_source = 'Осторожный fallback'
 
     service_coverage_ratio = _clamp(service_coverage_ratio, 0.05, 0.98)
     service_coverage_gap = 1.0 - service_coverage_ratio
@@ -109,7 +107,7 @@ def build_explainable_logistics_profile(
 
     return {
         'travel_time_minutes': round(travel_time_minutes, 1),
-        'travel_time_display': f'{_format_number(travel_time_minutes)} РјРёРЅ',
+        'travel_time_display': f'{_format_number(travel_time_minutes)} мин',
         'travel_time_source': travel_time_source,
         'travel_time_pressure': round(travel_time_pressure, 4),
         'distance_pressure': round(distance_pressure, 4),
@@ -123,8 +121,8 @@ def build_explainable_logistics_profile(
         'service_zone_tone': service_zone_tone,
         'service_zone_pressure': round(service_zone_pressure, 4),
         'service_zone_reason': (
-            f'{service_zone_label}: travel-time {_format_number(travel_time_minutes)} РјРёРЅ, '
-            f'РїРѕРєСЂС‹С‚РёРµ РџР§ {_format_percent_ratio(service_coverage_ratio)}.'
+            f'{service_zone_label}: travel-time {_format_number(travel_time_minutes)} мин, '
+            f'покрытие ПЧ {_format_percent_ratio(service_coverage_ratio)}.'
         ),
         'logistics_priority_score': round(logistics_priority_score, 1),
         'logistics_priority_display': f'{_format_number(logistics_priority_score)} / 100',
@@ -137,32 +135,32 @@ def build_explainable_logistics_profile(
 
 def _service_zone(*, travel_time_minutes: float, coverage_ratio: float) -> tuple[str, str, float]:
     if travel_time_minutes <= CORE_SERVICE_TIME_MINUTES and coverage_ratio >= 0.72:
-        return 'РЇРґСЂРѕ Р·РѕРЅС‹ РѕР±СЃР»СѓР¶РёРІР°РЅРёСЏ', 'forest', 0.10
+        return 'Ядро зоны обслуживания', 'forest', 0.10
     if travel_time_minutes <= SERVICE_TIME_TARGET_MINUTES and coverage_ratio >= 0.55:
-        return 'Р“СЂР°РЅРёС†Р° РЅРѕСЂРјР°С‚РёРІРЅРѕРіРѕ РїСЂРёРєСЂС‹С‚РёСЏ', 'sky', 0.34
+        return 'Граница нормативного прикрытия', 'sky', 0.34
     if travel_time_minutes <= 28.0 and coverage_ratio >= 0.35:
-        return 'Р—РѕРЅР° РЅР°РїСЂСЏР¶РµРЅРЅРѕРіРѕ РґРѕРµР·РґР°', 'sand', 0.68
-    return 'РЈРґР°Р»РµРЅРЅР°СЏ Р·РѕРЅР° РѕР±СЃР»СѓР¶РёРІР°РЅРёСЏ', 'fire', 0.92
+        return 'Зона напряженного доезда', 'sand', 0.68
+    return 'Удаленная зона обслуживания', 'fire', 0.92
 
 
 def _coverage_label(coverage_ratio: float) -> str:
     if coverage_ratio >= 0.75:
-        return 'РЈСЃС‚РѕР№С‡РёРІРѕРµ РїСЂРёРєСЂС‹С‚РёРµ'
+        return 'Устойчивое прикрытие'
     if coverage_ratio >= 0.55:
-        return 'РџРѕРіСЂР°РЅРёС‡РЅРѕРµ РїСЂРёРєСЂС‹С‚РёРµ'
+        return 'Пограничное прикрытие'
     if coverage_ratio >= 0.35:
-        return 'РќР°РїСЂСЏР¶РµРЅРЅРѕРµ РїСЂРёРєСЂС‹С‚РёРµ'
-    return 'Р”РµС„РёС†РёС‚ РїСЂРёРєСЂС‹С‚РёСЏ'
+        return 'Напряженное прикрытие'
+    return 'Дефицит прикрытия'
 
 
 def _logistics_priority_label(score: float) -> str:
     if score >= 70.0:
-        return 'РљСЂРёС‚РёС‡РЅС‹Р№ Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚'
+        return 'Критичный логистический приоритет'
     if score >= 50.0:
-        return 'Р’С‹СЃРѕРєРёР№ Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚'
+        return 'Высокий логистический приоритет'
     if score >= 35.0:
-        return 'РўРѕС‡РµС‡РЅС‹Р№ Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РєРѕРЅС‚СЂРѕР»СЊ'
-    return 'РџР»Р°РЅРѕРІС‹Р№ Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ РєРѕРЅС‚СЂРѕР»СЊ'
+        return 'Точечный логистический контроль'
+    return 'Плановый логистический контроль'
 
 
 def _positive_or_none(value: Optional[float]) -> Optional[float]:

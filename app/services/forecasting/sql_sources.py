@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from .sql_aggregations import AggregationQueryBuilder, QueryBuilder
 from .sql_sources_query import SourceQuerySqlMixin

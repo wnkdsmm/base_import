@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date
 from typing import Any, TypedDict, TypeAlias
@@ -9,12 +9,8 @@ from app.services.forecasting.types import (
     ForecastingTableMetadata,
 )
 
-from ..ml_model_types import (
-    CountComparisonRow,
-    EventComparisonRow,
-    PredictionIntervalAdaptiveBin,
-    PredictionIntervalCalibration,
-)
+from ..ml_model_interval_types import PredictionIntervalAdaptiveBin, PredictionIntervalCalibration
+from ..ml_model_result_types import CountComparisonRow, EventComparisonRow
 
 
 class TrainingTemperatureStats(TypedDict, total=False):

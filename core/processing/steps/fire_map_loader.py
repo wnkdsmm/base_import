@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
@@ -65,15 +65,15 @@ def _resolve_fire_map_columns(available_columns: List[str], config: Config) -> T
 def load_fire_map_source(table_name: str, config: Config) -> FireMapSource:
     normalized_table_name = str(table_name or "").strip()
     if not normalized_table_name:
-        raise ValueError("РќРµ РІС‹Р±СЂР°РЅР° С‚Р°Р±Р»РёС†Р° РґР»СЏ РїРѕСЃС‚СЂРѕРµРЅРёСЏ РєР°СЂС‚С‹.")
+        raise ValueError("Не выбрана таблица для построения карты.")
     try:
         available_columns = get_table_columns_cached(normalized_table_name)
     except ValueError as exc:
-        raise ValueError(f"РўР°Р±Р»РёС†Р° '{normalized_table_name}' РЅРµ РЅР°Р№РґРµРЅР° РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С….") from exc
+        raise ValueError(f"Таблица '{normalized_table_name}' не найдена в базе данных.") from exc
     selected_columns, matched_columns = _resolve_fire_map_columns(available_columns, config)
     if not matched_columns.get("lat_names") or not matched_columns.get("lon_names"):
         raise ValueError(
-            f"Р”Р»СЏ С‚Р°Р±Р»РёС†С‹ '{normalized_table_name}' РЅРµ РЅР°Р№РґРµРЅС‹ РєРѕР»РѕРЅРєРё РєРѕРѕСЂРґРёРЅР°С‚, РїРѕСЌС‚РѕРјСѓ РєР°СЂС‚Р° РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїРѕСЃС‚СЂРѕРµРЅР°."
+            f"Для таблицы '{normalized_table_name}' не найдены колонки координат, поэтому карта не может быть построена."
         )
 
     limit = max(1, int(getattr(config, "max_records_per_table", 10000) or 10000))

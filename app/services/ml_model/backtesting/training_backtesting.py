@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from .training_backtesting_baselines import (
     _baseline_event_probability,

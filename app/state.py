@@ -1,5 +1,4 @@
-﻿from __future__ import annotations
-
+from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,11 +23,37 @@ def _utcnow() -> datetime:
 
 
 def _freeze_job_meta(meta: dict[str, Any]) -> dict[str, Any]:
-    return {key: freeze_mutable_payload(value) for key, value in meta.items()}
+    return {key: _freeze_job_payload_value(value) for key, value in meta.items()}
 
 
 def _clone_job_meta(meta: dict[str, Any]) -> dict[str, Any]:
-    return {key: clone_mutable_payload(value) for key, value in meta.items()}
+    return {key: _clone_job_payload_value(value) for key, value in meta.items()}
+
+
+def _freeze_job_payload_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _freeze_job_payload_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return freeze_mutable_payload(value)
+    return value
+
+
+def _clone_job_payload_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _clone_job_payload_value(item) for key, item in value.items()}
+    return clone_mutable_payload(value)
+
+
+def _freeze_job_result_payload(result: Any) -> Any:
+    if isinstance(result, dict):
+        return {key: _freeze_job_payload_value(value) for key, value in result.items()}
+    return freeze_mutable_payload(result)
+
+
+def _clone_job_result_payload(result: Any) -> Any:
+    if isinstance(result, dict):
+        return {key: _clone_job_payload_value(value) for key, value in result.items()}
+    return clone_mutable_payload(result)
 
 
 @dataclass
@@ -193,14 +218,14 @@ class JobStore:
     def set_job_result(self, session_id: str, job_id: str, result: Any) -> None:
         with self._lock:
             job = self._require_job(session_id, job_id)
-            job.result = freeze_mutable_payload(result)
+            job.result = _freeze_job_result_payload(result)
             job.error_message = ""
             self._touch_job(session_id, job)
 
     def get_job_result(self, session_id: str, job_id: str) -> Any:
         with self._lock:
             job = self._require_job(session_id, job_id)
-            return clone_mutable_payload(job.result)
+            return _clone_job_result_payload(job.result)
 
     def set_job_error(self, session_id: str, job_id: str, error_message: str) -> None:
         with self._lock:
@@ -220,7 +245,7 @@ class JobStore:
         with self._lock:
             job = self._require_job(session_id, job_id)
             if result is not _UNSET:
-                job.result = freeze_mutable_payload(result)
+                job.result = _freeze_job_result_payload(result)
             job.error_message = ""
             if meta:
                 job.meta.update(_freeze_job_meta(meta))
@@ -264,7 +289,7 @@ class JobStore:
                 "kind": job.kind,
                 "status": job.status,
                 "logs": list(job.logs),
-                "result": clone_mutable_payload(job.result),
+                "result": _clone_job_result_payload(job.result),
                 "error_message": job.error_message,
                 "meta": _clone_job_meta(job.meta),
                 "created_at": job.created_at.isoformat(),
@@ -322,4 +347,3 @@ class JobStore:
 
 
 job_store = JobStore()
-

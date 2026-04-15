@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.routes.api import router as api_router
@@ -22,7 +22,7 @@ app = create_app()
 async def startup_event() -> None:
     success, message = check_connection()
     if success:
-        print(f"вњ“ {message} ({get_db_info()})")
+        print(f"[OK] {message} ({get_db_info()})")
     else:
-        print(f"вњ— {message}")
-        print("  РџСЂРѕРІРµСЂСЊС‚Рµ РЅР°СЃС‚СЂРѕР№РєРё DATABASE_URL РІ С„Р°Р№Р»Рµ .env")
+        print(f"[ERROR] {message}")
+        print("  Проверьте настройки DATABASE_URL в файле .env")

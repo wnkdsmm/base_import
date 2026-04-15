@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 """Shared in-memory cache primitives used across the application.
 
@@ -126,7 +126,13 @@ def _resolve_copy_hooks(
     *,
     storer: Optional[Callable[[V], object]] = None,
     loader: Optional[Callable[[object], V]] = None,
+    skip_freeze: bool = False,
 ) -> tuple[Callable[[V], object], Callable[[object], V]]:
+    if skip_freeze:
+        return (
+            lambda value: value,  # type: ignore[return-value]
+            lambda value: value,  # type: ignore[return-value]
+        )
     if (storer is None) != (loader is None):
         raise ValueError("Copying cache requires both storer and loader or neither of them.")
     if storer is not None and loader is not None:
@@ -143,12 +149,15 @@ class CopyingTtlCache(Generic[K, V]):
         *,
         storer: Optional[Callable[[V], object]] = None,
         loader: Optional[Callable[[object], V]] = None,
+        skip_freeze: bool = False,
     ) -> None:
         self._ttl_seconds = max(float(ttl_seconds), 0.0)
+        self._skip_freeze = bool(skip_freeze)
         self._store_value, self._load_value = _resolve_copy_hooks(
             copier,
             storer=storer,
             loader=loader,
+            skip_freeze=self._skip_freeze,
         )
         self._lock = RLock()
         self._items: Dict[K, Dict[str, object]] = {}
@@ -190,12 +199,15 @@ class CopyingLruCache(Generic[K, V]):
         *,
         storer: Optional[Callable[[V], object]] = None,
         loader: Optional[Callable[[object], V]] = None,
+        skip_freeze: bool = False,
     ) -> None:
         self._max_size = max(int(max_size), 0)
+        self._skip_freeze = bool(skip_freeze)
         self._store_value, self._load_value = _resolve_copy_hooks(
             copier,
             storer=storer,
             loader=loader,
+            skip_freeze=self._skip_freeze,
         )
         self._lock = RLock()
         self._items: "OrderedDict[K, object]" = OrderedDict()

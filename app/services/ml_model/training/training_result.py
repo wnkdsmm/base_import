@@ -1,23 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from ..ml_model_types import (
-    BacktestEvaluationRow,
-    BacktestOverview,
-    BacktestSuccess,
-    CLASSIFICATION_THRESHOLD,
-    COUNT_MODEL_LABELS,
-    COUNT_SELECTION_RULE,
-    EVENT_MODEL_LABEL,
-    EVENT_SELECTION_RULE,
-    EXPLAINABLE_COUNT_MODEL_KEY,
-    CountComparisonRow,
-    EventComparisonRow,
-    HorizonSummary,
-    PREDICTION_INTERVAL_LEVEL,
-    PREDICTION_INTERVAL_METHOD_LABEL,
-)
+from ..ml_model_config_types import CLASSIFICATION_THRESHOLD, COUNT_MODEL_LABELS, COUNT_SELECTION_RULE, EVENT_MODEL_LABEL, EVENT_SELECTION_RULE, EXPLAINABLE_COUNT_MODEL_KEY
+from ..ml_model_interval_types import PREDICTION_INTERVAL_LEVEL, PREDICTION_INTERVAL_METHOD_LABEL
+from ..ml_model_result_types import BacktestEvaluationRow, BacktestOverview, BacktestSuccess, CountComparisonRow, EventComparisonRow, HorizonSummary
 from .types import (
     TrainingCountComparisonPayload,
     TrainingEventComparisonPayload,
@@ -217,7 +204,7 @@ def _empty_ml_result(message: str) -> TrainingMlResultPayload:
             'prediction_interval_level': PREDICTION_INTERVAL_LEVEL,
             'prediction_interval_level_display': f'{int(round(PREDICTION_INTERVAL_LEVEL * 100))}%',
             'prediction_interval_coverage': None,
-            'prediction_interval_coverage_display': 'вЂ”',
+            'prediction_interval_coverage_display': '—',
             'prediction_interval_method_label': PREDICTION_INTERVAL_METHOD_LABEL,
             'prediction_interval_coverage_validated': False,
             'prediction_interval_coverage_note': 'Validated out-of-sample coverage is unavailable because backtesting was not run.',
@@ -226,22 +213,22 @@ def _empty_ml_result(message: str) -> TrainingMlResultPayload:
             'prediction_interval_validation_scheme_key': 'not_validated',
             'prediction_interval_validation_scheme_label': 'validated out-of-sample coverage unavailable',
             'prediction_interval_validation_explanation': 'Validated out-of-sample coverage is unavailable because backtesting was not run.',
-            'prediction_interval_calibration_range_label': 'вЂ”',
-            'prediction_interval_evaluation_range_label': 'вЂ”',
-            'rolling_scheme_label': 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё РЅРµ РІС‹РїРѕР»РЅРµРЅР°',
+            'prediction_interval_calibration_range_label': '—',
+            'prediction_interval_evaluation_range_label': '—',
+            'rolling_scheme_label': 'Проверка на истории не выполнена',
         },
         'selected_count_model_key': EXPLAINABLE_COUNT_MODEL_KEY,
         'selected_count_model_reason': '',
         'selected_count_model_reason_short': '',
         'candidate_count_model_labels': [],
         'selected_event_model_key': 'heuristic_probability',
-        'selected_event_model_label': 'РЎС†РµРЅР°СЂРЅР°СЏ СЌРІСЂРёСЃС‚РёС‡РµСЃРєР°СЏ РІРµСЂРѕСЏС‚РЅРѕСЃС‚СЊ',
+        'selected_event_model_label': 'Сценарная эвристическая вероятность',
         'top_feature_label': '-',
-        'count_model_label': COUNT_MODEL_LABELS.get(EXPLAINABLE_COUNT_MODEL_KEY, 'Р РµРіСЂРµСЃСЃРёСЏ РџСѓР°СЃСЃРѕРЅР°'),
+        'count_model_label': COUNT_MODEL_LABELS.get(EXPLAINABLE_COUNT_MODEL_KEY, 'Регрессия Пуассона'),
         'prediction_interval_level': PREDICTION_INTERVAL_LEVEL,
         'prediction_interval_level_display': f'{int(round(PREDICTION_INTERVAL_LEVEL * 100))}%',
         'prediction_interval_coverage': None,
-        'prediction_interval_coverage_display': 'вЂ”',
+        'prediction_interval_coverage_display': '—',
         'prediction_interval_method_label': PREDICTION_INTERVAL_METHOD_LABEL,
         'event_model_label': None,
         'event_backtest_available': False,
@@ -253,7 +240,7 @@ def _empty_ml_result(message: str) -> TrainingMlResultPayload:
         'temperature_total_days': 0,
         'temperature_coverage': 0.0,
         'temperature_note': None,
-        'backtest_method_label': 'РџСЂРѕРІРµСЂРєР° РЅР° РёСЃС‚РѕСЂРёРё РЅРµ РІС‹РїРѕР»РЅРµРЅР°',
+        'backtest_method_label': 'Проверка на истории не выполнена',
         'classifier_ready': False,
         'message': message,
     }
@@ -339,7 +326,7 @@ def _assemble_training_result(
         'temperature_coverage': float(final_temperature_stats.get('coverage', 0.0) or 0.0),
         'temperature_note': final_temperature_stats.get('note'),
         'backtest_method_label': overview.get('rolling_scheme_label')
-        or f'Rolling-origin backtesting: {len(backtest_rows)} РѕРґРЅРѕС€Р°РіРѕРІС‹С… РѕРєРѕРЅ',
+        or f'Rolling-origin backtesting: {len(backtest_rows)} одношаговых окон',
         'classifier_ready': final_event_model is not None,
         'message': '',
     }

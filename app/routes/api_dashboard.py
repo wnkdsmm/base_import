@@ -1,18 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter
+
+from app.dashboard.service import get_dashboard_data
 
 from .api_common import run_analytics_request
 
 
 router = APIRouter()
-
-
-def get_dashboard_data(**kwargs):
-    from app.dashboard.service import get_dashboard_data as _get_dashboard_data
-
-    return _get_dashboard_data(**kwargs)
-
 
 @router.get("/api/dashboard-data")
 def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_column: str = ""):
@@ -24,7 +19,7 @@ def dashboard_data_endpoint(table_name: str = "all", year: str = "all", group_co
             allow_fallback=False,
         ),
         invalid_code="dashboard_invalid_request",
-        invalid_message="РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±СЂР°Р±РѕС‚Р°С‚СЊ РїР°СЂР°РјРµС‚СЂС‹ dashboard.",
+        invalid_message="Не удалось обработать параметры dashboard.",
         failed_code="dashboard_failed",
-        failed_message="РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ dashboard. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.",
+        failed_message="Не удалось обновить dashboard. Попробуйте повторить запрос.",
     )

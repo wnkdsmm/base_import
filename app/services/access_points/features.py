@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -27,8 +27,8 @@ def _build_access_point_shell_feature_options(selected_features: Sequence[str] |
                 "name": feature_name,
                 "label": str(metadata.get("label") or feature_name),
                 "description": str(metadata.get("description") or ""),
-                "coverage_display": "РЅ/Рґ",
-                "variance_display": "РЅ/Рґ",
+                "coverage_display": "н/д",
+                "variance_display": "н/д",
                 "is_selected": feature_name in selected_set,
             }
         )
@@ -106,11 +106,11 @@ def _resolve_selected_access_point_features(
     if requested_features:
         return (
             fallback,
-            "Р§Р°СЃС‚СЊ РІС‹Р±СЂР°РЅРЅС‹С… РїСЂРёР·РЅР°РєРѕРІ РЅРµРґРѕСЃС‚СѓРїРЅР° РґР»СЏ scoring, РїРѕСЌС‚РѕРјСѓ Р±Р»РѕРє РІРµСЂРЅСѓР»СЃСЏ Рє Р±Р°Р·РѕРІРѕРјСѓ РЅР°Р±РѕСЂСѓ explainable-С„Р°РєС‚РѕСЂРѕРІ.",
+            "Часть выбранных признаков недоступна для scoring, поэтому блок вернулся к базовому набору explainable-факторов.",
         )
     return (
         fallback,
-        "РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІС‹Р±СЂР°РЅС‹ Р±Р°Р·РѕРІС‹Рµ РїСЂРёР·РЅР°РєРё access-risk score: РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РџР§, РІРѕРґР°, РїРѕСЃР»РµРґСЃС‚РІРёСЏ, РїРѕРІС‚РѕСЂСЏРµРјРѕСЃС‚СЊ Рё СЃРµР·РѕРЅРЅС‹Р№ РєРѕРЅС‚РµРєСЃС‚.",
+        "По умолчанию выбраны базовые признаки access-risk score: доступность ПЧ, вода, последствия, повторяемость и сезонный контекст.",
     )
 
 

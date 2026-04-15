@@ -75,7 +75,7 @@
             </div>
         </div>
 
-        <div class="table-selection-toolbar">
+        <div class="table-selection-toolbar u-flex-between-gap-12">
             <div id="tablesSelectionMeta" class="table-selection-summary">
                 {% if tables %}Выбрано: 0{% else %}Таблиц нет{% endif %}
             </div>
@@ -113,6 +113,9 @@
 
 {% block scripts %}
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/state_factory.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/api_client.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/ui_helpers.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/import.js?v={{ import_js_version }}"></script>
 <script src="/static/js/tables.js?v={{ tables_js_version }}"></script>
 {{ super() }}

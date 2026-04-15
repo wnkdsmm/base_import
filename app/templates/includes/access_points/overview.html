@@ -96,7 +96,7 @@
 
     <div id="accessPointsAsyncState" class="analysis-async{% if not (data.bootstrap_mode == 'deferred' or data.loading_status_message) %} is-hidden{% endif %}">
         <div id="accessPointsLoadingState" class="analysis-status-card{% if data.bootstrap_mode == 'deferred' %} is-pending{% elif data.has_data %} is-ready{% else %} is-hidden{% endif %}">
-            <div class="analysis-status-head">
+            <div class="analysis-status-head u-flex-between-gap-12">
                 <div class="analysis-status-copy">
                     <strong class="analysis-status-lead" id="accessPointsLoadingLead">Готовим рейтинг проблемных точек</strong>
                     <span class="analysis-status-message" id="accessPointsLoadingMessage">{{ data.loading_status_message or 'Собираем incidents по точкам, считаем score доступности и объяснения.' }}</span>
