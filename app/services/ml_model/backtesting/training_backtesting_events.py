@@ -500,13 +500,12 @@ def _event_metric_sort_key(
     log_loss_value: Optional[float],
     roc_auc: Optional[float],
     f1_score: Optional[float],
-) -> Tuple[float, float, float, float]:
-    return (
-        brier_score if brier_score is not None else float('inf'),
-        log_loss_value if log_loss_value is not None else float('inf'),
-        -(roc_auc if roc_auc is not None else -1.0),
-        -(f1_score if f1_score is not None else -1.0),
-    )
+) -> float:
+    brier = brier_score if brier_score is not None else 1.0
+    log_loss_val = log_loss_value if log_loss_value is not None else 2.0
+    roc_val = roc_auc if roc_auc is not None else 0.0
+    f1_val = f1_score if f1_score is not None else 0.0
+    return 0.40 * brier + 0.25 * log_loss_val - 0.25 * roc_val - 0.10 * f1_val
 
 
 def _safe_roc_auc(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[float]:

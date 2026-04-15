@@ -28,9 +28,17 @@ def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFram
     grouped_scores: Dict[str, float] = defaultdict(float)
 
     if permutation_importance is not None and model_bundle.get('backend') == 'sklearn':
-        sample_size = min(len(design), 180)
-        sample_X = design.tail(sample_size)
-        sample_y = target[-sample_size:]
+        split_index = int(len(design) * 0.7)
+        holdout_X = design.iloc[split_index:]
+        holdout_y = target[split_index:]
+        if len(holdout_X) >= 20:
+            sample_size = min(len(holdout_X), 120)
+            sample_X = holdout_X.tail(sample_size)
+            sample_y = holdout_y[-sample_size:]
+        else:
+            sample_size = min(len(design), 120)
+            sample_X = design.tail(sample_size)
+            sample_y = target[-sample_size:]
         try:
             if parallel_backend is not None:
                 with parallel_backend('threading', n_jobs=-1):

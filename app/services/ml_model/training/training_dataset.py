@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from ..ml_model_config_types import FEATURE_COLUMNS, NON_TEMPERATURE_FEATURE_COLUMNS
+from ..ml_model_config_types import FEATURE_COLUMNS, MIN_TEMPERATURE_COVERAGE, NON_TEMPERATURE_FEATURE_COLUMNS
 
 
 def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
@@ -17,6 +17,32 @@ def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
     if 'avg_temperature' not in reference.columns:
         reference['avg_temperature'] = np.nan
     return reference
+
+
+def _detect_trend_warning(dataset: pd.DataFrame) -> Optional[str]:
+    if len(dataset) < 60:
+        return None
+    ordered = dataset.sort_values('date').reset_index(drop=True)
+    count_series = pd.to_numeric(ordered['count'], errors='coerce')
+    valid = count_series.notna()
+    if int(valid.sum()) < 60:
+        return None
+    counts = count_series.loc[valid].to_numpy(dtype=float)
+    time_index = np.arange(len(counts), dtype=float)
+    try:
+        slope_per_day, _ = np.polyfit(time_index, counts, 1)
+    except Exception:
+        return None
+    slope_per_100_days = float(slope_per_day) * 100.0
+    mean_count = float(np.mean(counts))
+    relative_trend = slope_per_100_days / max(mean_count, 0.1)
+    if abs(relative_trend) <= 0.30:
+        return None
+    relative_percent = round(relative_trend * 100.0)
+    return (
+        f"Обнаружен выраженный тренд: среднее число пожаров изменяется на ~{relative_percent}% за 100 дней. "
+        "Модель на основе лагов может систематически ошибаться."
+    )
 
 
 def _build_history_frame(history_tail: List[dict[str, Any]]) -> pd.DataFrame:
@@ -105,7 +131,13 @@ def _build_backtest_seed_dataset(
     seed_frame = frame if frame_is_prepared else _prepare_reference_frame(frame)
     seed_frame['temp_value'] = _temperature_source_series(seed_frame)
     featured = _feature_frame(seed_frame)
-    valid_rows = featured[NON_TEMPERATURE_FEATURE_COLUMNS + ['count']].notna().all(axis=1)
+    temp_coverage = featured['temp_value'].notna().mean() if 'temp_value' in featured.columns else 0.0
+    filter_columns = (
+        NON_TEMPERATURE_FEATURE_COLUMNS + ['temp_value', 'count']
+        if temp_coverage >= MIN_TEMPERATURE_COVERAGE
+        else NON_TEMPERATURE_FEATURE_COLUMNS + ['count']
+    )
+    valid_rows = featured[filter_columns].notna().all(axis=1)
     dataset = featured.loc[valid_rows].reset_index(drop=True)
     return dataset
 

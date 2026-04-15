@@ -407,6 +407,7 @@ def _run_backtest(
     )
 
     valid_rows = horizon_rows.get(context.validation_horizon_days, [])
+    valid_rows_7 = horizon_rows.get(7, [])
     if perf is not None:
         perf.update(valid_windows=len(valid_rows), comparable_windows=comparable_windows)
     if not valid_rows:
@@ -439,7 +440,20 @@ def _run_backtest(
             payload_rows=len(artifacts.backtest_rows),
         )
 
-    return _build_backtest_success_result(
+    horizon_7_mae: Optional[float] = None
+    if len(valid_rows_7) >= MIN_BACKTEST_POINTS:
+        evaluation_data_7 = _build_horizon_evaluation_data(
+            valid_rows_7,
+            artifacts.selected_count_model_key,
+            include_count_model_predictions=True,
+        )
+        selected_predictions_7 = evaluation_data_7.selected_predictions
+        if selected_predictions_7.size:
+            horizon_7_mae = CountMetrics.coerce(
+                compute_count_metrics(evaluation_data_7.actuals, selected_predictions_7)
+            ).mae
+
+    result = _build_backtest_success_result(
         artifacts=artifacts,
         valid_rows=valid_rows,
         min_train_rows=context.min_train_rows,
@@ -447,6 +461,8 @@ def _run_backtest(
         max_horizon_days=context.max_horizon_days,
         horizon_days=context.horizon_days,
     )
+    result.horizon_7_mae = horizon_7_mae
+    return result
 
 __all__ = [
     '_not_ready_backtest',

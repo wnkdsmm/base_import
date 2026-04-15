@@ -478,6 +478,7 @@ class BacktestSuccess(MappingAccessMixin):
     event_metrics: EventMetrics = field(default_factory=EventMetrics)
     horizon_summaries: Dict[str, HorizonSummary] = field(default_factory=dict)
     backtest_overview: BacktestOverview = field(default_factory=BacktestOverview)
+    horizon_7_mae: Optional[float] = None
 
 
 BacktestRunResult = BacktestSuccess | BacktestFailure
@@ -514,5 +515,5 @@ def coerce_backtest_result(value: Any) -> BacktestRunResult:
             for horizon_key, summary in (value.get("horizon_summaries") or {}).items()
         },
         backtest_overview=BacktestOverview.coerce(value.get("backtest_overview")),
+        horizon_7_mae=_optional_float(value.get("horizon_7_mae")),
     )
-
