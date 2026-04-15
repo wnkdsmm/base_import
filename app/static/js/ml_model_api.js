@@ -1,8 +1,9 @@
-(function (global) {
+﻿(function (global) {
     var shared = global.FireUi || {};
     var byId = shared.byId;
     var createSingleTimer = shared.createSingleTimer;
-    var apiCall = shared.apiCall || shared.fetchJson;
+    var apiClient = global.FireApiClient || {};
+    var apiCall = apiClient.apiCall;
     var getErrorMessage = shared.getErrorMessage;
 
     var jobPollTimer = createSingleTimer();

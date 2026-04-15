@@ -1,19 +1,9 @@
+# Compatibility re-export layer. Import directly from submodules in new code.
+
 from .quality_metrics import *
 from .count_guidance import *
-from . import quality_metrics as _quality_metrics_mod
-from . import count_guidance as _count_guidance_mod
 
-globals().update(
-    {
-        key: value
-        for key, value in vars(_quality_metrics_mod).items()
-        if not key.startswith("__")
-    }
-)
-globals().update(
-    {
-        key: value
-        for key, value in vars(_count_guidance_mod).items()
-        if not key.startswith("__")
-    }
-)
+from .quality_metrics import __all__ as _quality_metrics_all
+from .count_guidance import __all__ as _count_guidance_all
+
+__all__ = [*_quality_metrics_all, *[name for name in _count_guidance_all if name not in _quality_metrics_all]]

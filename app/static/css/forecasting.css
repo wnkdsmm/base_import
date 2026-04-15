@@ -334,7 +334,7 @@ overflow: hidden;
 }
 
 .risk-guide-card.tone-medium .risk-guide-level {
-    color: #24364f;
+    color: var(--color-navy);
     background: var(--sand);
 }
 
@@ -812,7 +812,7 @@ align-items: center;
     min-width: 152px;
     padding: var(--space-token-09);
     border-radius: var(--radius-pill);
-    background: rgba(9, 44, 74, 0.08);
+    background: rgba(var(--color-navy-rgb), 0.08);
 font-size: var(--font-size-token-07);
     font-weight: 800;
     letter-spacing: 0.08em;

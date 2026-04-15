@@ -440,7 +440,8 @@ def _dissertation_points(
 
 
 def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> BacktestQualityAssessment:
-    overview = BacktestOverview.coerce(ml_result.get('backtest_overview', {}) or {})
+    raw_overview = ml_result.get('backtest_overview', {}) or {}
+    overview = BacktestOverview.coerce(raw_overview)
     event_context = _event_probability_context(ml_result, overview)
     interval_context = _prediction_interval_display_context(ml_result, overview)
     count_rows = [_count_comparison_row(row) for row in ml_result.get('count_comparison_rows', [])]
@@ -530,7 +531,7 @@ def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> Backte
             ),
             _methodology_item(
                 'Минимум обучающего окна',
-                _format_optional_integer(overview.get('min_train_rows')),
+                _format_optional_integer(raw_overview.get('min_train_rows')),
             ),
             _methodology_item(
                 'Сравниваемые count-методы',

@@ -288,10 +288,11 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/state_factory.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/api_client.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/ui_helpers.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/plotly_helpers.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/select_table.js?v={{ select_table_js_version }}"></script>
 {{ super() }}
 {% endblock %}

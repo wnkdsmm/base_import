@@ -19,21 +19,21 @@ logger = logging.getLogger(__name__)
 
 
 def check_connection() -> Tuple[bool, str]:
-    """Проверка подключения к БД без выброса исключений."""
+    """Check database connectivity without raising exceptions."""
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        message = "Подключение к БД установлено"
+        message = "Database connection established"
         logger.info(message)
         return True, message
     except Exception as exc:
-        message = f"Не удалось подключиться: {exc}"
+        message = f"Database connection failed: {exc}"
         logger.warning(message)
         return False, message
 
 
 def get_db_info() -> str:
-    """Возвращает безопасное описание БД для логов старта."""
+    """Return a safe DB description for startup logs."""
     try:
         parsed = make_url(DATABASE_URL)
         backend = parsed.get_backend_name() or "unknown"
@@ -49,4 +49,4 @@ def get_db_info() -> str:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     success, message = check_connection()
-    print("✓" if success else "✗", message)
+    logger.info("%s %s", "OK" if success else "FAIL", message)

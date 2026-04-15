@@ -14,20 +14,20 @@ def _parse_water_supply_flag(count_value: Optional[float], details: str) -> Opti
     normalized = _normalize_match_text(details)
     if not normalized:
         return None
-    if "РѕС‚СЃСѓС‚СЃС‚РІ" in normalized or ("РЅРµС‚" in normalized and "РґР°РЅ" not in normalized):
+    if "отсутств" in normalized or ("нет" in normalized and "дан" not in normalized):
         return False
-    if any(token in normalized for token in ["РІРѕРґР°", "РІРѕРґРѕ", "РіРёРґСЂР°РЅС‚", "РІРѕРґРѕРµРј", "РІРѕРґРѕРёСЃС‚РѕС‡", "С†РёСЃС‚РµСЂРЅ"]):
+    if any(token in normalized for token in ["вода", "водо", "гидрант", "водоем", "водоисточ", "цистерн"]):
         return True
     return None
 
 
 def _truthy_value(value: Any) -> Optional[bool]:
     normalized = _normalize_match_text(_clean_text(value))
-    if not normalized or normalized in {"РЅРµС‚ РґР°РЅРЅС‹С…", "РЅРµ СѓРєР°Р·Р°РЅРѕ", "РЅРµ СѓРєР°Р·Р°РЅ", "-"}:
+    if not normalized or normalized in {"нет данных", "не указано", "не указан", "-"}:
         return None
-    if normalized in {"РґР°", "true", "РёСЃС‚РёРЅР°", "1", "РµСЃС‚СЊ"} or normalized.startswith("РґР°") or normalized.startswith("РёРјРµ"):
+    if normalized in {"да", "true", "истина", "1", "есть"} or normalized.startswith("да") or normalized.startswith("име"):
         return True
-    if normalized in {"РЅРµС‚", "false", "Р»РѕР¶СЊ", "0"} or normalized.startswith("РЅРµС‚"):
+    if normalized in {"нет", "false", "ложь", "0"} or normalized.startswith("нет"):
         return False
     return None
 
@@ -36,17 +36,17 @@ def _risk_category_score(value: str) -> float:
     normalized = _normalize_match_text(value)
     if not normalized:
         return 0.26
-    if "С‡СЂРµР·РІС‹С‡Р°Р№" in normalized or "РѕС‡РµРЅСЊ РІС‹СЃРѕРєРёР№" in normalized:
+    if "чрезвычай" in normalized or "очень высокий" in normalized:
         return 0.85
-    if "РІС‹СЃРѕРє" in normalized:
+    if "высок" in normalized:
         return 0.68
-    if "Р·РЅР°С‡РёС‚РµР»" in normalized:
+    if "значител" in normalized:
         return 0.56
-    if "СЃСЂРµРґРЅ" in normalized:
+    if "средн" in normalized:
         return 0.42
-    if "СѓРјРµСЂРµРЅ" in normalized:
+    if "умерен" in normalized:
         return 0.30
-    if "РЅРёР·Рє" in normalized:
+    if "низк" in normalized:
         return 0.18
     return 0.26
 
@@ -57,7 +57,7 @@ def _is_heating_season(value: date) -> bool:
 
 def _is_rural_label(value: str) -> bool:
     normalized = _normalize_match_text(value)
-    return any(token in normalized for token in ["СЃРµР»СЊ", "РґРµСЂРµРІРЅ", "РїРѕСЃРµР»", "СЃРµР»Рѕ", "С…СѓС‚РѕСЂ", "СЃС‚Р°РЅРёС†", "Р°СѓР»"])
+    return any(token in normalized for token in ["сель", "деревн", "посел", "село", "хутор", "станиц", "аул"])
 
 
 def _calculate_response_minutes(start_time: Optional[datetime], end_time: Optional[datetime]) -> Optional[float]:
@@ -113,9 +113,9 @@ def _parse_datetime_string(text_value: str) -> Optional[datetime]:
 def _pick_territory_label(primary_value: Any, district_value: str) -> str:
     for raw_value in [primary_value, district_value]:
         value = _clean_text(raw_value)
-        if value and _normalize_match_text(value) not in {"РЅРµС‚ РґР°РЅРЅС‹С…", "РЅРµ СѓРєР°Р·Р°РЅРѕ", "-"}:
+        if value and _normalize_match_text(value) not in {"нет данных", "не указано", "-"}:
             return value if len(value) <= 72 else value[:69].rstrip() + "..."
-    return "РўРµСЂСЂРёС‚РѕСЂРёСЏ РЅРµ СѓРєР°Р·Р°РЅР°"
+    return "Территория не указана"
 
 
 def _scan_columns(columns: Sequence[str], token_groups: Sequence[Sequence[str]]) -> List[str]:

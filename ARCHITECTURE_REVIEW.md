@@ -59,3 +59,13 @@ Service imports updated to use canonical constants directly.
 Decision:
 - keep `app/domain` as domain metadata/registry layer
 - avoid moving it into `config/` (which should stay framework-agnostic and avoid domain-rule construction logic)
+
+## 5) Removed endpoints
+
+- `POST /clear_logs` (from `app/routes/api_ops.py`)
+  - removed because there are no frontend callers in `app/static/js` or templates, and no infra/config usage was found.
+  - related service helper `app/services/ops_service.py::clear_logs_payload` removed as dead code.
+
+- `GET /health` (from `app/routes/api_ops.py`)
+  - removed because there are no frontend callers and no Docker/K8s/external healthcheck references in project config.
+  - related service helper `app/services/ops_service.py::build_health_payload` removed as dead code.

@@ -1,242 +1,20 @@
-(function (global) {
+﻿(function (global) {
+    var uiHelpers = global.FireUiHelpers || {};
+    var plotlyHelpers = global.FirePlotlyHelpers || {};
+    var apiClient = global.FireApiClient || {};
+
     function byId(id) {
-        return document.getElementById(id);
+        return typeof uiHelpers.byId === 'function' ? uiHelpers.byId(id) : document.getElementById(id);
     }
 
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function setText(id, value) {
-        var node = byId(id);
+    function setText(nodeOrId, value) {
+        if (typeof uiHelpers.setText === 'function') {
+            uiHelpers.setText(nodeOrId, value);
+            return;
+        }
+        var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
         if (node) {
             node.textContent = value == null ? '' : value;
-        }
-    }
-
-    function setSectionHidden(id, isHidden) {
-        var node = byId(id);
-        if (node) {
-            node.classList.toggle('is-hidden', !!isHidden);
-        }
-    }
-
-    function setHref(id, href) {
-        var node = byId(id);
-        if (node && href) {
-            node.setAttribute('href', href);
-        }
-    }
-
-    function setValue(id, value) {
-        var node = byId(id);
-        if (node) {
-            node.value = value == null ? '' : value;
-        }
-    }
-
-    function normalizePercent(value, fallback) {
-        var normalizedFallback = fallback || '0%';
-        var rawValue = String(value == null ? '' : value).trim();
-        var match = rawValue.match(/^(-?\d+(?:\.\d+)?)%?$/);
-        if (!match) {
-            return normalizedFallback;
-        }
-
-        var numericValue = Math.max(0, Math.min(100, Number(match[1])));
-        return numericValue + '%';
-    }
-
-    function normalizeCssColor(value, fallback) {
-        var normalizedFallback = fallback || 'currentColor';
-        var candidate = String(value == null ? '' : value).trim();
-        if (!candidate) {
-            return normalizedFallback;
-        }
-
-        var probe = document.createElement('span');
-        probe.style.color = '';
-        probe.style.color = candidate;
-        return probe.style.color ? candidate : normalizedFallback;
-    }
-
-    function setSelectOptions(id, options, selectedValue, emptyLabel, config) {
-        var selectNode = byId(id);
-        if (!selectNode) {
-            return;
-        }
-
-        var settings = config || {};
-        var selectedValues = Array.isArray(selectedValue)
-            ? new Set(selectedValue.map(function (value) { return String(value); }))
-            : new Set([String(selectedValue == null ? '' : selectedValue)]);
-        var fallbackValue = settings.emptyValue != null
-            ? settings.emptyValue
-            : (Array.isArray(selectedValue)
-                ? ''
-                : (String(selectedValue == null ? '' : selectedValue) === 'all' ? 'all' : ''));
-        var safeOptions = Array.isArray(options) && options.length
-            ? options
-            : [{ value: fallbackValue, label: emptyLabel }];
-        var currentGroup = '';
-        var html = '';
-
-        safeOptions.forEach(function (option) {
-            var safeOption = option || {};
-            var optionGroup = settings.useGroups === false ? '' : String(safeOption.group || '');
-            if (optionGroup !== currentGroup) {
-                if (currentGroup) {
-                    html += '</optgroup>';
-                }
-                if (optionGroup) {
-                    html += '<optgroup label="' + escapeHtml(optionGroup) + '">';
-                }
-                currentGroup = optionGroup;
-            }
-
-            var selected = selectedValues.has(String(safeOption.value)) ? ' selected' : '';
-            html += '<option value="' + escapeHtml(safeOption.value) + '"' + selected + '>' + escapeHtml(safeOption.label) + '</option>';
-        });
-
-        if (currentGroup) {
-            html += '</optgroup>';
-        }
-
-        selectNode.innerHTML = html;
-    }
-
-    function renderPlotlyFigure(chart, chartId, fallbackId) {
-        var chartNode = byId(chartId);
-        var fallbackNode = byId(fallbackId);
-        if (!chartNode || !fallbackNode) {
-            return false;
-        }
-
-        var figure = chart && chart.plotly;
-        if (!window.Plotly || !figure || !Array.isArray(figure.data) || !figure.data.length) {
-            chartNode.innerHTML = '';
-            fallbackNode.textContent = chart && chart.empty_message ? chart.empty_message : 'Нет данных для графика.';
-            fallbackNode.classList.remove('is-hidden');
-            return false;
-        }
-
-        fallbackNode.textContent = '';
-        fallbackNode.classList.add('is-hidden');
-        window.Plotly.react(chartNode, figure.data || [], figure.layout || {}, figure.config || { responsive: true });
-        return true;
-    }
-
-    function renderPlotlyInContainer(chart, containerId, options) {
-        var container = byId(containerId);
-        var settings = options || {};
-        var emptyClass = settings.emptyClass || 'chart-empty';
-        var defaultMessage = settings.emptyMessage || 'Interactive chart is unavailable.';
-
-        if (!container) {
-            return false;
-        }
-
-        var figure = chart && chart.plotly;
-        if (!figure || !window.Plotly) {
-            container.innerHTML = '<div class="' + escapeHtml(emptyClass) + '">'
-                + escapeHtml(chart && chart.empty_message ? chart.empty_message : defaultMessage)
-                + '</div>';
-            return false;
-        }
-
-        var plotlyApi = window.Plotly;
-        var renderChart = typeof plotlyApi.newPlot === 'function'
-            ? plotlyApi.newPlot.bind(plotlyApi)
-            : plotlyApi.react.bind(plotlyApi);
-        var data = Array.isArray(figure.data) ? figure.data : [];
-        var layout = figure.layout || {};
-        var config = figure.config || { responsive: true };
-
-        try {
-            if (typeof plotlyApi.purge === 'function') {
-                plotlyApi.purge(container);
-            }
-            container.innerHTML = '';
-            var renderPromise = renderChart(container, data, layout, config);
-            if (renderPromise && typeof renderPromise.catch === 'function') {
-                renderPromise.catch(function () {
-                    container.innerHTML = '<div class="' + escapeHtml(emptyClass) + '">'
-                        + escapeHtml(chart && chart.empty_message ? chart.empty_message : defaultMessage)
-                        + '</div>';
-                });
-            }
-        } catch (error) {
-            container.innerHTML = '<div class="' + escapeHtml(emptyClass) + '">'
-                + escapeHtml(chart && chart.empty_message ? chart.empty_message : defaultMessage)
-                + '</div>';
-            return false;
-        }
-
-        return true;
-    }
-
-    function renderMetricCards(containerId, items, emptyMessage) {
-        var container = byId(containerId);
-        if (!container) {
-            return;
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            container.innerHTML = '<div class="mini-empty">' + escapeHtml(emptyMessage) + '</div>';
-            return;
-        }
-
-        container.innerHTML = items.map(function (item) {
-            return ''
-                + '<article class="stat-card">'
-                + '<span class="stat-label">' + escapeHtml(item.label || '-') + '</span>'
-                + '<strong class="stat-value">' + escapeHtml(item.value || '-') + '</strong>'
-                + '<span class="stat-foot">' + escapeHtml(item.meta || '') + '</span>'
-                + '</article>';
-        }).join('');
-    }
-
-    function renderListItems(containerId, items, emptyMessage, options) {
-        var container = byId(containerId);
-        var settings = options || {};
-        var safeItems = Array.isArray(items) ? items : [];
-        if (!container) {
-            return false;
-        }
-
-        if (settings.filterEmpty) {
-            safeItems = safeItems.filter(function (item) {
-                return String(item == null ? '' : item).trim().length > 0;
-            });
-        }
-        if (settings.limit && settings.limit > 0) {
-            safeItems = safeItems.slice(0, settings.limit);
-        }
-
-        if (!safeItems.length) {
-            container.innerHTML = '<li>' + escapeHtml(emptyMessage || '') + '</li>';
-            return false;
-        }
-
-        container.innerHTML = safeItems.map(function (item) {
-            return '<li>' + escapeHtml(item) + '</li>';
-        }).join('');
-        return true;
-    }
-
-    function applyToneClass(node, tone) {
-        if (!node) {
-            return;
-        }
-
-        node.className = node.className.replace(/\btone-[a-z]+\b/g, '').replace(/\s+/g, ' ').trim();
-        if (tone) {
-            node.className += (node.className ? ' ' : '') + 'tone-' + tone;
         }
     }
 
@@ -334,100 +112,34 @@
         });
     }
 
-    var apiClient = global.FireApiClient || {};
-    var getApiErrorMessage = typeof apiClient.getApiErrorMessage === 'function'
-        ? apiClient.getApiErrorMessage
-        : function (payload, fallback) {
-            var normalizedFallback = fallback || 'Request failed.';
-            if (!payload || typeof payload !== 'object') {
-                return normalizedFallback;
-            }
-
-            if (payload.error && typeof payload.error === 'object') {
-                var apiMessage = String(payload.error.message || payload.error.detail || payload.error.code || '').trim();
-                if (apiMessage) {
-                    return apiMessage;
-                }
-            }
-
-            var legacyMessage = String(payload.error_message || payload.detail || payload.message || '').trim();
-            return legacyMessage || normalizedFallback;
-        };
-
-    var createApiError = typeof apiClient.createApiError === 'function'
-        ? apiClient.createApiError
-        : function (response, payload, fallback) {
-            var error = new Error(getApiErrorMessage(payload, fallback));
-            error.status = response && typeof response.status === 'number' ? response.status : 0;
-            error.payload = payload || null;
-            return error;
-        };
-
     function getErrorMessage(error, fallback) {
         var message = error && typeof error.message === 'string' ? error.message.trim() : '';
         return message || fallback;
     }
 
-    var localApiCall = typeof apiClient.apiCall === 'function'
-        ? apiClient.apiCall
-        : async function (url, options, fallback, invalidJsonFallback) {
-            var response = await fetch(url, options || {});
-            var payload;
-            try {
-                payload = await response.json();
-            } catch (error) {
-                if (!response.ok) {
-                    throw createApiError(response, null, invalidJsonFallback || fallback);
-                }
-                throw error;
-            }
-            if (!response.ok) {
-                throw createApiError(response, payload, fallback);
-            }
-            if (payload && payload.ok === false) {
-                throw createApiError(response, payload, fallback);
-            }
-            return {
-                payload: payload,
-                response: response
-            };
-        };
-
-    function apiCall(url, options, fallback, invalidJsonFallback) {
-        var dynamicClient = global.FireApiClient || {};
-        if (typeof dynamicClient.apiCall === 'function') {
-            return dynamicClient.apiCall(url, options, fallback, invalidJsonFallback);
-        }
-        return localApiCall(url, options, fallback, invalidJsonFallback);
-    }
-
-    async function fetchJson(url, options, fallback, invalidJsonFallback) {
-        return apiCall(url, options, fallback, invalidJsonFallback);
-    }
-
     global.FireUi = {
-        applyToneClass: applyToneClass,
+        applyToneClass: uiHelpers.applyToneClass,
         byId: byId,
-        createApiError: createApiError,
+        createApiError: apiClient.createApiError,
         createSingleTimer: createSingleTimer,
         createTimerGroup: createTimerGroup,
-        escapeHtml: escapeHtml,
-        apiCall: apiCall,
-        fetchJson: fetchJson,
-        getApiErrorMessage: getApiErrorMessage,
+        escapeHtml: uiHelpers.escapeHtml,
+        apiCall: apiClient.apiCall,
+        fetchJson: apiClient.apiCall,
+        getApiErrorMessage: apiClient.getApiErrorMessage,
         getErrorMessage: getErrorMessage,
-        normalizePercent: normalizePercent,
-        normalizeCssColor: normalizeCssColor,
-        renderListItems: renderListItems,
-        renderMetricCards: renderMetricCards,
-        renderPlotlyFigure: renderPlotlyFigure,
-        renderPlotlyInContainer: renderPlotlyInContainer,
+        normalizeCssColor: plotlyHelpers.normalizeCssColor,
+        normalizePercent: plotlyHelpers.normalizePercent,
+        renderListItems: uiHelpers.renderListItems,
+        renderMetricCards: uiHelpers.renderMetricCards,
+        renderPlotlyFigure: plotlyHelpers.renderPlotlyFigure,
+        renderPlotlyInContainer: plotlyHelpers.renderPlotlyInContainer,
         runProgressSequence: runProgressSequence,
-        setHref: setHref,
-        setSectionHidden: setSectionHidden,
-        setSelectOptions: setSelectOptions,
+        setHref: uiHelpers.setHref,
+        setSectionHidden: uiHelpers.setSectionHidden,
+        setSelectOptions: uiHelpers.setSelectOptions,
         setStepProgress: setStepProgress,
-        setText: setText,
-        setValue: setValue
+        setText: uiHelpers.setText,
+        setValue: uiHelpers.setValue
     };
 }(window));

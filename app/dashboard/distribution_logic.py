@@ -64,7 +64,11 @@ def _build_damage_dashboard_charts(
     *,
     damage_counts: Optional[Dict[str, int]] = None,
 ) -> dict[str, Any]:
-    damage_counts = damage_counts if damage_counts is not None else _collect_damage_counts(selected_tables, selected_year)
+    from . import service as _service_module
+
+    collect_damage_counts = getattr(_service_module, "_collect_damage_counts", _collect_damage_counts)
+    build_damage_overview_chart = getattr(_service_module, "_build_distribution_chart", _build_damage_overview_chart)
+    damage_counts = damage_counts if damage_counts is not None else collect_damage_counts(selected_tables, selected_year)
     damage_item_bundle = _build_damage_dashboard_item_bundle(selected_tables, selected_year, damage_counts)
     damage_category_items = damage_item_bundle["category_items"]
     damage_theme_items = damage_item_bundle["theme_items"]
@@ -98,6 +102,22 @@ def _build_standard_dashboard_charts(
     selected_group_column: str,
     grouped_counts_bundle: dict[str, Any],
 ) -> dict[str, Any]:
+    from . import service as _service_module
+
+    build_distribution_chart = getattr(_service_module, "_build_distribution_chart", _build_distribution_chart)
+    build_combined_impact_timeline_chart = getattr(
+        _service_module,
+        "_build_combined_impact_timeline_chart",
+        _build_combined_impact_timeline_chart,
+    )
+    build_monthly_profile_chart = getattr(_service_module, "_build_monthly_profile_chart", _build_monthly_profile_chart)
+    build_area_buckets_chart = getattr(_service_module, "_build_area_buckets_chart", _build_area_buckets_chart)
+    build_area_buckets_chart_from_counts = getattr(
+        _service_module,
+        "_build_area_buckets_chart_from_counts",
+        _build_area_buckets_chart_from_counts,
+    )
+
     distribution_counts = grouped_counts_bundle["distribution_counts"]
     reusable_distribution_counts = (
         distribution_counts
@@ -109,26 +129,26 @@ def _build_standard_dashboard_charts(
     )
     area_bucket_counts = grouped_counts_bundle["area_bucket_counts"]
     return {
-        "distribution": _build_distribution_chart(
+        "distribution": build_distribution_chart(
             selected_tables,
             selected_year,
             selected_group_column,
             grouped_counts=reusable_distribution_counts,
         ),
-        "yearly_area_chart": _build_combined_impact_timeline_chart(
+        "yearly_area_chart": build_combined_impact_timeline_chart(
             selected_tables,
             selected_year,
             impact_timeline_rows=grouped_counts_bundle["impact_timeline_rows"],
         ),
-        "monthly_profile": _build_monthly_profile_chart(
+        "monthly_profile": build_monthly_profile_chart(
             selected_tables,
             selected_year,
             month_counts=grouped_counts_bundle["month_counts"],
         ),
         "area_buckets": (
-            _build_area_buckets_chart_from_counts(area_bucket_counts)
+            build_area_buckets_chart_from_counts(area_bucket_counts)
             if area_bucket_counts is not None
-            else _build_area_buckets_chart(selected_tables, selected_year)
+            else build_area_buckets_chart(selected_tables, selected_year)
         ),
     }
 
@@ -138,7 +158,15 @@ def _build_dashboard_widgets(
     selected_year: Optional[int],
     grouped_counts_bundle: dict[str, Any],
 ) -> dict[str, Any]:
-    widgets = _build_sql_widgets(
+    from . import service as _service_module
+
+    build_sql_widgets = getattr(_service_module, "_build_sql_widgets", _build_sql_widgets)
+    build_sql_district_widget_from_counts = getattr(
+        _service_module,
+        "_build_sql_district_widget_from_counts",
+        _build_sql_district_widget_from_counts,
+    )
+    widgets = build_sql_widgets(
         selected_tables,
         selected_year,
         cause_counts=grouped_counts_bundle["cause_counts"],
@@ -147,7 +175,7 @@ def _build_dashboard_widgets(
     )
     district_counts = grouped_counts_bundle["district_counts"]
     if district_counts and not widgets.get("districts", {}).get("items"):
-        widgets["districts"] = _build_sql_district_widget_from_counts(district_counts)
+        widgets["districts"] = build_sql_district_widget_from_counts(district_counts)
     return widgets
 
 

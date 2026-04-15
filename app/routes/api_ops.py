@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, File, Form, Request, UploadFile
 
-from app.services.ops_service import build_health_payload, build_logs_payload, clear_logs_payload
+from app.services.ops_service import build_logs_payload
 
 from .api_common import run_session_json_action
 
@@ -55,19 +55,6 @@ def logs(request: Request, job_id: str | None = None):
         request,
         lambda session_id: build_logs_payload(session_id=session_id, job_id=job_id),
     )
-
-
-@router.post("/clear_logs")
-def clear_logs_endpoint(request: Request, job_id: str | None = None):
-    return run_session_json_action(
-        request,
-        lambda session_id: clear_logs_payload(session_id=session_id, job_id=job_id),
-    )
-
-
-@router.get("/health")
-def health_check(request: Request):
-    return run_session_json_action(request, lambda session_id: build_health_payload(session_id=session_id))
 
 
 @router.post("/run_profiling")

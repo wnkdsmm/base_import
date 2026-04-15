@@ -11,7 +11,6 @@
 {% block title %}ML-прогноз пожаров по дням{% endblock %}
 
 {% block page_styles %}
-<link rel="stylesheet" href="/static/css/analytics.css?v={{ analytics_css_version }}">
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ dashboard_css_version }}">
 <link rel="stylesheet" href="/static/css/ml_model.css?v={{ ml_model_css_version }}">
 {% endblock %}
@@ -54,10 +53,11 @@ window.__FIRE_ML_INITIAL__ = {{ data | tojson }};
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/state_factory.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/api_client.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/ui_helpers.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/plotly_helpers.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/ml_model_charts.js?v={{ ml_model_js_version }}"></script>
 <script src="/static/js/ml_model_api.js?v={{ ml_model_js_version }}"></script>
 <script src="/static/js/ml_model_state.js?v={{ ml_model_js_version }}"></script>

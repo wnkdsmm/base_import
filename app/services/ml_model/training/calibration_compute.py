@@ -1,0 +1,438 @@
+from __future__ import annotations
+
+from datetime import date
+import math
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+
+from .forecast_bounds import _count_interval, _format_ratio_percent
+from ..ml_model_interval_types import MIN_INTERVAL_BIN_RESIDUALS, MIN_INTERVAL_CALIBRATION_WINDOWS, MIN_INTERVAL_EVALUATION_WINDOWS, PredictionIntervalCalibration, PREDICTION_INTERVAL_BLOCKED_CV_LABEL, PREDICTION_INTERVAL_CALIBRATION_FRACTION, PREDICTION_INTERVAL_FIXED_CHRONO_LABEL, PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL, PREDICTION_INTERVAL_LEVEL, PREDICTION_INTERVAL_METHOD_LABEL, PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL, PREDICTION_INTERVAL_TARGET_BINS
+from .types import (
+    PredictionIntervalBacktestEvaluation,
+    PredictionIntervalBinsResult,
+    PredictionIntervalCandidate,
+    PredictionIntervalStabilitySummary,
+)
+
+def _prediction_interval_level_display(level: float) -> str:
+    return f'{int(round(float(level) * 100.0))}%'
+
+def _prediction_interval_absolute_error_quantile(residuals: np.ndarray, level: float) -> float:
+    residual_values = np.sort(np.asarray(residuals, dtype=float))
+    residual_count = int(residual_values.size)
+    if residual_count == 0:
+        return 0.0
+    rank = max(1, int(math.ceil((residual_count + 1) * float(level))))
+    return float(residual_values[min(residual_count - 1, rank - 1)])
+
+def _build_prediction_interval_bins(
+    predictions: np.ndarray,
+    residuals: np.ndarray,
+    level: float,
+    global_quantile: float,
+ ) -> PredictionIntervalBinsResult:
+    prediction_values = np.asarray(predictions, dtype=float)
+    residual_values = np.asarray(residuals, dtype=float)
+    residual_count = int(residual_values.size)
+    target_bin_count = min(PREDICTION_INTERVAL_TARGET_BINS, max(1, residual_count // MIN_INTERVAL_BIN_RESIDUALS))
+    if target_bin_count < 2:
+        return {
+            'strategy': 'global_absolute_error_quantile',
+            'edges': [],
+            'bins': [],
+            'bin_count': 0,
+        }
+
+    raw_edges = np.quantile(
+        prediction_values,
+        [index / target_bin_count for index in range(1, target_bin_count)],
+    )
+    edge_values = []
+    for raw_edge in np.atleast_1d(raw_edges).tolist():
+        edge_value = float(raw_edge)
+        if edge_values and math.isclose(edge_values[-1], edge_value, rel_tol=1e-9, abs_tol=1e-9):
+            continue
+        edge_values.append(edge_value)
+
+    if not edge_values:
+        return {
+            'strategy': 'global_absolute_error_quantile',
+            'edges': [],
+            'bins': [],
+            'bin_count': 0,
+        }
+
+    bin_assignments = np.searchsorted(np.asarray(edge_values, dtype=float), prediction_values, side='right')
+    bins = []
+    for bin_index in range(len(edge_values) + 1):
+        mask = bin_assignments == bin_index
+        bin_residuals = residual_values[mask]
+        bin_predictions = prediction_values[mask]
+        if bin_residuals.size >= MIN_INTERVAL_BIN_RESIDUALS:
+            bin_quantile = _prediction_interval_absolute_error_quantile(bin_residuals, level)
+            fallback_used = False
+        else:
+            bin_quantile = float(global_quantile)
+            fallback_used = True
+
+        lower_edge = None if bin_index == 0 else float(edge_values[bin_index - 1])
+        upper_edge = None if bin_index == len(edge_values) else float(edge_values[bin_index])
+        bins.append(
+            {
+                'bin_index': bin_index,
+                'prediction_min': float(np.min(bin_predictions)) if bin_predictions.size else lower_edge,
+                'prediction_max': float(np.max(bin_predictions)) if bin_predictions.size else upper_edge,
+                'lower_edge': lower_edge,
+                'upper_edge': upper_edge,
+                'residual_count': int(bin_residuals.size),
+                'absolute_error_quantile': float(bin_quantile),
+                'fallback_to_global': fallback_used,
+            }
+        )
+
+    return {
+        'strategy': 'predicted_count_quantiles',
+        'edges': edge_values,
+        'bins': bins,
+        'bin_count': len(bins),
+    }
+
+def _build_prediction_interval_calibration(
+    actuals: np.ndarray,
+    predictions: np.ndarray,
+    level: float = PREDICTION_INTERVAL_LEVEL,
+    method_label: str = PREDICTION_INTERVAL_METHOD_LABEL,
+ ) -> PredictionIntervalCalibration:
+    actual_values = np.asarray(actuals, dtype=float)
+    prediction_values = np.asarray(predictions, dtype=float)
+    residuals = np.abs(actual_values - prediction_values)
+    residual_count = int(residuals.size)
+    quantile = _prediction_interval_absolute_error_quantile(residuals, level)
+    adaptive_binning = _build_prediction_interval_bins(prediction_values, residuals, level, quantile)
+
+    return {
+        'level': float(level),
+        'level_display': _prediction_interval_level_display(level),
+        'absolute_error_quantile': quantile,
+        'residual_count': residual_count,
+        'adaptive_binning_strategy': adaptive_binning['strategy'],
+        'adaptive_bin_count': adaptive_binning['bin_count'],
+        'adaptive_bin_edges': adaptive_binning['edges'],
+        'adaptive_bins': adaptive_binning['bins'],
+        'method_label': method_label,
+    }
+
+def _copy_prediction_interval_calibration(
+    calibration: PredictionIntervalCalibration,
+    *,
+    method_label: str,
+) -> PredictionIntervalCalibration:
+    copied = dict(calibration)
+    copied['method_label'] = method_label
+    copied['adaptive_bin_edges'] = list(calibration.get('adaptive_bin_edges') or [])
+    copied['adaptive_bins'] = [dict(row) for row in calibration.get('adaptive_bins') or []]
+    return copied
+
+class _PredictionIntervalCalibrationCache:
+    def __init__(self, actuals: np.ndarray, predictions: np.ndarray, level: float) -> None:
+        self._actuals = np.asarray(actuals, dtype=float)
+        self._predictions = np.asarray(predictions, dtype=float)
+        self._level = float(level)
+        self._by_prefix: Dict[int, PredictionIntervalCalibration] = {}
+
+    def for_prefix(self, prefix_windows: int, *, method_label: str) -> PredictionIntervalCalibration:
+        prefix = max(0, min(int(prefix_windows), self._actuals.size, self._predictions.size))
+        calibration = self._by_prefix.get(prefix)
+        if calibration is None:
+            calibration = _build_prediction_interval_calibration(
+                self._actuals[:prefix],
+                self._predictions[:prefix],
+                level=self._level,
+            )
+            self._by_prefix[prefix] = calibration
+        return _copy_prediction_interval_calibration(calibration, method_label=method_label)
+
+def _split_prediction_interval_windows(total_windows: int) -> Optional[Tuple[int, int]]:
+    minimum_windows = MIN_INTERVAL_CALIBRATION_WINDOWS + MIN_INTERVAL_EVALUATION_WINDOWS
+    if total_windows < minimum_windows:
+        return None
+
+    calibration_windows = int(math.floor(total_windows * PREDICTION_INTERVAL_CALIBRATION_FRACTION))
+    calibration_windows = max(MIN_INTERVAL_CALIBRATION_WINDOWS, calibration_windows)
+    calibration_windows = min(calibration_windows, total_windows - MIN_INTERVAL_EVALUATION_WINDOWS)
+    evaluation_windows = total_windows - calibration_windows
+    if calibration_windows < MIN_INTERVAL_CALIBRATION_WINDOWS or evaluation_windows < MIN_INTERVAL_EVALUATION_WINDOWS:
+        return None
+    return calibration_windows, evaluation_windows
+
+def _prediction_interval_validation_blocks(calibration_windows: int, total_windows: int) -> List[np.ndarray]:
+    evaluation_indices = np.arange(calibration_windows, total_windows, dtype=int)
+    evaluation_count = int(evaluation_indices.size)
+    if evaluation_count <= 0:
+        return []
+    if evaluation_count >= 12:
+        block_count = 4
+    elif evaluation_count >= 6:
+        block_count = 3
+    else:
+        block_count = 2
+    return [block for block in np.array_split(evaluation_indices, block_count) if block.size]
+
+def _prediction_interval_window_date_label(window_date: Any) -> str:
+    if isinstance(window_date, pd.Timestamp):
+        return window_date.date().isoformat()
+    if isinstance(window_date, date):
+        return window_date.isoformat()
+    return str(window_date)
+
+def _prediction_interval_range_labels(
+    window_dates: List[Any],
+    calibration_windows: int,
+    evaluation_prefix: str = 'later',
+) -> Tuple[str, str]:
+    calibration_end = (
+        _prediction_interval_window_date_label(window_dates[calibration_windows - 1])
+        if window_dates and calibration_windows > 0
+        else None
+    )
+    evaluation_count = max(0, len(window_dates) - calibration_windows)
+    evaluation_start = (
+        _prediction_interval_window_date_label(window_dates[calibration_windows])
+        if evaluation_count > 0 and len(window_dates) > calibration_windows
+        else None
+    )
+    calibration_label = f'first {calibration_windows} windows'
+    if calibration_end:
+        calibration_label = f'{calibration_label} through {calibration_end}'
+    evaluation_label = f'{evaluation_prefix} {evaluation_count} windows'
+    if evaluation_start:
+        evaluation_label = f'{evaluation_label} from {evaluation_start}'
+    return calibration_label, evaluation_label
+
+def _prediction_interval_coverage_flags(
+    actuals: np.ndarray,
+    predictions: np.ndarray,
+    calibration: PredictionIntervalCalibration,
+) -> List[bool]:
+    actual_values = np.asarray(actuals, dtype=float)
+    prediction_values = np.asarray(predictions, dtype=float)
+    covered: List[bool] = []
+    for actual_value, prediction_value in zip(actual_values, prediction_values):
+        lower_bound, upper_bound = _count_interval(float(prediction_value), calibration)
+        covered.append(lower_bound <= float(actual_value) <= upper_bound)
+    return covered
+
+def _prediction_interval_stability_summary(
+    covered_flags: List[bool],
+    level: float,
+) -> PredictionIntervalStabilitySummary:
+    flag_values = np.asarray(covered_flags, dtype=float)
+    if flag_values.size == 0:
+        return {
+            'coverage': None,
+            'coverage_gap': float('inf'),
+            'segment_coverages': [],
+            'segment_coverage_std': float('inf'),
+            'stability_score': float('inf'),
+        }
+
+    if flag_values.size >= 12:
+        segment_count = 4
+    elif flag_values.size >= 6:
+        segment_count = 3
+    else:
+        segment_count = 2
+    segments = [segment for segment in np.array_split(flag_values, segment_count) if segment.size]
+    segment_coverages = [float(np.mean(segment)) for segment in segments]
+    coverage = float(np.mean(flag_values))
+    coverage_gap = abs(coverage - float(level))
+    segment_coverage_std = float(np.std(segment_coverages)) if len(segment_coverages) > 1 else 0.0
+    return {
+        'coverage': coverage,
+        'coverage_gap': coverage_gap,
+        'segment_coverages': segment_coverages,
+        'segment_coverage_std': segment_coverage_std,
+        'stability_score': coverage_gap + segment_coverage_std,
+    }
+
+def _build_prediction_interval_candidate(
+    scheme_key: str,
+    scheme_label: str,
+    level: float,
+    calibration_windows: int,
+    evaluation_windows: int,
+    calibration_range_label: str,
+    evaluation_range_label: str,
+    covered_flags: List[bool],
+    calibration_refresh_count: int,
+    validation_block_count: int,
+) -> PredictionIntervalCandidate:
+    summary = _prediction_interval_stability_summary(covered_flags, level)
+    return {
+        'scheme_key': scheme_key,
+        'scheme_label': scheme_label,
+        'coverage': summary['coverage'],
+        'coverage_display': _format_ratio_percent(summary['coverage']),
+        'coverage_gap': summary['coverage_gap'],
+        'segment_coverages': summary['segment_coverages'],
+        'segment_coverage_std': summary['segment_coverage_std'],
+        'stability_score': summary['stability_score'],
+        'calibration_window_count': calibration_windows,
+        'evaluation_window_count': evaluation_windows,
+        'calibration_window_range_label': calibration_range_label,
+        'evaluation_window_range_label': evaluation_range_label,
+        'calibration_refresh_count': calibration_refresh_count,
+        'validation_block_count': validation_block_count,
+        'covered_flags': list(covered_flags),
+    }
+
+def _evaluate_fixed_chrono_prediction_interval(
+    actuals: np.ndarray,
+    predictions: np.ndarray,
+    window_dates: List[Any],
+    calibration_windows: int,
+    level: float,
+    calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
+) -> PredictionIntervalCandidate:
+    calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
+        window_dates,
+        calibration_windows,
+    )
+    calibration_cache = calibration_cache or _PredictionIntervalCalibrationCache(actuals, predictions, level)
+    calibration = calibration_cache.for_prefix(
+        calibration_windows,
+        method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL}; validation baseline: {PREDICTION_INTERVAL_FIXED_CHRONO_LABEL}',
+    )
+    covered_flags = _prediction_interval_coverage_flags(
+        actuals[calibration_windows:],
+        predictions[calibration_windows:],
+        calibration,
+    )
+    candidate = _build_prediction_interval_candidate(
+        scheme_key='fixed_chrono_split',
+        scheme_label=PREDICTION_INTERVAL_FIXED_CHRONO_LABEL,
+        level=level,
+        calibration_windows=calibration_windows,
+        evaluation_windows=max(0, len(window_dates) - calibration_windows),
+        calibration_range_label=calibration_range_label,
+        evaluation_range_label=evaluation_range_label,
+        covered_flags=covered_flags,
+        calibration_refresh_count=1,
+        validation_block_count=1 if covered_flags else 0,
+    )
+    candidate['calibration'] = calibration
+    return candidate
+
+def _evaluate_blocked_prediction_interval(
+    actuals: np.ndarray,
+    predictions: np.ndarray,
+    window_dates: List[Any],
+    calibration_windows: int,
+    level: float,
+    calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
+) -> PredictionIntervalCandidate:
+    calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
+        window_dates,
+        calibration_windows,
+        evaluation_prefix='blocked evaluation',
+    )
+    covered_flags: List[bool] = []
+    blocks = _prediction_interval_validation_blocks(calibration_windows, len(window_dates))
+    calibration_cache = calibration_cache or _PredictionIntervalCalibrationCache(actuals, predictions, level)
+    for block in blocks:
+        block_start = int(block[0])
+        calibration = calibration_cache.for_prefix(
+            block_start,
+            method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL}; validation candidate: {PREDICTION_INTERVAL_BLOCKED_CV_LABEL}',
+        )
+        covered_flags.extend(
+            _prediction_interval_coverage_flags(
+                actuals[block],
+                predictions[block],
+                calibration,
+            )
+        )
+    return _build_prediction_interval_candidate(
+        scheme_key='blocked_forward_cv',
+        scheme_label=PREDICTION_INTERVAL_BLOCKED_CV_LABEL,
+        level=level,
+        calibration_windows=calibration_windows,
+        evaluation_windows=max(0, len(window_dates) - calibration_windows),
+        calibration_range_label=calibration_range_label,
+        evaluation_range_label=evaluation_range_label,
+        covered_flags=covered_flags,
+        calibration_refresh_count=len(blocks),
+        validation_block_count=len(blocks),
+    )
+
+def _evaluate_rolling_prediction_interval(
+    actuals: np.ndarray,
+    predictions: np.ndarray,
+    window_dates: List[Any],
+    calibration_windows: int,
+    level: float,
+    calibration_cache: Optional[_PredictionIntervalCalibrationCache] = None,
+) -> PredictionIntervalCandidate:
+    calibration_range_label, evaluation_range_label = _prediction_interval_range_labels(
+        window_dates,
+        calibration_windows,
+        evaluation_prefix='rolling evaluation',
+    )
+    covered_flags: List[bool] = []
+    calibration_cache = calibration_cache or _PredictionIntervalCalibrationCache(actuals, predictions, level)
+    for index in range(calibration_windows, len(window_dates)):
+        calibration = calibration_cache.for_prefix(
+            index,
+            method_label=f'{PREDICTION_INTERVAL_METHOD_LABEL}; validation candidate: {PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL}',
+        )
+        covered_flags.extend(
+            _prediction_interval_coverage_flags(
+                actuals[index:index + 1],
+                predictions[index:index + 1],
+                calibration,
+            )
+        )
+    evaluation_windows = max(0, len(window_dates) - calibration_windows)
+    return _build_prediction_interval_candidate(
+        scheme_key='rolling_split_conformal',
+        scheme_label=PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL,
+        level=level,
+        calibration_windows=calibration_windows,
+        evaluation_windows=evaluation_windows,
+        calibration_range_label=calibration_range_label,
+        evaluation_range_label=evaluation_range_label,
+        covered_flags=covered_flags,
+        calibration_refresh_count=evaluation_windows,
+        validation_block_count=evaluation_windows,
+    )
+
+def _prediction_interval_candidate_sort_key(candidate: PredictionIntervalCandidate) -> Tuple[float, float, float, int]:
+    preference_rank = 0 if candidate.get('scheme_key') == 'rolling_split_conformal' else 1
+    return (
+        float(candidate.get('stability_score', float('inf'))),
+        float(candidate.get('segment_coverage_std', float('inf'))),
+        float(candidate.get('coverage_gap', float('inf'))),
+        preference_rank,
+    )
+
+__all__ = [
+    '_prediction_interval_level_display',
+    '_prediction_interval_absolute_error_quantile',
+    '_build_prediction_interval_bins',
+    '_build_prediction_interval_calibration',
+    '_copy_prediction_interval_calibration',
+    '_PredictionIntervalCalibrationCache',
+    '_split_prediction_interval_windows',
+    '_prediction_interval_validation_blocks',
+    '_prediction_interval_window_date_label',
+    '_prediction_interval_range_labels',
+    '_prediction_interval_coverage_flags',
+    '_prediction_interval_stability_summary',
+    '_build_prediction_interval_candidate',
+    '_evaluate_fixed_chrono_prediction_interval',
+    '_evaluate_blocked_prediction_interval',
+    '_evaluate_rolling_prediction_interval',
+    '_prediction_interval_candidate_sort_key',
+]

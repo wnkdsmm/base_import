@@ -24,8 +24,6 @@ from __future__ import annotations
 # - POST /import_data -> app.services.pipeline_service.import_uploaded_data -> app.routes.api_common, app.state
 # - POST /run_profiling -> app.services.pipeline_service.run_profiling_for_table -> app.routes.api_common, app.state
 # - GET /logs -> app.services.ops_service.build_logs_payload -> app.routes.api_common, app.state
-# - POST /clear_logs -> app.services.ops_service.clear_logs_payload -> app.routes.api_common, app.state
-# - GET /health -> app.services.ops_service.build_health_payload -> app.routes.api_common, app.state
 #
 # Page endpoints (defined in app.routes.pages)
 # - /, /forecasting, /ml-model, /backtesting, /clustering, /access-points, /column-search,
@@ -72,8 +70,6 @@ from .api_ml_model import (
     start_ml_model_job_endpoint,
 )
 from .api_ops import (
-    clear_logs_endpoint,
-    health_check,
     import_data_endpoint,
     logs,
     router as ops_router,
@@ -101,7 +97,6 @@ __all__ = [
     "access_points_data_endpoint",
     "analytics_error_response",
     "analytics_exception_response",
-    "clear_logs_endpoint",
     "clustering_data_endpoint",
     "clustering_job_status_endpoint",
     "coerce_string_list",
@@ -115,7 +110,6 @@ __all__ = [
     "forecasting_data_endpoint",
     "forecasting_decision_support_job_status_endpoint",
     "forecasting_metadata_endpoint",
-    "health_check",
     "import_data_endpoint",
     "logs",
     "ml_model_data_endpoint",

@@ -10,7 +10,6 @@
 {% block title %}Проблемные точки пожарной доступности{% endblock %}
 
 {% block page_styles %}
-<link rel="stylesheet" href="/static/css/analytics.css?v={{ analytics_css_version }}">
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ dashboard_css_version }}">
 <link rel="stylesheet" href="/static/css/access_points.css?v={{ access_points_css_version }}">
 {% endblock %}
@@ -50,10 +49,11 @@ window.__FIRE_ACCESS_POINTS_INITIAL__ = {{ data | tojson }};
 
 {% block scripts %}
 <script src="/assets/plotly.js"></script>
-<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/state_factory.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/api_client.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/shared/ui_helpers.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/shared/plotly_helpers.js?v={{ analytics_shared_js_version }}"></script>
+<script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/access_points_state.js?v={{ access_points_js_version }}"></script>
 <script src="/static/js/access_points_render.js?v={{ access_points_js_version }}"></script>
 <script src="/static/js/access_points_events.js?v={{ access_points_js_version }}"></script>

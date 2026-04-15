@@ -104,6 +104,9 @@
     --color-highlight-blue-2: #e4ecff;
     --color-highlight-green: #dff0e8;
     --color-highlight-red: #ffe5df;
+    --color-navy: #24364f;
+    --color-navy-rgb: 9, 44, 74;
+    --color-accent-orange: #f97316;
 
     /* Extracted hardcoded tokens */
     /* Colors */

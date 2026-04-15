@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
     var shared = window.FireUi;
     if (!shared) {
         return;
@@ -10,7 +10,8 @@
         var ui = options && options.ui ? options.ui : {};
         var byId = shared.byId;
         var createSingleTimer = shared.createSingleTimer;
-        var apiCall = shared.apiCall || shared.fetchJson;
+        var apiClient = window.FireApiClient || {};
+        var apiCall = apiClient.apiCall;
         var getForecastErrorMessage = shared.getErrorMessage;
         var decisionSupportJobPollTimer = createSingleTimer();
         var forecastRequestToken = 0;

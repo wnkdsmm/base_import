@@ -1,19 +1,106 @@
-from .assembly_input import *
-from .assembly_output import *
-from . import assembly_input as _assembly_input_mod
-from . import assembly_output as _assembly_output_mod
+# Compatibility re-export layer. Import directly from submodules in new code.
 
-globals().update(
-    {
-        key: value
-        for key, value in vars(_assembly_input_mod).items()
-        if not key.startswith("__")
-    }
+from .assembly_input import (
+    annotations,
+    mean,
+    Sequence,
+    load_base_forecasting_inputs,
+    ForecastingBaseArtifacts,
+    ForecastingBaseInputs,
+    ForecastingCharts,
+    ForecastingDailyHistoryRow,
+    ForecastingDeps,
+    ForecastingFeatureCard,
+    ForecastingForecastRow,
+    ForecastingGeoPrediction,
+    ForecastingQualityAssessment,
+    ForecastingRiskPrediction,
+    ForecastingWeekdayProfileRow,
+    TableOption,
+    _recent_average_from_daily_history,
+    _build_base_forecasting_charts,
+    _load_base_forecasting_inputs,
+    _build_base_forecasting_artifacts,
+    _build_decision_support_block,
 )
-globals().update(
-    {
-        key: value
-        for key, value in vars(_assembly_output_mod).items()
-        if not key.startswith("__")
-    }
+
+from .assembly_output import (
+    annotations,
+    datetime,
+    Callable,
+    Sequence,
+    clone_mutable_payload,
+    _build_base_forecasting_artifacts,
+    _build_decision_support_block,
+    _load_base_forecasting_inputs,
+    load_forecasting_metadata_inputs,
+    ForecastPayload,
+    ForecastingBasePresentation,
+    ForecastingDeps,
+    ForecastingExecutiveBrief,
+    ForecastingFeatureCard,
+    ForecastingFilters,
+    ForecastingForecastRow,
+    ForecastingInsightCard,
+    ForecastingOptionCatalog,
+    ForecastingQualityAssessment,
+    ForecastingRequestState,
+    ForecastingRiskPrediction,
+    ForecastingSummary,
+    ForecastingTableMetadata,
+    ForecastingWeekdayProfileRow,
+    TableOption,
+    build_forecasting_metadata_payload,
+    _build_base_forecasting_notes,
+    _build_base_forecasting_executive_brief,
+    _build_base_forecasting_filters,
+    _build_base_forecasting_payload_response,
+    _build_base_forecasting_presentation,
+    build_forecasting_base_payload,
+    complete_forecasting_decision_support_payload,
 )
+
+__all__ = [
+    'annotations',
+    'mean',
+    'Sequence',
+    'load_base_forecasting_inputs',
+    'ForecastingBaseArtifacts',
+    'ForecastingBaseInputs',
+    'ForecastingCharts',
+    'ForecastingDailyHistoryRow',
+    'ForecastingDeps',
+    'ForecastingFeatureCard',
+    'ForecastingForecastRow',
+    'ForecastingGeoPrediction',
+    'ForecastingQualityAssessment',
+    'ForecastingRiskPrediction',
+    'ForecastingWeekdayProfileRow',
+    'TableOption',
+    '_recent_average_from_daily_history',
+    '_build_base_forecasting_charts',
+    '_load_base_forecasting_inputs',
+    '_build_base_forecasting_artifacts',
+    '_build_decision_support_block',
+    'datetime',
+    'Callable',
+    'clone_mutable_payload',
+    'load_forecasting_metadata_inputs',
+    'ForecastPayload',
+    'ForecastingBasePresentation',
+    'ForecastingExecutiveBrief',
+    'ForecastingFilters',
+    'ForecastingInsightCard',
+    'ForecastingOptionCatalog',
+    'ForecastingRequestState',
+    'ForecastingSummary',
+    'ForecastingTableMetadata',
+    'build_forecasting_metadata_payload',
+    '_build_base_forecasting_notes',
+    '_build_base_forecasting_executive_brief',
+    '_build_base_forecasting_filters',
+    '_build_base_forecasting_payload_response',
+    '_build_base_forecasting_presentation',
+    'build_forecasting_base_payload',
+    'complete_forecasting_decision_support_payload',
+]
