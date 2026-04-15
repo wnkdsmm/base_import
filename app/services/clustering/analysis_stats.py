@@ -190,18 +190,16 @@ def _estimate_kmeans_initialization_stability(
     cluster_count: int,
     sample_weights: np.ndarray,
 ) -> float | None:
-    reference = None
-    scores: list[float] = []
+    labels_per_seed: list[np.ndarray] = []
     for seed in STABILITY_RANDOM_SEEDS:
-        model = _fit_weighted_kmeans(scaled_points, sample_weights, cluster_count, random_state=seed, n_init=25)
-        labels = model.labels_
-        if reference is None:
-            reference = labels
-            continue
-        scores.append(float(adjusted_rand_score(reference, labels)))
-    if not scores:
+        model = _fit_weighted_kmeans(scaled_points, sample_weights, cluster_count, random_state=seed, n_init=40)
+        labels_per_seed.append(model.labels_)
+    pair_scores: list[float] = []
+    for left_labels, right_labels in combinations(labels_per_seed, 2):
+        pair_scores.append(float(adjusted_rand_score(left_labels, right_labels)))
+    if not pair_scores:
         return None
-    return float(np.mean(scores))
+    return float(np.mean(pair_scores))
 
 
 def _estimate_resampled_stability(
@@ -226,7 +224,7 @@ def _estimate_resampled_stability(
                 algorithm_key=algorithm_key,
                 sample_weights=sample_weights[sampled_indexes],
                 random_state=seed,
-                n_init=25,
+                n_init=40,
             )
         except Exception:
             continue
@@ -280,8 +278,19 @@ def _estimate_elbow_k(rows: Sequence[dict[str, Any]]) -> int | None:
         return None
     x = np.asarray([item["cluster_count"] for item in rows], dtype=float)
     y = np.asarray([item["inertia"] for item in rows], dtype=float)
-    start = np.array([x[0], y[0]], dtype=float)
-    end = np.array([x[-1], y[-1]], dtype=float)
+
+    x_min = float(np.min(x))
+    x_max = float(np.max(x))
+    x_range = x_max - x_min
+    x_norm = (x - x_min) / x_range if x_range > 0 else np.zeros_like(x)
+
+    y_min = float(np.min(y))
+    y_max = float(np.max(y))
+    y_range = y_max - y_min
+    y_norm = (y - y_min) / y_range if y_range > 0 else np.zeros_like(y)
+
+    start = np.array([x_norm[0], y_norm[0]], dtype=float)
+    end = np.array([x_norm[-1], y_norm[-1]], dtype=float)
     baseline = end - start
     norm = np.linalg.norm(baseline)
     if norm == 0:
@@ -290,7 +299,7 @@ def _estimate_elbow_k(rows: Sequence[dict[str, Any]]) -> int | None:
     interior_distances = []
     interior_ks = []
     for index in range(1, len(rows) - 1):
-        point = np.array([x[index], y[index]], dtype=float)
+        point = np.array([x_norm[index], y_norm[index]], dtype=float)
         distance = abs((baseline[0] * (point[1] - start[1])) - (baseline[1] * (point[0] - start[0]))) / norm
         interior_distances.append(float(distance))
         interior_ks.append(int(x[index]))
