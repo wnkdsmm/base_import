@@ -128,7 +128,7 @@
 .point-card,
 .typology-card,
 .incomplete-card {
-    border: 1px solid rgba(148, 163, 184, 0.26);
+    border: 1px solid rgba(var(--color-slate-rgb), 0.26);
     border-radius: var(--radius-chip);
     background: var(--paper-strong);
     padding: var(--space-token-18);
@@ -151,7 +151,7 @@
 }
 
 .point-card.tone-watch {
-    border-color: rgba(14, 116, 144, 0.24);
+    border-color: rgba(var(--color-teal-rgb), 0.24);
     background: var(--tone-watch-soft);
 }
 
@@ -178,7 +178,7 @@
 .point-rank {
     padding: var(--space-token-26);
     color: var(--accent-deep);
-    background: rgba(14, 116, 144, 0.12);
+    background: rgba(var(--color-teal-rgb), 0.12);
 }
 
 .point-score,
@@ -267,7 +267,7 @@
     gap: 6px;
     padding: var(--space-token-16);
     border-radius: var(--radius-card);
-    border: 1px solid rgba(148, 163, 184, 0.24);
+    border: 1px solid rgba(var(--color-slate-rgb), 0.24);
     background: var(--color-token-31);
 }
 
@@ -310,7 +310,7 @@
     gap: 6px;
     padding: var(--space-token-16);
     border-radius: var(--radius-card);
-    border: 1px solid rgba(148, 163, 184, 0.24);
+    border: 1px solid rgba(var(--color-slate-rgb), 0.24);
     background: var(--color-token-31);
 }
 
@@ -336,7 +336,7 @@
 
 .reason-breakdown-foot {
     padding-top: var(--space-token-25);
-    border-top: 1px dashed rgba(148, 163, 184, 0.24);
+    border-top: 1px dashed rgba(var(--color-slate-rgb), 0.24);
 }
 
 .incomplete-card {

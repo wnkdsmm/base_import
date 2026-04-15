@@ -80,7 +80,7 @@
 
 .cluster-feature-help {
     padding-top: var(--space-token-28);
-    border-top: 1px dashed rgba(46, 83, 140, 0.16);
+    border-top: 1px dashed rgba(var(--color-border-blue-rgb), 0.16);
     color: var(--muted);
     font-size: var(--font-size-token-02);
     line-height: 1.5;

@@ -15,7 +15,7 @@
     --threshold-help-size: clamp(14px, 0.25vw + 13px, 16px);
     --section-title-size: clamp(25px, 0.7vw + 21px, 30px);
     --section-meta-size: 15px;
-    --profiling-border: rgba(46, 83, 140, 0.12);
+    --profiling-border: rgba(var(--color-border-blue-rgb), 0.12);
     --profiling-surface: var(--surface-soft);
     --profiling-surface-strong: var(--surface-strong);
     --profiling-accent-soft: var(--accent-soft);
@@ -354,7 +354,7 @@ font-weight: 600;
 
 .status-running {
     border-color: var(--accent-border);
-    background: rgba(239, 246, 255, 0.92);
+    background: rgba(var(--color-snow-rgb), 0.92);
 }
 
 .status-success {
@@ -559,7 +559,7 @@ font-size: var(--font-size-token-02);
 .empty-state {padding: var(--space-token-19);
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-control);
-    background: rgba(239, 246, 255, 0.94);
+    background: rgba(var(--color-snow-rgb), 0.94);
 }
 
 .text-link {text-decoration: none;
