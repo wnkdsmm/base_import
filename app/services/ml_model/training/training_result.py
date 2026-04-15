@@ -257,6 +257,7 @@ def _assemble_training_result(
     final_temperature_stats: TrainingTemperatureStats,
     final_event_model: Optional[TrainingEventModelPayload],  # one-off
     selected_count_model_key: str,
+    trend_warning: Optional[str] = None,
 ) -> TrainingMlResultPayload:
     backtest_rows = [_serialize_backtest_row(row) for row in backtest.rows]
     overview = _serialize_backtest_overview(backtest.backtest_overview)
@@ -268,6 +269,7 @@ def _assemble_training_result(
         'feature_importance_source_key': feature_importance_source_key,
         'feature_importance_source_label': feature_importance_source_label,
         'feature_importance_note': feature_importance_note,
+        'trend_warning': trend_warning,
         'backtest_rows': backtest_rows,
         'horizon_summaries': _serialize_horizon_summaries(backtest.horizon_summaries),
         'count_mae': backtest.selected_metrics.mae,

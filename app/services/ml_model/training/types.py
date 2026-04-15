@@ -90,6 +90,7 @@ class TrainingResultPayload(TypedDict, total=False):
     feature_importance_source_key: str | None
     feature_importance_source_label: str | None
     feature_importance_note: str | None
+    trend_warning: str | None
     selected_count_model_key: str
 
 

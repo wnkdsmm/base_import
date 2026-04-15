@@ -124,6 +124,7 @@ class _TrainingArtifacts:
     feature_importance_source_key: Optional[str]
     feature_importance_source_label: Optional[str]
     feature_importance_note: Optional[str]
+    trend_warning: Optional[str] = None
 
 
 @dataclass
@@ -253,6 +254,7 @@ def _assemble_training_artifacts_result(
         final_temperature_stats=artifacts.final_temperature_stats,
         final_event_model=artifacts.final_event_model,
         selected_count_model_key=artifacts.selected_count_model_key,
+        trend_warning=artifacts.trend_warning,
     )
 
 
@@ -402,6 +404,7 @@ def _store_training_artifacts(
     *,
     training_models: _FinalTrainingModels,
     feature_importance: _FeatureImportanceArtifacts,
+    trend_warning: Optional[str] = None,
 ) -> _TrainingArtifacts:
     return _training_artifact_cache_store(
         cache_key,
@@ -417,6 +420,7 @@ def _store_training_artifacts(
             feature_importance_source_key=feature_importance.source_key,
             feature_importance_source_label=feature_importance.source_label,
             feature_importance_note=feature_importance.note,
+            trend_warning=trend_warning,
         ),
     )
 
@@ -461,6 +465,7 @@ def _train_ml_model(
     feature_prep_context = perf.span('feature_prep') if perf is not None else nullcontext()
     with feature_prep_context:
         seed = _build_training_seed(daily_history, perf=perf)
+    trend_warning = _dataset._detect_trend_warning(seed.dataset)
     dataset_error = _ensure_min_feature_rows(
         seed.dataset,
         'После формирования лагов и скользящих признаков осталось только {rows} наблюдений: этого мало для корректного rolling-origin backtesting.',
@@ -515,5 +520,6 @@ def _train_ml_model(
             artifact_cache_key,
             training_models=training_models,
             feature_importance=feature_importance,
+            trend_warning=trend_warning,
         )
         return _assemble_training_artifacts_result(artifacts, forecast_rows)
