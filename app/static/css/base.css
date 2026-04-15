@@ -107,6 +107,44 @@
     --color-navy: #24364f;
     --color-navy-rgb: 9, 44, 74;
     --color-accent-orange: #f97316;
+    --color-stroke-muted: #94a3b8;
+    --tone-info-soft: #f3f7fc;
+    --tone-warn-soft: #fff8e8;
+    --tone-error-soft: #fff1ec;
+    --tone-forest-soft-strong: #eaf8ef;
+    --tone-sky-soft-strong: #eaf3ff;
+    --tone-sand-soft-strong: #fff6e5;
+    --tone-fire-soft-strong: #ffeee8;
+    --tone-fire-soft-alt: #fff4ef;
+    --tone-sand-soft-alt: #fff8e9;
+    --tone-sky-soft-alt: #f2f8ff;
+    --tone-paper-cream: #fffdf9;
+    --color-risk-critical-text: #991b1b;
+    --color-risk-high-text: #9a3412;
+    --color-risk-medium-text: #92400e;
+    --tone-critical-soft: #fff1f2;
+    --tone-watch-soft: #ecfeff;
+    --color-critical-text: #9f1239;
+    --color-warning-text: #b45309;
+    --color-slate-800: #1e293b;
+    --tone-metric-soft: #f4f9ff;
+    --tone-neutral-soft: #f8fafc;
+    --color-danger: #b42318;
+    --tone-group-soft: #edf6fa;
+    --tone-table-soft: #fcf4e8;
+    --tone-muted-soft: #f3f3f3;
+    --color-text-cream: #fff8ef;
+    --color-text-ice: #f7fbff;
+    --tone-trust-soft: #f5f9ff;
+    --tone-success-soft-strong: #ecfdf3;
+    --tone-danger-soft-strong: #fef3f2;
+    --color-success-border: #abefc6;
+    --color-danger-border: #fecdca;
+    --color-danger-text-soft: #fff7f2;
+    --color-danger-action: #cb5a3f;
+    --color-danger-action-hover: #963325;
+    --tone-danger-surface: #fff1ed;
+    --tone-select-hover: #e8f2ff;
 
     /* Extracted hardcoded tokens */
     /* Colors */

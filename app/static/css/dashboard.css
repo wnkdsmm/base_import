@@ -1,4 +1,4 @@
-/* Dashboard */
+﻿/* Dashboard */
 .stat-card {
     padding: var(--space-token-33);
 }
@@ -317,7 +317,7 @@
     padding: var(--space-token-33);
     border-radius: var(--radius-card);
     border: 1px solid var(--line);
-    background: #f5f9ff;
+    background: var(--tone-trust-soft);
 }
 
 .executive-brief-summary-copy {
@@ -518,3 +518,4 @@
         padding: var(--space-token-21);
     }
 }
+

@@ -17,7 +17,6 @@ from .impact_fire_metrics import (
     _build_cause_chart,
     _collect_cause_counts,
     _collect_month_counts,
-    _collect_dashboard_grouped_counts,
     _build_monthly_profile_chart,
 )
 from .impact_forecast_metrics import _build_combined_impact_timeline_chart, _build_sql_widgets

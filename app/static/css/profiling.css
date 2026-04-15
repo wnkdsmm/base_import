@@ -1,4 +1,4 @@
-.profiling-layout {
+﻿.profiling-layout {
     min-height: 100vh;
     overflow: visible;
 }
@@ -19,9 +19,9 @@
     --profiling-surface: var(--surface-soft);
     --profiling-surface-strong: var(--surface-strong);
     --profiling-accent-soft: var(--accent-soft);
-    --profiling-success-soft: #ecfdf3;
-    --profiling-danger: #b42318;
-    --profiling-danger-soft: #fef3f2;
+    --profiling-success-soft: var(--tone-success-soft-strong);
+    --profiling-danger: var(--color-danger);
+    --profiling-danger-soft: var(--tone-danger-soft-strong);
     min-height: 100vh;
     padding: 20px clamp(16px, 2vw, 24px) 32px 20px;
 grid-template-rows: auto auto;
@@ -358,13 +358,13 @@ font-weight: 600;
 }
 
 .status-success {
-    border-color: #abefc6;
+    border-color: var(--color-success-border);
     background: var(--profiling-success-soft);
     color: var(--color-token-01);
 }
 
 .status-error {
-    border-color: #fecdca;
+    border-color: var(--color-danger-border);
     background: var(--profiling-danger-soft);
     color: var(--profiling-danger);
 }
@@ -746,3 +746,4 @@ font-size: var(--font-size-token-02);
     }
 
 }
+

@@ -1,4 +1,4 @@
-/* Column Search */
+﻿/* Column Search */
 .column-search-toolbar {
     margin-bottom: var(--space-token-21);
 }
@@ -130,7 +130,7 @@
     min-width: 34px;
     padding: var(--space-token-24);
     border-radius: var(--radius-pill);
-    color: #fff8ef;
+    color: var(--color-text-cream);
     background: var(--accent);
     font-size: var(--font-size-token-07);
 }
@@ -182,7 +182,7 @@
     align-items: center;
     padding: 5px 8px;
     border-radius: var(--radius-pill);
-    color: #f7fbff;
+    color: var(--color-text-ice);
     font-size: var(--font-size-token-01);
     background: rgba(37, 99, 235, 0.84);
 }
@@ -209,3 +209,4 @@
         justify-content: center;
     }
 }
+

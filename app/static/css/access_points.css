@@ -1,4 +1,4 @@
-.access-points-main {
+﻿.access-points-main {
     display: grid;
     gap: 18px;
 }
@@ -142,7 +142,7 @@
 
 .point-card.tone-critical {
     border-color: rgba(190, 24, 93, 0.28);
-    background: #fff1f2;
+    background: var(--tone-critical-soft);
 }
 
 .point-card.tone-warning {
@@ -152,7 +152,7 @@
 
 .point-card.tone-watch {
     border-color: rgba(14, 116, 144, 0.24);
-    background: #ecfeff;
+    background: var(--tone-watch-soft);
 }
 
 .point-card-head {
@@ -190,12 +190,12 @@
 
 .score-pill.tone-critical,
 .point-card.tone-critical .point-score {
-    color: #9f1239;
+    color: var(--color-critical-text);
 }
 
 .score-pill.tone-warning,
 .point-card.tone-warning .point-score {
-    color: #b45309;
+    color: var(--color-warning-text);
 }
 
 .score-pill.tone-watch,
@@ -230,7 +230,7 @@
 
 .point-chip {
     padding: var(--space-token-26);
-    color: #1e293b;
+    color: var(--color-slate-800);
     background: var(--color-token-18);
 }
 
@@ -272,11 +272,11 @@
 }
 
 .score-distribution-card-metric {
-    background: #f4f9ff;
+    background: var(--tone-metric-soft);
 }
 
 .score-distribution-card-range {
-    background: #f8fafc;
+    background: var(--tone-neutral-soft);
 }
 
 .score-distribution-label {
@@ -372,3 +372,4 @@
         padding: var(--space-token-30);
     }
 }
+

@@ -1,4 +1,4 @@
-/* Analytics Shared */
+﻿/* Analytics Shared */
 .analysis-async {
     display: grid;
     gap: 12px;
@@ -112,7 +112,7 @@
 .analysis-step.is-error {
     border-color: rgba(220, 38, 38, 0.26);
     background: rgba(254, 242, 242, 0.96);
-    color: #b42318;
+    color: var(--color-danger);
 }
 
 .analysis-status-meta {
@@ -351,15 +351,15 @@
 }
 
 .tone-group {
-    background: #edf6fa;
+    background: var(--tone-group-soft);
 }
 
 .tone-table {
-    background: #fcf4e8;
+    background: var(--tone-table-soft);
 }
 
 .tone-muted {
-    background: #f3f3f3;
+    background: var(--tone-muted-soft);
 }
 
 .ranking-panel {
@@ -647,3 +647,4 @@
 .tone-low {
     background: var(--tone-sky-soft);
 }
+

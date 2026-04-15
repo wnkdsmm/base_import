@@ -1,4 +1,4 @@
-html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-ready="0"] .forecasting-main {
+﻿html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-ready="0"] .forecasting-main {
     visibility: hidden;
 }
 
@@ -38,13 +38,13 @@ html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-r
 
 .forecast-load-status {border-radius: var(--radius-control);
     border: 1px solid rgba(58, 92, 132, 0.14);
-    background: #f3f7fc;
+    background: var(--tone-info-soft);
 line-height: 1.5;
 }
 
 .forecast-load-status.is-pending {
     border-color: var(--color-token-22);
-    background: #fff8e8;
+    background: var(--tone-warn-soft);
     color: var(--color-token-08);
 }
 
@@ -56,7 +56,7 @@ line-height: 1.5;
 
 .forecast-load-status.is-error {
     border-color: var(--color-token-23);
-    background: #fff1ec;
+    background: var(--tone-error-soft);
     color: var(--color-token-09);
 }
 
@@ -502,22 +502,22 @@ border-radius: var(--radius-md);
 
 .quality-score-card.tone-forest {
     border-color: rgba(66, 126, 91, 0.28);
-    background: #eaf8ef;
+    background: var(--tone-forest-soft-strong);
 }
 
 .quality-score-card.tone-sky {
     border-color: rgba(71, 120, 214, 0.26);
-    background: #eaf3ff;
+    background: var(--tone-sky-soft-strong);
 }
 
 .quality-score-card.tone-sand {
     border-color: rgba(196, 150, 79, 0.28);
-    background: #fff6e5;
+    background: var(--tone-sand-soft-strong);
 }
 
 .quality-score-card.tone-fire {
     border-color: var(--color-token-26);
-    background: #ffeee8;
+    background: var(--tone-fire-soft-strong);
 }
 
 .quality-score-label {
@@ -616,17 +616,17 @@ font-weight: 700;
 
 .risk-component-card.tone-high {
     border-color: rgba(217, 93, 57, 0.24);
-    background: #fff4ef;
+    background: var(--tone-fire-soft-alt);
 }
 
 .risk-component-card.tone-medium {
     border-color: var(--color-token-27);
-    background: #fff8e9;
+    background: var(--tone-sand-soft-alt);
 }
 
 .risk-component-card.tone-low {
     border-color: var(--color-token-35);
-    background: #f2f8ff;
+    background: var(--tone-sky-soft-alt);
 }
 
 .risk-component-head,
@@ -751,7 +751,7 @@ border-radius: var(--radius-pill);
 
 .forecast-feature-card {border-radius: var(--radius-md);
     border: 1px solid var(--line);
-    background: #fffdf9;
+    background: var(--tone-paper-cream);
 }
 
 .forecast-feature-card p {line-height: 1.5;
@@ -820,11 +820,11 @@ font-size: var(--font-size-token-07);
 }
 
 .quality-disclosure[open] .quality-disclosure-toggle::before {
-    content: "Скрыть: ";
+    content: "Hide: ";
 }
 
 .quality-disclosure:not([open]) .quality-disclosure-toggle::before {
-    content: "Открыть: ";
+    content: "Show: ";
 }
 
 @media (max-width: 1380px) {
