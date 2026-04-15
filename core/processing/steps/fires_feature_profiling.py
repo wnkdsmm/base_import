@@ -115,10 +115,10 @@ class FiresFeatureProfilingStep(PipelineStep):
                 col_norm = df_norm[col]
                 null_ratio = max(col_data.isna().mean(), col_norm.isin(MISSING_LIKE_VALUES).mean())
                 dominant_ratio = col_norm.value_counts(dropna=False, normalize=True).max()
-                unique_count = col_data.nunique(dropna=True)
+                unique_count = col_norm.nunique(dropna=True)
             else:
                 null_ratio = col_data.isna().mean()
-                dominant_ratio = col_data.value_counts(dropna=False, normalize=True).max()
+                dominant_ratio = col_data.value_counts(dropna=True, normalize=True).max()
                 unique_count = col_data.nunique(dropna=True)
 
             if pd.isna(dominant_ratio):

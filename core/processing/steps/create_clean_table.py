@@ -6,17 +6,11 @@ from sqlalchemy import text
 
 from config.constants import PROFILING_CSV_SUFFIX
 from config.db import engine
+from core.processing.steps.column_transforms import coerce_bool_series
 from core.processing.pipeline import PipelineStep
 
 
 logger = logging.getLogger(__name__)
-
-
-def _coerce_bool_series(series: pd.Series) -> pd.Series:
-    if str(series.dtype) == "bool":
-        return series.fillna(False)
-    normalized = series.astype(str).str.strip().str.lower()
-    return normalized.isin(["true", "1", "yes"])
 
 
 class CreateCleanTableStep(PipelineStep):
@@ -74,7 +68,7 @@ class CreateCleanTableStep(PipelineStep):
         if "candidate_to_drop" not in resolved_profile_df.columns:
             raise KeyError("В отчёте отсутствует колонка 'candidate_to_drop'")
 
-        candidate_mask = _coerce_bool_series(resolved_profile_df["candidate_to_drop"])
+        candidate_mask = coerce_bool_series(resolved_profile_df["candidate_to_drop"])
         keep_columns = resolved_profile_df.loc[~candidate_mask, "column"].dropna().tolist()
         removed_columns = resolved_profile_df.loc[candidate_mask, "column"].dropna().tolist()
 

@@ -89,6 +89,58 @@ class PipelineIoOptimizationTests(unittest.TestCase):
             self.assertIs(settings._pipeline_source_df, source_df)
             self.assertTrue((Path(tempdir) / f"fires{PROFILING_CSV_SUFFIX}").exists())
 
+    def test_profiling_numeric_dominant_ratio_excludes_nan_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            settings = SimpleNamespace(project_name="fires", output_folder=tempdir)
+            source_df = pd.DataFrame(
+                {
+                    "numeric_col": [None] * 17 + [1.0, 1.0, 2.0],
+                }
+            )
+
+            with patch("pandas.DataFrame.to_excel", autospec=True):
+                result = FiresFeatureProfilingStep(settings).run(source_df)
+
+            profile_df = result["profile_df"]
+            row = profile_df.loc[profile_df["column"] == "numeric_col"].iloc[0]
+            self.assertEqual(float(row["null_ratio"]), 0.85)
+            self.assertAlmostEqual(float(row["dominant_ratio"]), 2.0 / 3.0, places=4)
+            self.assertFalse(bool(row["drop_null"]))
+            self.assertFalse(bool(row["almost_constant"]))
+
+    def test_profiling_string_unique_count_uses_normalized_values_for_drop_constant(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            settings = SimpleNamespace(project_name="fires", output_folder=tempdir)
+            source_df = pd.DataFrame(
+                {
+                    "flag": ["Да", "да", " ДА "],
+                }
+            )
+
+            with patch("pandas.DataFrame.to_excel", autospec=True):
+                result = FiresFeatureProfilingStep(settings).run(source_df)
+
+            profile_df = result["profile_df"]
+            row = profile_df.loc[profile_df["column"] == "flag"].iloc[0]
+            self.assertEqual(int(row["unique_count"]), 1)
+            self.assertTrue(bool(row["drop_constant"]))
+
+    def test_profiling_numeric_column_with_85_percent_nan_and_same_non_nan_is_almost_constant(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            settings = SimpleNamespace(project_name="fires", output_folder=tempdir)
+            source_df = pd.DataFrame(
+                {
+                    "col": [None] * 85 + [42.0] * 15,
+                }
+            )
+
+            with patch("pandas.DataFrame.to_excel", autospec=True):
+                result = FiresFeatureProfilingStep(settings).run(source_df)
+
+            profile_df = result["profile_df"]
+            row = profile_df.loc[profile_df["column"] == "col"].iloc[0]
+            self.assertTrue(bool(row["almost_constant"]))
+
     def test_keep_step_uses_in_memory_profile_without_csv_read(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             settings = SimpleNamespace(project_name="fires", output_folder=tempdir)

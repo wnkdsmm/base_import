@@ -22,6 +22,7 @@ from config.constants import (
 from config.paths import get_result_folder
 from config.settings import Settings
 from core.processing.steps.create_clean_table import CreateCleanTableStep
+from core.processing.steps.column_transforms import coerce_bool_series
 from core.processing.steps.fires_feature_profiling import FiresFeatureProfilingStep
 from core.processing.steps.import_data import ImportDataStep
 from core.processing.steps.keep_important_columns import KeepImportantColumnsStep
@@ -84,12 +85,6 @@ def _normalize_thresholds(raw_thresholds: dict[str, Any] | None) -> dict[str, fl
     }
 
 
-
-def _coerce_profile_bool(series: pd.Series) -> pd.Series:
-    normalized = series.astype(str).str.strip().str.lower()
-    return normalized.isin(["true", "1", "yes"])
-
-
 def _profile_report_paths(output_folder: str, table_name: str) -> tuple[str, str]:
     updated_csv = os.path.join(output_folder, f"{table_name}_updated{PROFILING_CSV_SUFFIX}")
     updated_xlsx = os.path.join(output_folder, f"{table_name}_updated{PROFILING_XLSX_SUFFIX}")
@@ -146,7 +141,7 @@ def _load_profile_summary(
     ]
     for column_name in bool_columns:
         if column_name in profile_df.columns:
-            profile_df[column_name] = _coerce_profile_bool(profile_df[column_name])
+            profile_df[column_name] = coerce_bool_series(profile_df[column_name])
     for column_name in text_columns:
         if column_name in profile_df.columns:
             profile_df[column_name] = profile_df[column_name].astype("string").fillna("").astype(object)
