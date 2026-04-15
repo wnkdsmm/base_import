@@ -101,7 +101,11 @@ def _matching_group_ids(group_ids: List[str], wanted: Set[str]) -> List[str]:
 def _important_label_query_bonus(important_label_normalized: str, query_terms: List[Dict[str, Set[str]]]) -> int:
     if not important_label_normalized:
         return 0
-    return 1 if any(term["token"] in important_label_normalized for term in query_terms) else 0
+    return 1 if any(
+        variant in important_label_normalized
+        for term in query_terms
+        for variant in term.get("variants", {term["token"]})
+    ) else 0
 
 def _fallback_query_variants_for_token(
     token: str,
@@ -115,7 +119,12 @@ def _fallback_query_variants_for_token(
             variants.update(parts)
             continue
 
-        matched_parts = {part for part in parts if token == part or token in part or part in token}
+        matched_parts = {
+            part for part in parts
+            if token == part
+            or (len(part) >= 3 and part in token)
+            or (len(token) >= 4 and token in part)
+        }
         if matched_parts:
             variants.update(matched_parts)
     return variants
@@ -147,14 +156,21 @@ def _build_query_terms(
         terms.append(build_query_term(token))
     return terms
 
-def _payload_matches_query_variants(column_payload: ColumnTermPayload, variants: Set[str]) -> bool:
+def _payload_query_match_score(column_payload: ColumnTermPayload, variants: Set[str]) -> int:
     normalized_name, words, lemmas = _column_payload_parts(column_payload)
-    return any(
-        variant in normalized_name
-        or variant in lemmas
-        or any(word.startswith(variant) for word in words)
-        for variant in variants
-    )
+    best = 0
+    for variant in variants:
+        if not variant:
+            continue
+        if normalized_name == variant:
+            best = max(best, 6)
+        elif variant in lemmas:
+            best = max(best, 5)
+        elif any(word.startswith(variant) for word in words):
+            best = max(best, 4)
+        elif variant in normalized_name:
+            best = max(best, 3)
+    return best
 
 def _match_query_terms_in_payload(
     column_payload: ColumnTermPayload,
@@ -163,9 +179,10 @@ def _match_query_terms_in_payload(
     matched_terms: List[str] = []
     score = 0
     for query_term in query_terms:
-        if _payload_matches_query_variants(column_payload, query_term["variants"]):
+        term_score = _payload_query_match_score(column_payload, query_term["variants"])
+        if term_score > 0:
             matched_terms.append(str(query_term["token"]))
-            score += 4
+            score += term_score
     return matched_terms, score
 
 def _payload_matches_category_rule(
@@ -293,7 +310,7 @@ def _partition_column_query_matches(
             full_matches.append(item)
         else:
             partial_matches.append(item)
-    return full_matches if full_matches else partial_matches
+    return full_matches + partial_matches
 
 def _build_group_catalog_entry(rule: CategoryRule, group_columns: List[str]) -> GroupCatalogEntry:
     return {

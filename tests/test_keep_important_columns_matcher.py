@@ -222,9 +222,9 @@ class NatashaColumnMatcherDecompositionTests(unittest.TestCase):
 
         result = matcher.find_columns_by_query(["beta", "beta alpha", "alpha beta"], "alpha beta")
 
-        self.assertEqual([item["name"] for item in result], ["alpha beta", "beta alpha"])
-        self.assertEqual([item["match_mode"] for item in result], ["full", "full"])
-        self.assertEqual([item["score"] for item in result], [8, 8])
+        self.assertEqual([item["name"] for item in result], ["alpha beta", "beta alpha", "beta"])
+        self.assertEqual([item["match_mode"] for item in result], ["full", "full", "partial"])
+        self.assertEqual([item["score"] for item in result], [10, 10, 6])
         self.assertEqual(matcher.column_term_calls, ["beta", "beta alpha", "alpha beta"])
 
     def test_query_search_returns_partial_matches_when_no_full_match(self):
@@ -238,7 +238,7 @@ class NatashaColumnMatcherDecompositionTests(unittest.TestCase):
                 {
                     "name": "beta",
                     "matched_terms": ["beta"],
-                    "score": 4,
+                    "score": 6,
                     "important_label": "",
                     "group_ids": [],
                     "group_labels": [],
@@ -272,7 +272,7 @@ class NatashaColumnMatcherDecompositionTests(unittest.TestCase):
 
         self.assertEqual(result[0]["name"], DISTRICT_LABEL)
         self.assertEqual(result[0]["important_label"], DISTRICT_LABEL)
-        self.assertEqual(result[0]["score"], 5)
+        self.assertEqual(result[0]["score"], 7)
         self.assertEqual(result[0]["match_mode"], "full")
         self.assertEqual(matcher.column_term_calls, [DISTRICT_LABEL])
 
