@@ -1,4 +1,4 @@
-﻿html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-ready="0"] .forecasting-main {
+html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-ready="0"] .forecasting-main {
     visibility: hidden;
 }
 
