@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import plotly.graph_objects as go
+from app.plotly_bundle import serialize_plotly_figure
 from app.statistics_constants import MONTH_LABELS
 
 from app.services.shared.dashboard_charts import (
@@ -70,7 +71,7 @@ def _build_cumulative_area_plotly(
         _plotly_layout("Накопленная площадь, га", showlegend=True),
         xaxis={"title": "День года", "range": [1, 365]},
     )
-    return figure.to_plotly_json()
+    return serialize_plotly_figure(figure)
 
 
 def _build_monthly_heatmap_plotly(
@@ -114,7 +115,7 @@ def _build_monthly_heatmap_plotly(
         xaxis={"title": "Месяц", "tickmode": "array", "tickvals": x_values, "ticktext": [MONTH_LABELS[month] for month in x_values]},
         yaxis={"title": "Год"},
     )
-    return figure.to_plotly_json()
+    return serialize_plotly_figure(figure)
 
 
 __all__ = [
