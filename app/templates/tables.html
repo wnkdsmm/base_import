@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set sidebar_title = "Таблицы" %}
 {% set sidebar_active = "tables" %}
-{% set sidebar_description %}Быстрый переход к исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` из базы данных.{% endset %}
+{% set sidebar_description %}Навигация по исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` в базе данных.{% endset %}
 
 {% block charset %}utf-8{% endblock %}
 {% block title %}Таблицы в базе{% endblock %}
@@ -13,7 +13,7 @@
 {% block sidebar_status %}
     <div class="sidebar-status">
         <span id="tableAvailabilityBadge" class="status-badge{% if tables %} status-badge-live{% endif %}">
-            {% if tables %}База доступна{% else %}Таблиц нет{% endif %}
+            {% if tables %}Таблицы доступны{% else %}Таблицы отсутствуют{% endif %}
         </span>
         <div class="status-line">
             <span>Таблиц найдено</span>
@@ -21,7 +21,7 @@
         </div>
         <div class="status-line">
             <span>Навигация</span>
-            <strong>Полный просмотр</strong>
+            <strong>Режим полного просмотра</strong>
         </div>
     </div>
 {% endblock %}
@@ -32,7 +32,7 @@
         <div class="hero-copy">
             <span class="eyebrow">Навигатор по таблицам</span>
             <h1>Таблицы в базе данных</h1>
-            <p class="subtitle">Откройте любую таблицу, чтобы посмотреть все строки и быстро проверить структуру данных перед анализом, очисткой или построением модели.</p>
+            <p class="subtitle">Откройте таблицу для просмотра строк и верификации структуры данных перед анализом, очисткой и построением моделей.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Всего таблиц: <strong id="heroTablesCount">{{ tables | length }}</strong></span>
                 <span class="hero-tag">Просмотр: <strong>все строки</strong></span>
@@ -40,9 +40,9 @@
         </div>
         <div class="hero-side">
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Что внутри</span>
+                <span class="hero-stat-label">Состав раздела</span>
                 <strong class="hero-stat-value"><small>Исходные и производные наборы</small></strong>
-                <span class="hero-stat-foot">Сюда попадают загруженные таблицы, очищенные версии `clean_*` после очистки и таблицы `modify_*` после поиска колонок.</span>
+                <span class="hero-stat-foot">В разделе представлены загруженные таблицы, очищенные версии `clean_*` и производные таблицы `modify_*`.</span>
             </article>
         </div>
     </section>
@@ -51,13 +51,13 @@
         <div class="panel-head">
             <div>
                 <h2>Импорт данных</h2>
-                <span class="panel-meta">Импорт живёт в разделе таблиц, чтобы загрузка, просмотр и последующая обработка были в одном месте.</span>
+                <span class="panel-meta">Загрузка, просмотр и последующая обработка данных объединены в едином разделе.</span>
             </div>
         </div>
         <div class="table-management-layout table-management-layout-single">
             <article class="table-action-card">
                 <div class="table-import-copy">
-                    <p class="table-import-lead">Загрузите новый файл, и после завершения импорта список таблиц обновится автоматически.</p>
+                    <p class="table-import-lead">Загрузите новый файл; после завершения импорта перечень таблиц обновится автоматически.</p>
                     <div class="table-import-actions">
                         <button type="button" class="primary-action" onclick="selectAndImport()">Импортировать файл</button>
                         <span class="table-import-note">После импорта список таблиц на странице обновится автоматически.</span>
@@ -71,13 +71,13 @@
         <div class="panel-head">
             <div>
                 <h2>Список таблиц</h2>
-                <span class="panel-meta">Отмечайте таблицы галочками и удаляйте выбранные одним действием.</span>
+                <span class="panel-meta">Отметьте таблицы и выполните групповое удаление выбранных элементов.</span>
             </div>
         </div>
 
         <div class="table-selection-toolbar u-flex-between-gap-12">
             <div id="tablesSelectionMeta" class="table-selection-summary">
-                {% if tables %}Выбрано: 0{% else %}Таблиц нет{% endif %}
+                {% if tables %}Выбрано: 0{% else %}Таблицы отсутствуют{% endif %}
             </div>
             <div class="table-selection-actions">
                 <button id="selectAllTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>Выбрать все</button>
@@ -88,7 +88,7 @@
 
         <div id="tableActionStatus" class="table-action-status is-hidden" aria-live="polite"></div>
 
-        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="В базе пока нет таблиц." data-has-items="{% if tables %}true{% else %}false{% endif %}" {% if not tables %}hidden{% endif %}>
+        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="В базе данных таблицы отсутствуют." data-has-items="{% if tables %}true{% else %}false{% endif %}" {% if not tables %}hidden{% endif %}>
             {% for table in tables %}
             <li class="table-link-item" data-table-row data-table-name="{{ table }}">
                 <article class="table-link-card table-link-record">
@@ -105,7 +105,7 @@
             </li>
             {% endfor %}
         </ul>
-        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}" {% if tables %}hidden{% endif %}>В базе пока нет таблиц.</div>
+        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}" {% if tables %}hidden{% endif %}>В базе данных таблицы отсутствуют.</div>
     </section>
 </main>
 <input type="file" id="fileInput" class="hidden-file-input">

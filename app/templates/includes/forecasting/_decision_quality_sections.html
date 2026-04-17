@@ -2,8 +2,8 @@
             {% set decision_stage_visible = data.decision_support_ready or (not data.decision_support_pending and not data.deferred and not data.base_forecast_pending and not data.loading) %}
             <article class="panel ranking-panel risk-decision-panel-wide" data-forecast-stage="decision"{% if not decision_stage_visible %} hidden{% endif %}>
                 <div class="panel-head">
-                    <h2>Что важно знать о блоке поддержки решений</h2>
-                    <span class="panel-meta">Что показывает блок: границы между календарем по дням, ML-количеством и территориальным приоритетом.</span>
+                    <h2>Методологические границы блока поддержки решений</h2>
+                    <span class="panel-meta">Разграничение между календарным сценарием, ML-оценкой количества пожаров и территориальной приоритизацией.</span>
                 </div>
                 <ul id="forecastRiskNotes" class="notice-list forecast-note-list">
                     {% if risk.notes %}
@@ -11,7 +11,7 @@
                         <li>{{ note }}</li>
                         {% endfor %}
                     {% else %}
-                    <li>После расчёта здесь появятся примечания по блоку поддержки решений.</li>
+                    <li>После выполнения расчета здесь будут представлены примечания по блоку поддержки решений.</li>
                     {% endif %}
                 </ul>
             </article>
@@ -20,12 +20,12 @@
                 <article class="panel" data-forecast-stage="decision"{% if not decision_stage_visible %} hidden{% endif %}>
                     <div class="panel-head">
                         <div>
-                            <h2>Почему территория поднялась вверх в приоритете</h2>
-                            <span class="panel-meta">Что показывает блок: какие компоненты поднимают территорию вверх или вниз в списке приоритета.</span>
+                            <h2>Факторы изменения территориального приоритета</h2>
+                            <span class="panel-meta">Компоненты, повышающие или снижающие позицию территории в ранжированном списке.</span>
                         </div>
                         <span id="forecastWeightModeBadge" class="forecast-badge risk-badge tone-{{ risk.weight_profile.status_tone | default('forest') }}">{{ risk.weight_profile.status_label | default('Активный профиль') }}</span>
                     </div>
-                    <p id="forecastWeightProfileDescription" class="quality-summary-text">{{ risk.weight_profile.description | default('После расчета здесь появится прозрачная схема компонентных весов.') }}</p>
+                    <p id="forecastWeightProfileDescription" class="quality-summary-text">{{ risk.weight_profile.description | default('После выполнения расчета здесь будет представлена структура компонентных весов.') }}</p>
                     <div id="forecastWeightProfileCards" class="risk-weight-grid">
                         {% if risk.weight_profile.components %}
                             {% for item in risk.weight_profile.components %}
@@ -44,7 +44,7 @@
                             </article>
                             {% endfor %}
                         {% else %}
-                        <div class="mini-empty">Компоненты и веса появятся после расчета.</div>
+                        <div class="mini-empty">Компоненты и веса будут доступны после выполнения расчета.</div>
                         {% endif %}
                     </div>
                     <ul id="forecastWeightProfileNotes" class="notice-list forecast-note-list">
@@ -53,7 +53,7 @@
                             <li>{{ note }}</li>
                             {% endfor %}
                         {% else %}
-                        <li>После расчета здесь появятся пояснения по профилю весов.</li>
+                        <li>После выполнения расчета здесь будут представлены пояснения по профилю весов.</li>
                         {% endif %}
                         {% if risk.weight_profile.calibration_notes %}
                             {% for note in risk.weight_profile.calibration_notes %}
@@ -65,8 +65,8 @@
 
                 <article class="panel" data-forecast-stage="metadata"{% if not metadata_stage_visible %} hidden{% endif %}>
                     <div class="panel-head">
-                        <h2>Какие данные реально учтены</h2>
-                        <span class="panel-meta">Что показывает блок: какие данные вошли в расчет итогового балла территории.</span>
+                        <h2>Состав данных, учтенных в итоговой оценке</h2>
+                        <span class="panel-meta">Перечень признаков, включенных в расчет итогового территориального балла.</span>
                     </div>
                     <div id="forecastFeatureCards" class="forecast-feature-list risk-feature-list">
                         {% if risk.feature_cards %}
@@ -81,7 +81,7 @@
                             </article>
                             {% endfor %}
                         {% else %}
-                        <div class="mini-empty">Список признаков появится после расчета.</div>
+                        <div class="mini-empty">Список признаков будет доступен после выполнения расчета.</div>
                         {% endif %}
                     </div>
                 </article>

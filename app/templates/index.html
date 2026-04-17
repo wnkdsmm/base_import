@@ -7,14 +7,14 @@
 {% set trend = data.trend %}
 {% set management = data.management %}
 {% set rankings = data.rankings %}
-{% set sidebar_title = "Панель: общий срез" %}
+{% set sidebar_title = "Панель: интегральный обзор" %}
 {% set sidebar_active = "dashboard" %}
-{% set sidebar_description %}Быстрый обзор по выбранному срезу: ключевые показатели, краткий вывод и первая территория для проверки. Не заменяет прогноз по датам и прогноз ожидаемого числа пожаров.{% endset %}
+{% set sidebar_description %}Интегральный обзор выбранного среза данных: ключевые показатели, краткий аналитический вывод и первоочередная территория для профилактических мер. Для календарной оценки риска и прогноза ожидаемого числа пожаров используйте специализированные разделы.{% endset %}
 {% macro render_plotly_chart(container_id) %}
 <div id="{{ container_id }}" class="plotly-chart"></div>
 {% endmacro %}
 
-{% block title %}Панель пожаров: общий срез{% endblock %}
+{% block title %}Панель пожарной обстановки: интегральный обзор{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ dashboard_css_version }}">
@@ -23,14 +23,14 @@
 {% block sidebar_status %}
     <div class="sidebar-status">
         <span class="status-badge{% if dashboard.has_data %} status-badge-live{% endif %}">
-            {% if dashboard.has_data %}База доступна{% else %}Нет данных{% endif %}
+            {% if dashboard.has_data %}Данные доступны{% else %}Данные отсутствуют{% endif %}
         </span>
         <div class="status-line">
-            <span>Таблиц в обзоре</span>
+            <span>Источников в обзоре</span>
             <strong id="sidebarDatabaseTablesCount">{{ scope.database_tables_count_display }}</strong>
         </div>
         <div class="status-line">
-            <span>Лет в срезе</span>
+            <span>Лет наблюдений</span>
             <strong id="sidebarYearsCoveredCount">{{ summary.years_covered_display }}</strong>
         </div>
         <div class="status-line">

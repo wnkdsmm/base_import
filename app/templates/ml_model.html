@@ -6,9 +6,9 @@
 {% set quality = data.quality_assessment %}
 {% set sidebar_title = "ML-прогноз" %}
 {% set sidebar_active = "ml_model" %}
-{% set sidebar_description %}ML-оценка ожидаемого числа пожаров по дням. Нужна, когда важна нагрузка в штуках, а не только вероятность напряженного дня.{% endset %}
+{% set sidebar_description %}ML-оценка ожидаемого количества пожаров по дням для анализа прогнозной нагрузки, дополняющая вероятностный сценарный прогноз.{% endset %}
 
-{% block title %}ML-прогноз пожаров по дням{% endblock %}
+{% block title %}ML-прогноз ожидаемого количества пожаров по дням{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ dashboard_css_version }}">
@@ -18,7 +18,7 @@
 {% block sidebar_status %}
     <div class="sidebar-status" id="mlSidebarStatus">
         <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">
-            {% if data.bootstrap_mode == 'deferred' %}Собираем ML-прогноз{% elif data.has_data %}ML-прогноз готов{% else %}Нужно уточнить фильтры{% endif %}
+            {% if data.bootstrap_mode == 'deferred' %}Выполняется подготовка ML-прогноза{% elif data.has_data %}ML-прогноз сформирован{% else %}Требуется уточнение параметров{% endif %}
         </span>
         <div class="status-line">
             <span>Модель по числу пожаров</span>
@@ -33,7 +33,7 @@
             <strong>{{ summary.backtest_method_label }}</strong>
         </div>
         <div class="status-line">
-            <span>Период</span>
+            <span>Исторический период</span>
             <strong>{{ summary.history_period_label }}</strong>
         </div>
     </div>

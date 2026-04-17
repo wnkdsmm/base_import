@@ -1,9 +1,9 @@
 {% set brief = data.executive_brief %}
     {% set section_id = 'decisionSupportPanel' %}
-    {% set brief_heading = 'Переход от сценария к решениям' %}
-    {% set brief_purpose = 'Что показывает блок: краткий территориальный вывод по итогам сценария, а не еще один календарь по дням.' %}
-    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
-    {% set brief_trust_title = 'Можно ли опираться на рекомендацию' %}
+    {% set brief_heading = 'Переход от сценарного анализа к решениям' %}
+    {% set brief_purpose = 'Краткий территориальный вывод по результатам сценарного прогноза с оценкой применимости.' %}
+    {% set brief_summary_title = 'Ключевые результаты для оперативной передачи' %}
+    {% set brief_trust_title = 'Оценка надежности рекомендации' %}
     {% set export_href = '/brief/forecasting.txt?table_name=' ~ filters.table_name ~ '&district=' ~ filters.district ~ '&cause=' ~ filters.cause ~ '&object_category=' ~ filters.object_category ~ '&temperature=' ~ filters.temperature ~ '&forecast_days=' ~ filters.forecast_days ~ '&history_window=' ~ filters.history_window %}
     {% set export_link_id = 'forecastExportBriefLink' %}
     {% set cards_id = 'forecastCommandCards' %}
@@ -12,8 +12,8 @@
     {% include 'includes/executive_brief.html' %}
     <section id="forecastFilters" class="panel filters-panel">
         <div class="panel-head">
-            <h2>Задайте условия сценария</h2>
-            <span class="panel-meta">Что показывает блок: для каких условий пересчитывается календарь вероятности по дням; территориальный приоритет ниже обновится вслед за сценарием.</span>
+            <h2>Параметры сценарного расчета</h2>
+            <span class="panel-meta">Настройка исходных условий для пересчета календарной вероятности пожаров и связанной территориальной приоритизации.</span>
         </div>
         <form class="filters-grid forecast-form-grid" id="forecastForm" method="get" action="/forecasting">
             <label class="filter-field">
@@ -25,7 +25,7 @@
                 </select>
             </label>
             <label class="filter-field">
-                <span>История для расчёта</span>
+                <span>История для расчета</span>
                 <select id="forecastHistoryWindowFilter" name="history_window">
                     {% for option in filters.available_history_windows %}
                     <option value="{{ option.value }}" {% if option.value == filters.history_window %}selected{% endif %}>{{ option.label }}</option>
@@ -58,10 +58,10 @@
             </label>
             <label class="filter-field">
                 <span>Температура, °C</span>
-                <input id="forecastTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="Если пусто, берется сезонная средняя">
+                <input id="forecastTemperatureInput" name="temperature" type="number" step="0.1" value="{{ filters.temperature }}" placeholder="При пустом поле используется сезонное среднее значение">
             </label>
             <label class="filter-field">
-                <span>Сколько дней вперёд</span>
+                <span>Горизонт прогноза, дней</span>
                 <select id="forecastDaysFilter" name="forecast_days">
                     {% for option in filters.available_forecast_days %}
                     <option value="{{ option.value }}" {% if option.value == filters.forecast_days %}selected{% endif %}>{{ option.label }}</option>
@@ -70,17 +70,17 @@
             </label>
             <div class="filter-field filter-actions forecast-actions">
                 <span>Действие</span>
-                <button id="forecastRefreshButton" class="primary-action" type="submit">Пересчитать прогноз на дни</button>
+                <button id="forecastRefreshButton" class="primary-action" type="submit">Пересчитать сценарный прогноз</button>
             </div>
         </form>
-        <div class="filter-summary" id="forecastSummaryLine">{% if data.loading and data.loading_status_message %}{{ data.loading_status_message }}{% else %}Сейчас показано: {{ summary.slice_label }} | Типичный день: {{ summary.average_probability_display }} | Пик: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | К последним 4 неделям: {{ summary.forecast_vs_recent_display }}{% endif %}</div>
+        <div class="filter-summary" id="forecastSummaryLine">{% if data.loading and data.loading_status_message %}{{ data.loading_status_message }}{% else %}Текущие результаты: {{ summary.slice_label }} | Типичный день: {{ summary.average_probability_display }} | Пиковое значение: {{ summary.peak_forecast_probability_display }} ({{ summary.peak_forecast_day_display }}) | Сопоставление с последними 4 неделями: {{ summary.forecast_vs_recent_display }}{% endif %}</div>
     </section>
 
     <div id="forecastAsyncState" class="analysis-async is-hidden">
         <div id="forecastErrorState" class="analysis-error-card is-hidden" aria-live="polite">
             <div class="analysis-error-copy">
-                <strong>Не удалось пересчитать прогноз</strong>
-                <span id="forecastErrorMessage">Попробуйте еще раз с теми же фильтрами.</span>
+                <strong>Пересчет прогноза не выполнен</strong>
+                <span id="forecastErrorMessage">Повторите запрос с текущими параметрами или уточните условия сценария.</span>
             </div>
             <div class="analysis-inline-actions">
                 <button id="forecastRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
@@ -88,7 +88,7 @@
         </div>
         <div id="forecastJobRuntime" class="analysis-runtime-card is-hidden" aria-live="polite">
             <div class="analysis-runtime-head">
-                <strong id="forecastJobRuntimeTitle">Готовим блок поддержки решений</strong>
+                <strong id="forecastJobRuntimeTitle">Формируется блок поддержки принятия решений</strong>
                 <span id="forecastJobMeta"></span>
             </div>
             <pre id="forecastJobLogOutput" class="analysis-job-log-output"></pre>

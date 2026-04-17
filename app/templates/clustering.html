@@ -6,9 +6,9 @@
 {% set quality = data.quality_assessment %}
 {% set sidebar_title = "Кластеризация" %}
 {% set sidebar_active = "clustering" %}
-{% set sidebar_description %}Группировка территорий по похожему профилю риска: частота пожаров, последствия, время прибытия и контур водоснабжения.{% endset %}
+{% set sidebar_description %}Кластеризация территорий по сходству риск-профиля: частота пожаров, тяжесть последствий, параметры прибытия и контур водоснабжения.{% endset %}
 
-{% block title %}Кластеризация территорий риска{% endblock %}
+{% block title %}Кластеризация территорий по риск-профилю{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ dashboard_css_version }}">
@@ -18,7 +18,7 @@
 {% block sidebar_status %}
     <div class="sidebar-status" id="clusteringSidebarStatus">
         <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">
-            {% if data.bootstrap_mode == 'deferred' %}Подготовка типологии{% elif data.has_data %}Типы территорий рассчитаны{% else %}Нужны агрегированные признаки{% endif %}
+            {% if data.bootstrap_mode == 'deferred' %}Выполняется построение типологии{% elif data.has_data %}Типология территорий сформирована{% else %}Требуются агрегированные признаки{% endif %}
         </span>
         <div class="status-line">
             <span>Таблица</span>

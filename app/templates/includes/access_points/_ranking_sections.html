@@ -3,7 +3,7 @@
             <article class="panel access-points-drivers-panel">
                 <div class="panel-head">
                     <h2>Главные драйверы риска</h2>
-                    <span class="panel-meta">Показывает, какие факторы чаще всего добавляют баллы и из-за чего точки поднимаются вверх в рейтинге.</span>
+                    <span class="panel-meta">Факторы, наиболее часто увеличивающие итоговый балл и повышающие позицию точки в рейтинге.</span>
                 </div>
                 <div id="accessPointsReasonBreakdownShell" class="reason-breakdown-grid">
                     {% if data.reason_breakdown %}
@@ -17,7 +17,7 @@
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">Сводка по драйверам появится после расчёта рейтинга.</div>
+                    <div class="mini-empty">Сводка по драйверам будет представлена после выполнения расчета рейтинга.</div>
                     {% endif %}
                 </div>
             </article>
@@ -25,7 +25,7 @@
             <article class="panel panel-warning">
                 <div class="panel-head">
                     <h2>Данные неполные</h2>
-                    <span class="panel-meta">Точки, где высокий приоритет проверки растёт в первую очередь из-за пропусков по воде, времени прибытия или удалённости.</span>
+                    <span class="panel-meta">Точки, в которых приоритет проверки повышается преимущественно вследствие пропусков по водоснабжению, времени прибытия или удаленности.</span>
                 </div>
                 <div id="accessPointsIncompleteShell" class="incomplete-list">
                     {% if data.incomplete_points %}
@@ -33,12 +33,12 @@
                         <article class="incomplete-card">
                             <strong>{{ point.label }}</strong>
                             <span>{{ point.incomplete_note }}</span>
-                            <span>Investigation score: {{ point.investigation_score_display }} | Полнота: {{ point.completeness_display }}</span>
+                            <span>Балл проверки: {{ point.investigation_score_display }} | Полнота: {{ point.completeness_display }}</span>
                             <span>{{ point.explanation }}</span>
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">Отдельные точки с риском из-за пропусков пока не выделены.</div>
+                    <div class="mini-empty">Отдельные точки с приоритетом, обусловленным пропусками данных, на текущем этапе не выделены.</div>
                     {% endif %}
                 </div>
             </article>
@@ -46,8 +46,8 @@
 
         <article class="panel data-table-panel access-points-ranking-panel">
             <div class="panel-head">
-                <h2>Рейтинг и explainability</h2>
-                <span class="panel-meta">Сводная таблица по score, типологии, доступности, воде, последствиям и полноте данных.</span>
+                <h2>Рейтинг и интерпретация факторов</h2>
+                <span class="panel-meta">Сводная таблица по баллу риска, типологии, доступности, водоснабжению, последствиям и полноте данных.</span>
             </div>
             <div class="data-table-shell" id="accessPointsRankingTableShell">
                 {% if data.points %}
@@ -58,8 +58,8 @@
                             <th>Точка</th>
                             <th>Тип</th>
                             <th>Район</th>
-                            <th>Score</th>
-                            <th>Band</th>
+                            <th>Балл</th>
+                            <th>Уровень</th>
                             <th>Типология</th>
                             <th>Пожары</th>
                             <th>Удалённость</th>
@@ -93,11 +93,11 @@
                             <td>{{ point.reason_chips[:3] | join(', ') or point.top_reason_codes | join(', ') }}</td>
                             <td>{{ point.human_readable_explanation or point.explanation }}</td>
                         </tr>
-                        {% endfor %}
-                    </tbody>
+                    {% endfor %}
+                </tbody>
                 </table>
                 {% else %}
-                <div class="mini-empty">После расчёта здесь появится ranking отдельных проблемных точек.</div>
+                <div class="mini-empty">После выполнения расчета здесь будет представлен рейтинг отдельных проблемных точек.</div>
                 {% endif %}
             </div>
         </article>

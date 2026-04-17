@@ -6,9 +6,9 @@
         "is_current": true,
         "href": "#dashboardBrief",
         "kicker": "Панель",
-        "title": "Что происходит сейчас в выбранном срезе",
-        "body": "Исторический и текущий срез, ключевые показатели и сокращенный вывод без календаря по датам.",
-        "cta": "Вы уже на панели",
+        "title": "Текущая картина в выбранном срезе данных",
+        "body": "Исторический контекст, ключевые индикаторы и краткий аналитический вывод без календарной детализации по датам.",
+        "cta": "Текущий раздел",
     },
     {
         "id": "dashboardScenarioLink",
@@ -16,9 +16,9 @@
         "is_current": false,
         "href": "/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}",
         "kicker": "Сценарный прогноз",
-        "title": "В какие даты вероятность пожара выше",
-        "body": "Календарь вероятности пожарной активности по ближайшим дням.",
-        "cta": "Открыть прогноз на дни",
+        "title": "Оценка вероятности пожаров по календарным датам",
+        "body": "Календарная оценка вероятности пожарной активности на ближайший период.",
+        "cta": "Перейти к сценарному прогнозу",
     },
     {
         "id": "dashboardMlLink",
@@ -26,9 +26,9 @@
         "is_current": false,
         "href": "/ml-model{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}",
         "kicker": "ML-прогноз",
-        "title": "Сколько пожаров может быть по датам",
-        "body": "Ожидаемое число пожаров и нагрузка по дням.",
-        "cta": "Открыть прогноз количества",
+        "title": "Прогноз ожидаемого количества пожаров по датам",
+        "body": "Оценка ожидаемого числа пожаров и оперативной нагрузки по дням.",
+        "cta": "Перейти к ML-прогнозу",
     },
     {
         "id": "dashboardDecisionLink",
@@ -36,19 +36,19 @@
         "is_current": false,
         "href": "/forecasting{% if filters.table_name and filters.table_name != 'all' %}?table_name={{ filters.table_name }}{% endif %}#forecastDetails",
         "kicker": "Поддержка решений",
-        "title": "Какие территории ставить первыми",
-        "body": "Полное ранжирование территорий, причины приоритета и доверие к нему.",
-        "cta": "Открыть приоритет территорий",
+        "title": "Приоритизация территорий для первоочередных мер",
+        "body": "Полное ранжирование территорий, факторы приоритета и оценка надежности вывода.",
+        "cta": "Перейти к приоритизации территорий",
     },
 ] %}
 <main class="main dashboard-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Панель | обзор выбранного среза</span>
-            <h1>Общая картина по выбранному срезу</h1>
-            <p class="subtitle">Открывайте этот экран, когда нужно за минуту понять масштаб ситуации, увидеть ключевые показатели и получить первый территориальный ориентир.</p>
+            <span class="eyebrow">Панель | интегральный обзор выбранного среза</span>
+            <h1>Интегральная оценка пожарной обстановки</h1>
+            <p class="subtitle">Раздел предназначен для оперативной оценки масштаба ситуации, анализа ключевых показателей и определения первоочередного территориального приоритета.</p>
             <p class="hero-live-summary" id="dashboardLeadSummary">{{ management.summary_line }}</p>
-            <p class="hero-context-note">Панель показывает уже накопленную картину по выбранным данным и краткий приоритет территорий на ближайшие 14 дней. Она не отвечает на вопросы «в какие даты риск выше» и «сколько пожаров ожидается по дням».</p>
+            <p class="hero-context-note">Панель отражает накопленную картину по выбранным данным и краткий территориальный приоритет на ближайшие 14 дней. Для календарной оценки риска и прогноза количества пожаров по дням используйте профильные разделы прогнозирования.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
                 <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
@@ -59,16 +59,16 @@
 
         <div class="hero-side">
             <article class="hero-stat-card" id="dashboardPriorityCard">
-                <span class="hero-stat-label">Первая территория для проверки</span>
+                <span class="hero-stat-label">Приоритетная территория для первичного реагирования</span>
                 <strong class="hero-stat-value" id="managementHeroPriority">{{ management.priority_territory_label }}</strong>
                 <span class="hero-stat-foot" id="managementHeroPriorityMeta">{{ management.priority_reason }}</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft" id="dashboardConfidenceCard">
-                <span class="hero-stat-label">Надежность краткого вывода</span>
+                <span class="hero-stat-label">Надежность аналитического вывода</span>
                 <strong class="hero-stat-value"><span id="managementHeroConfidence">{{ management.confidence_label }}</span> <small id="managementHeroConfidenceScore">{{ management.confidence_score_display }}</small></strong>
                 <span class="hero-stat-foot" id="managementHeroConfidenceMeta">{{ management.confidence_summary }}</span>
             </article>
         </div>
     </section>
 
-    {{ orientation_strip('Что показывает каждый экран', orientation_links) }}
+    {{ orientation_strip('Навигация по аналитическим разделам', orientation_links) }}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set sidebar_title = "Колонки" %}
 {% set sidebar_active = "column_search" %}
-{% set sidebar_description %}Natasha ищет похожие названия колонок, а ниже можно собрать из них таблицу <code>modify_...</code> и сразу выбрать тематические группы.{% endset %}
+{% set sidebar_description %}Поиск релевантных названий колонок и формирование производной таблицы <code>modify_...</code> с возможностью выбора тематических групп полей.{% endset %}
 
 {% block title %}Поиск колонок{% endblock %}
 
@@ -13,7 +13,7 @@
 <main class="main column-search-main" id="page-content">
     <section class="column-search-toolbar">
         <h1>Таблица: <span id="columnSearchTableTitle">{{ selected_table or 'Не выбрана' }}</span></h1>
-        <p id="columnSearchRowsInfo">Здесь можно искать колонки по словам и собирать новую таблицу из найденных и тематических полей.</p>
+        <p id="columnSearchRowsInfo">Раздел предназначен для поиска колонок по ключевым словам и формирования новой таблицы из найденных и тематически сгруппированных полей.</p>
         <form id="columnSearchPageForm" class="column-search-form-row" method="get" action="/column-search">
             <label class="column-search-control">
                 <span>Таблица</span>
@@ -28,22 +28,22 @@
                 </select>
             </label>
             <label class="column-search-control column-search-control-wide">
-                <span>Слова</span>
+                <span>Ключевые слова</span>
                 <input id="columnSearchQuery" name="query" type="text" value="{{ initial_query }}" placeholder="дети эвакуация причина адрес дата">
             </label>
-            <button id="columnSearchButton" class="primary-action column-search-submit column-search-button-compact" type="submit">Найти колонки</button>
+            <button id="columnSearchButton" class="primary-action column-search-submit column-search-button-compact" type="submit">Выполнить поиск колонок</button>
         </form>
-        <div id="columnSearchStatus" class="column-search-status">Сначала выберите таблицу. Поиск и тематические группы работают на одной странице.</div>
+        <div id="columnSearchStatus" class="column-search-status">Выберите таблицу для запуска поиска и работы с тематическими группами на текущей странице.</div>
     </section>
 
     <section class="column-search-builder-grid">
         <article class="panel column-builder-panel">
             <div class="panel-head">
                 <h2>Тематические группы</h2>
-                <span class="panel-meta">Даты, причины, адрес, объект, люди, ущерб и другие наборы колонок.</span>
+                <span class="panel-meta">Наборы колонок по тематическим категориям: даты, причины, адрес, объект, население, ущерб и другие признаки.</span>
             </div>
             <div id="columnSearchGroups" class="column-group-grid">
-                <div class="mini-empty">После выбора таблицы здесь появятся доступные группы.</div>
+                <div class="mini-empty">После выбора таблицы здесь будут представлены доступные тематические группы.</div>
             </div>
         </article>
 
@@ -53,12 +53,12 @@
                 <span id="columnSearchSelectionSummary" class="panel-meta">Выбрано колонок: 0 | Выбрано групп: 0</span>
             </div>
             <div class="column-builder-actions">
-                <button id="columnSearchSelectAll" class="secondary-action column-search-button-compact" type="button">Выбрать все найденные</button>
-                <button id="columnSearchClearSelection" class="secondary-action column-search-button-compact" type="button">Сбросить выбор</button>
-                <button id="columnSearchCreateTable" class="primary-action column-search-button-compact" type="button">Создать modify_*</button>
+                <button id="columnSearchSelectAll" class="secondary-action column-search-button-compact" type="button">Выбрать все найденные колонки</button>
+                <button id="columnSearchClearSelection" class="secondary-action column-search-button-compact" type="button">Очистить выбор</button>
+                <button id="columnSearchCreateTable" class="primary-action column-search-button-compact" type="button">Сформировать таблицу modify_*</button>
             </div>
             <div id="columnSearchMatches" class="column-match-list">
-                <div class="mini-empty">После поиска здесь появятся найденные колонки.</div>
+                <div class="mini-empty">После выполнения поиска здесь будут представлены найденные колонки.</div>
             </div>
         </article>
     </section>
@@ -66,10 +66,10 @@
     <section class="panel">
         <div class="panel-head">
             <h2>Предпросмотр</h2>
-            <span class="panel-meta">Сначала показывается предпросмотр выбранных колонок, а после создания уже новая таблица <code>modify_...</code>.</span>
+            <span class="panel-meta">Предварительный просмотр выбранных колонок и результатов формирования новой таблицы <code>modify_...</code>.</span>
         </div>
         <div id="columnSearchPreview" class="column-search-table-shell">
-            <div class="mini-empty">После поиска здесь появится таблица.</div>
+            <div class="mini-empty">После выполнения поиска здесь будет представлена таблица.</div>
         </div>
     </section>
 </main>

@@ -1,14 +1,14 @@
 <main class="main dashboard-main forecasting-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">Сценарный прогноз | календарь по дням</span>
-            <h1>В какие дни сценарий выглядит напряжённее</h1>
-            <p class="subtitle">Открывайте этот экран, когда нужно заранее понять даты роста пожарной активности и подготовиться до ухудшения обстановки.</p>
+            <span class="eyebrow">Сценарный прогноз | календарная оценка по дням</span>
+            <h1>Календарная динамика вероятности пожаров</h1>
+            <p class="subtitle">Раздел предназначен для предварительного выявления дат повышенной пожарной активности и планирования профилактических мер до ухудшения обстановки.</p>
             <p class="hero-live-summary" id="forecastLeadSummary">{{ summary.hero_summary }}</p>
-            <p class="hero-context-note">Здесь единица прогноза — день: экран оценивает вероятность пожара и выделяет пики сценария. Он не считает ожидаемое число пожаров по датам; для этого есть ML-прогноз. Территории ниже — это уже отдельный шаг интерпретации сценария.</p>
+            <p class="hero-context-note">Базовой единицей прогноза является день: раздел оценивает вероятность пожара и выделяет периоды максимального риска. Оценка ожидаемого количества пожаров выполняется в разделе ML-прогноза. Территориальная приоритизация представлена как следующий этап интерпретации сценария.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="forecastTableLabel">{{ summary.selected_table_label }}</strong></span>
-                <span class="hero-tag">История для расчёта: <strong id="forecastHistoryMode">{{ summary.history_window_label }}</strong></span>
+                <span class="hero-tag">История для расчета: <strong id="forecastHistoryMode">{{ summary.history_window_label }}</strong></span>
                 <span class="hero-tag">Срез: <strong id="forecastSliceLabel">{{ summary.slice_label }}</strong></span>
                 <span class="hero-tag">Горизонт сценария: <strong id="forecastDaysTotal">{{ summary.forecast_days_display }} дней</strong></span>
             </div>
@@ -16,14 +16,14 @@
 
         <div class="hero-side">
             <article class="hero-stat-card" id="forecastHeroPriorityCard">
-                <span class="hero-stat-label">Территория первого внимания по сценарию</span>
+                <span class="hero-stat-label">Приоритетная территория по сценарию</span>
                 <strong class="hero-stat-value" id="forecastHeroPriority">{{ risk.top_territory_label }}</strong>
                 <span class="hero-stat-foot" id="forecastHeroPriorityMeta">{{ risk.top_territory_explanation }}</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft" id="forecastHeroConfidenceCard">
                 <span class="hero-stat-label">Надежность территориального вывода</span>
                 <strong class="hero-stat-value"><span id="forecastHeroConfidence">{{ risk.top_territory_confidence_label or passport.confidence_label or 'Ограниченная' }}</span> <small id="forecastHeroConfidenceScore">{{ risk.top_territory_confidence_score_display or passport.confidence_score_display or '0 / 100' }}</small></strong>
-                <span class="hero-stat-foot" id="forecastHeroConfidenceMeta">{{ risk.top_territory_confidence_note or passport.validation_summary or 'Паспорт качества появится после расчёта.' }}</span>
+                <span class="hero-stat-foot" id="forecastHeroConfidenceMeta">{{ risk.top_territory_confidence_note or passport.validation_summary or 'Паспорт качества будет доступен после выполнения расчета.' }}</span>
             </article>
         </div>
     </section>

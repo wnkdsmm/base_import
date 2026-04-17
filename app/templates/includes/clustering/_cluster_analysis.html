@@ -3,7 +3,7 @@
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
                     <h2 id="clusterScatterTitle">{{ charts.scatter.title }}</h2>
-                    <span class="panel-meta">Каждая точка — территория или населенный пункт. Положение рассчитано по агрегированным признакам.</span>
+                    <span class="panel-meta">Каждая точка соответствует территории или населенному пункту; положение определяется агрегированными признаками.</span>
                 </div>
                 <div id="clusterScatterChart" class="plotly-chart cluster-scatter-chart"></div>
                 <div id="clusterScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
@@ -12,7 +12,7 @@
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2 id="clusterDistributionTitle">{{ charts.distribution.title }}</h2>
-                    <span class="panel-meta">Показывает, насколько равномерно типы территорий представлены в модели.</span>
+                    <span class="panel-meta">Распределение долей типологических групп территорий в модели.</span>
                 </div>
                 <div id="clusterDistributionChart" class="plotly-chart cluster-bar-chart"></div>
                 <div id="clusterDistributionChartFallback" class="chart-empty{% if charts.distribution.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.distribution.empty_message }}</div>
@@ -21,7 +21,7 @@
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2 id="clusterDiagnosticsTitle">{{ charts.diagnostics.title }}</h2>
-                    <span class="panel-meta">Помогает выбрать разумное число кластеров по качеству разделения и инерции.</span>
+                    <span class="panel-meta">Диагностика выбора числа кластеров по качеству разделения и динамике инерции.</span>
                 </div>
                 <div id="clusterDiagnosticsChart" class="plotly-chart cluster-bar-chart"></div>
                 <div id="clusterDiagnosticsChartFallback" class="chart-empty{% if charts.diagnostics.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.diagnostics.empty_message }}</div>
@@ -30,7 +30,7 @@
             <article class="panel data-table-panel">
                 <div class="panel-head">
                     <h2>Центры кластеров</h2>
-                    <span class="panel-meta">Средние значения признаков помогают быстро понять профиль каждого типа территории.</span>
+                    <span class="panel-meta">Средние значения признаков характеризуют профиль каждого кластера территорий.</span>
                 </div>
                 <div class="data-table-shell" id="clusterCentroidTableShell">
                     {% if data.centroid_rows %}
@@ -53,7 +53,7 @@
                         </tbody>
                     </table>
                     {% else %}
-                    <div class="mini-empty">После расчета здесь появятся средние профили кластеров.</div>
+                    <div class="mini-empty">После выполнения расчета здесь будут представлены средние профили кластеров.</div>
                     {% endif %}
                 </div>
             </article>
@@ -63,7 +63,7 @@
             <article class="panel">
                 <div class="panel-head">
                     <h2>Профили кластеров</h2>
-                    <span class="panel-meta">Короткая интерпретация типов территорий риска.</span>
+                    <span class="panel-meta">Краткая интерпретация типологических групп территорий риска.</span>
                 </div>
                 <div class="cluster-overview-grid" id="clusterProfilesShell">
                     {% if data.cluster_profiles %}
@@ -79,15 +79,15 @@
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">Профили типов территорий появятся после расчета.</div>
+                    <div class="mini-empty">Профили типологических групп территорий будут представлены после выполнения расчета.</div>
                     {% endif %}
                 </div>
             </article>
 
             <article class="panel ranking-panel">
                 <div class="panel-head">
-                    <h2>Что важно помнить</h2>
-                    <span class="panel-meta">Подсказки по интерпретации кластеров и качеству сегментации.</span>
+                    <h2>Замечания по интерпретации результатов</h2>
+                    <span class="panel-meta">Рекомендации по корректной интерпретации кластеров и качеству сегментации.</span>
                 </div>
                 <ul class="notice-list" id="clusterNotesList">
                     {% if data.notes %}
@@ -95,7 +95,7 @@
                         <li>{{ note }}</li>
                         {% endfor %}
                     {% else %}
-                    <li>После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.</li>
+                    <li>После выполнения расчета здесь будут представлены комментарии по качеству сегментации и интерпретации полученных типов территорий.</li>
                     {% endif %}
                 </ul>
             </article>
@@ -105,7 +105,7 @@
     <section class="panel data-table-panel">
         <div class="panel-head">
             <h2>Представители кластеров</h2>
-            <span class="panel-meta">Ближайшие к центру территории помогают увидеть типичный пример каждого кластера.</span>
+            <span class="panel-meta">Территории, ближайшие к центроидам, отражают типичные примеры каждого кластера.</span>
         </div>
         <div class="data-table-shell" id="clusterRepresentativesTableShell">
             {% if data.representative_rows %}
@@ -128,7 +128,7 @@
                 </tbody>
             </table>
             {% else %}
-            <div class="mini-empty">После расчета здесь появятся территории, ближайшие к центрам кластеров.</div>
+            <div class="mini-empty">После выполнения расчета здесь будут представлены территории, ближайшие к центрам кластеров.</div>
             {% endif %}
         </div>
     </section>

@@ -1,9 +1,9 @@
 {% set brief = management.brief %}
     {% set section_id = 'dashboardBrief' %}
-    {% set brief_heading = 'Короткий вывод по территориям на панели' %}
-    {% set brief_purpose = 'Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней, причину выбора и уровень доверия к выводу.' %}
-    {% set brief_summary_title = 'Что можно быстро передать дальше' %}
-    {% set brief_trust_title = 'Можно ли опираться на вывод' %}
+    {% set brief_heading = 'Краткий аналитический вывод по территориям' %}
+    {% set brief_purpose = 'Сводный территориальный приоритет на ближайшие 14 дней с обоснованием выбора и оценкой надежности вывода.' %}
+    {% set brief_summary_title = 'Ключевые результаты для оперативной передачи' %}
+    {% set brief_trust_title = 'Оценка применимости вывода' %}
     {% set export_href = '/brief/dashboard.txt?table_name=' ~ filters.table_name ~ '&year=' ~ filters.year ~ '&group_column=' ~ filters.group_column %}
     {% set export_link_id = 'dashboardExportBriefLink' %}
     {% set cards_id = 'managementBriefCards' %}
@@ -18,24 +18,24 @@
                         <span class="stat-foot">По фильтру: <span id="firesCountFoot">{{ scope.table_label }}</span></span>
                     </article>
                     <article class="stat-card">
-                        <span class="stat-label">Тяжёлые последствия</span>
+                        <span class="stat-label">Тяжелые последствия</span>
                         <strong class="stat-value" id="deathsValue">{{ summary.deaths_display }}</strong>
-                        <span class="stat-foot">Погибшие; травмировано: <span id="injuriesValue">{{ summary.injuries_display }}</span></span>
+                        <span class="stat-foot">Погибшие: {{ summary.deaths_display }}; травмированные: <span id="injuriesValue">{{ summary.injuries_display }}</span></span>
                     </article>
                     <article class="stat-card">
-                        <span class="stat-label">Эвакуировано всего</span>
+                        <span class="stat-label">Эвакуированное население</span>
                         <strong class="stat-value" id="evacuatedValue">{{ summary.evacuated_display }}</strong>
-                        <span class="stat-foot">Дети (эвакуировано + спасено): <span id="childrenTotalValue">{{ summary.children_total_display }}</span></span>
+                        <span class="stat-foot">Дети (эвакуированные и спасенные): <span id="childrenTotalValue">{{ summary.children_total_display }}</span></span>
                     </article>
                     <article class="stat-card stat-card-accent">
-                        <span class="stat-label">Дети — первый приоритет</span>
+                        <span class="stat-label">Дети как приоритетная группа</span>
                         <strong class="stat-value" id="childrenTotalCard">{{ summary.children_total_display }}</strong>
-                        <span class="stat-foot">Эвак. {{ summary.evacuated_children_display }} + спасено {{ summary.rescued_children_display }}</span>
+                        <span class="stat-foot">Эвакуировано {{ summary.evacuated_children_display }}; спасено {{ summary.rescued_children_display }}</span>
                     </article>
                     <article class="stat-card" id="severityCard">
                         <span class="stat-label">Тяжесть последствий</span>
                         <strong class="stat-value" id="severityValue">{{ summary.lethality_rate_display }} на 100 пожаров</strong>
-                        <span class="stat-foot">Погибших на 100 пожаров — ниже 1.5 считается нормой для региона.</span>
+                        <span class="stat-foot">Показатель отражает число погибших на 100 пожаров в анализируемом срезе.</span>
                     </article>
                     <article class="stat-card" id="trendCard">
                         <span class="stat-label" id="trendTitle">{{ trend.title }}</span>
@@ -46,8 +46,8 @@
 
                 <section id="dashboardFilters" class="panel filters-panel">
                     <div class="panel-head">
-                        <h2>Уточните срез панели</h2>
-                        <span class="panel-meta">Что показывает блок: по каким данным строится обзор панели и короткий территориальный приоритет.</span>
+                        <h2>Параметры аналитического среза</h2>
+                        <span class="panel-meta">Выбор источника данных, периода наблюдений и группировочного признака для построения обзора.</span>
                     </div>
                     <form class="filters-grid filters-grid-dashboard" id="filtersForm" method="get" action="/">
                         <label class="filter-field">
@@ -66,7 +66,7 @@
                                 <option value="{{ option.value }}" {% if option.value == filters.year %}selected{% endif %}>{{ option.label }}</option>
                                 {% endfor %}
                             </select>
-                            <small class="filter-hint">Используйте, если нужно быстро переключиться между годом и общим историческим горизонтом.</small>
+                            <small class="filter-hint">Позволяет сопоставлять отдельный год с полным историческим горизонтом наблюдений.</small>
                         </label>
                         <label class="filter-field">
                             <span>Разрез</span>
@@ -75,28 +75,28 @@
                                 <option value="{{ option.value }}" {% if option.value == filters.group_column %}selected{% endif %}>{{ option.label }}</option>
                                 {% endfor %}
                             </select>
-                            <small class="filter-hint">Нужен, чтобы сравнить территории, причины или другие группы в графиках и списках ниже.</small>
+                            <small class="filter-hint">Определяет аналитическую группировку для сравнения территорий, причин и иных категорий.</small>
                         </label>
                         <div class="filter-field filter-actions">
                             <span>Действие</span>
-                            <button id="refreshDashboardButton" class="primary-action" type="submit">Показать обновлённый срез</button>
+                            <button id="refreshDashboardButton" class="primary-action" type="submit">Обновить аналитический срез</button>
                         </div>
                     </form>
-                    <div class="filter-summary" id="filterSummary">Сейчас на панели: таблица {{ scope.table_label }} | год {{ scope.year_label }} | разрез {{ scope.group_label }}</div>
+                    <div class="filter-summary" id="filterSummary">Текущие параметры: таблица {{ scope.table_label }} | год {{ scope.year_label }} | разрез {{ scope.group_label }}</div>
                 </section>
 
                 <div id="dashboardInlineError" class="analysis-error-card is-hidden" aria-live="polite">
                     <div class="analysis-error-copy">
-                        <strong id="dashboardInlineErrorLead">Не удалось обновить панель</strong>
-                        <span id="dashboardInlineErrorMessage">Проверьте подключение и повторите запрос.</span>
+                        <strong id="dashboardInlineErrorLead">Обновление данных не выполнено</strong>
+                        <span id="dashboardInlineErrorMessage">Проверьте доступ к источнику данных и повторите запрос.</span>
                     </div>
                     <button id="dashboardInlineRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
                 </div>
 
                 <section id="dashboardNotesPanel" class="panel panel-warning{% if not dashboard.errors %} is-hidden{% endif %}">
                     <div class="panel-head">
-                        <h2>Что может снижать доверие к выводу</h2>
-                        <span class="panel-meta">Что показывает блок: проблемы данных и чтения таблиц, которые могут исказить именно обзор панели.</span>
+                        <h2>Факторы, снижающие достоверность результатов</h2>
+                        <span class="panel-meta">Замечания по качеству данных и их загрузке, способные повлиять на корректность аналитического вывода.</span>
                     </div>
                     <ul class="notice-list" id="dashboardNotesList">
                         {% for error in dashboard.errors %}
@@ -111,16 +111,16 @@
             <section id="dashboardDetails" class="panel executive-detail-panel">
                 <div class="panel-head">
                     <div>
-                        <h2>Поддержка решений: куда смотреть сначала</h2>
-                        <span class="panel-meta">Что показывает блок: сокращенный территориальный приоритет на ближайшие 14 дней и первые действия по нему.</span>
+                        <h2>Поддержка принятия решений: приоритетные направления</h2>
+                        <span class="panel-meta">Сокращенный территориальный приоритет на ближайшие 14 дней и первоочередные управленческие меры.</span>
                     </div>
                 </div>
-                <p class="section-helper">На панели показана только короткая версия ранжирования территорий. Полный список, карта зон внимания и разбор компонент риска открываются в блоке поддержки решений на экране сценарного прогноза.</p>
+                <p class="section-helper">На панели представлена сокращенная версия ранжирования территорий. Расширенный перечень, карта зон повышенного внимания и детализация факторов риска доступны в разделе сценарного прогноза.</p>
                 <div class="executive-layout">
                     <div>
                         <div class="executive-section-head u-flex-between-gap-12">
-                            <h3>Территории первого внимания</h3>
-                            <span>Top-3 территорий по управленческому приоритету на ближайшие 14 дней</span>
+                            <h3>Территории первоочередного внимания</h3>
+                            <span>Топ-3 территорий по управленческому приоритету на ближайшие 14 дней</span>
                         </div>
                         <div id="managementTerritories" class="executive-territory-list">
                             {% if management.territories %}
@@ -146,15 +146,15 @@
                                 </article>
                                 {% endfor %}
                             {% else %}
-                            <div class="mini-empty">Территории первого внимания появятся после расчета.</div>
+                            <div class="mini-empty">Список территорий сформируется после выполнения расчета.</div>
                             {% endif %}
                         </div>
                     </div>
                     <aside class="executive-side-stack">
                         <article class="executive-side-card">
                             <div class="executive-section-head u-flex-between-gap-12">
-                                <h3>Что сделать в первую очередь</h3>
-                                <span>Короткий список действий по территориям выше</span>
+                                <h3>Первоочередные меры</h3>
+                                <span>Краткий перечень действий для приоритетных территорий</span>
                             </div>
                             <div id="managementActionList" class="executive-action-list">
                                 {% if management.actions %}
@@ -165,7 +165,7 @@
                                     </article>
                                     {% endfor %}
                                 {% else %}
-                                <div class="mini-empty">Рекомендации появятся после расчета.</div>
+                                <div class="mini-empty">Рекомендации будут доступны после выполнения расчета.</div>
                                 {% endif %}
                             </div>
                         </article>

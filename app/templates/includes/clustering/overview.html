@@ -2,8 +2,8 @@
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Типы территорий риска</span>
-            <h1>Где территории похожи по профилю пожаров</h1>
-            <p class="subtitle" id="clusteringModelDescription">{{ data.model_description or 'Выберите таблицу, чтобы собрать агрегированный профиль территории и выделить типы риска.' }}</p>
+            <h1>Сходство территорий по профилю пожарной обстановки</h1>
+            <p class="subtitle" id="clusteringModelDescription">{{ data.model_description or 'Выберите таблицу для формирования агрегированного профиля территорий и выделения типологических групп риска.' }}</p>
             <div class="hero-tags" id="clusteringHeroTags">
                 <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
                 <span class="hero-tag">Пожаров в истории: <strong>{{ summary.total_incidents_display }}</strong></span>
@@ -19,7 +19,7 @@
             <article class="hero-stat-card hero-stat-card-soft">
                 <span class="hero-stat-label">Точка локтя</span>
                 <strong class="hero-stat-value">{{ summary.elbow_cluster_count_display }}</strong>
-                <span class="hero-stat-foot">Где кривая inertia начинает заметно ломаться.</span>
+                <span class="hero-stat-foot">Значение, в котором кривая инерции демонстрирует выраженный излом.</span>
             </article>
         </div>
     </section>
@@ -27,7 +27,7 @@
     <section class="panel filters-panel">
         <div class="panel-head">
             <h2>Параметры кластеризации</h2>
-            <span class="panel-meta">Сначала собираются агрегаты по территориям, затем запускается k-means по выбранным признакам.</span>
+            <span class="panel-meta">Формирование территориальных агрегатов и последующая кластеризация методом k-means по выбранным признакам.</span>
         </div>
         <form class="filters-grid cluster-form-grid" id="clusteringForm" method="get" action="/clustering">
             <label class="filter-field">
@@ -80,25 +80,25 @@
                                 <input type="checkbox" name="feature_columns" value="{{ feature.name }}" checked>
                         <span class="cluster-feature-copy">
                             <strong class="cluster-feature-name">{{ feature.name }}</strong>
-                            <span class="cluster-feature-meta">{{ feature.description }} Заполненность: {{ feature.coverage_display }} | Дисперсия: {{ feature.variance_display }}</span>
+                            <span class="cluster-feature-meta">{{ feature.description }} Полнота: {{ feature.coverage_display }} | Дисперсия: {{ feature.variance_display }}</span>
                         </span>
                     </label>
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="mini-empty">После выбора таблицы здесь появятся агрегированные признаки для типологии территорий риска.</div>
+                <div class="mini-empty">После выбора таблицы здесь будут представлены агрегированные признаки для построения типологии территорий риска.</div>
                 {% endif %}
-                <span class="cluster-feature-help">Базовый набор ориентирован на территориальный риск: частота, площадь, ночные пожары, прибытие и последствия.</span>
+                <span class="cluster-feature-help">Базовый набор ориентирован на территориальный риск: частота, площадь, ночные пожары, параметры прибытия и тяжесть последствий.</span>
             </div>
         </form>
-        <div class="filter-summary" id="clusteringFilterSummary">Пожаров в истории: {{ summary.total_incidents_display }} | Территорий после агрегации: {{ summary.total_entities_display }} | В выборке: {{ summary.sampled_entities_display }} | Стратегия: {{ summary.sampling_strategy_label }}</div>
+        <div class="filter-summary" id="clusteringFilterSummary">Пожаров в истории: {{ summary.total_incidents_display }} | Территорий после агрегации: {{ summary.total_entities_display }} | Территорий в выборке: {{ summary.sampled_entities_display }} | Стратегия: {{ summary.sampling_strategy_label }}</div>
     </section>
 
     <div id="clusteringAsyncState" class="analysis-async is-hidden">
         <div id="clusteringErrorState" class="analysis-error-card is-hidden" aria-live="polite">
             <div class="analysis-error-copy">
-                <strong>Не удалось пересчитать кластеры</strong>
-                <span id="clusteringErrorMessage">Попробуйте повторить запрос с теми же параметрами.</span>
+                <strong>Пересчет кластеров не выполнен</strong>
+                <span id="clusteringErrorMessage">Повторите запрос с текущими параметрами или уточните исходные условия.</span>
             </div>
             <div class="analysis-inline-actions">
                 <button id="clusteringRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
@@ -106,7 +106,7 @@
         </div>
         <div id="clusteringJobRuntime" class="analysis-runtime-card is-hidden" aria-live="polite">
             <div class="analysis-runtime-head">
-                <strong id="clusteringJobStatusLabel">Статус clustering-job</strong>
+                <strong id="clusteringJobStatusLabel">Статус вычислительной задачи кластеризации</strong>
                 <span id="clusteringJobMeta"></span>
             </div>
             <pre id="clusteringJobLogOutput" class="analysis-job-log-output"></pre>

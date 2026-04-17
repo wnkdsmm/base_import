@@ -2,9 +2,9 @@
 {% set data = fire_map %}
 {% set brief = data.executive_brief %}
 {% set risk = data.risk_prediction %}
-{% set sidebar_title = "Fire-map" %}
+{% set sidebar_title = "Карта пожаров" %}
 {% set sidebar_active = "fire_map" %}
-{% set sidebar_description %}Сначала показывает, где риск на карте выше, почему эта территория выходит в приоритет и что стоит проверить до просмотра всех слоев.{% endset %}
+{% set sidebar_description %}Геоаналитический раздел для выявления территорий повышенного риска, обоснования их приоритета и проверки ключевых пространственных слоев.{% endset %}
 
 {% block title %}Карта пожаров{% endblock %}
 
@@ -15,14 +15,14 @@
 
 {% block sidebar_status %}
     <div class="sidebar-status">
-        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Карта готова к просмотру{% else %}Нет таблиц для карты{% endif %}</span>
+        <span class="status-badge{% if data.has_data %} status-badge-live{% endif %}">{% if data.has_data %}Карта доступна для анализа{% else %}Таблицы для карты отсутствуют{% endif %}</span>
         <div class="status-line">
-            <span>Таблиц для карты</span>
+            <span>Таблиц в контуре карты</span>
             <strong>{{ data.tables_count }}</strong>
         </div>
         <div class="status-line">
             <span>Выбранная таблица</span>
-            <strong>{{ data.selected_table or 'Нет данных' }}</strong>
+            <strong>{{ data.selected_table or 'Данные отсутствуют' }}</strong>
         </div>
         <div class="status-line">
             <span>Источник</span>
@@ -36,7 +36,7 @@
     <section class="hero-panel">
         <div class="hero-copy">
             <span class="eyebrow">Геоаналитика</span>
-            <h1>Карта пожаров: где риск и что проверять на местности</h1>
+            <h1>Карта пожарных рисков и приоритетов проверки</h1>
             <p class="subtitle">{{ brief.lead }}</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong>{{ data.selected_table or 'не выбрана' }}</strong></span>
@@ -52,7 +52,7 @@
                 <span class="hero-stat-foot">{{ brief.priority_reason }}</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Что проверить первым</span>
+                <span class="hero-stat-label">Первоочередная проверка</span>
                 <strong class="hero-stat-value">{{ brief.action_label }}</strong>
                 <span class="hero-stat-foot">{{ brief.action_detail }}</span>
             </article>
@@ -62,7 +62,7 @@
     <section id="mapFilters" class="panel filters-panel">
         <div class="panel-head">
             <h2>Выбор таблицы</h2>
-            <span class="panel-meta">Сначала берём нужную таблицу, затем открываем карту и сверяем приоритет с пространственными слоями.</span>
+            <span class="panel-meta">Выбор таблицы-источника для отображения карты и сопоставления приоритетов с пространственными слоями.</span>
         </div>
         <form class="filters-grid map-toolbar" method="get" action="/fire-map">
             <label class="filter-field filter-field-wide">
@@ -86,7 +86,7 @@
                 {% if data.selected_table %}
                 <a class="secondary-action" href="/fire-map/embed?table_name={{ data.selected_table }}" target="_blank" rel="noopener">Открыть отдельно</a>
                 {% else %}
-                <span class="secondary-action is-disabled">Нет таблицы</span>
+                <span class="secondary-action is-disabled">Таблица не выбрана</span>
                 {% endif %}
             </div>
         </form>
@@ -95,7 +95,7 @@
     <section id="mapCanvas" class="panel map-frame-panel">
         <div class="panel-head">
             <h2>Интерактивная карта и слой поддержки решения</h2>
-            <span class="panel-meta">Ищем приоритетную территорию, затем проверяем горячие зоны, плотность точек и соседние очаги на карте.</span>
+            <span class="panel-meta">Проверка приоритетной территории с учетом горячих зон, плотности точек и соседних очагов на карте.</span>
         </div>
         <div class="map-frame-shell">
             {% if data.selected_table %}
@@ -106,7 +106,7 @@
                 loading="lazy">
             </iframe>
             {% else %}
-            <div class="chart-empty">Нет доступных таблиц для построения карты.</div>
+            <div class="chart-empty">Доступные таблицы для построения карты отсутствуют.</div>
             {% endif %}
         </div>
     </section>
@@ -115,14 +115,14 @@
         <div class="panel-head">
             <div>
                 <h2>Детали приоритета на карте</h2>
-                <span class="panel-meta">Это уже второй уровень: здесь остаются территории-лидеры и примечания к данным, если нужно проверить решение глубже.</span>
+                <span class="panel-meta">Углубленный уровень анализа с выделением территорий-лидеров и примечаний к данным для дополнительной верификации решения.</span>
             </div>
         </div>
         <div class="executive-layout">
             <div>
                 <div class="executive-section-head u-flex-between-gap-12">
                     <h3>Территории первого внимания</h3>
-                    <span>Top-3 по риску</span>
+                    <span>Топ-3 по уровню риска</span>
                 </div>
                 <div class="executive-territory-list">
                     {% if risk.territories %}
@@ -144,7 +144,7 @@
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">После расчета здесь появятся лидирующие территории для проверки на карте.</div>
+                    <div class="mini-empty">После выполнения расчета здесь будут представлены лидирующие территории для проверки на карте.</div>
                     {% endif %}
                 </div>
             </div>
@@ -152,7 +152,7 @@
                 <article class="executive-side-card">
                     <div class="executive-section-head u-flex-between-gap-12">
                         <h3>Ограничения данных</h3>
-                        <span>Что держать в голове перед решением</span>
+                        <span>Факторы, учитываемые перед принятием решения</span>
                     </div>
                     <ul class="notice-list forecast-note-list">
                         {% if brief.notes %}
@@ -160,7 +160,7 @@
                             <li>{{ note }}</li>
                             {% endfor %}
                         {% else %}
-                        <li>Примечания к данным появятся после расчета.</li>
+                        <li>Примечания к данным будут доступны после выполнения расчета.</li>
                         {% endif %}
                     </ul>
                 </article>

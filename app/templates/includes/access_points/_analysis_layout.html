@@ -3,7 +3,7 @@
             <article class="panel chart-panel chart-panel-large">
                 <div class="panel-head">
                     <h2 id="accessPointsScatterTitle">{{ charts.scatter.title }}</h2>
-                    <span class="panel-meta">Каждая точка — отдельная проблемная локация. Положение рассчитано по совокупности компонент риска, как на двумерной проекции в clustering.</span>
+                    <span class="panel-meta">Каждая точка соответствует отдельной проблемной локации; положение определяется совокупностью компонент риска в двумерной проекции.</span>
                 </div>
                 <div id="accessPointsScatterChart" class="plotly-chart access-points-scatter-chart"></div>
                 <div id="accessPointsScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
@@ -11,8 +11,8 @@
 
             <article class="panel">
                 <div class="panel-head">
-                    <h2>Top-N проблемных точек</h2>
-                    <span class="panel-meta">Короткий список для оперативного просмотра и объяснения причин попадания в верх рейтинга.</span>
+                    <h2>Верхние позиции рейтинга проблемных точек</h2>
+                    <span class="panel-meta">Список локаций с максимальным приоритетом и обоснованием включения в верхнюю часть рейтинга.</span>
                 </div>
                 <div id="accessPointsTopList" class="point-card-grid">
                     {% if data.top_points %}
@@ -39,7 +39,7 @@
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">После расчёта здесь появятся самые проблемные точки.</div>
+                    <div class="mini-empty">После выполнения расчета здесь будут представлены точки с наибольшим уровнем риска.</div>
                     {% endif %}
                 </div>
             </article>
@@ -49,7 +49,7 @@
             <article class="panel">
                 <div class="panel-head">
                     <h2>Мини-типология</h2>
-                    <span class="panel-meta">Небольшое агрегированное описание того, какие типы проблемных точек чаще попадают в рейтинг.</span>
+                    <span class="panel-meta">Агрегированное описание типов проблемных точек, наиболее часто представленных в рейтинге.</span>
                 </div>
                 <div id="accessPointsTypologyShell" class="typology-grid">
                     {% if data.typology %}
@@ -57,12 +57,12 @@
                         <article class="typology-card">
                             <strong>{{ item.label }}</strong>
                             <span>{{ item.count_display }} точек | {{ item.share_display }}</span>
-                            <span>Максимальный score: {{ item.max_score_display }}</span>
+                            <span>Максимальный балл: {{ item.max_score_display }}</span>
                             <span>Лидер: {{ item.lead_label }}</span>
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">Типология появится после расчёта рейтинга.</div>
+                    <div class="mini-empty">Типология будет представлена после выполнения расчета рейтинга.</div>
                     {% endif %}
                 </div>
             </article>
@@ -70,7 +70,7 @@
             <article class="panel access-points-distribution-panel">
                 <div class="panel-head">
                     <h2>Распределение балла риска</h2>
-                    <span class="panel-meta">Показывает, где сосредоточена основная масса точек: по уровням риска и по диапазонам итогового балла.</span>
+                    <span class="panel-meta">Распределение точек по уровням риска и диапазонам итогового балла.</span>
                 </div>
                 <div id="accessPointsDistributionShell" class="score-distribution-grid">
                     {% if data.score_distribution and data.score_distribution.bands %}
@@ -99,15 +99,15 @@
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">Распределение балла риска появится после расчёта рейтинга.</div>
+                    <div class="mini-empty">Распределение балла риска будет доступно после выполнения расчета рейтинга.</div>
                     {% endif %}
                 </div>
             </article>
 
             <article class="panel">
                 <div class="panel-head">
-                    <h2>Неопределённость</h2>
-                    <span class="panel-meta">Пояснения, как low support и пропуски влияют на итоговый score.</span>
+                    <h2>Неопределенность оценки</h2>
+                    <span class="panel-meta">Пояснения влияния ограниченной поддержки наблюдений и пропусков на итоговый балл.</span>
                 </div>
                 <ul class="notice-list" id="accessPointsUncertaintyNotes">
                     {% if data.uncertainty_notes %}
@@ -115,15 +115,15 @@
                         <li>{{ note }}</li>
                         {% endfor %}
                     {% else %}
-                    <li>Здесь появятся пояснения по uncertainty penalty и low support.</li>
+                    <li>После выполнения расчета здесь будут представлены пояснения по штрафу неопределенности и ограниченной поддержке наблюдений.</li>
                     {% endif %}
                 </ul>
             </article>
 
             <article class="panel">
                 <div class="panel-head">
-                    <h2>Что важно помнить</h2>
-                    <span class="panel-meta">Пояснения по fallback-логике, полноте данных и интерпретации рейтинга.</span>
+                    <h2>Ключевые замечания по интерпретации</h2>
+                    <span class="panel-meta">Пояснения по резервной логике, полноте данных и корректной интерпретации рейтинга.</span>
                 </div>
                 <ul class="notice-list" id="accessPointsNotes">
                     {% if data.notes %}
@@ -131,7 +131,7 @@
                         <li>{{ note }}</li>
                         {% endfor %}
                     {% else %}
-                    <li>Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.</li>
+                    <li>После выполнения расчета здесь будут представлены комментарии по качеству данных и интерпретации рейтинга.</li>
                     {% endif %}
                 </ul>
             </article>

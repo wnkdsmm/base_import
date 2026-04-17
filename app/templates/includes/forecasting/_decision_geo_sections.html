@@ -3,10 +3,10 @@
         {% set decision_stage_visible = data.decision_support_ready or (not data.decision_support_pending and not data.deferred and not data.base_forecast_pending and not data.loading) %}
         <article class="panel ranking-panel risk-ranking-panel risk-decision-panel-wide" data-forecast-stage="decision"{% if not decision_stage_visible %} hidden{% endif %}>
             <div class="panel-head">
-                <h2>Поддержка решений: какие территории взять в работу первыми</h2>
-                <span class="panel-meta">Что показывает блок: управленческий приоритет территорий при текущем сценарии.</span>
+                <h2>Поддержка принятия решений: приоритет территорий</h2>
+                <span class="panel-meta">Управленческое ранжирование территорий в условиях текущего сценария.</span>
             </div>
-            <p class="section-helper">Этот блок не предсказывает новые даты и не считает количество пожаров. Он объединяет сценарий по дням с историей, последствиями и логистикой, чтобы выстроить список территорий первого внимания.</p>
+            <p class="section-helper">Раздел не формирует новые календарные даты и не оценивает ожидаемое количество пожаров. Он интегрирует сценарий по дням с историческими данными, последствиями и логистическими факторами для построения приоритетного списка территорий.</p>
             <div id="forecastRiskTerritories" class="risk-territory-list">
                 {% if risk.territories %}
                     {% for item in risk.territories %}
@@ -25,13 +25,13 @@
                         </div>
                         <div class="risk-score-bar"><span data-bar-width="{{ item.bar_width }}"></span></div>
                         <div class="risk-territory-callout">
-                            <span>Что проверить первым</span>
+                            <span>Первоочередная проверка</span>
                             <strong>{{ item.action_label }}</strong>
                             <p>{{ item.action_hint }}</p>
                         </div>
                         <div class="risk-metrics-grid">
                             <div><span>Риск пожара</span><strong>{{ item.fire_probability_display }}</strong></div>
-                            <div><span>Тяжёлые последствия</span><strong>{{ item.severe_probability_display }}</strong></div>
+                            <div><span>Тяжелые последствия</span><strong>{{ item.severe_probability_display }}</strong></div>
                             <div><span>Долгое прибытие</span><strong>{{ item.arrival_probability_display }}</strong></div>
                             <div><span>Пожаров в истории</span><strong>{{ item.history_count_display }}</strong></div>
                         </div>
@@ -57,7 +57,7 @@
                                 </article>
                                 {% endfor %}
                             {% else %}
-                            <div class="mini-empty">Рекомендации появятся после расчёта.</div>
+                            <div class="mini-empty">Рекомендации будут доступны после выполнения расчета.</div>
                             {% endif %}
                         </div>
                         <div class="risk-territory-meta">
@@ -72,12 +72,12 @@
                             <span>Вода: <strong>{{ item.water_supply_display }}</strong></span>
                             <span>Объекты: <strong>{{ item.dominant_object_category }}</strong></span>
                         </div>
-                        <p class="risk-drivers"><strong>Почему именно эта территория:</strong> {{ item.ranking_reason | default(item.drivers_display) }}</p>
-                        <p class="risk-drivers"><strong>Почему уровень доверия такой:</strong> {{ item.ranking_confidence_note | default('Оценка надёжности появится после расчёта.') }}</p>
+                        <p class="risk-drivers"><strong>Обоснование приоритета территории:</strong> {{ item.ranking_reason | default(item.drivers_display) }}</p>
+                        <p class="risk-drivers"><strong>Обоснование уровня надежности:</strong> {{ item.ranking_confidence_note | default('Оценка надежности будет доступна после выполнения расчета.') }}</p>
                     </article>
                     {% endfor %}
                 {% else %}
-                <div class="mini-empty">После расчёта здесь появится ранжирование территорий.</div>
+                <div class="mini-empty">После выполнения расчета здесь будет представлено ранжирование территорий.</div>
                 {% endif %}
             </div>
         </article>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set sidebar_title = "Очистка" %}
 {% set sidebar_active = "select_table" %}
-{% set sidebar_description %}Подготовка очищенной таблицы `clean_*` с понятными порогами и компактным итогом очистки без лишнего шума.{% endset %}
+{% set sidebar_description %}Подготовка очищенной таблицы `clean_*` на основе заданных порогов с краткой сводкой результатов очистки.{% endset %}
 
 {% block charset %}utf-8{% endblock %}
 {% block title %}Очистка таблиц{% endblock %}
@@ -36,7 +36,7 @@
         <div class="hero-copy">
             <span class="eyebrow">Подготовка данных</span>
             <h1>Очистка таблиц</h1>
-            <p class="subtitle">Выберите таблицу, задайте пороги очистки и сразу получите короткий итог: сколько столбцов убрано, какие причины сработали и как называется новая очищенная таблица `clean_*`.</p>
+            <p class="subtitle">Выберите таблицу и задайте пороги очистки для получения итоговой сводки: число исключенных столбцов, причины исключения и наименование новой очищенной таблицы `clean_*`.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблиц в базе: <strong>{{ tables | length }}</strong></span>
                 <span class="hero-tag">Порог пропусков: <strong>{{ profiling_defaults.null_threshold_percent }}%</strong></span>
@@ -45,14 +45,14 @@
         </div>
         <div class="hero-side">
             <article class="hero-stat-card">
-                <span class="hero-stat-label">На выходе</span>
+                <span class="hero-stat-label">Результат обработки</span>
                 <strong class="hero-stat-value"><small>очищенная таблица</small></strong>
-                <span class="hero-stat-foot">Плюс CSV и Excel отчёты по текущим порогам.</span>
+                <span class="hero-stat-foot">Дополнительно формируются отчеты в форматах CSV и Excel по текущим порогам.</span>
             </article>
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Что видно сразу</span>
+                <span class="hero-stat-label">Оперативная сводка</span>
                 <strong class="hero-stat-value"><small>итог запуска</small></strong>
-                <span class="hero-stat-foot">Ключевые метрики и файлы результата без отдельной панели логов.</span>
+                <span class="hero-stat-foot">Ключевые метрики и файлы результата отображаются в пределах текущего экрана.</span>
             </article>
         </div>
     </section>
@@ -61,24 +61,24 @@
         <article class="panel selector-panel">
             <div class="panel-head">
                 <h2>1. Таблица и пороги</h2>
-                <span class="panel-meta">Выберите таблицу, задайте пороги и сразу запускайте очистку.</span>
+                <span class="panel-meta">Выбор таблицы, установка порогов и запуск процедуры очистки.</span>
             </div>
 
             <div class="threshold-grid">
                 <div class="threshold-field">
                     <label for="nullThreshold">Пропуски, %</label>
                     <input id="nullThreshold" type="number" min="0" max="100" step="1" value="{{ profiling_defaults.null_threshold_percent }}">
-                    <small>Исключить по пустым значениям.</small>
+                    <small>Исключение колонок по доле пустых значений.</small>
                 </div>
                 <div class="threshold-field">
                     <label for="dominantThreshold">Доминирующее значение, %</label>
                     <input id="dominantThreshold" type="number" min="0" max="100" step="1" value="{{ profiling_defaults.dominant_value_threshold_percent }}">
-                    <small>Убрать почти константные колонки.</small>
+                    <small>Исключение почти константных колонок.</small>
                 </div>
                 <div class="threshold-field">
                     <label for="varianceThreshold">Минимальная дисперсия</label>
                     <input id="varianceThreshold" type="number" min="0" step="0.0001" value="{{ profiling_defaults.low_variance_threshold }}">
-                    <small>Порог для числовых колонок.</small>
+                    <small>Пороговый уровень для числовых колонок.</small>
                 </div>
             </div>
 
@@ -92,21 +92,21 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div id="selectionNote" class="selection-note">Таблица пока не выбрана.</div>
+                <div id="selectionNote" class="selection-note">Таблица не выбрана.</div>
                 <div class="action-row"><button id="runButton" class="primary-action primary-action-success" type="button" disabled>Запустить очистку</button></div>
-                <div id="statusBanner" class="analysis-runtime-card status-banner status-idle">Выберите таблицу, при необходимости измените пороги и запустите очистку.</div>
+                <div id="statusBanner" class="analysis-runtime-card status-banner status-idle">Выберите таблицу, при необходимости скорректируйте пороги и запустите очистку.</div>
                 <div id="profilingLoadingState" class="analysis-status-card is-hidden" aria-live="polite">
                     <div class="analysis-status-head u-flex-between-gap-12">
                         <div class="analysis-status-copy">
-                            <strong id="profilingLoadingLead" class="analysis-status-lead">Подготавливаем очистку таблицы</strong>
-                            <span id="profilingLoadingMessage" class="analysis-status-message">Проверяем выбранную таблицу, считаем метрики и собираем итоговые файлы.</span>
+                            <strong id="profilingLoadingLead" class="analysis-status-lead">Выполняется подготовка очистки таблицы</strong>
+                            <span id="profilingLoadingMessage" class="analysis-status-message">Проверяется выбранная таблица, рассчитываются метрики и формируются итоговые файлы.</span>
                         </div>
                     </div>
                     <div id="profilingProgressSteps" class="analysis-step-list">
                         <span class="analysis-step is-active">Загрузка данных</span>
                         <span class="analysis-step">Агрегация</span>
-                        <span class="analysis-step">Обучение / валидация</span>
-                        <span class="analysis-step">Построение визуализаций</span>
+                        <span class="analysis-step">Расчет критериев очистки</span>
+                        <span class="analysis-step">Формирование результатов</span>
                     </div>
                     <div id="profilingLoadingSkeleton" class="analysis-skeleton-grid">
                         <div class="analysis-skeleton-card">
@@ -128,39 +128,39 @@
                 </div>
                 <div id="profilingErrorState" class="analysis-error-card is-hidden" aria-live="polite">
                     <div class="analysis-error-copy">
-                        <strong>Не удалось завершить очистку</strong>
-                        <span id="profilingErrorMessage">Попробуйте повторить запуск с теми же порогами.</span>
+                        <strong>Очистка не завершена</strong>
+                        <span id="profilingErrorMessage">Повторите запуск с текущими параметрами или уточните пороги.</span>
                     </div>
                     <div class="analysis-inline-actions">
                         <button id="profilingRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
                     </div>
                 </div>
             {% else %}
-                <div class="empty-state">В базе данных пока нет таблиц. Сначала загрузите файл на главной странице.</div>
+                <div class="empty-state">В базе данных отсутствуют таблицы. Для продолжения загрузите исходный файл на главной странице.</div>
             {% endif %}
         </article>
 
         <article class="panel profiling-info-panel">
             <div class="panel-head">
-                <h2>Что за что отвечает</h2>
-                <span class="panel-meta">Короткая памятка по порогам и результатам очистки</span>
+                <h2>Назначение параметров</h2>
+                <span class="panel-meta">Справочная информация по порогам и результатам очистки</span>
             </div>
             <div class="info-note-list">
                 <div class="info-note-card">
                     <strong>Пропуски, %</strong>
-                    <p>Исключает колонки, где слишком много пустых значений.</p>
+                    <p>Исключает колонки с высокой долей пустых значений.</p>
                 </div>
                 <div class="info-note-card">
                     <strong>Доминирующее значение, %</strong>
-                    <p>Убирает почти постоянные колонки, где одно значение встречается слишком часто.</p>
+                    <p>Исключает почти постоянные колонки, в которых одно значение встречается с чрезмерно высокой частотой.</p>
                 </div>
                 <div class="info-note-card">
                     <strong>Минимальная дисперсия</strong>
-                    <p>Помогает убрать числовые поля почти без разброса.</p>
+                    <p>Позволяет исключить числовые поля с крайне низкой вариативностью.</p>
                 </div>
                 <div class="info-note-card">
                     <strong>Итог запуска</strong>
-                    <p>Ниже появляются метрики, файлы результата и удалённые столбцы.</p>
+                    <p>После выполнения отображаются метрики, файлы результата и перечень исключенных столбцов.</p>
                 </div>
             </div>
         </article>
@@ -169,24 +169,24 @@
             <article class="panel run-summary-panel">
                 <div class="panel-head">
                     <h2>2. Итог запуска</h2>
-                    <span class="panel-meta">Короткая сводка по выбранной таблице и результату очистки</span>
+                    <span class="panel-meta">Сводка по выбранной таблице и результатам очистки</span>
                 </div>
 
                 <div id="runSummary" class="log-run-summary">
                     <div class="log-run-card">
                         <span class="log-run-label">Таблица</span>
                         <span id="runSummaryTable" class="log-run-value">Не выбрана</span>
-                        <div class="log-run-note">Выберите исходную таблицу для очистки.</div>
+                        <div class="log-run-note">Выберите исходную таблицу для запуска очистки.</div>
                     </div>
                     <div class="log-run-card">
                         <span class="log-run-label">Убрано столбцов</span>
                         <span id="runSummaryRemoved" class="log-run-value">-</span>
-                        <div class="log-run-note">После запуска здесь появится число исключённых столбцов.</div>
+                        <div class="log-run-note">После выполнения будет отображено число исключенных столбцов.</div>
                     </div>
                     <div class="log-run-card">
                         <span class="log-run-label">Новая таблица</span>
                         <span id="runSummaryCleanTable" class="log-run-value">-</span>
-                        <div class="log-run-note">Будет создана очищенная таблица с префиксом `clean_` и обновлённым набором полей.</div>
+                        <div class="log-run-note">Формируется очищенная таблица с префиксом `clean_` и обновленным набором полей.</div>
                     </div>
                 </div>
             </article>
@@ -203,7 +203,7 @@
                     <article class="panel result-card">
                         <div class="panel-head">
                             <h2>Что исключено</h2>
-                            <span class="panel-meta">Причины и применённые пороги</span>
+                            <span class="panel-meta">Причины исключения и примененные пороги</span>
                         </div>
                         <p id="resultMessage" class="section-copy">Итог выполнения.</p>
                         <div id="thresholdsSummary" class="chip-list"></div>
@@ -212,9 +212,9 @@
                     <article class="panel result-card">
                         <div class="panel-head">
                             <h2>Что создано</h2>
-                            <span class="panel-meta">Файлы и итоговая очищенная таблица</span>
+                            <span class="panel-meta">Файлы результатов и итоговая очищенная таблица</span>
                         </div>
-                        <p id="outputSummary" class="section-copy">Здесь появится информация об очищенной таблице и файлах отчёта.</p>
+                        <p id="outputSummary" class="section-copy">После выполнения будет представлена информация об очищенной таблице и файлах отчета.</p>
                         <div id="filesList" class="file-list"></div>
                     </article>
                 </div>
@@ -225,7 +225,7 @@
                         <div class="table-shell">
                             <table class="details-table table-stack-mobile">
                                 <thead><tr><th>Колонка</th><th>Тип</th><th>Причины</th><th>Пропуски</th><th>Доминирующее значение</th></tr></thead>
-                                <tbody id="candidatesBody"><tr><td colspan="5">После запуска здесь появится список колонок.</td></tr></tbody>
+                                <tbody id="candidatesBody"><tr><td colspan="5">После выполнения будет представлен список колонок.</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -244,7 +244,7 @@
     <section class="panel mandatory-catalog-panel page-section">
         <div class="panel-head">
             <h2>Канонический список обязательных признаков</h2>
-            <span class="panel-meta">{{ mandatory_feature_catalog | length }} признаков защищены от автоматического удаления даже при автоматическом анализе колонок.</span>
+            <span class="panel-meta">{{ mandatory_feature_catalog | length }} признаков защищены от автоматического удаления при анализе колонок.</span>
         </div>
         <div class="mandatory-catalog-grid">
             {% for feature in mandatory_feature_catalog %}
@@ -272,14 +272,14 @@
         <section id="removedColumnsSection" class="panel removed-columns-section">
             <div class="panel-head">
                 <h2>Удалённые столбцы</h2>
-                <span class="panel-meta">Полный список колонок, которые очистка исключила из итоговой очищенной таблицы</span>
+                <span class="panel-meta">Полный перечень колонок, исключенных из итоговой очищенной таблицы</span>
             </div>
             <div id="removedColumns" class="chip-list removed-columns-list"></div>
         </section>
         <section class="panel kept-columns-section">
             <div class="panel-head">
                 <h2>Колонки после очистки</h2>
-                <span class="panel-meta">Поля, которые останутся в итоговой очищенной таблице</span>
+                <span class="panel-meta">Поля, сохраняемые в итоговой очищенной таблице</span>
             </div>
             <div id="keptColumnsSecondary" class="chip-list removed-columns-list"></div>
         </section>

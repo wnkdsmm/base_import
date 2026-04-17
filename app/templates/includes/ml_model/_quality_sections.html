@@ -1,8 +1,8 @@
 <section id="mlBacktestingSection" class="panel ml-quality-panel">
         <div class="panel-head">
             <div>
-                <h2 id="mlQualityTitle">Насколько можно доверять ML-прогнозу</h2>
-                <span class="panel-meta" id="mlQualitySubtitle">{{ quality.subtitle or 'Что показывает блок: насколько модель предсказывала именно число пожаров на прошлой истории и чем она лучше простых подходов.' }}</span>
+                <h2 id="mlQualityTitle">Оценка надежности ML-прогноза</h2>
+                <span class="panel-meta" id="mlQualitySubtitle">{{ quality.subtitle or 'Качество прогнозирования количества пожаров на исторических данных и сопоставление с базовыми методами.' }}</span>
             </div>
         </div>
         <div class="stats-grid" id="mlQualityMetricCards">
@@ -15,7 +15,7 @@
                 </article>
                 {% endfor %}
             {% else %}
-            <div class="mini-empty">После расчета здесь появятся метрики качества ML-прогноза.</div>
+            <div class="mini-empty">После выполнения расчета здесь будут представлены метрики качества ML-прогноза.</div>
             {% endif %}
         </div>
 
@@ -23,7 +23,7 @@
             <div class="panel-head">
                 <div>
                     <h2 id="mlIntervalCoverageTitle">{{ quality.interval_card.label }}</h2>
-                    <span class="panel-meta">Что показывает блок: как часто фактическое число пожаров попадало в прогнозный интервал на отложенных окнах истории.</span>
+                    <span class="panel-meta">Частота попадания фактического числа пожаров в прогнозный интервал на отложенных исторических окнах.</span>
                 </div>
                 <strong class="ml-interval-value" id="mlIntervalCoverageValue">{{ quality.interval_card.value }}</strong>
             </div>
@@ -34,7 +34,7 @@
             <div class="panel-head">
                 <div>
                     <h3>Дополнительные метрики события пожара</h3>
-                    <span class="panel-meta">Что показывает блок: насколько модель оценивает вероятность хотя бы одного пожара; это вспомогательная проверка, а не основная оценка прогноза количества.</span>
+                    <span class="panel-meta">Качество оценки вероятности хотя бы одного пожара; вспомогательная проверка по отношению к количественному прогнозу.</span>
                 </div>
             </div>
             <div class="stats-grid ml-quality-extra-grid" id="mlQualityEventMetricCards">
@@ -53,7 +53,7 @@
         <div class="ml-table-shell">
             <div class="panel-head">
                 <h2 id="mlCountTableTitle">{{ quality.count_table.title }}</h2>
-                <span class="panel-meta">Что показывает блок: лучше ли рабочая модель предсказывает число пожаров, чем более простые подходы.</span>
+                <span class="panel-meta">Сравнение рабочей модели с более простыми подходами по качеству прогноза количества пожаров.</span>
             </div>
             <div id="mlCountTableShell">
                 {% if quality.count_table.rows %}

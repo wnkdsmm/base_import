@@ -12,12 +12,12 @@
             <span class="stat-foot"><span id="forecastActiveDays">{{ summary.active_days_display }}</span> из <span id="forecastHistoryDays">{{ summary.history_days_display }}</span> дней</span>
         </article>
         <article class="stat-card">
-            <span class="stat-label">Какой день в истории был типичным</span>
+            <span class="stat-label">Типичный день по историческим данным</span>
             <strong class="stat-value" id="forecastRecentAverage">{{ summary.recent_average_display }}</strong>
             <span class="stat-foot">Исторически в среднем: <span id="forecastHistoricalAverage">{{ summary.historical_average_display }}</span></span>
         </article>
         <article class="stat-card">
-            <span class="stat-label">Где ожидается пик</span>
+            <span class="stat-label">Пиковое значение прогноза</span>
             <strong class="stat-value" id="forecastPeakRiskValue">{{ summary.peak_forecast_probability_display }}</strong>
             <span class="stat-foot">Дата: <span id="forecastPeakRiskDay">{{ summary.peak_forecast_day_display }}</span></span>
         </article>

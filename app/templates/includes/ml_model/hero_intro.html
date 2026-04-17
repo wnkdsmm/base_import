@@ -1,17 +1,17 @@
 <main class="main dashboard-main ml-model-main" id="page-content">
     <section class="hero-panel">
         <div class="hero-copy">
-            <span class="eyebrow">ML-прогноз | количество по дням</span>
-            <h1>Сколько пожаров может быть по датам</h1>
-            <p class="subtitle">Открывайте этот экран, когда нужно оценить ожидаемое число пожаров по дням и возможную нагрузку на систему.</p>
-            <p class="hero-live-summary" id="mlModelDescription">{{ summary.hero_summary or data.model_description or 'После загрузки здесь появится объяснение, сколько пожаров ожидается и насколько можно доверять расчету.' }}</p>
-            <p class="hero-context-note">Здесь единица прогноза — ожидаемое число пожаров на дату. Экран не ранжирует территории и не заменяет сценарный календарь вероятности пожара.</p>
+            <span class="eyebrow">ML-прогноз | количественная оценка по дням</span>
+            <h1>Ожидаемое количество пожаров по календарным датам</h1>
+            <p class="subtitle">Раздел предназначен для оценки ожидаемого числа пожаров по дням и прогнозной нагрузки на систему пожарной безопасности.</p>
+            <p class="hero-live-summary" id="mlModelDescription">{{ summary.hero_summary or data.model_description or 'После загрузки будет представлено описание ожидаемого количества пожаров и уровня надежности расчета.' }}</p>
+            <p class="hero-context-note">Базовой единицей прогноза является ожидаемое количество пожаров на дату. Раздел не выполняет территориальную приоритизацию и не заменяет сценарный календарь вероятности пожара.</p>
             <div class="hero-tags" id="mlHeroTags">
                 <span class="hero-tag">Таблица: <strong>{{ summary.selected_table_label }}</strong></span>
-                <span class="hero-tag">История для расчёта: <strong>{{ summary.history_window_label }}</strong></span>
+                <span class="hero-tag">История для расчета: <strong>{{ summary.history_window_label }}</strong></span>
                 <span class="hero-tag">Главный фактор модели: <strong>{{ summary.top_feature_label }}</strong></span>
                 <span class="hero-tag">Температурный сценарий: <strong>{{ summary.temperature_scenario_display }}</strong></span>
-                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя вероятность P(&gt;=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Событие пожара: <strong>не показано</strong>{% endif %}</span>
+                <span class="hero-tag">{% if summary.event_probability_enabled %}Средняя вероятность P(&gt;=1 пожара): <strong>{{ summary.average_event_probability_display }}</strong>{% else %}Событие пожара: <strong>не рассчитывается</strong>{% endif %}</span>
             </div>
         </div>
         <div class="hero-side" id="mlHeroStats">
@@ -23,7 +23,7 @@
             <article class="hero-stat-card hero-stat-card-soft">
                 <span class="hero-stat-label">Пик по горизонту</span>
                 <strong class="hero-stat-value">{{ summary.peak_expected_count_display }}</strong>
-                <span class="hero-stat-foot">Максимальное ожидаемое число пожаров: {{ summary.peak_expected_count_day_display }}.</span>
+                <span class="hero-stat-foot">Максимальное ожидаемое число пожаров на дату: {{ summary.peak_expected_count_day_display }}.</span>
             </article>
         </div>
     </section>

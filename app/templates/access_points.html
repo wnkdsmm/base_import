@@ -5,7 +5,7 @@
 {% set charts = data.charts %}
 {% set sidebar_title = "Проблемные точки" %}
 {% set sidebar_active = "access_points" %}
-{% set sidebar_description %}Отдельный экран для ranking отдельных населённых пунктов, объектов и локаций с плохой доступностью пожарных подразделений.{% endset %}
+{% set sidebar_description %}Отдельный раздел ранжирования населенных пунктов, объектов и локаций с неблагоприятными параметрами пожарной доступности.{% endset %}
 
 {% block title %}Проблемные точки пожарной доступности{% endblock %}
 
@@ -17,7 +17,7 @@
 {% block sidebar_status %}
     <div class="sidebar-status" id="accessPointsSidebarStatus">
         <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">
-            {% if data.bootstrap_mode == 'deferred' %}Собираем ranking{% elif data.has_data %}Рейтинг готов{% else %}Нужны данные{% endif %}
+            {% if data.bootstrap_mode == 'deferred' %}Выполняется формирование рейтинга{% elif data.has_data %}Рейтинг сформирован{% else %}Требуются данные{% endif %}
         </span>
         <div class="status-line">
             <span>Таблица</span>

@@ -10,9 +10,9 @@
 {% set lead_territory = risk.territories[0] if risk.territories else None %}
 {% set sidebar_title = "Сценарный прогноз" %}
 {% set sidebar_active = "forecasting" %}
-{% set sidebar_description %}Календарь вероятности пожарной активности по ближайшим дням. Помогает понять, когда готовиться, а затем перейти к территориальному приоритету.{% endset %}
+{% set sidebar_description %}Календарная оценка вероятности пожарной активности на ближайший период с последующим переходом к территориальной приоритизации мер реагирования.{% endset %}
 
-{% block title %}Сценарный прогноз пожаров по дням{% endblock %}
+{% block title %}Сценарный прогноз пожарной активности по дням{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ dashboard_css_version }}">
@@ -23,17 +23,17 @@
 
 {% block sidebar_status %}
     <div class="sidebar-status">
-        <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">{% if data.bootstrap_mode == 'deferred' %}Подготавливаем прогноз{% elif data.has_data %}Сценарный прогноз собран{% else %}Нужно уточнить фильтры{% endif %}</span>
+        <span class="status-badge{% if data.bootstrap_mode == 'deferred' or data.has_data %} status-badge-live{% endif %}">{% if data.bootstrap_mode == 'deferred' %}Выполняется подготовка прогноза{% elif data.has_data %}Сценарный прогноз сформирован{% else %}Требуется уточнение параметров{% endif %}</span>
         <div class="status-line">
             <span>Таблица</span>
             <strong id="forecastSidebarTable">{{ summary.selected_table_label }}</strong>
         </div>
         <div class="status-line">
-            <span>История</span>
+            <span>Исторический период</span>
             <strong id="forecastSidebarHistory">{{ summary.history_period_label }}</strong>
         </div>
         <div class="status-line">
-            <span>Горизонт</span>
+            <span>Прогнозный горизонт</span>
             <strong id="forecastSidebarHorizon">{{ summary.forecast_days_display }} дн.</strong>
         </div>
     </div>
@@ -51,7 +51,8 @@ document.documentElement.setAttribute('data-forecasting-boot', '1');
         <div class="risk-side-stack">
 {% include 'includes/forecasting/_decision_quality_sections.html' %}
 {% include 'includes/forecasting/_decision_geo_sections.html' %}
-</main>
+        </div>
+</section>
 {% endblock %}
 
 {% block page_data %}

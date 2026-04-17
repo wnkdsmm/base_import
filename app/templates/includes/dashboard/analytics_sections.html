@@ -3,8 +3,8 @@
                     <div class="dashboard-grid dashboard-grid-three">
                         <article class="panel ranking-panel">
                             <div class="panel-head">
-                                <h2>Что чаще всего попадает в срез</h2>
-                                <span class="panel-meta">Что показывает блок: какие категории или типы сейчас формируют основную картину по выбранному срезу.</span>
+                                <h2>Преобладающие категории в текущем срезе</h2>
+                                <span class="panel-meta">Распределение категорий и типов, формирующих основную структуру наблюдаемой пожарной обстановки.</span>
                             </div>
                             <div id="topDistributionList" class="ranking-list">
                                 {% if rankings.top_distribution %}
@@ -15,15 +15,15 @@
                                     </div>
                                     {% endfor %}
                                 {% else %}
-                                <div class="mini-empty">Нет данных по распределению.</div>
+                                <div class="mini-empty">Данные для распределения отсутствуют.</div>
                                 {% endif %}
                             </div>
                         </article>
 
                         <article class="panel ranking-panel">
                             <div class="panel-head">
-                                <h2>Как менялась ситуация по годам</h2>
-                                <span class="panel-meta">Что показывает блок: усиливается ли проблема по годам или остается примерно на том же уровне.</span>
+                                <h2>Динамика показателей по годам</h2>
+                                <span class="panel-meta">Многолетнее изменение интенсивности пожарной обстановки в выбранном срезе.</span>
                             </div>
                             <div id="recentYearsList" class="ranking-list">
                                 {% if rankings.recent_years %}
@@ -34,15 +34,15 @@
                                     </div>
                                     {% endfor %}
                                 {% else %}
-                                <div class="mini-empty">Недостаточно годовых данных.</div>
+                                <div class="mini-empty">Недостаточно данных для межгодового анализа.</div>
                                 {% endif %}
                             </div>
                         </article>
 
                         <article class="panel ranking-panel">
                             <div class="panel-head">
-                                <h2>На каких таблицах держится обзор</h2>
-                                <span class="panel-meta">Что показывает блок: какие источники данных сильнее всего влияют на текущий обзор.</span>
+                                <h2>Вклад источников данных в обзор</h2>
+                                <span class="panel-meta">Сравнительный вклад таблиц-источников в формирование итоговой аналитической картины.</span>
                             </div>
                             <div id="topTablesList" class="ranking-list">
                                 {% if rankings.top_tables %}
@@ -53,7 +53,7 @@
                                     </div>
                                     {% endfor %}
                                 {% else %}
-                                <div class="mini-empty">Нет таблиц в текущем фильтре.</div>
+                                <div class="mini-empty">В выбранных параметрах таблицы отсутствуют.</div>
                                 {% endif %}
                             </div>
                         </article>
@@ -62,7 +62,7 @@
                     <article class="panel chart-panel chart-panel-large chart-panel-causes">
                         <div class="panel-head">
                             <h2 id="yearlyFiresTitle">{{ charts.yearly_fires.title }}</h2>
-                            <span class="panel-meta">Что показывает блок: какие причины чаще всего формируют ситуацию в выбранном срезе.</span>
+                            <span class="panel-meta">Частотная структура причин пожаров в выбранном аналитическом срезе.</span>
                         </div>
                         {{ render_plotly_chart('yearlyFiresChart') }}
                     </article>
@@ -71,7 +71,7 @@
                         <article class="panel chart-panel chart-panel-large">
                             <div class="panel-head">
                                 <h2 id="distributionTitle">{{ charts.distribution.title }}</h2>
-                                <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Что показывает блок: как пожары распределяются по выбранной группе.' }}</span>
+                                <span class="panel-meta" id="distributionMeta">{{ charts.distribution.description or 'Распределение пожаров по выбранному группировочному признаку.' }}</span>
                             </div>
                             {{ render_plotly_chart('distributionChart') }}
                         </article>
@@ -79,7 +79,7 @@
                         <article class="panel chart-panel chart-panel-large">
                             <div class="panel-head">
                                 <h2 id="yearlyAreaTitle">{{ charts.yearly_area.title }}</h2>
-                                <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Что показывает блок: тяжесть последствий и влияние пожаров на людей.' }}</span>
+                                <span class="panel-meta" id="yearlyAreaMeta">{{ charts.yearly_area.description or 'Тяжесть последствий пожаров и их влияние на население.' }}</span>
                             </div>
                             {{ render_plotly_chart('yearlyAreaChart') }}
                         </article>
@@ -87,7 +87,7 @@
                         <article class="panel chart-panel chart-panel-large">
                             <div class="panel-head">
                                 <h2 id="cumulativeAreaTitle">{{ charts.cumulative_area.title }}</h2>
-                                <span class="panel-meta" id="cumulativeAreaMeta">{{ charts.cumulative_area.description or 'Накопленная площадь пожаров по дням года: текущий год и предыдущий для сравнения.' }}</span>
+                                <span class="panel-meta" id="cumulativeAreaMeta">{{ charts.cumulative_area.description or 'Накопленная площадь пожаров по дням года для сопоставления текущего и предыдущего периодов.' }}</span>
                             </div>
                             {{ render_plotly_chart('cumulativeAreaChart') }}
                         </article>
@@ -97,7 +97,7 @@
                         <article class="panel chart-panel">
                             <div class="panel-head">
                                 <h2 id="monthlyHeatmapTitle">Сезонность по месяцам и годам</h2>
-                                <span class="panel-meta" id="monthlyHeatmapMeta">{{ charts.monthly_heatmap.description or 'Тепловая карта: интенсивность пожаров по месяцам для каждого года.' }}</span>
+                                <span class="panel-meta" id="monthlyHeatmapMeta">{{ charts.monthly_heatmap.description or 'Тепловая карта сезонной интенсивности пожаров по месяцам и годам.' }}</span>
                             </div>
                             {{ render_plotly_chart('monthlyHeatmapChart') }}
                         </article>
@@ -105,7 +105,7 @@
                         <article class="panel chart-panel">
                             <div class="panel-head">
                                 <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
-                                <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.' }}</span>
+                                <span class="panel-meta" id="monthlyProfileMeta">{{ charts.monthly_profile.description or 'Сезонный профиль пожарной активности для планирования профилактических мероприятий.' }}</span>
                             </div>
                             {{ render_plotly_chart('monthlyProfileChart') }}
                         </article>
@@ -113,7 +113,7 @@
                         <article class="panel chart-panel">
                             <div class="panel-head">
                                 <h2 id="areaBucketsTitle">{{ charts.area_buckets.title }}</h2>
-                                <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Что показывает блок: преобладают ли небольшие или крупные пожары.' }}</span>
+                                <span class="panel-meta" id="areaBucketsMeta">{{ charts.area_buckets.description or 'Структура пожаров по масштабам площади: преобладание малых или крупных очагов.' }}</span>
                             </div>
                             {{ render_plotly_chart('areaBucketsChart') }}
                         </article>

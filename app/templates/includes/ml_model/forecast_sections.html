@@ -3,7 +3,7 @@
             <article class="panel chart-panel chart-panel-large{% if charts.forecast.empty_message %} is-chart-empty{% endif %}">
                 <div class="panel-head">
                     <h2 id="mlForecastTitle">{{ charts.forecast.title }}</h2>
-                    <span class="panel-meta">Что показывает блок: историю, проверку на истории и будущие значения числа пожаров на одной шкале.</span>
+                    <span class="panel-meta">Единая шкала исторических значений, ретроспективной проверки и прогнозных оценок количества пожаров.</span>
                 </div>
                 <div id="mlForecastChart" class="plotly-chart ml-plot{% if charts.forecast.empty_message %} is-empty{% endif %}"></div>
                 <div id="mlForecastChartFallback" class="chart-empty{% if charts.forecast.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.forecast.empty_message }}</div>
@@ -12,7 +12,7 @@
             <article class="panel ml-table-panel">
                 <div class="panel-head">
                     <h2>Прогноз по дням</h2>
-                    <span class="panel-meta">Что показывает блок: ожидаемое число пожаров по каждой дате и диапазон неопределенности.</span>
+                    <span class="panel-meta">Ожидаемое число пожаров по каждой дате с указанием диапазона неопределенности.</span>
                 </div>
                 <div class="ml-table-shell" id="mlForecastTableShell">
                     {% if data.forecast_rows %}
@@ -39,7 +39,7 @@
                         </tbody>
                     </table>
                     {% else %}
-                    <div class="mini-empty">После обучения здесь появится прогноз по будущим датам.</div>
+                    <div class="mini-empty">После выполнения расчета здесь будет представлен прогноз по будущим датам.</div>
                     {% endif %}
                 </div>
             </article>
@@ -49,7 +49,7 @@
             <article class="panel chart-panel{% if charts.importance.empty_message %} is-chart-empty{% endif %}">
                 <div class="panel-head">
                     <h2 id="mlImportanceTitle">{{ charts.importance.title }}</h2>
-                    <span class="panel-meta">Что показывает блок: какие факторы сильнее всего меняют прогноз количества.</span>
+                    <span class="panel-meta">Факторы, оказывающие наибольшее влияние на прогноз ожидаемого количества пожаров.</span>
                 </div>
                 <div id="mlImportanceChart" class="plotly-chart ml-plot ml-plot-small{% if charts.importance.empty_message %} is-empty{% endif %}"></div>
                 <div id="mlImportanceChartFallback" class="chart-empty{% if charts.importance.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.importance.empty_message }}</div>
@@ -58,8 +58,8 @@
 
             <article id="mlFeatureSection" class="panel insight-panel">
                 <div class="panel-head">
-                    <h2>Какие данные модель реально использовала</h2>
-                    <span class="panel-meta">Что показывает блок: какие данные действительно вошли в расчет количества пожаров.</span>
+                    <h2>Данные, использованные моделью в расчете</h2>
+                    <span class="panel-meta">Перечень признаков, фактически включенных в расчет прогнозного количества пожаров.</span>
                 </div>
                 <div class="forecast-feature-list" id="mlFeatureCards">
                     {% if data.features %}
@@ -73,7 +73,7 @@
                         </article>
                         {% endfor %}
                     {% else %}
-                    <div class="mini-empty">После выбора таблицы здесь появятся признаки модели.</div>
+                    <div class="mini-empty">После выбора таблицы здесь будут представлены признаки модели.</div>
                     {% endif %}
                 </div>
             </article>
