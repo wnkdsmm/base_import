@@ -14,7 +14,6 @@ from app.services.shared.dashboard_charts import (
     _build_damage_standalone_plotly,
     _build_distribution_pie_plotly,
     _build_distribution_plotly,
-    _build_empty_plotly_chart,
     _build_monthly_profile_plotly,
     _build_sql_widget_bar_plotly,
     _build_sql_widget_season_plotly,

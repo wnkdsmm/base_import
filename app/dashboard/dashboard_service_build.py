@@ -263,7 +263,6 @@ def _build_dashboard_payload(
             "yearly_fires": cause_overview,
             "yearly_area": yearly_area_chart,
             "distribution": distribution,
-            "table_breakdown": _finalize_chart("", [], ""),
             "monthly_heatmap": monthly_heatmap,
             "monthly_profile": monthly_profile,
             "area_buckets": area_buckets,
@@ -357,7 +356,6 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "yearly_fires": _finalize_chart("Причины возгораний", [], "Нет данных по причинам возгорания."),
             "yearly_area": _finalize_chart("Последствия, эвакуация и дети", [], "Нет данных по погибшим, травмам и эвакуации."),
             "distribution": _finalize_chart("Распределение по колонке", [], "Нет данных для графика."),
-            "table_breakdown": _finalize_chart("", [], ""),
 
             "monthly_heatmap": _finalize_chart("Сезонность по месяцам и годам", [], "Недостаточно данных для тепловой карты сезонности."),
             "monthly_profile": _finalize_chart("Сезонность по месяцам", [], "Нет данных для сезонного профиля."),

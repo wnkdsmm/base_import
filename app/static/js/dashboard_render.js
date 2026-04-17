@@ -326,15 +326,15 @@ function renderManagementCards(items) {
         setText('distributionTitle', charts.distribution ? charts.distribution.title : 'Распределение по выбранному разрезу');
         setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия пожара');
 
-        setText('cumulativeAreaTitle', charts.cumulative_area ? charts.cumulative_area.title : 'Cumulative burned area by day');
-        setText('monthlyHeatmapTitle', charts.monthly_heatmap ? charts.monthly_heatmap.title : 'Monthly heatmap');
+        setText('cumulativeAreaTitle', charts.cumulative_area ? charts.cumulative_area.title : 'Накопленная площадь по дням года');
+        setText('monthlyHeatmapTitle', charts.monthly_heatmap ? charts.monthly_heatmap.title : 'Сезонность по месяцам и годам');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
         setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Что показывает блок: как пожары распределяются по выбранной группе.');
         setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Что показывает блок: тяжесть последствий и влияние пожаров на людей.');
 
-        setText('cumulativeAreaMeta', charts.cumulative_area ? charts.cumulative_area.description : 'Cumulative burned area by day: current year vs previous year.');
-        setText('monthlyHeatmapMeta', charts.monthly_heatmap ? charts.monthly_heatmap.description : 'Heatmap of fire counts by month and year.');
+        setText('cumulativeAreaMeta', charts.cumulative_area ? charts.cumulative_area.description : 'Накопленная площадь: текущий год против предыдущего.');
+        setText('monthlyHeatmapMeta', charts.monthly_heatmap ? charts.monthly_heatmap.description : 'Количество пожаров по месяцам и годам.');
         setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
         setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Что показывает блок: преобладают ли небольшие или крупные пожары.');
 
