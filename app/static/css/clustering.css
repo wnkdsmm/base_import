@@ -106,6 +106,20 @@
     align-content: start;
 }
 
+.cluster-two-up {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
+.cluster-three-up {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
 .cluster-scatter-chart {
     min-height: clamp(340px, 54vh, 440px);
 }
@@ -168,7 +182,7 @@
 }
 
 .cluster-risk-panel {
-    max-width: 760px;
+    max-width: none;
 }
 
 .cluster-risk-panel .panel-head {
@@ -212,6 +226,14 @@
     }
 
     .clustering-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .cluster-two-up {
+        grid-template-columns: 1fr;
+    }
+
+    .cluster-three-up {
         grid-template-columns: 1fr;
     }
 
