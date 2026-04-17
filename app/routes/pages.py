@@ -68,7 +68,7 @@ get_dashboard_shell_context = _lazy("app.dashboard.service", "get_dashboard_shel
 get_forecasting_page_context = _lazy("app.services.forecasting.core", "get_forecasting_page_context")
 get_forecasting_shell_context = _lazy("app.services.forecasting.core", "get_forecasting_shell_context")
 get_ml_model_shell_context = _lazy("app.services.ml_model.core", "get_ml_model_shell_context")
-get_clustering_page_context = _lazy("app.services.clustering.core", "get_clustering_page_context")
+get_clustering_shell_context = _lazy("app.services.clustering.core", "get_clustering_shell_context")
 get_access_points_shell_context = _lazy("app.services.access_points.core", "get_access_points_shell_context")
 get_fire_map_page_context = _lazy("app.services.fire_map_service", "get_fire_map_page_context")
 build_fire_map_html = _lazy("app.services.fire_map_service", "build_fire_map_html")
@@ -237,7 +237,7 @@ def clustering_page(
     sampling_strategy: str = "stratified",
     feature_columns: list[str] | None = Query(None),
 ):
-    clustering = get_clustering_page_context(
+    clustering = get_clustering_shell_context(
         table_name=table_name,
         cluster_count=cluster_count,
         sample_limit=sample_limit,
