@@ -148,7 +148,9 @@ def _build_dashboard_aggregation(
     distribution = dashboard_charts["distribution"]
     yearly_area_chart = dashboard_charts["yearly_area_chart"]
     monthly_profile = dashboard_charts["monthly_profile"]
+    monthly_heatmap = dashboard_charts["monthly_heatmap"]
     area_buckets = dashboard_charts["area_buckets"]
+    cumulative_area = dashboard_charts["cumulative_area"]
     if trend_builder and rankings_builder and highlights_builder:
         trend = trend_builder(yearly_fires_series)
         rankings = rankings_builder(distribution, table_breakdown_series, yearly_fires_series)
@@ -199,7 +201,9 @@ def _build_dashboard_aggregation(
         "distribution": distribution,
         "yearly_area_chart": yearly_area_chart,
         "monthly_profile": monthly_profile,
+        "monthly_heatmap": monthly_heatmap,
         "area_buckets": area_buckets,
+        "cumulative_area": cumulative_area,
         "trend": trend,
         "rankings": rankings,
         "highlights": highlights,
@@ -227,7 +231,9 @@ def _build_dashboard_payload(
     distribution = aggregation["distribution"]
     yearly_area_chart = aggregation["yearly_area_chart"]
     monthly_profile = aggregation["monthly_profile"]
+    monthly_heatmap = aggregation["monthly_heatmap"]
     area_buckets = aggregation["area_buckets"]
+    cumulative_area = aggregation["cumulative_area"]
     scope_label = f"Таблица: {scope['table_label']} | Год: {scope['year_label']} | Разрез: {scope['group_label']}"
 
     export_text = compose_executive_brief_text(
@@ -258,8 +264,10 @@ def _build_dashboard_payload(
             "yearly_area": yearly_area_chart,
             "distribution": distribution,
             "table_breakdown": _finalize_chart("", [], ""),
+            "monthly_heatmap": monthly_heatmap,
             "monthly_profile": monthly_profile,
             "area_buckets": area_buckets,
+            "cumulative_area": cumulative_area,
         },
         "filters": {
             "table_name": selected_table_name,
@@ -350,8 +358,12 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "yearly_area": _finalize_chart("Последствия, эвакуация и дети", [], "Нет данных по погибшим, травмам и эвакуации."),
             "distribution": _finalize_chart("Распределение по колонке", [], "Нет данных для графика."),
             "table_breakdown": _finalize_chart("", [], ""),
+
+            "monthly_heatmap": _finalize_chart("Сезонность по месяцам и годам", [], "Недостаточно данных для тепловой карты сезонности."),
             "monthly_profile": _finalize_chart("Сезонность по месяцам", [], "Нет данных для сезонного профиля."),
             "area_buckets": _finalize_chart("Структура по площади пожара", [], "Нет данных по площади пожара."),
+
+            "cumulative_area": _finalize_chart("Накопленная площадь по дням года", [], "Недостаточно данных для накопленного графика площади."),
         },
         "filters": {
             "table_name": "all",

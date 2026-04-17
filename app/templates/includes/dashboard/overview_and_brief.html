@@ -23,9 +23,19 @@
                         <span class="stat-foot">Погибшие; травмировано: <span id="injuriesValue">{{ summary.injuries_display }}</span></span>
                     </article>
                     <article class="stat-card">
-                        <span class="stat-label">Эвакуация и спасение</span>
+                        <span class="stat-label">Эвакуировано всего</span>
                         <strong class="stat-value" id="evacuatedValue">{{ summary.evacuated_display }}</strong>
-                        <span class="stat-foot">Дети: <span id="childrenValue">{{ summary.evacuated_children_display }}</span> | Спасено детей: <span id="rescuedValue">{{ summary.rescued_children_display }}</span></span>
+                        <span class="stat-foot">Дети (эвакуировано + спасено): <span id="childrenTotalValue">{{ summary.children_total_display }}</span></span>
+                    </article>
+                    <article class="stat-card stat-card-accent">
+                        <span class="stat-label">Дети — первый приоритет</span>
+                        <strong class="stat-value" id="childrenTotalCard">{{ summary.children_total_display }}</strong>
+                        <span class="stat-foot">Эвак. {{ summary.evacuated_children_display }} + спасено {{ summary.rescued_children_display }}</span>
+                    </article>
+                    <article class="stat-card" id="severityCard">
+                        <span class="stat-label">Тяжесть последствий</span>
+                        <strong class="stat-value" id="severityValue">{{ summary.lethality_rate_display }} на 100 пожаров</strong>
+                        <span class="stat-foot">Погибших на 100 пожаров — ниже 1.5 считается нормой для региона.</span>
                     </article>
                     <article class="stat-card" id="trendCard">
                         <span class="stat-label" id="trendTitle">{{ trend.title }}</span>

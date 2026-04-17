@@ -314,8 +314,9 @@ function renderManagementCards(items) {
         setText('deathsValue', summary.deaths_display || '0');
         setText('injuriesValue', summary.injuries_display || '0');
         setText('evacuatedValue', summary.evacuated_display || '0');
-        setText('childrenValue', summary.evacuated_children_display || '0');
-        setText('rescuedValue', summary.rescued_children_display || '0');
+        setText('childrenTotalValue', summary.children_total_display || '0');
+        setText('childrenTotalCard', summary.children_total_display || '0');
+        setText('severityValue', (summary.lethality_rate_display || '0.0') + ' на 100 пожаров');
 
         setText('sidebarDatabaseTablesCount', scope.database_tables_count_display || '0');
         setText('sidebarYearsCoveredCount', summary.years_covered_display || '0');
@@ -324,16 +325,24 @@ function renderManagementCards(items) {
         setText('yearlyFiresTitle', charts.yearly_fires ? charts.yearly_fires.title : 'Причины возгораний');
         setText('distributionTitle', charts.distribution ? charts.distribution.title : 'Распределение по выбранному разрезу');
         setText('yearlyAreaTitle', charts.yearly_area ? charts.yearly_area.title : 'Последствия пожара');
+
+        setText('cumulativeAreaTitle', charts.cumulative_area ? charts.cumulative_area.title : 'Cumulative burned area by day');
+        setText('monthlyHeatmapTitle', charts.monthly_heatmap ? charts.monthly_heatmap.title : 'Monthly heatmap');
         setText('monthlyProfileTitle', charts.monthly_profile ? charts.monthly_profile.title : 'Сезонность по месяцам');
         setText('areaBucketsTitle', charts.area_buckets ? charts.area_buckets.title : 'Структура по площади пожара');
         setText('distributionMeta', charts.distribution ? charts.distribution.description : 'Что показывает блок: как пожары распределяются по выбранной группе.');
         setText('yearlyAreaMeta', charts.yearly_area ? charts.yearly_area.description : 'Что показывает блок: тяжесть последствий и влияние пожаров на людей.');
+
+        setText('cumulativeAreaMeta', charts.cumulative_area ? charts.cumulative_area.description : 'Cumulative burned area by day: current year vs previous year.');
+        setText('monthlyHeatmapMeta', charts.monthly_heatmap ? charts.monthly_heatmap.description : 'Heatmap of fire counts by month and year.');
         setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
         setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Что показывает блок: преобладают ли небольшие или крупные пожары.');
 
         renderPlotlyInContainer(charts.yearly_fires, 'yearlyFiresChart');
         renderPlotlyInContainer(charts.distribution, 'distributionChart');
         renderPlotlyInContainer(charts.yearly_area, 'yearlyAreaChart');
+        renderPlotlyInContainer(charts.cumulative_area, 'cumulativeAreaChart');
+        renderPlotlyInContainer(charts.monthly_heatmap, 'monthlyHeatmapChart');
         renderPlotlyInContainer(charts.monthly_profile, 'monthlyProfileChart');
         renderPlotlyInContainer(charts.area_buckets, 'areaBucketsChart');
 

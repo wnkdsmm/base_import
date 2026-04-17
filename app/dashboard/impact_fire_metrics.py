@@ -11,11 +11,14 @@ from config.db import engine
 from .charts import (
     _build_area_bucket_plotly,
     _build_cause_plotly,
+    _build_cumulative_area_plotly,
+    _build_monthly_heatmap_plotly,
     _build_monthly_profile_plotly,
     _finalize_chart,
 )
 from .data_access import (
     _area_expression,
+    _fetch_table_years,
     _build_year_filter_clause,
     _metric_expression,
     _month_expression,
@@ -547,12 +550,180 @@ def _build_area_buckets_chart_from_counts(bucket_counts: Dict[str, int]) -> Dist
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
 
 
+def _resolve_cumulative_area_year(
+    selected_tables: List[DashboardTableRef],
+    selected_year: Optional[int],
+) -> Optional[int]:
+    if selected_year is not None:
+        return selected_year
+
+    candidate_years: set[int] = set()
+    with engine.connect() as conn:
+        for table in selected_tables:
+            if DATE_COLUMN in table["column_set"]:
+                table_years = table.get("years") or _fetch_table_years(conn, table["name"], table["column_set"])
+                for year_value in table_years:
+                    if year_value is not None:
+                        candidate_years.add(int(year_value))
+            elif table.get("table_year") is not None:
+                candidate_years.add(int(table["table_year"]))
+
+    return max(candidate_years) if candidate_years else None
+
+
+def _collect_cumulative_area_rows(
+    selected_tables: List[DashboardTableRef],
+    current_year: int,
+    previous_year: int,
+) -> tuple[list[dict[str, float]], list[dict[str, float]]]:
+    current_by_day: Dict[int, float] = defaultdict(float)
+    previous_by_day: Dict[int, float] = defaultdict(float)
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            if DATE_COLUMN not in table["column_set"]:
+                continue
+            area_expression = _area_expression(table)
+            if area_expression == "NULL":
+                continue
+            date_expression = _date_expression(DATE_COLUMN)
+            year_expression = _year_expression(DATE_COLUMN)
+            query = text(
+                f"""
+                SELECT
+                    {year_expression} AS year_value,
+                    EXTRACT(DOY FROM {date_expression})::int AS day_of_year,
+                    COALESCE(SUM({area_expression}), 0) AS area
+                FROM {_quote_identifier(table['name'])}
+                WHERE {date_expression} IS NOT NULL
+                  AND {year_expression} IN (:current_year, :previous_year)
+                GROUP BY year_value, day_of_year
+                """
+            )
+            rows = conn.execute(
+                query,
+                {"current_year": current_year, "previous_year": previous_year},
+            ).mappings().all()
+            for row in rows:
+                day_of_year = row["day_of_year"]
+                year_value = row["year_value"]
+                if day_of_year is None or year_value is None:
+                    continue
+                day_value = int(day_of_year)
+                area_value = float(row["area"] or 0.0)
+                if int(year_value) == current_year:
+                    current_by_day[day_value] += area_value
+                elif int(year_value) == previous_year:
+                    previous_by_day[day_value] += area_value
+
+    def to_cumulative(data: Dict[int, float]) -> list[dict[str, float]]:
+        running_total = 0.0
+        items: list[dict[str, float]] = []
+        for day in sorted(data):
+            running_total += float(data[day] or 0.0)
+            items.append({"day_of_year": int(day), "area": running_total})
+        return items
+
+    return to_cumulative(current_by_day), to_cumulative(previous_by_day)
+
+
+def _build_cumulative_area_chart(
+    selected_tables: List[DashboardTableRef],
+    selected_year: Optional[int],
+) -> DistributionResult:
+    title = "Накопленная площадь по дням года"
+    empty_message = "Недостаточно данных для накопленного графика площади."
+
+    resolved_year = _resolve_cumulative_area_year(selected_tables, selected_year)
+    if resolved_year is None:
+        return _finalize_chart(title, [], empty_message)
+
+    previous_year = int(resolved_year) - 1
+    current_data, previous_data = _collect_cumulative_area_rows(
+        selected_tables,
+        current_year=int(resolved_year),
+        previous_year=previous_year,
+    )
+    plotly = _build_cumulative_area_plotly(
+        title=title,
+        current_year_data=current_data,
+        previous_year_data=previous_data,
+        current_year=int(resolved_year),
+        previous_year=previous_year,
+        empty_message=empty_message,
+    )
+    items = [
+        {
+            "label": str(item["day_of_year"]),
+            "value": item["area"],
+            "value_display": _format_number(item["area"]),
+        }
+        for item in current_data
+    ]
+    return _finalize_chart(title, items, empty_message, plotly=plotly, description="Накопленная площадь пожаров от начала года.")
+
+
+def _build_monthly_heatmap_chart(
+    selected_tables: List[DashboardTableRef],
+    selected_year: Optional[int] = None,
+) -> DistributionResult:
+    grouped: Dict[int, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
+
+    with engine.connect() as conn:
+        for table in selected_tables:
+            if DATE_COLUMN not in table["column_set"]:
+                continue
+            month_expression = _month_expression(DATE_COLUMN)
+            year_expression = _year_expression(DATE_COLUMN)
+            conditions = [f"{month_expression} BETWEEN 1 AND 12", f"{year_expression} IS NOT NULL"]
+            if selected_year is not None:
+                conditions.append(f"{year_expression} = :selected_year")
+            query = text(
+                f"""
+                SELECT
+                    {year_expression} AS year_value,
+                    {month_expression} AS month_value,
+                    COUNT(*) AS fire_count
+                FROM {_quote_identifier(table['name'])}
+                WHERE {' AND '.join(conditions)}
+                GROUP BY year_value, month_value
+                """
+            )
+            params = {"selected_year": selected_year} if selected_year is not None else {}
+            for row in conn.execute(query, params).mappings().all():
+                year_value = row["year_value"]
+                month_value = row["month_value"]
+                if year_value is None or month_value is None:
+                    continue
+                grouped[int(year_value)][int(month_value)] += int(row["fire_count"] or 0)
+
+    normalized = {
+        year_value: dict(month_counts)
+        for year_value, month_counts in grouped.items()
+    }
+    title = "Сезонность по месяцам и годам"
+    empty_message = "Недостаточно данных для тепловой карты сезонности."
+    plotly = _build_monthly_heatmap_plotly(title, normalized, empty_message)
+    items = [
+        {
+            "label": f"{year_value}-{month_value:02d}",
+            "value": count_value,
+            "value_display": _format_number(count_value, integer=True),
+        }
+        for year_value in sorted(normalized.keys())
+        for month_value, count_value in sorted((normalized.get(year_value) or {}).items())
+    ]
+    return _finalize_chart(title, items, empty_message, plotly=plotly, description="Тепловая карта сезонности пожаров по годам и месяцам.")
+
+
 __all__ = [
     "_collect_dashboard_grouped_counts",
     "_collect_cause_counts",
     "_collect_month_counts",
     "_build_area_buckets_chart",
     "_build_area_buckets_chart_from_counts",
+    "_build_cumulative_area_chart",
+    "_build_monthly_heatmap_chart",
     "_build_cause_chart",
     "_build_monthly_profile_chart",
 ]

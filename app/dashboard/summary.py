@@ -224,6 +224,7 @@ def _build_summary(
     evacuated_adults = impact_totals["evacuated"]
     rescued_adults = impact_totals["rescued_total"]
     children_total = impact_totals["evacuated_children"] + impact_totals["rescued_children"]
+    lethality_rate = (impact_totals["deaths"] / fires_count * 100) if fires_count > 0 else 0.0
 
     return {
         "fires_count": fires_count,
@@ -244,6 +245,8 @@ def _build_summary(
         "year_label": str(selected_year) if selected_year is not None else "Все годы",
         "deaths": impact_totals["deaths"],
         "deaths_display": _format_number(impact_totals["deaths"], integer=True),
+        "lethality_rate": lethality_rate,
+        "lethality_rate_display": f"{lethality_rate:.1f}",
         "injuries": impact_totals["injuries"],
         "injuries_display": _format_number(impact_totals["injuries"], integer=True),
         "evacuated": impact_totals["evacuated"],

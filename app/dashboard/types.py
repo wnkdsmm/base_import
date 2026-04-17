@@ -68,6 +68,8 @@ class SummaryResult(TypedDict, total=False):
     year_label: str
     deaths: float
     deaths_display: str
+    lethality_rate: float
+    lethality_rate_display: str
     injuries: float
     injuries_display: str
     evacuated: float
@@ -264,7 +266,9 @@ class DashboardAggregation(TypedDict, total=False):
     distribution: DistributionResult
     yearly_area_chart: DistributionResult
     monthly_profile: DistributionResult
+    monthly_heatmap: DistributionResult
     area_buckets: DistributionResult
+    cumulative_area: DistributionResult
     trend: DashboardSection
     rankings: dict[str, list[DistributionItem]]
     highlights: list[SummaryCard]

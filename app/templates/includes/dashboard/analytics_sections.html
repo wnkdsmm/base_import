@@ -83,9 +83,25 @@
                             </div>
                             {{ render_plotly_chart('yearlyAreaChart') }}
                         </article>
+
+                        <article class="panel chart-panel chart-panel-large">
+                            <div class="panel-head">
+                                <h2 id="cumulativeAreaTitle">{{ charts.cumulative_area.title }}</h2>
+                                <span class="panel-meta" id="cumulativeAreaMeta">{{ charts.cumulative_area.description or 'Накопленная площадь пожаров по дням года: текущий год и предыдущий для сравнения.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('cumulativeAreaChart') }}
+                        </article>
                     </div>
 
                     <div class="dashboard-grid dashboard-grid-two">
+                        <article class="panel chart-panel">
+                            <div class="panel-head">
+                                <h2 id="monthlyHeatmapTitle">Сезонность по месяцам и годам</h2>
+                                <span class="panel-meta" id="monthlyHeatmapMeta">{{ charts.monthly_heatmap.description or 'Тепловая карта: интенсивность пожаров по месяцам для каждого года.' }}</span>
+                            </div>
+                            {{ render_plotly_chart('monthlyHeatmapChart') }}
+                        </article>
+
                         <article class="panel chart-panel">
                             <div class="panel-head">
                                 <h2 id="monthlyProfileTitle">{{ charts.monthly_profile.title }}</h2>
