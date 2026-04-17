@@ -217,6 +217,7 @@ def _build_score_histogram(points: list[dict]) -> dict[str, Any]:
         showlegend=False,
         plot_bgcolor="white",
         paper_bgcolor="white",
+        height=220,
         margin={"l": 48, "r": 16, "t": 12, "b": 48},
     )
 
@@ -277,10 +278,11 @@ def _build_factor_bar_chart(points: list[dict]) -> dict[str, Any]:
         barmode="stack",
         xaxis={"title": "Балл", "range": [0, 100]},
         yaxis={"autorange": "reversed", "showgrid": False, "automargin": True, "tickfont": {"size": 10}},
+        legend={"orientation": "h", "y": -0.15, "x": 0, "font": {"size": 10}},
         plot_bgcolor="white",
         paper_bgcolor="white",
         height=max(280, 60 * min(len(top_points), 10) + 80),
-        margin={"l": left_margin, "r": 24, "t": 20, "b": 48},
+        margin={"l": left_margin, "r": 24, "t": 20, "b": 72},
     )
 
     plotly_payload = serialize_plotly_figure(figure)
@@ -354,13 +356,15 @@ def _build_factor_heatmap(points: list[dict]) -> dict[str, Any]:
     annotations = []
     for row_index, row in enumerate(text_values):
         for col_index, cell_value in enumerate(row):
+            numeric = z_values[row_index][col_index]
+            font_color = "#ffffff" if numeric > 65 else "#111827"
             annotations.append(
                 {
                     "x": x_labels[col_index],
                     "y": y_labels[row_index],
                     "text": cell_value,
                     "showarrow": False,
-                    "font": {"size": 9, "color": "#111827"},
+                    "font": {"size": 9, "color": font_color},
                 }
             )
 
@@ -384,3 +388,6 @@ def _build_factor_heatmap(points: list[dict]) -> dict[str, Any]:
 
 def build_access_points_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return _build_points_scatter_chart(rows)
+
+
+

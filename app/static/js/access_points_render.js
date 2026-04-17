@@ -283,16 +283,7 @@ function showLoading(message) {
                 + '<span class="score-distribution-meta">' + escapeHtml(item.share_display || '0%') + ' от выборки</span>'
                 + '</article>'
             );
-        });
-        buckets.forEach(function (item) {
-            cards.push(
-                '<article class="score-distribution-card score-distribution-card-range">'
-                + '<span class="score-distribution-label">Диапазон ' + escapeHtml(item.label || '') + '</span>'
-                + '<strong class="score-distribution-value">' + escapeHtml(item.count_display || '0') + '</strong>'
-                + '<span class="score-distribution-meta">точек</span>'
-                + '</article>'
-            );
-        });
+        });
         node.innerHTML = cards.join('');
     }
 
@@ -425,6 +416,7 @@ function showLoading(message) {
         }
     };
 }(window));
+
 
 
 

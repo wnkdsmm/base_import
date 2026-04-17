@@ -111,13 +111,6 @@
                         <span class="score-distribution-meta">{{ item.share_display }} от выборки</span>
                     </article>
                     {% endfor %}
-                    {% for item in data.score_distribution.buckets %}
-                    <article class="score-distribution-card score-distribution-card-range">
-                        <span class="score-distribution-label">Диапазон {{ item.label }}</span>
-                        <strong class="score-distribution-value">{{ item.count_display }}</strong>
-                        <span class="score-distribution-meta">точек</span>
-                    </article>
-                    {% endfor %}
                 {% else %}
                 <div class="mini-empty">Распределение балла риска будет доступно после выполнения расчета рейтинга.</div>
                 {% endif %}
