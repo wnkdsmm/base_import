@@ -182,6 +182,32 @@ function syncClusteringAsyncContainer() {
             }).join('') + '</tbody></table>';
     }
 
+    function renderClusterRiskTable(rows) {
+        var container = byId('clusterRiskTableShell');
+        if (!container) {
+            return;
+        }
+        if (!Array.isArray(rows) || !rows.length) {
+            container.innerHTML = '<div class="mini-empty">Таблица риск-профиля появится после расчета кластеров.</div>';
+            return;
+        }
+        container.innerHTML = ''
+            + '<table class="data-table table-stack-mobile cluster-risk-table">'
+            + '<thead><tr><th>Кластер</th><th>Уровень риска</th><th>Балл риска</th></tr></thead>'
+            + '<tbody>' + rows.map(function (row) {
+                var score = Number(row.risk_score);
+                var scoreDisplay = Number.isFinite(score) ? score.toFixed(2) : '-';
+                var clusterId = Number(row.cluster_id);
+                var clusterDisplay = Number.isFinite(clusterId) ? String(clusterId + 1) : String(row.cluster_id != null ? row.cluster_id : '-');
+                return ''
+                    + '<tr>'
+                    + '<td>' + escapeHtml(clusterDisplay) + '</td>'
+                    + '<td>' + escapeHtml(row.risk_level || '-') + '</td>'
+                    + '<td>' + escapeHtml(scoreDisplay) + '</td>'
+                    + '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
     function renderDataTable(containerId, columns, rows, emptyMessage) {
         var container = byId(containerId);
         if (!container) {
@@ -306,11 +332,16 @@ function applyClusteringData(data) {
         setText('clusterScatterTitle', charts.scatter ? charts.scatter.title : 'Кластеры территорий на двумерной проекции');
         setText('clusterDistributionTitle', charts.distribution ? charts.distribution.title : 'Размеры кластеров по числу территорий');
         setText('clusterDiagnosticsTitle', charts.diagnostics ? charts.diagnostics.title : 'Подсказка по числу кластеров');
+        setText('clusterRadarTitle', charts.radar_chart ? charts.radar_chart.title : 'Профили кластеров по признакам');
+        setText('clusterFeatureImportanceTitle', charts.feature_importance_chart ? charts.feature_importance_chart.title : 'Вклад признаков в разделение кластеров');
         renderChart(charts.scatter, 'clusterScatterChart', 'clusterScatterChartFallback');
+        renderChart(charts.radar_chart, 'clusterRadarChart', 'clusterRadarChartFallback');
+        renderChart(charts.feature_importance_chart, 'clusterFeatureImportanceChart', 'clusterFeatureImportanceChartFallback');
         renderChart(charts.distribution, 'clusterDistributionChart', 'clusterDistributionChartFallback');
         renderChart(charts.diagnostics, 'clusterDiagnosticsChart', 'clusterDiagnosticsChartFallback');
 
         renderDataTable('clusterCentroidTableShell', data.centroid_columns, data.centroid_rows, 'После расчета здесь появятся средние профили кластеров.');
+        renderClusterRiskTable(data.cluster_risk || []);
         renderProfiles(data.cluster_profiles || []);
         renderListItems('clusterNotesList', data.notes || [], 'После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.', { filterEmpty: true });
         renderDataTable('clusterRepresentativesTableShell', data.representative_columns, data.representative_rows, 'После расчета здесь появятся территории, ближайшие к центрам кластеров.');

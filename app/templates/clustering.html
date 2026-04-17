@@ -39,6 +39,36 @@
 {% include 'includes/clustering/overview.html' %}
 {% include 'includes/clustering/_quality_overview.html' %}
 {% include 'includes/clustering/_cluster_analysis.html' %}
+<section class="panel data-table-panel cluster-risk-panel">
+    <div class="panel-head">
+        <h2>Риск-профиль кластеров</h2>
+        <span class="panel-meta">Сводная оценка кластеров по взвешенному интегральному рисковому баллу.</span>
+    </div>
+    <div class="data-table-shell" id="clusterRiskTableShell">
+        {% if data.cluster_risk %}
+        <table class="data-table table-stack-mobile cluster-risk-table">
+            <thead>
+                <tr>
+                    <th>Кластер</th>
+                    <th>Уровень риска</th>
+                    <th>Балл риска</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data.cluster_risk %}
+                <tr>
+                    <td>{{ (row.cluster_id + 1) if row.cluster_id is number else row.cluster_id }}</td>
+                    <td>{{ row.risk_level }}</td>
+                    <td>{{ row.risk_score }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="mini-empty">Таблица риск-профиля появится после расчета кластеров.</div>
+        {% endif %}
+    </div>
+</section>
 </main>
 {% endblock %}
 

@@ -23,6 +23,7 @@ from .quality import _empty_clustering_quality_assessment
 from .utils import _format_datetime, _format_integer
 
 _CLUSTERING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
+_CLUSTERING_CACHE_SCHEMA_VERSION = "v3_feature_importance_chart"
 
 def clear_clustering_cache() -> None:
     _CLUSTERING_CACHE.clear()
@@ -39,6 +40,7 @@ def _build_clustering_cache_key(
     cluster_count_is_explicit: bool,
 ) -> Tuple[str, ...]:
     return (
+        _CLUSTERING_CACHE_SCHEMA_VERSION,
         selected_table,
         str(cluster_count),
         str(sample_limit),
@@ -179,7 +181,16 @@ def _empty_clustering_data(
         "centroid_rows": [],
         "representative_columns": [],
         "representative_rows": [],
+        "cluster_risk": [],
         "charts": {
+            "feature_importance_chart": _empty_chart_bundle(
+                "Вклад признаков в разделение кластеров",
+                "Недостаточно данных, чтобы оценить вклад признаков в разделение кластеров.",
+            ),
+            "radar_chart": _empty_chart_bundle(
+                "Профили кластеров по признакам",
+                "Недостаточно данных для построения радар-графика профилей кластеров.",
+            ),
             "scatter": _empty_chart_bundle(
                 "Кластеры территорий на двумерной проекции",
                 "Недостаточно данных, чтобы показать типы территорий на проекции главных компонент.",
@@ -212,4 +223,3 @@ def _empty_clustering_data(
             "available_features": [],
         },
     }
-

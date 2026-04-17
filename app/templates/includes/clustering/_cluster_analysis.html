@@ -9,6 +9,24 @@
                 <div id="clusterScatterChartFallback" class="chart-empty{% if charts.scatter.empty_message %}{% else %} is-hidden{% endif %}">{{ charts.scatter.empty_message }}</div>
             </article>
 
+            <article class="panel chart-panel chart-panel-large">
+                <div class="panel-head">
+                    <h2 id="clusterRadarTitle">{{ (charts.radar_chart if charts.radar_chart is defined else {}).title | default("Профили кластеров по признакам") }}</h2>
+                    <span class="panel-meta">Сравнение нормализованных профилей кластеров по выбранным признакам.</span>
+                </div>
+                <div id="clusterRadarChart" class="plotly-chart cluster-radar-chart"></div>
+                <div id="clusterRadarChartFallback" class="chart-empty{% if charts.radar_chart is defined and charts.radar_chart.empty_message %}{% else %} is-hidden{% endif %}">{{ (charts.radar_chart if charts.radar_chart is defined else {}).empty_message | default('') }}</div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-head">
+                    <h2 id="clusterFeatureImportanceTitle">{{ (charts.feature_importance_chart if charts.feature_importance_chart is defined else {}).title | default("Вклад признаков в разделение кластеров") }}</h2>
+                    <span class="panel-meta">Межкластерная дисперсия признаков, нормализованная до долей суммарного вклада.</span>
+                </div>
+                <div id="clusterFeatureImportanceChart" class="plotly-chart cluster-bar-chart"></div>
+                <div id="clusterFeatureImportanceChartFallback" class="chart-empty{% if charts.feature_importance_chart is defined and charts.feature_importance_chart.empty_message %}{% else %} is-hidden{% endif %}">{{ (charts.feature_importance_chart if charts.feature_importance_chart is defined else {}).empty_message | default('') }}</div>
+            </article>
+
             <article class="panel chart-panel">
                 <div class="panel-head">
                     <h2 id="clusterDistributionTitle">{{ charts.distribution.title }}</h2>

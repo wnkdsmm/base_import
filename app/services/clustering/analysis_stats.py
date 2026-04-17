@@ -22,6 +22,79 @@ from .constants import (
 )
 
 
+DEFAULT_CLUSTER_RISK_FEATURE_WEIGHTS: Dict[str, float] = {
+    "Число пожаров": 0.35,
+    "Средняя площадь пожара": 0.20,
+    "Доля ночных пожаров": 0.15,
+    "Среднее время прибытия, мин": 0.20,
+    "Доля без подтвержденного водоснабжения": 0.10,
+}
+
+
+def compute_cluster_risk_scores(
+    cluster_profiles: Dict[int, Dict[str, float]],
+    feature_weights: Dict[str, float] | None = None,
+) -> list[Dict[str, Any]]:
+    if not cluster_profiles:
+        return []
+
+    weights = dict(feature_weights or DEFAULT_CLUSTER_RISK_FEATURE_WEIGHTS)
+    weighted_features = [
+        feature
+        for feature, weight in weights.items()
+        if float(weight) > 0 and any(feature in (profile or {}) for profile in cluster_profiles.values())
+    ]
+    if not weighted_features:
+        return []
+
+    feature_ranges: Dict[str, tuple[float, float]] = {}
+    for feature_name in weighted_features:
+        values = [
+            float((profile or {}).get(feature_name, 0.0) or 0.0)
+            for profile in cluster_profiles.values()
+        ]
+        if not values:
+            feature_ranges[feature_name] = (0.0, 0.0)
+            continue
+        feature_ranges[feature_name] = (min(values), max(values))
+
+    effective_weight_sum = float(
+        sum(float(weights[feature_name]) for feature_name in weighted_features),
+    )
+    if effective_weight_sum <= 0:
+        return []
+
+    risk_rows: list[Dict[str, Any]] = []
+    for cluster_id in sorted(cluster_profiles.keys()):
+        profile = cluster_profiles.get(cluster_id) or {}
+        weighted_score = 0.0
+        for feature_name in weighted_features:
+            weight = float(weights.get(feature_name, 0.0) or 0.0)
+            raw_value = float(profile.get(feature_name, 0.0) or 0.0)
+            min_value, max_value = feature_ranges[feature_name]
+            normalized_value = 0.0
+            if max_value > min_value:
+                normalized_value = (raw_value - min_value) / (max_value - min_value)
+            normalized_value = float(np.clip(normalized_value, 0.0, 1.0))
+            weighted_score += normalized_value * weight
+
+        risk_score = float(np.clip(weighted_score / effective_weight_sum, 0.0, 1.0))
+        if risk_score > 0.65:
+            risk_level = "Высокий"
+        elif risk_score > 0.35:
+            risk_level = "Средний"
+        else:
+            risk_level = "Низкий"
+        risk_rows.append(
+            {
+                "cluster_id": int(cluster_id),
+                "risk_score": round(risk_score, 4),
+                "risk_level": risk_level,
+            }
+        )
+    return risk_rows
+
+
 def _cluster_quality_score(metrics: Dict[str, float | None], row_count: int) -> float:
     silhouette = float(metrics.get("silhouette") or 0.0)
     davies_bouldin = metrics.get("davies_bouldin")

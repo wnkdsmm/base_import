@@ -210,6 +210,155 @@ def _build_diagnostics_chart(
     return build_chart_bundle(title, figure)
 
 
+def build_radar_chart(
+    cluster_profiles: dict[Any, dict[str, float]],
+    feature_labels: Sequence[str],
+) -> dict[str, Any]:
+    title = "Профили кластеров по признакам"
+    if not feature_labels or not cluster_profiles:
+        return _empty_chart_bundle(
+            title,
+            "Недостаточно данных, чтобы показать профили кластеров по признакам.",
+        )
+    if not PLOTLY_AVAILABLE:
+        return build_plotly_unavailable_chart_bundle(
+            title,
+            "Plotly недоступен, поэтому радар-профили кластеров не построены.",
+        )
+
+    safe_feature_labels = [str(label) for label in feature_labels]
+    cluster_items = list(cluster_profiles.items())
+    if not cluster_items:
+        return _empty_chart_bundle(
+            title,
+            "Недостаточно данных, чтобы показать профили кластеров по признакам.",
+        )
+
+    feature_min_max: dict[str, tuple[float, float]] = {}
+    for feature_name in safe_feature_labels:
+        values = [
+            float((metrics or {}).get(feature_name, 0.0) or 0.0)
+            for _, metrics in cluster_items
+        ]
+        if not values:
+            feature_min_max[feature_name] = (0.0, 0.0)
+            continue
+        feature_min_max[feature_name] = (min(values), max(values))
+
+    colors = build_plotly_palette(["sky", "forest", "sand", "fire"], limit=len(cluster_items))
+    figure = go.Figure()
+    theta = [*safe_feature_labels, safe_feature_labels[0]]
+    for index, (cluster_id, metrics) in enumerate(cluster_items):
+        normalized_values: list[float] = []
+        for feature_name in safe_feature_labels:
+            raw_value = float((metrics or {}).get(feature_name, 0.0) or 0.0)
+            min_value, max_value = feature_min_max[feature_name]
+            if max_value > min_value:
+                normalized = (raw_value - min_value) / (max_value - min_value)
+            else:
+                normalized = 0.0
+            normalized_values.append(float(np.clip(normalized, 0.0, 1.0)))
+        normalized_values.append(normalized_values[0])
+
+        figure.add_trace(
+            go.Scatterpolar(
+                r=normalized_values,
+                theta=theta,
+                mode="lines+markers",
+                name=str(cluster_id),
+                line=build_plotly_line(color=colors[index % len(colors)], width=2),
+                marker=build_plotly_marker(color=colors[index % len(colors)], size=6),
+                fill="toself",
+                fillcolor=colors[index % len(colors)],
+                opacity=0.2,
+                hovertemplate="<b>%{fullData.name}</b><br>%{theta}: %{r:.2f}<extra></extra>",
+            )
+        )
+
+    figure.update_layout(
+        **merge_plotly_layout(
+            build_service_plotly_layout("", height=420),
+            legend=build_horizontal_legend(y=1.12),
+            updates={
+                "polar": {
+                    "radialaxis": {
+                        "range": [0, 1],
+                        "gridcolor": PLOTLY_PALETTE["grid"],
+                        "tickformat": ".1f",
+                    },
+                    "angularaxis": {"gridcolor": PLOTLY_PALETTE["grid"]},
+                }
+            },
+        )
+    )
+    return build_chart_bundle(title, figure)
+
+
+def build_feature_importance_chart(
+    cluster_profiles: dict[Any, dict[str, float]],
+    feature_labels: Sequence[str],
+) -> dict[str, Any]:
+    title = "Вклад признаков в разделение кластеров"
+    if not feature_labels or not cluster_profiles:
+        return _empty_chart_bundle(
+            title,
+            "Недостаточно данных, чтобы оценить вклад признаков в разделение кластеров.",
+        )
+    if not PLOTLY_AVAILABLE:
+        return build_plotly_unavailable_chart_bundle(
+            title,
+            "Plotly недоступен, поэтому график вклада признаков не построен.",
+        )
+
+    safe_feature_labels = [str(label) for label in feature_labels]
+    cluster_items = list(cluster_profiles.items())
+    if not cluster_items:
+        return _empty_chart_bundle(
+            title,
+            "Недостаточно данных, чтобы оценить вклад признаков в разделение кластеров.",
+        )
+
+    feature_variances: list[tuple[str, float]] = []
+    for feature_name in safe_feature_labels:
+        values = [float((metrics or {}).get(feature_name, 0.0) or 0.0) for _, metrics in cluster_items]
+        feature_variances.append((feature_name, float(np.var(values)) if values else 0.0))
+
+    total_variance = float(sum(variance for _, variance in feature_variances))
+    if total_variance > 0:
+        contributions = [(feature_name, variance / total_variance) for feature_name, variance in feature_variances]
+    else:
+        uniform_share = (1.0 / len(feature_variances)) if feature_variances else 0.0
+        contributions = [(feature_name, uniform_share) for feature_name, _variance in feature_variances]
+
+    sorted_contributions = sorted(contributions, key=lambda item: item[1], reverse=True)
+    y_values = [feature_name for feature_name, _ in sorted_contributions]
+    x_values = [float(value) for _, value in sorted_contributions]
+    text_values = [_format_percent(value) for value in x_values]
+
+    figure = go.Figure(
+        data=[
+            build_plotly_bar_trace(
+                x=x_values,
+                y=y_values,
+                orientation="h",
+                marker={"color": PLOTLY_PALETTE["sky"]},
+                text=text_values,
+                textposition="auto",
+                hovertemplate="<b>%{y}</b><br>Вклад: %{x:.1%}<extra></extra>",
+            )
+        ]
+    )
+    figure.update_layout(
+        **merge_plotly_layout(
+            plotly_layout("Вклад признака", height=max(320, 48 * len(y_values) + 120)),
+            xaxis={"title": "Доля вклада", "tickformat": ".0%", "rangemode": "tozero"},
+            yaxis={"title": "", "automargin": True, "autorange": "reversed"},
+            updates={"showlegend": False},
+        )
+    )
+    return build_chart_bundle(title, figure)
+
+
 def _format_metric(column_name: str, value: Any) -> str:
     if column_name.startswith("Доля") or column_name.startswith("Покрытие"):
         return _format_percent(float(value))

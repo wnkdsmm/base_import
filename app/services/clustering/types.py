@@ -275,6 +275,8 @@ class ClusteringCharts(TypedDict):
     """Chart bundle rendered in clustering payload."""
 
     scatter: dict[str, Any]
+    radar_chart: dict[str, Any]
+    feature_importance_chart: dict[str, Any]
     distribution: dict[str, Any]
     diagnostics: dict[str, Any]
 
@@ -291,6 +293,7 @@ class ClusteringPayload(TypedDict, total=False):
     centroid_rows: list[dict[str, Any]]
     representative_columns: list[dict[str, Any]]
     representative_rows: list[dict[str, Any]]
+    cluster_risk: list[dict[str, Any]]
     charts: ClusteringCharts
     notes: list[str]
     filters: ClusteringFilters
@@ -329,6 +332,7 @@ class ClusteringBaseState(TypedDict, total=False):
     centroid_rows: list[dict[str, Any]]
     representative_columns: list[dict[str, Any]]
     representative_rows: list[dict[str, Any]]
+    cluster_risk: list[dict[str, Any]]
     charts: ClusteringCharts
     notes: list[str]
     filters: ClusteringFilters
