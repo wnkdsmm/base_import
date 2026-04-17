@@ -31,6 +31,56 @@ from .types import ClusteringCharts, DiagnosticsRow
 from .utils import _format_integer, _format_number, _format_percent
 
 
+def _minmax_normalize_profiles(
+    cluster_profiles: dict[int, dict[str, float]],
+    feature_labels: Sequence[str],
+) -> dict[int, dict[str, float]]:
+    safe_feature_labels = [str(label) for label in feature_labels]
+    cluster_items = list(cluster_profiles.items())
+    if not safe_feature_labels or not cluster_items:
+        return {}
+
+    feature_min_max: dict[str, tuple[float, float]] = {}
+    for feature_name in safe_feature_labels:
+        values = [
+            float((metrics or {}).get(feature_name, 0.0) or 0.0)
+            for _, metrics in cluster_items
+        ]
+        if not values:
+            feature_min_max[feature_name] = (0.0, 0.0)
+            continue
+        feature_min_max[feature_name] = (min(values), max(values))
+
+    normalized_profiles: dict[int, dict[str, float]] = {}
+    for cluster_id, metrics in cluster_items:
+        normalized_metrics: dict[str, float] = {}
+        for feature_name in safe_feature_labels:
+            raw_value = float((metrics or {}).get(feature_name, 0.0) or 0.0)
+            min_value, max_value = feature_min_max[feature_name]
+            if max_value > min_value:
+                normalized_value = (raw_value - min_value) / (max_value - min_value)
+            else:
+                normalized_value = 0.0
+            normalized_metrics[feature_name] = float(np.clip(normalized_value, 0.0, 1.0))
+        normalized_profiles[cluster_id] = normalized_metrics
+    return normalized_profiles
+
+
+def hex_to_rgba(color: str, alpha: float = 0.15) -> str:
+    safe_alpha = float(np.clip(alpha, 0.0, 1.0))
+    value = str(color or "").strip()
+    if value.startswith("#"):
+        hex_value = value[1:]
+        if len(hex_value) == 3:
+            hex_value = "".join(ch * 2 for ch in hex_value)
+        if len(hex_value) == 6:
+            red = int(hex_value[0:2], 16)
+            green = int(hex_value[2:4], 16)
+            blue = int(hex_value[4:6], 16)
+            return f"rgba({red},{green},{blue},{safe_alpha:.2f})"
+    return value
+
+
 def _build_scatter_chart(
     pca_points: np.ndarray,
     labels: np.ndarray,
@@ -211,7 +261,7 @@ def _build_diagnostics_chart(
 
 
 def build_radar_chart(
-    cluster_profiles: dict[Any, dict[str, float]],
+    cluster_profiles: dict[int, dict[str, float]],
     feature_labels: Sequence[str],
 ) -> dict[str, Any]:
     title = "Профили кластеров по признакам"
@@ -227,23 +277,13 @@ def build_radar_chart(
         )
 
     safe_feature_labels = [str(label) for label in feature_labels]
-    cluster_items = list(cluster_profiles.items())
+    normalized_profiles = _minmax_normalize_profiles(cluster_profiles, safe_feature_labels)
+    cluster_items = list(normalized_profiles.items())
     if not cluster_items:
         return _empty_chart_bundle(
             title,
             "Недостаточно данных, чтобы показать профили кластеров по признакам.",
         )
-
-    feature_min_max: dict[str, tuple[float, float]] = {}
-    for feature_name in safe_feature_labels:
-        values = [
-            float((metrics or {}).get(feature_name, 0.0) or 0.0)
-            for _, metrics in cluster_items
-        ]
-        if not values:
-            feature_min_max[feature_name] = (0.0, 0.0)
-            continue
-        feature_min_max[feature_name] = (min(values), max(values))
 
     colors = build_plotly_palette(["sky", "forest", "sand", "fire"], limit=len(cluster_items))
     figure = go.Figure()
@@ -251,13 +291,7 @@ def build_radar_chart(
     for index, (cluster_id, metrics) in enumerate(cluster_items):
         normalized_values: list[float] = []
         for feature_name in safe_feature_labels:
-            raw_value = float((metrics or {}).get(feature_name, 0.0) or 0.0)
-            min_value, max_value = feature_min_max[feature_name]
-            if max_value > min_value:
-                normalized = (raw_value - min_value) / (max_value - min_value)
-            else:
-                normalized = 0.0
-            normalized_values.append(float(np.clip(normalized, 0.0, 1.0)))
+            normalized_values.append(float((metrics or {}).get(feature_name, 0.0) or 0.0))
         normalized_values.append(normalized_values[0])
 
         figure.add_trace(
@@ -269,8 +303,7 @@ def build_radar_chart(
                 line=build_plotly_line(color=colors[index % len(colors)], width=2),
                 marker=build_plotly_marker(color=colors[index % len(colors)], size=6),
                 fill="toself",
-                fillcolor=colors[index % len(colors)],
-                opacity=0.2,
+                fillcolor=hex_to_rgba(colors[index % len(colors)], alpha=0.15),
                 hovertemplate="<b>%{fullData.name}</b><br>%{theta}: %{r:.2f}<extra></extra>",
             )
         )
@@ -295,7 +328,7 @@ def build_radar_chart(
 
 
 def build_feature_importance_chart(
-    cluster_profiles: dict[Any, dict[str, float]],
+    cluster_profiles: dict[int, dict[str, float]],
     feature_labels: Sequence[str],
 ) -> dict[str, Any]:
     title = "Вклад признаков в разделение кластеров"
@@ -311,7 +344,8 @@ def build_feature_importance_chart(
         )
 
     safe_feature_labels = [str(label) for label in feature_labels]
-    cluster_items = list(cluster_profiles.items())
+    normalized_profiles = _minmax_normalize_profiles(cluster_profiles, safe_feature_labels)
+    cluster_items = list(normalized_profiles.items())
     if not cluster_items:
         return _empty_chart_bundle(
             title,

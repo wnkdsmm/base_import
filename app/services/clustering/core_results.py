@@ -58,22 +58,13 @@ def _build_clustering_charts_payload(
     clustering: ClusteringModelOutput,
     labels: Sequence[int],
     cluster_labels: Sequence[str],
+    numeric_profiles: dict[int, dict[str, float]],
     cluster_frame: Any,
     entity_frame: Any,
     diagnostics: ClusteringDiagnostics,
     actual_cluster_count: int,
 ) -> dict[str, Any]:  # one-off structure: direct chart bundle mapped by chart ids
     feature_labels = [str(column) for column in list(getattr(cluster_frame, "columns", []))]
-    raw_centers_value = clustering.get("raw_centers")
-    raw_centers = list(raw_centers_value) if raw_centers_value is not None else []
-    radar_profiles: dict[str, dict[str, float]] = {
-        str(cluster_label): {
-            feature_name: float(raw_centers[cluster_id][feature_index])
-            for feature_index, feature_name in enumerate(feature_labels)
-            if cluster_id < len(raw_centers) and feature_index < len(raw_centers[cluster_id])
-        }
-        for cluster_id, cluster_label in enumerate(cluster_labels)
-    }
 
     return {
         "scatter": _build_scatter_chart(
@@ -84,11 +75,11 @@ def _build_clustering_charts_payload(
             entity_frame=entity_frame,
         ),
         "radar_chart": build_radar_chart(
-            cluster_profiles=radar_profiles,
+            cluster_profiles=numeric_profiles,
             feature_labels=feature_labels,
         ),
         "feature_importance_chart": build_feature_importance_chart(
-            cluster_profiles=radar_profiles,
+            cluster_profiles=numeric_profiles,
             feature_labels=feature_labels,
         ),
         "distribution": _build_distribution_chart(
@@ -187,6 +178,7 @@ def _build_clustering_success_payload(
             clustering=clustering,
             labels=labels,
             cluster_labels=cluster_labels,
+            numeric_profiles=numeric_profiles,
             cluster_frame=cluster_frame,
             entity_frame=entity_frame,
             diagnostics=diagnostics,

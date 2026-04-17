@@ -180,9 +180,7 @@ function syncClusteringAsyncContainer() {
                     + '<td data-label="Статус">' + escapeHtml(row.selection_label || '-') + '</td>'
                     + '</tr>';
             }).join('') + '</tbody></table>';
-    }
-
-    function renderClusterRiskTable(rows) {
+    }    function renderClusterRiskTable(rows) {
         var container = byId('clusterRiskTableShell');
         if (!container) {
             return;
@@ -193,17 +191,23 @@ function syncClusteringAsyncContainer() {
         }
         container.innerHTML = ''
             + '<table class="data-table table-stack-mobile cluster-risk-table">'
-            + '<thead><tr><th>Кластер</th><th>Уровень риска</th><th>Балл риска</th></tr></thead>'
+            + '<thead><tr><th>Кластер</th><th>Уровень риска</th></tr></thead>'
             + '<tbody>' + rows.map(function (row) {
-                var score = Number(row.risk_score);
-                var scoreDisplay = Number.isFinite(score) ? score.toFixed(2) : '-';
                 var clusterId = Number(row.cluster_id);
+                var riskLevel = String(row.risk_level || '-');
                 var clusterDisplay = Number.isFinite(clusterId) ? String(clusterId + 1) : String(row.cluster_id != null ? row.cluster_id : '-');
+                var riskClass = '';
+                if (riskLevel === '�������') {
+                    riskClass = 'risk-high';
+                } else if (riskLevel === '�������') {
+                    riskClass = 'risk-medium';
+                } else if (riskLevel === '������') {
+                    riskClass = 'risk-low';
+                }
                 return ''
                     + '<tr>'
                     + '<td>' + escapeHtml(clusterDisplay) + '</td>'
-                    + '<td>' + escapeHtml(row.risk_level || '-') + '</td>'
-                    + '<td>' + escapeHtml(scoreDisplay) + '</td>'
+                    + '<td class="' + riskClass + '">' + escapeHtml(riskLevel) + '</td>'
                     + '</tr>';
             }).join('') + '</tbody></table>';
     }
@@ -359,3 +363,5 @@ function applyClusteringData(data) {
         }
     };
 }(window));
+
+
