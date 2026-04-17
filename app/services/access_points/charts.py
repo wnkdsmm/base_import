@@ -253,9 +253,11 @@ def _build_factor_bar_chart(points: list[dict]) -> dict[str, Any]:
 
     def _short_label(value: Any) -> str:
         text = str(value or "-")
-        return text if len(text) <= 35 else (text[:35] + "...")
+        return text if len(text) <= 24 else (text[:24] + "...")
 
     y_labels = [_short_label(point.get("label")) for point in top_points]
+    max_label_length = max((len(label) for label in y_labels), default=0)
+    left_margin = min(220, max(120, max_label_length * 6 + 36))
     access_values = [_safe_score(point, "access_score") for point in top_points]
     water_values = [_safe_score(point, "water_score") for point in top_points]
     severity_values = [_safe_score(point, "severity_score") for point in top_points]
@@ -274,11 +276,11 @@ def _build_factor_bar_chart(points: list[dict]) -> dict[str, Any]:
     figure.update_layout(
         barmode="stack",
         xaxis={"title": "Балл", "range": [0, 100]},
-        yaxis={"autorange": "reversed", "showgrid": False},
+        yaxis={"autorange": "reversed", "showgrid": False, "automargin": True, "tickfont": {"size": 10}},
         plot_bgcolor="white",
         paper_bgcolor="white",
         height=max(280, 60 * min(len(top_points), 10) + 80),
-        margin={"l": 140, "r": 24, "t": 20, "b": 48},
+        margin={"l": left_margin, "r": 24, "t": 20, "b": 48},
     )
 
     plotly_payload = serialize_plotly_figure(figure)
@@ -320,8 +322,14 @@ def _build_factor_heatmap(points: list[dict]) -> dict[str, Any]:
             return 0.0
         return max(0.0, min(100.0, value))
 
+    def _short_heatmap_label(value: Any) -> str:
+        text = str(value or "-")
+        return text if len(text) <= 22 else (text[:22] + "...")
+
     x_labels = [label for _key, label in features]
-    y_labels = [str((point.get("label") or "-"))[:30] for point in top_points]
+    y_labels = [_short_heatmap_label(point.get("label")) for point in top_points]
+    max_label_length = max((len(label) for label in y_labels), default=0)
+    left_margin = min(200, max(110, max_label_length * 6 + 28))
     z_values = [
         [_safe_score(point, key) for key, _label in features]
         for point in top_points
@@ -360,9 +368,9 @@ def _build_factor_heatmap(points: list[dict]) -> dict[str, Any]:
         plot_bgcolor="white",
         paper_bgcolor="white",
         height=40 * min(15, len(top_points)) + 80,
-        margin={"l": 120, "r": 16, "t": 18, "b": 42},
-        xaxis={"side": "top"},
-        yaxis={"showgrid": False, "autorange": "reversed"},
+        margin={"l": left_margin, "r": 16, "t": 18, "b": 42},
+        xaxis={"side": "bottom"},
+        yaxis={"showgrid": False, "autorange": "reversed", "automargin": True, "tickfont": {"size": 10}},
         annotations=annotations,
     )
 
@@ -376,4 +384,3 @@ def _build_factor_heatmap(points: list[dict]) -> dict[str, Any]:
 
 def build_access_points_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return _build_points_scatter_chart(rows)
-

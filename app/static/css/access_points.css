@@ -109,6 +109,10 @@
     min-height: clamp(340px, 54vh, 440px);
 }
 
+.access-points-layout .chart-empty:empty {
+    display: none;
+}
+
 .access-points-primary,
 .access-points-secondary {
     min-width: 0;
@@ -372,4 +376,3 @@
         padding: var(--space-token-30);
     }
 }
-
