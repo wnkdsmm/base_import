@@ -387,7 +387,16 @@ function showLoading(message) {
         setSelectOptions('accessPointsLimitFilter', filters.available_limits, filters.limit, 'Top 25');
         renderFeaturePicker(filters);
     }
-
+    function renderCharts(charts) {
+        setText(
+            'accessPointsScatterTitle',
+            charts.scatter ? charts.scatter.title : 'Проблемные точки на двумерной проекции риска'
+        );
+        renderChart(charts.scatter, 'accessPointsScatterChart', 'accessPointsScatterChartFallback');
+        renderChart(charts.factor_heatmap, 'accessPointsHeatmapChart', 'accessPointsHeatmapFallback');
+        renderChart(charts.factor_bar, 'accessPointsFactorBarChart', 'accessPointsFactorBarFallback');
+        renderChart(charts.score_histogram, 'accessPointsHistogramChart', 'accessPointsHistogramChartFallback');
+    }
     function render(data) {
         var charts = data.charts || {};
         renderFilters(data);
@@ -395,11 +404,7 @@ function showLoading(message) {
         renderHero(data);
         renderSummaryLine(data);
         renderCards(data);
-        setText(
-            'accessPointsScatterTitle',
-            charts.scatter ? charts.scatter.title : 'Проблемные точки на двумерной проекции риска'
-        );
-        renderChart(charts.scatter, 'accessPointsScatterChart', 'accessPointsScatterChartFallback');
+        renderCharts(charts);
         renderTopPoints(data);
         renderRankingTable(data);
         renderTypology(data);
@@ -420,3 +425,7 @@ function showLoading(message) {
         }
     };
 }(window));
+
+
+
+

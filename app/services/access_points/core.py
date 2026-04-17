@@ -23,7 +23,7 @@ from .analysis_ranking import (
     _select_incomplete_points,
     _select_top_points,
 )
-from .charts import _build_points_scatter_chart
+from .charts import _build_factor_bar_chart, _build_factor_heatmap, _build_points_scatter_chart, _build_score_histogram
 from .constants import ACCESS_POINT_LIMIT_OPTIONS
 from .data import (
     _build_access_points_table_options,
@@ -129,7 +129,22 @@ def _empty_access_points_charts(message: str) -> dict[str, Any]:
         "scatter": _empty_chart_bundle(
             "Проблемные точки на проекции доступности и последствий",
             message,
-        )
+        ),
+        "score_histogram": {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": message,
+        },
+        "factor_bar": {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": message,
+        },
+        "factor_heatmap": {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": message,
+        },
     }
 
 
@@ -406,6 +421,9 @@ def get_access_points_data(
         ),
         "charts": {
             "scatter": _build_points_scatter_chart(rows),
+            "score_histogram": _build_score_histogram(rows),
+            "factor_bar": _build_factor_bar_chart(rows),
+            "factor_heatmap": _build_factor_heatmap(rows),
         },
         "top_point_label": str(top_points[0]["label"] if top_points else "-"),
         "top_point_explanation": _build_top_point_lead(top_points[0] if top_points else None),

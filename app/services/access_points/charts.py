@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Sequence
 
-from app.plotly_bundle import PLOTLY_AVAILABLE, go
+from app.plotly_bundle import PLOTLY_AVAILABLE, go, serialize_plotly_figure
 from app.services.charting import (
     build_chart_bundle,
     build_empty_chart_bundle as _empty_chart_bundle,
@@ -155,5 +155,225 @@ def _build_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any
     return build_chart_bundle(title, figure)
 
 
+def _build_score_histogram(points: list[dict]) -> dict[str, Any]:
+    if not PLOTLY_AVAILABLE:
+        return {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": "Plotly недоступен, поэтому гистограмма не построена.",
+        }
+
+    scores: list[int] = []
+    for point in points:
+        raw_value = point.get("total_score")
+        try:
+            score = int(float(raw_value))
+        except (TypeError, ValueError):
+            continue
+        if score < 0:
+            score = 0
+        if score > 100:
+            score = 100
+        scores.append(score)
+
+    if not scores:
+        return {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": "Недостаточно данных для построения распределения балла риска.",
+        }
+
+    bucket_counts = [0] * 10
+    for score in scores:
+        bucket_index = min(score // 10, 9)
+        bucket_counts[bucket_index] += 1
+
+    x_labels = [f"{index * 10}-{index * 10 + 10}" for index in range(9)] + ["90-100"]
+    colors = []
+    for index in range(10):
+        bucket_start = index * 10
+        if bucket_start >= 80:
+            colors.append("#ef4444")
+        elif bucket_start >= 60:
+            colors.append("#f59e0b")
+        elif bucket_start >= 40:
+            colors.append("#14b8a6")
+        else:
+            colors.append("#94a3b8")
+
+    figure = go.Figure(
+        data=[
+            go.Bar(
+                x=x_labels,
+                y=bucket_counts,
+                marker={"color": colors},
+                hovertemplate="Диапазон: %{x}<br>Количество точек: %{y}<extra></extra>",
+            )
+        ]
+    )
+    figure.update_layout(
+        xaxis={"title": "Балл риска"},
+        yaxis={"title": "Количество точек"},
+        showlegend=False,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin={"l": 48, "r": 16, "t": 12, "b": 48},
+    )
+
+    plotly_payload = serialize_plotly_figure(figure)
+    return {
+        "figure": figure.to_dict(),
+        "plotly": plotly_payload,
+        "empty_message": "",
+    }
+
+
+def _build_factor_bar_chart(points: list[dict]) -> dict[str, Any]:
+    if not PLOTLY_AVAILABLE:
+        return {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": "Plotly недоступен, поэтому график вклада факторов не построен.",
+        }
+
+    top_points = list(points[:10])
+    if not top_points:
+        return {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": "Недостаточно данных для построения вклада факторов.",
+        }
+
+    def _safe_score(item: dict[str, Any], key: str) -> float:
+        try:
+            value = float(item.get(key) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, min(100.0, value))
+
+    def _short_label(value: Any) -> str:
+        text = str(value or "-")
+        return text if len(text) <= 35 else (text[:35] + "...")
+
+    y_labels = [_short_label(point.get("label")) for point in top_points]
+    access_values = [_safe_score(point, "access_score") for point in top_points]
+    water_values = [_safe_score(point, "water_score") for point in top_points]
+    severity_values = [_safe_score(point, "severity_score") for point in top_points]
+    recurrence_values = [_safe_score(point, "recurrence_score") for point in top_points]
+    data_gap_values = [_safe_score(point, "data_gap_score") for point in top_points]
+
+    figure = go.Figure(
+        data=[
+            go.Bar(name="Доступность", y=y_labels, x=access_values, orientation="h", marker={"color": "#3b82f6"}),
+            go.Bar(name="Водоснабжение", y=y_labels, x=water_values, orientation="h", marker={"color": "#06b6d4"}),
+            go.Bar(name="Последствия", y=y_labels, x=severity_values, orientation="h", marker={"color": "#ef4444"}),
+            go.Bar(name="Повторяемость", y=y_labels, x=recurrence_values, orientation="h", marker={"color": "#f59e0b"}),
+            go.Bar(name="Пропуски", y=y_labels, x=data_gap_values, orientation="h", marker={"color": "#94a3b8"}),
+        ]
+    )
+    figure.update_layout(
+        barmode="stack",
+        xaxis={"title": "Балл", "range": [0, 100]},
+        yaxis={"autorange": "reversed", "showgrid": False},
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        height=max(280, 60 * min(len(top_points), 10) + 80),
+        margin={"l": 140, "r": 24, "t": 20, "b": 48},
+    )
+
+    plotly_payload = serialize_plotly_figure(figure)
+    return {
+        "figure": figure.to_dict(),
+        "plotly": plotly_payload,
+        "empty_message": "",
+    }
+
+
+def _build_factor_heatmap(points: list[dict]) -> dict[str, Any]:
+    if not PLOTLY_AVAILABLE:
+        return {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": "Plotly недоступен, поэтому тепловая карта не построена.",
+        }
+
+    top_points = list(points[:15])
+    if len(top_points) < 3:
+        return {
+            "figure": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "plotly": {"data": [], "layout": {}, "config": {"responsive": True}},
+            "empty_message": "Недостаточно данных для построения тепловой карты",
+        }
+
+    features = [
+        ("access_score", "Доступность"),
+        ("water_score", "Вода"),
+        ("severity_score", "Последствия"),
+        ("recurrence_score", "Повторяемость"),
+        ("data_gap_score", "Пропуски"),
+    ]
+
+    def _safe_score(item: dict[str, Any], key: str) -> float:
+        try:
+            value = float(item.get(key) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, min(100.0, value))
+
+    x_labels = [label for _key, label in features]
+    y_labels = [str((point.get("label") or "-"))[:30] for point in top_points]
+    z_values = [
+        [_safe_score(point, key) for key, _label in features]
+        for point in top_points
+    ]
+    text_values = [[str(int(round(value))) for value in row] for row in z_values]
+
+    figure = go.Figure(
+        data=[
+            go.Heatmap(
+                z=z_values,
+                x=x_labels,
+                y=y_labels,
+                colorscale="RdYlGn_r",
+                zmin=0,
+                zmax=100,
+                hovertemplate="%{y}<br>%{x}: %{z:.0f}<extra></extra>",
+                showscale=False,
+            )
+        ]
+    )
+
+    annotations = []
+    for row_index, row in enumerate(text_values):
+        for col_index, cell_value in enumerate(row):
+            annotations.append(
+                {
+                    "x": x_labels[col_index],
+                    "y": y_labels[row_index],
+                    "text": cell_value,
+                    "showarrow": False,
+                    "font": {"size": 9, "color": "#111827"},
+                }
+            )
+
+    figure.update_layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        height=40 * min(15, len(top_points)) + 80,
+        margin={"l": 120, "r": 16, "t": 18, "b": 42},
+        xaxis={"side": "top"},
+        yaxis={"showgrid": False, "autorange": "reversed"},
+        annotations=annotations,
+    )
+
+    plotly_payload = serialize_plotly_figure(figure)
+    return {
+        "figure": figure.to_dict(),
+        "plotly": plotly_payload,
+        "empty_message": "",
+    }
+
+
 def build_access_points_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return _build_points_scatter_chart(rows)
+
