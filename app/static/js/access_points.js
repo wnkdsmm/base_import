@@ -97,9 +97,12 @@ function getFormParams() {
 
     function bootstrap() {
         var initialData = state.getInitialData() || {};
-        renderApi.render(initialData);
         if (initialData.bootstrap_mode === 'deferred') {
+            renderApi.showLoading();
             fetchAccessPoints(getFormParams());
+        } else {
+            renderApi.renderCharts(initialData.charts || {});
+            if (shared.revealPageContent) { shared.revealPageContent(); }
         }
     }
 

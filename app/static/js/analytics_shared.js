@@ -117,6 +117,12 @@
         return message || fallback;
     }
 
+    function revealPageContent() {
+        if (document && document.body) {
+            document.body.removeAttribute('data-page-loading');
+        }
+    }
+
     global.FireUi = {
         applyToneClass: uiHelpers.applyToneClass,
         byId: byId,
@@ -135,6 +141,7 @@
         renderPlotlyFigure: plotlyHelpers.renderPlotlyFigure,
         renderPlotlyInContainer: plotlyHelpers.renderPlotlyInContainer,
         runProgressSequence: runProgressSequence,
+        revealPageContent: revealPageContent,
         setHref: uiHelpers.setHref,
         setSectionHidden: uiHelpers.setSectionHidden,
         setSelectOptions: uiHelpers.setSelectOptions,

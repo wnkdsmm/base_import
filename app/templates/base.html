@@ -7,9 +7,12 @@
 <link rel="stylesheet" href="/static/css/base.css?v={{ base_css_version }}">
 <link rel="stylesheet" href="/static/css/layout.css?v={{ layout_css_version }}">
 <link rel="stylesheet" href="/static/css/shared-components.css?v={{ shared_components_css_version }}">
+<style>
+body[data-page-loading] .page-content-wrapper { opacity: 0; }
+</style>
 {% block page_styles %}{% endblock %}
 </head>
-<body{% block body_attributes %}{% endblock %}>
+<body data-page-loading="1"{% block body_attributes %}{% endblock %}>
 {% block body %}
 <a class="skip-link" href="#page-content">Перейти к содержимому</a>
 <a class="sidebar-toggle" href="#app-sidebar" aria-controls="app-sidebar" aria-expanded="false">Меню</a>
@@ -39,7 +42,17 @@
 <a class="sidebar-overlay" href="#page-content" aria-hidden="true" tabindex="-1"></a>
 {% endblock %}
 
+<div class="page-content-wrapper">
 {% block content %}{% endblock %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (document.body && document.body.hasAttribute('data-page-loading')) {
+        document.body.removeAttribute('data-page-loading');
+    }
+});
+</script>
 
 {% block page_data %}{% endblock %}
 {% block scripts %}

@@ -145,6 +145,11 @@
     grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
 }
 
+.chart-panel-causes #yearlyFiresChart {
+    width: min(100%, 1500px);
+    margin-inline: auto;
+}
+
 .executive-panel {
     display: grid;
     gap: 20px;
@@ -518,4 +523,3 @@
         padding: var(--space-token-21);
     }
 }
-

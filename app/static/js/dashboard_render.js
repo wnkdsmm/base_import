@@ -58,6 +58,17 @@ function getSelectedText(selectNode, fallback) {
         }).join('');
     }
 
+    function renderDashboardCharts(charts) {
+        var safeCharts = charts || {};
+        renderPlotlyInContainer(safeCharts.yearly_fires, 'yearlyFiresChart');
+        renderPlotlyInContainer(safeCharts.distribution, 'distributionChart');
+        renderPlotlyInContainer(safeCharts.yearly_area, 'yearlyAreaChart');
+        renderPlotlyInContainer(safeCharts.cumulative_area, 'cumulativeAreaChart');
+        renderPlotlyInContainer(safeCharts.monthly_heatmap, 'monthlyHeatmapChart');
+        renderPlotlyInContainer(safeCharts.monthly_profile, 'monthlyProfileChart');
+        renderPlotlyInContainer(safeCharts.area_buckets, 'areaBucketsChart');
+    }
+
     function renderNotesPanel(notes) {
         const panel = byId('dashboardNotesPanel');
         const list = byId('dashboardNotesList');
@@ -338,24 +349,20 @@ function renderManagementCards(items) {
         setText('monthlyProfileMeta', charts.monthly_profile ? charts.monthly_profile.description : 'Что показывает блок: сезонный рисунок пожаров, если нужно планировать профилактику заранее.');
         setText('areaBucketsMeta', charts.area_buckets ? charts.area_buckets.description : 'Что показывает блок: преобладают ли небольшие или крупные пожары.');
 
-        renderPlotlyInContainer(charts.yearly_fires, 'yearlyFiresChart');
-        renderPlotlyInContainer(charts.distribution, 'distributionChart');
-        renderPlotlyInContainer(charts.yearly_area, 'yearlyAreaChart');
-        renderPlotlyInContainer(charts.cumulative_area, 'cumulativeAreaChart');
-        renderPlotlyInContainer(charts.monthly_heatmap, 'monthlyHeatmapChart');
-        renderPlotlyInContainer(charts.monthly_profile, 'monthlyProfileChart');
-        renderPlotlyInContainer(charts.area_buckets, 'areaBucketsChart');
+        renderDashboardCharts(charts);
 
         renderRankingList('topDistributionList', rankings.top_distribution, 'Нет данных по распределению.', 'ranking-row-fire');
         renderRankingList('topTablesList', rankings.top_tables, 'Нет таблиц в текущем фильтре.', 'ranking-row-table');
         renderRankingList('recentYearsList', rankings.recent_years, 'Недостаточно годовых данных.', 'ranking-row-year');
         renderNotesPanel(data.notes || []);
+        if (shared.revealPageContent) { shared.revealPageContent(); }
     }
 
             return {
                 applyDashboardData: applyDashboardData,
                 buildDashboardPageHref: buildDashboardPageHref,
                 hideDashboardError: hideDashboardError,
+                renderDashboardCharts: renderDashboardCharts,
                 renderFilterSummary: renderFilterSummary,
                 showDashboardError: showDashboardError,
                 updateDashboardBriefExport: updateDashboardBriefExport,

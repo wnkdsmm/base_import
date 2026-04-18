@@ -34,7 +34,7 @@ function syncClusteringAsyncContainer() {
         setSectionHidden('clusteringAsyncState', !(hasVisibleError || hasVisibleRuntime));
     }
 
-    function hideClusteringError() {
+        function hideClusteringError() {
         var errorNode = byId('clusteringErrorState');
         if (!errorNode) {
             return;
@@ -350,6 +350,7 @@ function applyClusteringData(data) {
         renderListItems('clusterNotesList', data.notes || [], 'После расчета здесь появятся комментарии по качеству сегментации и смыслу полученных типов территорий.', { filterEmpty: true });
         renderDataTable('clusterRepresentativesTableShell', data.representative_columns, data.representative_rows, 'После расчета здесь появятся территории, ближайшие к центрам кластеров.');
         syncClusteringAsyncContainer();
+        if (shared.revealPageContent) { shared.revealPageContent(); }
     }
 
             return {

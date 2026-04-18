@@ -111,7 +111,8 @@ async function fetchDashboardData() {
         var shouldFetchOnLoad = !initialData || isDeferredBootstrap;
 
         if (initialData && !isDeferredBootstrap) {
-            renderApi.applyDashboardData(initialData);
+            renderApi.renderDashboardCharts(initialData.charts || {});
+            if (shared.revealPageContent) { shared.revealPageContent(); }
         } else {
             syncBriefLink();
         }

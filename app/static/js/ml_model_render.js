@@ -400,6 +400,7 @@
             forecast_days: filters.forecast_days || '14',
             history_window: filters.history_window || 'all'
         });
+        if (shared.revealPageContent) { shared.revealPageContent(); }
     }
 
     function clearProgressTimers() {

@@ -1,5 +1,5 @@
 html[data-forecasting-boot="1"] body[data-page="forecasting"][data-forecasting-ready="0"] .forecasting-main {
-    visibility: hidden;
+    display: none;
 }
 
 .forecast-primary > .panel + .panel {

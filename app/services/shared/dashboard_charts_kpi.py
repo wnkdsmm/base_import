@@ -139,24 +139,27 @@ def _build_cause_plotly(title: str, items: List[ChartData], empty_message: str) 
     if not items:
         return _empty_plotly_payload(empty_message)
     ordered_items = list(reversed(items))
-    return build_item_horizontal_bar_payload(
+    plotly_payload = build_item_horizontal_bar_payload(
         ordered_items,
         layout=_plotly_layout("Количество пожаров", showlegend=False),
-        y_values=[_wrap_plotly_label(item["label"], max_width=34, max_lines=2) for item in ordered_items],
+        y_values=[_wrap_plotly_label(item["label"], max_width=64, max_lines=3) for item in ordered_items],
         hovertemplate="<b>%{customdata}</b><br>Пожаров: %{text}<extra></extra>",
         color=PLOTLY_PALETTE["fire"],
         line_color=PLOTLY_PALETTE["fire_soft"],
         customdata=[item["label"] for item in ordered_items],
         layout_updates=merge_plotly_layout(
             updates={
-                "height": min(620, max(360, 34 * len(items) + 90)),
-                "margin": {"l": 320, "r": 72, "t": 20, "b": 36},
+                "height": min(700, max(420, 42 * len(items) + 100)),
+                "margin": {"l": 420, "r": 72, "t": 20, "b": 36},
                 "bargap": 0.62,
             },
-            xaxis={"automargin": True},
-            yaxis={"automargin": True, "tickfont": {"size": 11}},
+            xaxis={"automargin": True, "tickfont": {"size": 12}},
+            yaxis={"automargin": True, "tickfont": {"size": 15}},
         ),
     )
+    if plotly_payload.get("data"):
+        plotly_payload["data"][0]["textfont"] = {"size": 13}
+    return plotly_payload
 
 def _build_distribution_pie_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:

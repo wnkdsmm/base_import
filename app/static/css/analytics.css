@@ -305,6 +305,8 @@
 
 .chart-panel-causes .plotly-chart {
     min-height: clamp(300px, 48vh, 380px);
+    width: min(100%, 1360px);
+    margin-inline: auto;
 }
 
 .plotly-chart .js-plotly-plot,
@@ -647,4 +649,3 @@
 .tone-low {
     background: var(--tone-sky-soft);
 }
-

@@ -254,6 +254,22 @@
     vertical-align: top;
 }
 
+.access-points-ranking-panel .data-table-shell {
+    overflow-x: auto;
+}
+
+.access-points-ranking-panel .access-points-table th,
+.access-points-ranking-panel .access-points-table td {
+    min-width: max(7rem, 12ch);
+}
+
+.access-points-ranking-panel .access-points-table th:nth-child(2),
+.access-points-ranking-panel .access-points-table td:nth-child(2),
+.access-points-ranking-panel .access-points-table th:nth-child(14),
+.access-points-ranking-panel .access-points-table td:nth-child(14) {
+    min-width: min(34rem, 42ch);
+}
+
 .typology-card strong,
 .incomplete-card strong {
     font-size: var(--font-size-token-09);

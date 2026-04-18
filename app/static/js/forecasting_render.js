@@ -763,6 +763,7 @@
             forecast_days: filters.forecast_days || '',
             history_window: filters.history_window || ''
         });
+        if (shared.revealPageContent) { shared.revealPageContent(); }
     }
 
         return {

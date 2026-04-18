@@ -404,11 +404,13 @@ function showLoading(message) {
         renderListItems('accessPointsUncertaintyNotes', data.uncertainty_notes, 'Здесь появятся пояснения по uncertainty penalty и low support.');
         renderListItems('accessPointsNotes', data.notes, 'Здесь появятся короткие пояснения по качеству данных и смыслу рейтинга.');
         hideLoading();
+        if (shared.revealPageContent) { shared.revealPageContent(); }
     }
 
             return {
                 hideLoading: hideLoading,
                 render: render,
+                renderCharts: renderCharts,
                 showError: showError,
                 showLoading: showLoading
             };

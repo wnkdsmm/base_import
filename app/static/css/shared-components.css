@@ -1,4 +1,9 @@
 /* Shared Components */
+.page-content-wrapper {
+    opacity: 1;
+    transition: opacity 160ms ease;
+}
+
 .status-badge {
     display: inline-flex;
     align-items: center;
