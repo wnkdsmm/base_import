@@ -212,6 +212,7 @@
 .panel {
     padding: var(--space-token-21);
     margin-bottom: var(--space-token-32);
+    max-width: 100%;
 }
 
 .executive-detail-panel {
@@ -786,6 +787,16 @@ td {
     }
 }
 
+@media (min-width: 1024px) and (max-width: 1380px) {
+    .panel-grid-2col {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-cards-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 540px) {
     .status-line {
         grid-template-columns: 1fr;
@@ -793,6 +804,24 @@ td {
 
     .status-line strong {
         text-align: left;
+    }
+}
+
+@media (max-height: 800px) {
+    .chart-panel-large .plotly-chart {
+        max-height: 320px;
+        overflow: hidden;
+    }
+
+    .plotly-chart {
+        max-height: 260px;
+        overflow: hidden;
+    }
+}
+
+@media (max-height: 900px) {
+    .chart-panel-large .plotly-chart {
+        max-height: 380px;
     }
 }
 
