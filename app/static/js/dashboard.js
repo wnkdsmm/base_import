@@ -89,7 +89,6 @@ async function fetchDashboardData() {
             renderApi.applyDashboardData(data);
             window.history.replaceState({}, '', renderApi.buildDashboardPageHref(state.collectSelectedFilters()));
         } catch (error) {
-            console.error(error);
             renderApi.showDashboardError(error);
         } finally {
             if (button) {

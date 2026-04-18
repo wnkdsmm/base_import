@@ -144,6 +144,7 @@
         runProgressSequence: runProgressSequence,
         revealPageContent: revealPageContent,
         setHref: uiHelpers.setHref,
+        setHidden: uiHelpers.setHidden,
         setSectionHidden: uiHelpers.setSectionHidden,
         setSelectOptions: uiHelpers.setSelectOptions,
         setStepProgress: setStepProgress,

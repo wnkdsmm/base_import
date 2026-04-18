@@ -34,7 +34,7 @@ var getClusteringErrorMessage = shared.getErrorMessage;
 
     
 
-async function pollClusteringJob(jobId, query) {
+function pollClusteringJob(jobId, query) {
         var payload = null;
         if (!jobId) {
             return;
@@ -56,7 +56,6 @@ async function pollClusteringJob(jobId, query) {
                     window.history.replaceState({}, '', query ? '/clustering?' + query : '/clustering');
                 },
                 onError: function (error) {
-                    console.error(error);
                     renderApi.showClusteringError(getClusteringErrorMessage(
                         error,
                         'Не удалось получить статус clustering-задачи. Попробуйте повторить расчёт ещё раз.'
@@ -128,7 +127,6 @@ async function fetchClusteringData() {
                 error,
                 'Не удалось получить данные кластеризации. Попробуйте повторить расчёт еще раз.'
             );
-            console.error(error);
             renderApi.showClusteringError(clusteringErrorMessage);
         } finally {
             if (button) {

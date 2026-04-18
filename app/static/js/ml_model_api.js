@@ -76,7 +76,7 @@
         jobPollTimer.clear();
     }
 
-    async function pollMlJob(jobId, handlers) {
+    function pollMlJob(jobId, handlers) {
         var callbacks = withHandlers(handlers);
 
         if (!jobId) {
