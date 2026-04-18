@@ -437,6 +437,17 @@
     .executive-territory-head {
         flex-direction: column;
     }
+
+    .dashboard-stats,
+    .dashboard-overview-stack .dashboard-stats,
+    .dashboard-overview-column .dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card-wide {
+        grid-column: span 1;
+        padding: var(--space-token-21);
+    }
 }
 
 .executive-confidence-inline {
@@ -508,18 +519,5 @@
     .dashboard-grid-three,
     .executive-territory-list {
         grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-@media (max-width: 720px) {
-    .dashboard-stats,
-    .dashboard-overview-stack .dashboard-stats,
-    .dashboard-overview-column .dashboard-stats {
-        grid-template-columns: 1fr;
-    }
-
-    .stat-card-wide {
-        grid-column: span 1;
-        padding: var(--space-token-21);
     }
 }

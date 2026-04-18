@@ -7,7 +7,6 @@
     flex-direction: column;
     gap: 24px;
     padding: 28px 22px;
-    box-sizing: border-box;
     color: var(--color-bg-page);
     background: var(--sidebar-end);
     z-index: 5;
