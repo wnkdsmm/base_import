@@ -1,6 +1,7 @@
 const LOG_REFRESH_INTERVAL_MS = 2000;
 const IMPORT_JOB_STORAGE_KEY = "fire-monitor-import-job-id";
 const shared = window.FireUi;
+const createJobId = shared.createJobId;
 const fetchJson = shared.fetchJson;
 const getApiErrorMessage = shared.getApiErrorMessage;
 const logsRefreshTimers = shared.createTimerGroup();
@@ -26,13 +27,6 @@ function appendApiError(logBox, error, fallback) {
         return;
     }
     appendLogLine(logBox, getApiErrorMessage(error && error.payload, fallback));
-}
-
-function createJobId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-        return window.crypto.randomUUID();
-    }
-    return `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function setCurrentImportJobId(jobId) {

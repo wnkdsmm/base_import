@@ -234,7 +234,6 @@
             }
             renderPreviewTable(payload);
         } catch (error) {
-            console.error(error);
             if (requestId !== state.previewRequestId) {
                 return;
             }
@@ -422,7 +421,6 @@
             setStatus(payload.message || '', false);
             window.history.replaceState({}, '', '/column-search?' + params.toString());
         } catch (error) {
-            console.error(error);
             state.payload = null;
             state.selectedColumns = new Set();
             state.selectedGroups = new Set();
@@ -491,7 +489,6 @@
                 false
             );
         } catch (error) {
-            console.error(error);
             setStatus(error.message || 'Не удалось создать таблицу с префиксом modify_.', true);
         } finally {
             if (createButton) {

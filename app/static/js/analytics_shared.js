@@ -126,6 +126,7 @@
     global.FireUi = {
         applyToneClass: uiHelpers.applyToneClass,
         byId: byId,
+        createJobId: uiHelpers.createJobId,
         createApiError: apiClient.createApiError,
         createSingleTimer: createSingleTimer,
         createTimerGroup: createTimerGroup,

@@ -64,7 +64,54 @@
         };
     }
 
+    function createModuleState(moduleName, defaultState) {
+        var safeDefaultState = cloneState(defaultState || {});
+        var manager = typeof createStateManager === 'function'
+            ? createStateManager(safeDefaultState)
+            : null;
+        var fallbackState = cloneState(safeDefaultState);
+
+        function get(key) {
+            if (!manager) {
+                if (typeof key === 'undefined') {
+                    return cloneState(fallbackState);
+                }
+                return fallbackState[key];
+            }
+            return manager.get(key);
+        }
+
+        function set(key, value) {
+            if (!manager) {
+                if (typeof key === 'object' && key !== null) {
+                    Object.keys(key).forEach(function (field) {
+                        fallbackState[field] = key[field];
+                    });
+                    return cloneState(fallbackState);
+                }
+                fallbackState[key] = value;
+                return value;
+            }
+            return manager.set(key, value);
+        }
+
+        function subscribe(listener) {
+            if (!manager || typeof manager.subscribe !== 'function') {
+                return function () {};
+            }
+            return manager.subscribe(listener);
+        }
+
+        return {
+            get: get,
+            moduleName: moduleName || '',
+            set: set,
+            subscribe: subscribe
+        };
+    }
+
     global.FireStateFactory = {
+        createModuleState: createModuleState,
         createStateManager: createStateManager
     };
 }(window));

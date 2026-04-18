@@ -4,6 +4,7 @@
     var createSingleTimer = shared.createSingleTimer;
     var apiClient = global.FireApiClient || {};
     var apiCall = apiClient.apiCall;
+    var pollUntilDone = apiClient.pollUntilDone;
     var getErrorMessage = shared.getErrorMessage;
 
     var jobPollTimer = createSingleTimer();
@@ -77,7 +78,6 @@
 
     async function pollMlJob(jobId, handlers) {
         var callbacks = withHandlers(handlers);
-        var payload = null;
 
         if (!jobId) {
             notifyBusy(callbacks, false);
@@ -85,30 +85,43 @@
             return;
         }
 
-        try {
-            var result = await apiCall('/api/ml-model-jobs/' + encodeURIComponent(jobId), {
-                headers: { Accept: 'application/json' }
-            }, 'Фоновая ML-задача завершилась с ошибкой.');
-            payload = result.payload;
-            notifyJobState(callbacks, payload);
-
-            if (payload.status === 'failed' || payload.status === 'missing') {
-                throw new Error(payload && payload.error_message ? payload.error_message : 'Фоновая ML-задача завершилась с ошибкой.');
+        pollUntilDone(
+            '/api/ml-model-jobs/' + encodeURIComponent(jobId),
+            {
+                requestOptions: { headers: { Accept: 'application/json' } },
+                fallbackMessage: 'Фоновая ML-задача завершилась с ошибкой.'
+            },
+            {
+                onUpdate: function (payload) {
+                    notifyJobState(callbacks, payload);
+                },
+                onDone: function (payload) {
+                    notifyBusy(callbacks, false);
+                    notifyCompleted(callbacks, payload.result, payload);
+                },
+                onError: function (error) {
+                    notifyBusy(callbacks, false);
+                    notifyError(callbacks, error, 'Не удалось получить статус ML-задачи.');
+                }
+            },
+            {
+                intervalMs: 1200,
+                scheduleNext: function (fn, delay) {
+                    jobPollTimer.set(fn, delay);
+                },
+                isDone: function (payload) {
+                    return Boolean(payload && payload.status === 'completed' && payload.result);
+                },
+                isFailed: function (payload) {
+                    return Boolean(payload && (payload.status === 'failed' || payload.status === 'missing'));
+                },
+                getFailureMessage: function (payload) {
+                    return payload && payload.error_message
+                        ? payload.error_message
+                        : 'Фоновая ML-задача завершилась с ошибкой.';
+                }
             }
-
-            if (payload.status === 'completed' && payload.result) {
-                notifyBusy(callbacks, false);
-                notifyCompleted(callbacks, payload.result, payload);
-                return;
-            }
-
-            jobPollTimer.set(function () {
-                pollMlJob(jobId, callbacks);
-            }, 1200);
-        } catch (error) {
-            notifyBusy(callbacks, false);
-            notifyError(callbacks, error, 'Не удалось получить статус ML-задачи.');
-        }
+        );
     }
 
     async function startMlModelJob(options, handlers) {
@@ -173,4 +186,3 @@
         stopJobPolling: stopJobPolling
     };
 }(window));
-

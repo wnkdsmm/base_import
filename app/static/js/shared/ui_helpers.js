@@ -32,6 +32,13 @@
         node.textContent = value == null ? '' : value;
     }
 
+    function createJobId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return 'job-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+    }
+
     function setHref(id, href) {
         var node = byId(id);
         if (node && href) {
@@ -159,6 +166,7 @@
     global.FireUiHelpers = {
         applyToneClass: applyToneClass,
         byId: byId,
+        createJobId: createJobId,
         escapeHtml: escapeHtml,
         renderList: renderList,
         renderListItems: renderListItems,

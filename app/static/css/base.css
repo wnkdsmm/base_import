@@ -31,6 +31,9 @@
     --section-gap: clamp(16px, 1.4vw, 20px);
     --chart-height-lg: clamp(320px, 52vh, 420px);
     --chart-height-md: clamp(260px, 44vh, 360px);
+    --chart-height-ml-sm: 320px;
+    --chart-height-ml-md: 360px;
+    --chart-height-ml-lg: 420px;
     /* Responsive breakpoints (reference constants for per-page media queries) */
     --bp-xxs: 540px;
     --bp-xs: 640px;

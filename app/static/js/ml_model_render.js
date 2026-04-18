@@ -1,6 +1,5 @@
 (function (global) {
     var shared = global.FireUi || {};
-    var uiHelpers = global.FireUiHelpers || {};
     var api = global.MlModelApi || {};
     var charts = global.MlModelCharts || {};
 
@@ -14,15 +13,7 @@
     var setStepProgress = shared.setStepProgress;
     var setText = shared.setText;
     var setValue = shared.setValue;
-    var setHidden = typeof uiHelpers.setHidden === 'function'
-        ? uiHelpers.setHidden
-        : function (nodeOrId, hidden) {
-            var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
-            if (!node) {
-                return;
-            }
-            node.classList.toggle('is-hidden', !!hidden);
-        };
+    var setHidden = shared.setHidden;
 
     var currentMlData = null;
     var progressTimers = createTimerGroup();

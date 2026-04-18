@@ -6,6 +6,8 @@
 
     var byId = shared.byId;
     var fetchJson = shared.fetchJson;
+    var apiClient = global.FireApiClient || {};
+    var pollUntilDone = apiClient.pollUntilDone;
     var renderApi = global.ClusteringRender.create();
     var state = global.ClusteringState.create({
         initialData: global.__FIRE_CLUSTERING_INITIAL__ || null
@@ -33,39 +35,52 @@ var getClusteringErrorMessage = shared.getErrorMessage;
     
 
 async function pollClusteringJob(jobId, query) {
-        var response;
         var payload = null;
         if (!jobId) {
             return;
         }
 
-        try {
-            var result = await fetchJson('/api/clustering-jobs/' + encodeURIComponent(jobId), {
-                headers: { Accept: 'application/json' }
-            }, 'Фоновая clustering-задача завершилась с ошибкой.');
-            response = result.response;
-            payload = result.payload;
-            renderApi.updateClusteringAsyncStateForJob(payload);
-
-            if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
-                throw new Error(payload && payload.error_message ? payload.error_message : 'Фоновая clustering-задача завершилась с ошибкой.');
+        pollUntilDone(
+            '/api/clustering-jobs/' + encodeURIComponent(jobId),
+            {
+                requestOptions: { headers: { Accept: 'application/json' } },
+                fallbackMessage: 'Фоновая clustering-задача завершилась с ошибкой.'
+            },
+            {
+                onUpdate: function (nextPayload) {
+                    payload = nextPayload;
+                    renderApi.updateClusteringAsyncStateForJob(payload);
+                },
+                onDone: function (donePayload) {
+                    renderApi.applyClusteringData(donePayload.result);
+                    window.history.replaceState({}, '', query ? '/clustering?' + query : '/clustering');
+                },
+                onError: function (error) {
+                    console.error(error);
+                    renderApi.showClusteringError(getClusteringErrorMessage(
+                        error,
+                        'Не удалось получить статус clustering-задачи. Попробуйте повторить расчёт ещё раз.'
+                    ));
+                }
+            },
+            {
+                intervalMs: 1200,
+                scheduleNext: function (fn, delay) {
+                    state.setPollTimer(fn, delay);
+                },
+                isDone: function (nextPayload) {
+                    return Boolean(nextPayload && nextPayload.status === 'completed' && nextPayload.result);
+                },
+                isFailed: function (nextPayload) {
+                    return Boolean(nextPayload && (nextPayload.status === 'failed' || nextPayload.status === 'missing'));
+                },
+                getFailureMessage: function (nextPayload) {
+                    return nextPayload && nextPayload.error_message
+                        ? nextPayload.error_message
+                        : 'Фоновая clustering-задача завершилась с ошибкой.';
+                }
             }
-            if (payload.status === 'completed' && payload.result) {
-                renderApi.applyClusteringData(payload.result);
-                window.history.replaceState({}, '', query ? '/clustering?' + query : '/clustering');
-                return;
-            }
-
-            state.setPollTimer(function () {
-                pollClusteringJob(jobId, query);
-            }, 1200);
-        } catch (error) {
-            console.error(error);
-            renderApi.showClusteringError(getClusteringErrorMessage(
-                error,
-                'Не удалось получить статус clustering-задачи. Попробуйте повторить расчёт ещё раз.'
-            ));
-        }
+        );
     }
 
     

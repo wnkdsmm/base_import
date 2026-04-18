@@ -12,6 +12,7 @@
         var createSingleTimer = shared.createSingleTimer;
         var apiClient = window.FireApiClient || {};
         var apiCall = apiClient.apiCall;
+        var pollUntilDone = apiClient.pollUntilDone;
         var getForecastErrorMessage = shared.getErrorMessage;
         var decisionSupportJobPollTimer = createSingleTimer();
         var forecastRequestToken = 0;
@@ -98,49 +99,67 @@
         }
 
         async function pollDecisionSupportJob(jobId, baseQuery, requestToken) {
-            var response;
             var payload = null;
 
             if (!jobId) {
                 return;
             }
 
-            try {
-                var result = await apiCall('/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId), {
-                    headers: { Accept: 'application/json' }
-                }, 'Фоновая задача decision support завершилась с ошибкой.');
-                response = result.response;
-                payload = result.payload;
-                if (requestToken !== forecastRequestToken) {
-                    return;
+            pollUntilDone(
+                '/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId),
+                {
+                    requestOptions: { headers: { Accept: 'application/json' } },
+                    fallbackMessage: 'Фоновая задача decision support завершилась с ошибкой.'
+                },
+                {
+                    onUpdate: function (nextPayload) {
+                        if (requestToken !== forecastRequestToken) {
+                            return;
+                        }
+                        payload = nextPayload;
+                        updateDecisionSupportJobState(payload);
+                    },
+                    onDone: function (donePayload) {
+                        if (requestToken !== forecastRequestToken) {
+                            return;
+                        }
+                        applyForecastData(donePayload.result);
+                        renderForecastJobRuntime(donePayload);
+                        window.history.replaceState({}, '', baseQuery ? '/forecasting?' + baseQuery : '/forecasting');
+                    },
+                    onError: function (error) {
+                        if (requestToken !== forecastRequestToken) {
+                            return;
+                        }
+                        var decisionSupportMessage = getForecastErrorMessage(
+                            error,
+                            'Не удалось получить статус блока поддержки решений. Попробуйте повторить запрос.'
+                        );
+                        showForecastError(decisionSupportMessage);
+                        renderForecastJobRuntime(payload);
+                    }
+                },
+                {
+                    intervalMs: 1200,
+                    scheduleNext: function (fn, delay) {
+                        decisionSupportJobPollTimer.set(fn, delay);
+                    },
+                    shouldStop: function () {
+                        return requestToken !== forecastRequestToken;
+                    },
+                    isDone: function (nextPayload) {
+                        return Boolean(nextPayload && nextPayload.status === 'completed' && nextPayload.result);
+                    },
+                    isFailed: function (nextPayload) {
+                        return Boolean(nextPayload && (nextPayload.status === 'failed' || nextPayload.status === 'missing'));
+                    },
+                    getFailureMessage: function (nextPayload) {
+                        return nextPayload && nextPayload.error_message
+                            ? nextPayload.error_message
+                            : 'Фоновая задача decision support завершилась с ошибкой.';
+                    }
                 }
-                updateDecisionSupportJobState(payload);
-
-                if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
-                    throw new Error(payload && payload.error_message ? payload.error_message : 'Фоновая задача decision support завершилась с ошибкой.');
-                }
-                if (payload.status === 'completed' && payload.result) {
-                    applyForecastData(payload.result);
-                    renderForecastJobRuntime(payload);
-                    window.history.replaceState({}, '', baseQuery ? '/forecasting?' + baseQuery : '/forecasting');
-                    return;
-                }
-
-                decisionSupportJobPollTimer.set(function () {
-                    pollDecisionSupportJob(jobId, baseQuery, requestToken);
-                }, 1200);
-            } catch (error) {
-                if (requestToken !== forecastRequestToken) {
-                    return;
-                }
-                var decisionSupportMessage = getForecastErrorMessage(
-                    error,
-                    'Не удалось получить статус блока поддержки решений. Попробуйте повторить запрос.'
-                );
-                console.error(error);
-                showForecastError(decisionSupportMessage);
-                renderForecastJobRuntime(payload);
-            }
+            );
         }
 
         async function fetchDecisionSupport(baseQuery, requestToken) {

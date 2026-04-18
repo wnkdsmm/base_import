@@ -14,15 +14,7 @@
     var setText = shared.setText;
     var setValue = shared.setValue;
     var renderList = typeof uiHelpers.renderList === 'function' ? uiHelpers.renderList : null;
-    var setHidden = typeof uiHelpers.setHidden === 'function'
-        ? uiHelpers.setHidden
-        : function (nodeOrId, hidden) {
-            var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
-            if (!node) {
-                return;
-            }
-            node.classList.toggle('is-hidden', !!hidden);
-        };
+    var setHidden = shared.setHidden;
 
     modules.createForecastingRender = function createForecastingRender(options) {
         var chartsApi = options && options.charts ? options.charts : {};
@@ -400,16 +392,6 @@
         metaNode.textContent = getForecastJobRuntimeMeta(safeJob);
         logsNode.textContent = logs.length ? logs.join('\n') : 'Покажем прогресс, как только расчёт перейдёт к следующему этапу.';
         return;
-        /* Legacy technical runtime rendering removed.
-        if (meta.cache_hit) {
-            metaParts.push('кэш');
-        }
-        if (safeJob.reused) {
-            metaParts.push('переиспользован');
-        }
-        metaNode.textContent = metaParts.join(' | ');
-        logsNode.textContent = logs.length ? logs.join('\n') : 'Логи появятся после запуска фоновой задачи.';
-        */
     }
 
     function updateDecisionSupportJobState(jobPayload) {

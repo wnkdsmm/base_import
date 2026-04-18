@@ -2,26 +2,26 @@
     var shared = global.FireUi || {};
     var byId = shared.byId;
     var factory = global.FireStateFactory || {};
-    var createStateManager = factory.createStateManager;
+    var createModuleState = factory.createModuleState;
 
     global.MlModelState = {
         create: function createMlModelState(options) {
             var initialData = options && options.initialData ? options.initialData : null;
-            var manager = typeof createStateManager === 'function'
-                ? createStateManager({ currentData: initialData })
+            var state = typeof createModuleState === 'function'
+                ? createModuleState('ml_model', { currentData: initialData })
                 : null;
-            var currentData = initialData;
+            var fallbackCurrentData = initialData;
 
             function setCurrentData(data) {
-                if (!manager) {
-                    currentData = data || null;
-                    return currentData;
+                if (!state) {
+                    fallbackCurrentData = data || null;
+                    return fallbackCurrentData;
                 }
-                return manager.set('currentData', data || null);
+                return state.set('currentData', data || null);
             }
 
             function getCurrentData() {
-                return manager ? manager.get('currentData') : currentData;
+                return state ? state.get('currentData') : fallbackCurrentData;
             }
 
             function collectSelectedFilters() {

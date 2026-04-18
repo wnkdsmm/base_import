@@ -1,5 +1,6 @@
 (function () {
     const shared = window.FireUi;
+    const createJobId = shared.createJobId;
     const escapeHtml = shared.escapeHtml;
     const fetchJson = shared.fetchJson;
     const setStepProgress = shared.setStepProgress;
@@ -13,7 +14,6 @@
         try {
             return JSON.parse(rawConfig);
         } catch (error) {
-            console.warn('Unable to parse profiling defaults', error);
             return {};
         }
     }());
@@ -21,13 +21,6 @@
     function formatPercent(value) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) return '0%';
         return `${(Number(value) * 100).toFixed(1)}%`;
-    }
-
-    function createJobId() {
-        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-            return window.crypto.randomUUID();
-        }
-        return `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
     function setStatus(type, message) {

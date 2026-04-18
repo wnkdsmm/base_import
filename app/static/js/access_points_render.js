@@ -6,7 +6,6 @@
 
     global.AccessPointsRender = {
         create: function createAccessPointsRender() {
-            var uiHelpers = global.FireUiHelpers || {};
             var byId = shared.byId;
             var escapeHtml = shared.escapeHtml;
             var renderChart = shared.renderPlotlyFigure;
@@ -14,15 +13,7 @@
             var setSectionHidden = shared.setSectionHidden;
             var setSelectOptions = shared.setSelectOptions;
             var setText = shared.setText;
-            var setHidden = typeof uiHelpers.setHidden === 'function'
-                ? uiHelpers.setHidden
-                : function (nodeOrId, hidden) {
-                    var node = typeof nodeOrId === 'string' ? byId(nodeOrId) : nodeOrId;
-                    if (!node) {
-                        return;
-                    }
-                    node.classList.toggle('is-hidden', !!hidden);
-                };
+            var setHidden = shared.setHidden;
 
 function showLoading(message) {
         var loadingNode = byId('accessPointsLoadingState');

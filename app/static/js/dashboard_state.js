@@ -2,17 +2,18 @@
     var shared = global.FireUi || {};
     var byId = shared.byId;
     var factory = global.FireStateFactory || {};
-    var createStateManager = factory.createStateManager;
+    var createModuleState = factory.createModuleState;
 
     global.DashboardState = {
         create: function createDashboardState(options) {
             var initialData = options && options.initialData ? options.initialData : null;
-            var manager = typeof createStateManager === 'function'
-                ? createStateManager({ initialData: initialData })
+            var state = typeof createModuleState === 'function'
+                ? createModuleState('dashboard', { initialData: initialData })
                 : null;
+            var fallbackInitialData = initialData;
 
             function getInitialData() {
-                return manager ? manager.get('initialData') : initialData;
+                return state ? state.get('initialData') : fallbackInitialData;
             }
 
             function collectSelectedFilters() {
