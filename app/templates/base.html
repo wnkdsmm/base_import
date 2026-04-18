@@ -48,9 +48,11 @@ body[data-page-loading] .page-content-wrapper { opacity: 0; }
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    if (document.body && document.body.hasAttribute('data-page-loading')) {
-        document.body.removeAttribute('data-page-loading');
-    }
+    setTimeout(function () {
+        if (document.body && document.body.hasAttribute('data-page-loading')) {
+            document.body.removeAttribute('data-page-loading');
+        }
+    }, 0);
 });
 </script>
 

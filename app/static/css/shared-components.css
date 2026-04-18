@@ -1,7 +1,7 @@
 /* Shared Components */
 .page-content-wrapper {
     opacity: 1;
-    transition: opacity 160ms ease;
+    transition: opacity 80ms ease;
 }
 
 .status-badge {

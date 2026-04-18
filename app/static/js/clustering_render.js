@@ -34,7 +34,7 @@ function syncClusteringAsyncContainer() {
         setSectionHidden('clusteringAsyncState', !(hasVisibleError || hasVisibleRuntime));
     }
 
-        function hideClusteringError() {
+    function hideClusteringError() {
         var errorNode = byId('clusteringErrorState');
         if (!errorNode) {
             return;
