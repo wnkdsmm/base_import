@@ -253,11 +253,10 @@ function showLoading(message) {
         var node = byId('accessPointsDistributionShell');
         var distribution = data.score_distribution || {};
         var bands = Array.isArray(distribution.bands) ? distribution.bands : [];
-        var buckets = Array.isArray(distribution.buckets) ? distribution.buckets : [];
         if (!node) {
             return;
         }
-        if (!bands.length && !buckets.length) {
+        if (!bands.length) {
             node.innerHTML = '<div class="mini-empty">Распределение балла риска появится после расчёта рейтинга.</div>';
             return;
         }
