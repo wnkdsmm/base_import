@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields, replace
-from typing import Any, Dict, Iterable, Optional, Self, TypedDict
+from typing import Any, ClassVar, Dict, Iterable, Optional, Self, TypedDict
 
 from .ml_model_interval_types import PredictionIntervalCalibration
 
@@ -162,22 +162,22 @@ class EventMetrics(MappingAccessMixin):
         if isinstance(value, cls):
             return value
         value = value or {}
-        selected_metrics_raw_value = value.get("selected_metrics")
-        selected_metrics_raw = selected_metrics_raw_value if selected_metrics_raw_value is not None else {
+        raw = value.get("selected_metrics")
+        selected_metrics_raw = raw if raw is not None else {
             "brier_score": value.get("brier_score"),
             "roc_auc": value.get("roc_auc"),
             "f1": value.get("f1"),
             "log_loss": value.get("log_loss"),
         }
-        baseline_metrics_raw_value = value.get("baseline_metrics")
-        baseline_metrics_raw = baseline_metrics_raw_value if baseline_metrics_raw_value is not None else {
+        raw = value.get("baseline_metrics")
+        baseline_metrics_raw = raw if raw is not None else {
             "brier_score": value.get("baseline_brier_score"),
             "roc_auc": value.get("baseline_roc_auc"),
             "f1": value.get("baseline_f1"),
             "log_loss": value.get("baseline_log_loss"),
         }
-        heuristic_metrics_raw_value = value.get("heuristic_metrics")
-        heuristic_metrics_raw = heuristic_metrics_raw_value if heuristic_metrics_raw_value is not None else {
+        raw = value.get("heuristic_metrics")
+        heuristic_metrics_raw = raw if raw is not None else {
             "brier_score": value.get("heuristic_brier_score"),
             "roc_auc": value.get("heuristic_roc_auc"),
             "f1": value.get("heuristic_f1"),
@@ -373,7 +373,7 @@ def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: _ScalarFieldsMa
 
 @dataclass
 class BacktestOverview(MappingAccessMixin):
-    _STR_FIELDS = [
+    _STR_FIELDS: ClassVar[list[str]] = [
         "selection_rule",
         "event_selection_rule",
         "prediction_interval_level_display",
@@ -384,18 +384,18 @@ class BacktestOverview(MappingAccessMixin):
         "prediction_interval_evaluation_range_label",
         "rolling_scheme_label",
     ]
-    _INT_FIELDS = [
+    _INT_FIELDS: ClassVar[list[str]] = [
         "folds",
         "min_train_rows",
         "candidate_window_count",
         "prediction_interval_calibration_windows",
         "prediction_interval_evaluation_windows",
     ]
-    _BOOL_FIELDS = [
+    _BOOL_FIELDS: ClassVar[list[str]] = [
         "event_probability_informative",
         "prediction_interval_coverage_validated",
     ]
-    _OPTIONAL_FLOAT_FIELDS = [
+    _OPTIONAL_FLOAT_FIELDS: ClassVar[list[str]] = [
         "event_backtest_event_rate",
         "dispersion_ratio",
         "prediction_interval_level",
