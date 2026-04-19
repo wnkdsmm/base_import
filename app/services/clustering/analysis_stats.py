@@ -345,6 +345,12 @@ def _compute_pca_projection(
         return {"points": [], "explained_variance": [0.0, 0.0]}
 
     projection = np.asarray(projected, dtype=float) if projected is not None else None
+    if projection is not None and (
+        projection.ndim != 2
+        or projection.shape[0] != points.shape[0]
+        or projection.shape[1] < 2
+    ):
+        projection = None
     explained = [float(item) for item in explained_variance] if explained_variance is not None else None
     if projection is None or explained is None:
         pca = PCA(n_components=2)
