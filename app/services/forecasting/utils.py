@@ -12,7 +12,6 @@ from app.services.shared.formatting import (
     _format_signed_percent,
     format_count_range as _format_count_range,
     format_datetime as _format_datetime,
-    format_percent as _format_percent,
     format_integer as _format_integer,
     format_number as _format_number,
     format_probability as _format_probability,

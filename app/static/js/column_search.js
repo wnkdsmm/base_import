@@ -354,20 +354,20 @@
                     return;
                 }
                 const card = event.target.closest('.column-match-card');
+                const isGroupProvided = isColumnProvidedBySelectedGroup(name);
 
                 if (event.target.checked) {
                     state.selectedColumns.add(name);
                     state.excludedColumns.delete(name);
                 } else {
                     state.selectedColumns.delete(name);
-                    if (isColumnProvidedBySelectedGroup(name)) {
+                    if (isGroupProvided) {
                         state.excludedColumns.add(name);
                     } else {
                         state.excludedColumns.delete(name);
                     }
                 }
 
-                const isGroupProvided = isColumnProvidedBySelectedGroup(name);
                 if (card) {
                     card.classList.toggle('selected', event.target.checked);
                     card.classList.toggle('excluded', !event.target.checked && isGroupProvided);
@@ -465,6 +465,17 @@
         const selectedColumns = Array.from(getSelectedColumnsUnion());
         const selectedGroups = Array.from(state.selectedGroups);
         const finalSelectedCount = selectedColumns.length;
+        const payloadColumns = ((state.payload && state.payload.columns) || [])
+            .map(function (item) { return item.name; });
+        const groupColumns = [];
+        ((state.payload && state.payload.groups) || []).forEach(function (group) {
+            (group.columns || []).forEach(function (col) {
+                if (!payloadColumns.includes(col)) {
+                    groupColumns.push(col);
+                }
+            });
+        });
+        const allKnownColumns = payloadColumns.concat(groupColumns);
 
         if (!finalSelectedCount) {
             setStatus('Нужно выбрать хотя бы одну колонку или одну тематическую группу.', true);
@@ -486,7 +497,8 @@
                     table_name: tableSelect.value || '',
                     query: queryInput ? queryInput.value || '' : '',
                     selected_columns: selectedColumns,
-                    selected_groups: selectedGroups
+                    selected_groups: selectedGroups,
+                    all_columns: allKnownColumns.length ? allKnownColumns : undefined
                 })
             }, 'Не удалось создать таблицу с префиксом modify_.');
             const payload = result.payload;

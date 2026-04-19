@@ -350,8 +350,14 @@ def _collect_column_matches(
 
 class NatashaColumnMatcher:
     """Переиспользуемый Natasha-поиск и доменный матчер по названиям колонок."""
-    _terms_cache: dict[str, ColumnTermPayload] = {}
-    _group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]] = {}
+    _terms_cache: dict[str, ColumnTermPayload]
+    _group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]]
+
+    def __new__(cls, *args, **kwargs):
+        instance = super().__new__(cls)
+        instance._terms_cache = {}
+        instance._group_catalog_cache = {}
+        return instance
 
     def __init__(self):
         self.morph_vocab = MorphVocab()
@@ -360,8 +366,8 @@ class NatashaColumnMatcher:
         self.morph_tagger = NewsMorphTagger(self.emb)
         self.category_lemmas = _build_category_lemma_map(COLUMN_CATEGORY_RULES, self._lemmatize_text)
         self.mandatory_registry = [self._prepare_registry_feature(feature) for feature in MANDATORY_FEATURE_REGISTRY]
-        self._terms_cache: dict[str, ColumnTermPayload] = {}
-        self._group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]] = {}
+        self._terms_cache: dict[str, ColumnTermPayload]
+        self._group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]]
 
     def _lemmatize_text(self, value: str) -> List[str]:
         lemmas: List[str] = []
@@ -401,14 +407,12 @@ class NatashaColumnMatcher:
         self._terms_cache[column_name] = payload
         return payload
 
-
     def _match_mandatory_feature(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
         for feature in self.mandatory_registry:
             match = _match_mandatory_feature_payload(column_payload, feature)
             if match:
                 return match
         return None
-
 
     def _match_legacy_explicit(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
         original_name = str(column_payload["original_name"]).strip()
@@ -576,5 +580,6 @@ def get_column_matcher() -> NatashaColumnMatcher:
     if _COLUMN_MATCHER is None:
         _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
+
 
 

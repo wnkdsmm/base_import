@@ -3,6 +3,8 @@ from __future__ import annotations
 from statistics import mean
 from typing import Any, Dict, List, Optional
 
+from app.services.shared.formatting import format_percent as _format_percent
+
 from .bootstrap import _build_slice_label
 from .selection import _table_selection_label
 from .types import (
@@ -18,7 +20,6 @@ from .utils import (
     _forecast_stability_hint,
     _format_integer,
     _format_number,
-    _format_percent,
     _format_period,
     _format_probability,
     _format_signed_percent,
