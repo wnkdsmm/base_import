@@ -100,16 +100,4 @@ def _format_datetime(value: datetime) -> str:
 __all__ = [
     "DASHBOARD_HORIZON_OPTIONS",
     "build_horizon_day_options",
-    "_select_tables",
-    "_extract_year_from_name",
-    "_parse_year",
-    "_find_option_label",
-    "_quote_identifier",
-    "_date_expression",
-    "_format_chart_date",
-    "_format_number",
-    "_format_percentage",
-    "_format_signed_number",
-    "_format_period_label",
-    "_format_datetime",
 ]

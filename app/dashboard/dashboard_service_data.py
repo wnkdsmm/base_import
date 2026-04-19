@@ -55,15 +55,13 @@ from .utils import (
     build_horizon_day_options,
 )
 
-_DASHBOARD_HORIZON_OPTIONS = DASHBOARD_HORIZON_OPTIONS
-
 
 def _normalize_horizon_days(horizon_days: int | str) -> int:
     try:
         value = int(horizon_days)
     except (TypeError, ValueError):
         return PRIORITY_HORIZON_DAYS
-    return value if value in _DASHBOARD_HORIZON_OPTIONS else PRIORITY_HORIZON_DAYS
+    return value if value in DASHBOARD_HORIZON_OPTIONS else PRIORITY_HORIZON_DAYS
 
 
 def _build_dashboard_cache_key(
