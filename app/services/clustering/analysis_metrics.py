@@ -203,7 +203,6 @@ def _evaluate_cluster_counts(
         scaled_points,
         sample_weights,
         k_range=available_ks,
-        n_references=10,
         random_state=42,
     )
 
