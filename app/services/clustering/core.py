@@ -35,8 +35,8 @@ from .core_runner import (
     get_clustering_page_context,
     get_clustering_shell_context,
 )
-from .quality import (
-    _build_cluster_count_guidance,
+from .count_guidance import _build_cluster_count_guidance
+from .quality_silhouette import (
     _build_clustering_quality_assessment,
     _empty_clustering_quality_assessment,
 )

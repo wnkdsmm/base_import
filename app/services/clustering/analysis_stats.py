@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 from typing import Any, Dict, Sequence, Tuple
 
@@ -133,14 +134,19 @@ def compute_cluster_risk_scores(
     return risk_rows
 
 
-def _cluster_quality_score(metrics: Dict[str, float | None], row_count: int) -> float:
+def _cluster_quality_score(
+    metrics: Dict[str, float | None],
+    row_count: int,
+    shape_diagnostics: Dict[str, float | bool | int] | None = None,
+) -> float:
     silhouette = float(metrics.get("silhouette") or 0.0)
     davies_bouldin = metrics.get("davies_bouldin")
     calinski_harabasz = float(metrics.get("calinski_harabasz") or 0.0)
     balance_ratio = float(metrics.get("cluster_balance_ratio") or 0.0)
     inverse_db = 0.0 if davies_bouldin is None else 1.0 / (1.0 + max(float(davies_bouldin), 0.0))
     scaled_ch = 1.0 - math.exp(-max(calinski_harabasz, 0.0) / max(float(row_count), 1.0))
-    shape_penalty = float(_cluster_shape_diagnostics(metrics, row_count)["shape_penalty"])
+    diagnostics = shape_diagnostics if shape_diagnostics is not None else _cluster_shape_diagnostics(metrics, row_count)
+    shape_penalty = float(diagnostics["shape_penalty"])
     return float((silhouette * 0.55) + (inverse_db * 0.20) + (scaled_ch * 0.15) + (balance_ratio * 0.10) - shape_penalty)
 
 
@@ -416,21 +422,28 @@ def _compute_gap_statistic(
 
     gap_scores: dict[int, float] = {}
     for cluster_count in valid_ks:
-        model = KMeans(n_clusters=cluster_count, random_state=random_state, n_init=10)
+        model = KMeans(n_clusters=cluster_count, random_state=random_state, n_init=MODEL_N_INIT)
         model.fit(points, sample_weight=weights)
         observed_inertia = max(float(model.inertia_), 1e-12)
 
-        ref_logs: list[float] = []
-        for reference_index in range(refs_count):
-            reference_points = rng.uniform(data_min, data_max, size=(row_count, feature_count))
+        reference_points_list = [
+            rng.uniform(data_min, data_max, size=(row_count, feature_count))
+            for _ in range(refs_count)
+        ]
+
+        def _fit_reference(reference_task: tuple[int, np.ndarray]) -> float:
+            reference_index, reference_points = reference_task
             reference_model = KMeans(
                 n_clusters=cluster_count,
                 random_state=random_state + reference_index + 1,
-                n_init=10,
+                n_init=MODEL_N_INIT,
             )
             reference_model.fit(reference_points, sample_weight=np.ones(row_count, dtype=float))
             reference_inertia = max(float(reference_model.inertia_), 1e-12)
-            ref_logs.append(float(np.log(reference_inertia)))
+            return float(np.log(reference_inertia))
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            ref_logs = list(executor.map(_fit_reference, enumerate(reference_points_list)))
 
         gap_scores[cluster_count] = float(np.mean(ref_logs) - np.log(observed_inertia))
     return gap_scores

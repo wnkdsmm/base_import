@@ -7,6 +7,15 @@ Canonical sources:
 - UI labels/copy: ``app.labels``
 """
 
+import warnings
+
+warnings.warn(
+    "Import from app.services.clustering.constants is deprecated. "
+    "Use config.constants or app.labels directly.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from app.statistics_constants import EXCLUDED_TABLE_PREFIXES as TABLE_EXCLUDED_PREFIXES
 from app.labels import (
     CLUSTERING_AUTO_DEFAULT_EXCLUDED_FEATURES,

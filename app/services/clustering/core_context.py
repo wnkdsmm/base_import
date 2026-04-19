@@ -19,7 +19,7 @@ from .data import (
     _parse_sampling_strategy,
     _resolve_selected_table,
 )
-from .quality import _empty_clustering_quality_assessment
+from .quality_silhouette import _empty_clustering_quality_assessment
 from .utils import _format_datetime, _format_integer
 
 _CLUSTERING_CACHE = CopyingTtlCache(ttl_seconds=120.0)

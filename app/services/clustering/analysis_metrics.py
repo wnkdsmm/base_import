@@ -164,7 +164,7 @@ def _run_clustering(
         "cluster_balance_ratio": metrics.get("cluster_balance_ratio"),
         "smallest_cluster_size": metrics.get("smallest_cluster_size"),
         "largest_cluster_size": metrics.get("largest_cluster_size"),
-        "quality_score": _cluster_quality_score(metrics, len(cluster_frame)),
+        "quality_score": _cluster_quality_score(metrics, len(cluster_frame), shape_diagnostics=shape_diagnostics),
         "shape_penalty": shape_diagnostics["shape_penalty"],
         "has_microclusters": shape_diagnostics["has_microclusters"],
         "has_balance_warning": shape_diagnostics["has_balance_warning"],
@@ -289,8 +289,8 @@ def _compare_clustering_methods(
         except Exception:
             return
         metrics = compute_clustering_metrics(scaled_points, labels)
-        quality_score = _cluster_quality_score(metrics, row_count)
         shape_diagnostics = _cluster_shape_diagnostics(metrics, row_count)
+        quality_score = _cluster_quality_score(metrics, row_count, shape_diagnostics=shape_diagnostics)
         inertia = _compute_cluster_inertia(scaled_points, labels)
         rows.append(
             {
@@ -554,26 +554,10 @@ def _build_notes(
                 f"На повторных подвыборках сегментация выглядит воспроизводимой ({_format_number(stability_ari, 3)}), хотя это всё равно не гарантирует идеальную устойчивость на новых периодах."
             )
 
-    best_quality_k = diagnostics.get("best_quality_k")
-    best_silhouette_k = diagnostics.get("best_silhouette_k")
-    elbow_k = diagnostics.get("elbow_k")
     available_k_label = f"{CLUSTER_COUNT_OPTIONS[0]}..{CLUSTER_COUNT_OPTIONS[-1]}"
-    if best_quality_k and best_silhouette_k and best_quality_k != best_silhouette_k:
-        notes.append(
-            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп лучше выглядит k={best_quality_k}, хотя по чёткости границ отдельно лидирует k={best_silhouette_k}."
-        )
-    elif best_quality_k:
-        notes.append(
-            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп наиболее убедительно выглядит k={best_quality_k}."
-        )
-    elif best_silhouette_k and elbow_k and best_silhouette_k != elbow_k:
-        notes.append(
-            f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}, а заметный перелом кривой начинается около k={elbow_k}."
-        )
-    elif best_silhouette_k:
-        notes.append(f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}.")
-    elif elbow_k:
-        notes.append(f"В доступном диапазоне k={available_k_label} кривая внутригруппового разброса заметно меняется около k={elbow_k}.")
+    k_note = _build_k_selection_note(diagnostics, available_k_label)
+    if k_note:
+        notes.append(k_note)
 
     notes.append(f"В расчёте участвовали признаки: {', '.join(selected_features)}.")
     if cluster_profiles:
@@ -585,6 +569,32 @@ def _build_notes(
         "Кластеры полезны как типология территорий, но соседние группы могут пересекаться, поэтому итог лучше проверять по профилям, центрам и типичным территориям внутри каждого кластера."
     )
     return notes
+
+
+def _build_k_selection_note(
+    diagnostics: ClusteringDiagnosticsResult,
+    available_k_label: str,
+) -> str | None:
+    best_quality_k = diagnostics.get("best_quality_k")
+    best_silhouette_k = diagnostics.get("best_silhouette_k")
+    elbow_k = diagnostics.get("elbow_k")
+    if best_quality_k and best_silhouette_k and best_quality_k != best_silhouette_k:
+        return (
+            f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп лучше выглядит k={best_quality_k}, "
+            f"хотя по чёткости границ отдельно лидирует k={best_silhouette_k}."
+        )
+    if best_quality_k:
+        return f"В доступном диапазоне k={available_k_label} по совокупности показателей и размеров групп наиболее убедительно выглядит k={best_quality_k}."
+    if best_silhouette_k and elbow_k and best_silhouette_k != elbow_k:
+        return (
+            f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}, "
+            f"а заметный перелом кривой начинается около k={elbow_k}."
+        )
+    if best_silhouette_k:
+        return f"В доступном диапазоне k={available_k_label} по чёткости границ лучший результат даёт k={best_silhouette_k}."
+    if elbow_k:
+        return f"В доступном диапазоне k={available_k_label} кривая внутригруппового разброса заметно меняется около k={elbow_k}."
+    return None
 
 
 def _cluster_labels(cluster_count: int) -> List[str]:
@@ -599,6 +609,7 @@ def _feature_phrase(column_name: str, delta_score: float) -> str:
 
 
 def _format_feature_value(column_name: str, value: Any) -> str:
-    if column_name.startswith("Доля") or column_name.startswith("Покрытие"):
+    meta = FEATURE_METADATA.get(column_name, {})
+    if meta.get("format") == "percent":
         return _format_percent(float(value))
     return _format_number(value, 2)

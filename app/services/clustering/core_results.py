@@ -11,7 +11,8 @@ from .charts import (
     build_feature_importance_chart,
     build_radar_chart,
 )
-from .quality import _build_cluster_count_guidance, _build_clustering_quality_assessment
+from .count_guidance import _build_cluster_count_guidance
+from .quality_silhouette import _build_clustering_quality_assessment
 from .types import (
     ClusterCountGuidance,
     ClusterMethod,
