@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from itertools import combinations
 from typing import Any, Dict, Sequence, Tuple
 
@@ -396,6 +397,23 @@ def _fit_weighted_kmeans(
     return model
 
 
+def _fit_reference_model(
+    reference_task: tuple[int, np.ndarray],
+    cluster_count: int,
+    row_count: int,
+    random_state: int,
+) -> float:
+    reference_index, reference_points = reference_task
+    reference_model = KMeans(
+        n_clusters=cluster_count,
+        random_state=random_state + reference_index + 1,
+        n_init=MODEL_N_INIT,
+    )
+    reference_model.fit(reference_points, sample_weight=np.ones(row_count, dtype=float))
+    reference_inertia = max(float(reference_model.inertia_), 1e-12)
+    return float(np.log(reference_inertia))
+
+
 def _compute_gap_statistic(
     scaled_points: np.ndarray,
     sample_weights: np.ndarray,
@@ -421,31 +439,25 @@ def _compute_gap_statistic(
     data_max = np.max(points, axis=0)
 
     gap_scores: dict[int, float] = {}
-    for cluster_count in valid_ks:
-        model = KMeans(n_clusters=cluster_count, random_state=random_state, n_init=MODEL_N_INIT)
-        model.fit(points, sample_weight=weights)
-        observed_inertia = max(float(model.inertia_), 1e-12)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        for cluster_count in valid_ks:
+            model = KMeans(n_clusters=cluster_count, random_state=random_state, n_init=MODEL_N_INIT)
+            model.fit(points, sample_weight=weights)
+            observed_inertia = max(float(model.inertia_), 1e-12)
 
-        reference_points_list = [
-            rng.uniform(data_min, data_max, size=(row_count, feature_count))
-            for _ in range(refs_count)
-        ]
-
-        def _fit_reference(reference_task: tuple[int, np.ndarray]) -> float:
-            reference_index, reference_points = reference_task
-            reference_model = KMeans(
-                n_clusters=cluster_count,
-                random_state=random_state + reference_index + 1,
-                n_init=MODEL_N_INIT,
+            reference_points_list = [
+                rng.uniform(data_min, data_max, size=(row_count, feature_count))
+                for _ in range(refs_count)
+            ]
+            _fit = partial(
+                _fit_reference_model,
+                cluster_count=cluster_count,
+                row_count=row_count,
+                random_state=random_state,
             )
-            reference_model.fit(reference_points, sample_weight=np.ones(row_count, dtype=float))
-            reference_inertia = max(float(reference_model.inertia_), 1e-12)
-            return float(np.log(reference_inertia))
+            ref_logs = list(executor.map(_fit, enumerate(reference_points_list)))
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            ref_logs = list(executor.map(_fit_reference, enumerate(reference_points_list)))
-
-        gap_scores[cluster_count] = float(np.mean(ref_logs) - np.log(observed_inertia))
+            gap_scores[cluster_count] = float(np.mean(ref_logs) - np.log(observed_inertia))
     return gap_scores
 
 

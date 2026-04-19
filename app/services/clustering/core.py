@@ -42,7 +42,6 @@ from .quality_silhouette import (
 )
 
 __all__ = [
-    "_CLUSTERING_CACHE",
     "_append_clustering_feature_notes",
     "_apply_cluster_count_guidance_to_summary",
     "_build_cluster_count_guidance",

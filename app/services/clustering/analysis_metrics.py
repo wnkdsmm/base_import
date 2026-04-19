@@ -367,7 +367,7 @@ def _build_cluster_profiles(
     labels: np.ndarray,
     raw_centers: np.ndarray,
     cluster_labels: Sequence[str],
-) -> List[Dict[str, str]]:
+) -> List[Dict[str, Any]]:
     profiles = []
     total_entities = len(cluster_frame)
     total_incidents = int(entity_frame["Число пожаров"].sum()) if "Число пожаров" in entity_frame.columns else 0
@@ -397,6 +397,7 @@ def _build_cluster_profiles(
             {
                 "cluster_label": cluster_label,
                 "segment_title": segment_title,
+                "size": size,
                 "size_display": _format_integer(size),
                 "share_display": _format_percent(size / total_entities if total_entities else 0.0),
                 "incidents_display": _format_integer(cluster_incidents),
@@ -416,7 +417,7 @@ def _build_centroid_table(
     labels: np.ndarray,
     raw_centers: np.ndarray,
     cluster_labels: Sequence[str],
-    cluster_profiles: Sequence[Dict[str, str]],
+    cluster_profiles: Sequence[Dict[str, Any]],
 ) -> Tuple[List[str], List[List[str]]]:
     columns = ["Кластер", "Профиль", "Территорий", "Пожаров в истории"] + list(cluster_frame.columns)
     rows: List[List[str]] = []
@@ -461,7 +462,7 @@ def _build_representative_rows(
 
 
 def _build_notes(
-    cluster_profiles: Sequence[Dict[str, str]],
+    cluster_profiles: Sequence[Dict[str, Any]],
     silhouette: float | None,
     selected_features: Sequence[str],
     diagnostics: ClusteringDiagnosticsResult,
@@ -561,7 +562,7 @@ def _build_notes(
 
     notes.append(f"В расчёте участвовали признаки: {', '.join(selected_features)}.")
     if cluster_profiles:
-        largest = max(cluster_profiles, key=lambda item: int(item["size_display"].replace(" ", "")))
+        largest = max(cluster_profiles, key=lambda item: int(item["size"]))
         notes.append(
             f"Самый крупный тип территорий сейчас — {largest['cluster_label']} ({largest['share_display']} выборки): {largest['segment_title'].lower()}."
         )

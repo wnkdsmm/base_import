@@ -13,7 +13,7 @@ warnings.warn(
     "Import from app.services.clustering.constants is deprecated. "
     "Use config.constants or app.labels directly.",
     DeprecationWarning,
-    stacklevel=2,
+    stacklevel=1,
 )
 
 from app.statistics_constants import EXCLUDED_TABLE_PREFIXES as TABLE_EXCLUDED_PREFIXES
