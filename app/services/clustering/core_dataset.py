@@ -3,8 +3,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from typing import Any, Callable, Dict, Sequence
 
-from app.labels import CLUSTERING_SAMPLING_STRATEGY_LABELS
-from config.constants import CLUSTER_COUNT_OPTIONS, SAMPLING_STRATEGY_VALUES
+from config.constants import CLUSTER_COUNT_OPTIONS
 from app.services.shared.formatting import _format_integer
 
 from .analysis_features import (
@@ -17,6 +16,7 @@ from .data import (
     _prepare_cluster_frame,
     _resolve_selected_features,
 )
+from .data_impl import SAMPLING_STRATEGY_OPTIONS
 from .types import (
     ClusterCountGuidance,
     ClusteringBaseState,
@@ -26,11 +26,6 @@ from .types import (
     ClusteringSummary,
     FeatureSelectionReport,
 )
-
-SAMPLING_STRATEGY_OPTIONS = [
-    {"value": value, "label": CLUSTERING_SAMPLING_STRATEGY_LABELS.get(value, value)}
-    for value in SAMPLING_STRATEGY_VALUES
-]
 
 def _emit_clustering_progress(
     progress_callback: Callable[[str, str], None] | None,

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from datetime import date, datetime
@@ -25,25 +25,13 @@ def format_number(value: Any, digits: int = 1, integer: bool = False) -> str:
         return MISSING_VALUE
     if integer or abs(numeric - round(numeric)) < 1e-9:
         return format_integer(numeric)
+    if digits == 2:
+        return f"{numeric:,.2f}".replace(",", " ").replace(".", ",")
     return f"{numeric:.{digits}f}".replace(".", ",")
 
 
-def format_number_two_decimals(value: Any, integer: bool = False) -> str:
-    if value is None:
-        return MISSING_VALUE
-    numeric_value = float(value)
-    if integer:
-        return f"{int(round(numeric_value)):,}".replace(",", " ")
-    if abs(numeric_value - round(numeric_value)) < 1e-9:
-        return f"{int(round(numeric_value)):,}".replace(",", " ")
-    return f"{numeric_value:,.2f}".replace(",", " ").replace(".", ",")
-
-
-def format_number_rounded(value: float) -> str:
-    rounded = round(float(value), 1)
-    if abs(rounded - round(rounded)) < 1e-9:
-        return str(int(round(rounded)))
-    return str(rounded).replace(".", ",")
+format_number_two_decimals = lambda v, integer=False: format_number(v, digits=2, integer=integer)
+format_number_rounded = lambda v: format_number(v, digits=1).replace(" ", "")
 
 
 def format_percent(value: float) -> str:
