@@ -22,7 +22,6 @@ from .column_definitions import (
 )
 from .column_filters import (
     NatashaColumnMatcher,
-    _legacy_get_mandatory_feature_catalog,
     get_column_matcher,
 )
 from .column_transforms import (
@@ -147,4 +146,3 @@ class KeepImportantColumnsStep(PipelineStep):
             "protected_count": len(protected_columns),
             "mandatory_feature_catalog": self.matcher.get_mandatory_feature_catalog(),
         }
-

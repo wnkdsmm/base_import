@@ -37,6 +37,9 @@ from ...types import (
 )
 
 _COLUMN_MATCHER: Optional["NatashaColumnMatcher"] = None
+_CATEGORY_ID_TO_LABEL: dict[str, str] = {
+    rule["id"]: rule["label"] for rule in COLUMN_CATEGORY_RULES
+}
 
 def _match_mandatory_feature_payload(
     column_payload: ColumnTermPayload,
@@ -50,6 +53,7 @@ def _match_mandatory_feature_payload(
     feature_label = str(feature["label"])
     prepared_synonyms = list(feature.get("prepared_synonyms", []))
     normalized_name = str(column_payload["normalized_name"])
+    token_match_synonym: Optional[str] = None
     for synonym in prepared_synonyms:
         if normalized_name == synonym["normalized"]:
             return _build_match_metadata(
@@ -62,18 +66,24 @@ def _match_mandatory_feature_payload(
                 mandatory=True,
             )
 
-    for synonym in prepared_synonyms:
         tokens = list(synonym.get("tokens") or [])
-        if len(tokens) > 1 and all(_payload_contains_fragment(column_payload, token) for token in tokens):
-            return _build_match_metadata(
-                scope="mandatory_registry",
-                feature_id=feature_id,
-                feature_label=feature_label,
-                rule_id="mandatory_registry_synonym",
-                matched_value=str(synonym["raw"]),
-                reason=f"Колонка защищена обязательным реестром по синониму '{synonym['raw']}'.",
-                mandatory=True,
-            )
+        if (
+            token_match_synonym is None
+            and len(tokens) > 1
+            and all(_payload_contains_fragment(column_payload, token) for token in tokens)
+        ):
+            token_match_synonym = str(synonym["raw"])
+
+    if token_match_synonym is not None:
+        return _build_match_metadata(
+            scope="mandatory_registry",
+            feature_id=feature_id,
+            feature_label=feature_label,
+            rule_id="mandatory_registry_synonym",
+            matched_value=token_match_synonym,
+            reason=f"Колонка защищена обязательным реестром по синониму '{token_match_synonym}'.",
+            mandatory=True,
+        )
 
     for token_set in feature.get("prepared_token_sets", []):
         if _payload_matches_token_set(column_payload, token_set):
@@ -88,15 +98,8 @@ def _match_mandatory_feature_payload(
                 mandatory=True,
             )
     return None
-
 def _group_labels_for_ids(group_ids: List[str]) -> List[str]:
-    return [rule["label"] for rule in COLUMN_CATEGORY_RULES if rule["id"] in group_ids]
-
-def _wanted_group_ids(group_ids: List[str]) -> Set[str]:
-    return {group_id for group_id in group_ids if group_id}
-
-def _matching_group_ids(group_ids: List[str], wanted: Set[str]) -> List[str]:
-    return [group_id for group_id in group_ids if group_id in wanted]
+    return [_CATEGORY_ID_TO_LABEL[gid] for gid in group_ids if gid in _CATEGORY_ID_TO_LABEL]
 
 def _important_label_query_bonus(important_label_normalized: str, query_terms: List[Dict[str, Set[str]]]) -> int:
     if not important_label_normalized:
@@ -355,6 +358,8 @@ class NatashaColumnMatcher:
         self.morph_tagger = NewsMorphTagger(self.emb)
         self.category_lemmas = _build_category_lemma_map(COLUMN_CATEGORY_RULES, self._lemmatize_text)
         self.mandatory_registry = [self._prepare_registry_feature(feature) for feature in MANDATORY_FEATURE_REGISTRY]
+        self._terms_cache: dict[str, ColumnTermPayload] = {}
+        self._group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]] = {}
 
     def _lemmatize_text(self, value: str) -> List[str]:
         lemmas: List[str] = []
@@ -377,12 +382,20 @@ class NatashaColumnMatcher:
         return _prepare_registry_feature_payload(feature, self._normalize_text, self._extract_words)
 
     def _column_terms(self, column_name: str) -> ColumnTermPayload:
-        return _build_column_term_payload(
+        cached_payload = self._terms_cache.get(column_name)
+        if cached_payload is not None:
+            return cached_payload
+
+        payload = _build_column_term_payload(
             column_name,
             self._normalize_text,
             self._extract_words,
             self._lemmatize_text,
         )
+        self._terms_cache[column_name] = payload
+        if len(self._terms_cache) > 4096:
+            self._terms_cache.clear()
+        return payload
 
 
     def _match_mandatory_feature(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
@@ -489,44 +502,48 @@ class NatashaColumnMatcher:
             group_ids=group_ids,
         )
 
-    def _build_column_category_match(
-        self,
-        column_name: str,
-        column_payload: ColumnTermPayload,
-        wanted: Set[str],
-    ) -> Optional[Dict[str, object]]:
-        matched_groups = _matching_group_ids(self._classify_column_payload_groups(column_payload), wanted)
-        if not matched_groups:
-            return None
-        return _build_column_category_result(
-            column_name=column_name,
-            matched_groups=matched_groups,
-            important_label=self._important_label_from_payload(column_payload) or "",
-        )
-
     def get_group_catalog(self, columns: List[str]) -> List[Dict[str, object]]:
+        if not hasattr(self, "_group_catalog_cache"):
+            self._group_catalog_cache = {}
+        cache_key = frozenset(columns)
+        cached_catalog = self._group_catalog_cache.get(cache_key)
+        if cached_catalog is not None:
+            return cached_catalog
+
         grouped_columns = _build_grouped_columns_by_category(
             columns,
             COLUMN_CATEGORY_RULES,
             self.classify_column_groups,
         )
 
-        return [
+        result = [
             _build_group_catalog_entry(rule, grouped_columns[rule["id"]])
             for rule in COLUMN_CATEGORY_RULES
         ]
+        self._group_catalog_cache[cache_key] = result
+        if len(self._group_catalog_cache) > 32:
+            self._group_catalog_cache.clear()
+        return result
 
     def get_mandatory_feature_catalog(self) -> List[Dict[str, object]]:
         return get_mandatory_feature_catalog()
 
     def find_columns_by_categories(self, columns: List[str], group_ids: List[str]) -> List[Dict[str, object]]:
-        wanted = _wanted_group_ids(group_ids)
+        wanted = {gid for gid in group_ids if gid}
         if not wanted:
             return []
         return _collect_column_matches(
             columns,
             self._column_terms,
-            lambda column_name, column_payload: self._build_column_category_match(column_name, column_payload, wanted),
+            lambda column_name, column_payload: (
+                None
+                if not (matched := [gid for gid in self._classify_column_payload_groups(column_payload) if gid in wanted])
+                else _build_column_category_result(
+                    column_name=column_name,
+                    matched_groups=matched,
+                    important_label=self._important_label_from_payload(column_payload) or "",
+                )
+            ),
         )
 
     def find_columns_by_query(self, columns: List[str], query_text: str) -> List[Dict[str, object]]:
@@ -540,19 +557,9 @@ class NatashaColumnMatcher:
         )
         return _sort_column_query_matches(_partition_column_query_matches(matches, len(query_terms)))
 
-def _legacy_get_mandatory_feature_catalog() -> List[Dict[str, object]]:
-    return [
-        {
-            "id": feature["id"],
-            "label": feature["label"],
-            "description": feature["description"],
-            "synonyms": list(feature.get("synonyms", [])),
-        }
-        for feature in MANDATORY_FEATURE_REGISTRY
-    ]
-
 def get_column_matcher() -> NatashaColumnMatcher:
     global _COLUMN_MATCHER
     if _COLUMN_MATCHER is None:
         _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
+

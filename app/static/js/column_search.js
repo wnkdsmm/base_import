@@ -313,8 +313,9 @@
             return;
         }
 
+        const selectedUnion = getSelectedColumnsUnion();
         node.innerHTML = columns.map(function (item) {
-            const checked = isColumnSelected(item.name) ? 'checked' : '';
+            const checked = selectedUnion.has(item.name) ? 'checked' : '';
             const matchedTerms = Array.isArray(item.matched_terms) && item.matched_terms.length
                 ? item.matched_terms.map(function (term) {
                     return '<span class="column-tag">' + escapeHtml(term) + '</span>';
@@ -347,6 +348,7 @@
                 if (!name) {
                     return;
                 }
+                const card = event.target.closest('.column-match-card');
 
                 if (event.target.checked) {
                     state.selectedColumns.add(name);
@@ -360,7 +362,9 @@
                     }
                 }
 
-                renderMatches(buildVisibleMatches(), state.payload ? state.payload.message : '');
+                if (card) {
+                    card.classList.toggle('selected', event.target.checked);
+                }
                 updateSelectionSummary();
                 refreshPreviewForSelection();
             });

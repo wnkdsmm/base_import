@@ -6,7 +6,7 @@ from typing import Any
 from . import column_filter_match as _match
 from . import column_filter_payload as _payload
 from . import column_filter_text as _text
-from .column_filter_match import NatashaColumnMatcher, _legacy_get_mandatory_feature_catalog, get_column_matcher
+from .column_filter_match import NatashaColumnMatcher, get_column_matcher
 
 _SOURCE_MODULES: tuple[ModuleType, ...] = (_text, _payload, _match)
 
