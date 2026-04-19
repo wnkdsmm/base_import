@@ -19,17 +19,14 @@ def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, Set[s
     normalized_name = column_payload.get("normalized_name", "")
     if not isinstance(normalized_name, str):
         normalized_name = str(normalized_name)
-        column_payload["normalized_name"] = normalized_name
 
     words = column_payload.get("words", set())
     if not isinstance(words, set):
         words = {str(word) for word in words}
-        column_payload["words"] = words
 
     lemmas = column_payload.get("lemmas", set())
     if not isinstance(lemmas, set):
         lemmas = {str(lemma) for lemma in lemmas}
-        column_payload["lemmas"] = lemmas
 
     return normalized_name, words, lemmas
 
