@@ -33,6 +33,7 @@ from .constants import (
     FEATURE_SELECTION_MIN_IMPROVEMENT,
     LOW_SUPPORT_TERRITORY_THRESHOLD,
     MAX_K_DIAGNOSTICS,
+    MODEL_N_INIT,
     WEIGHTING_STRATEGY_INCIDENT_LOG,
     WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL,
     WEIGHTING_STRATEGY_NOT_APPLICABLE,
@@ -111,7 +112,7 @@ def _run_clustering(
     else:
         _, scaled_points, scaler, transformed_columns, sample_weights = prepared_model_inputs
     if algorithm_key == "kmeans":
-        model = _fit_weighted_kmeans(scaled_points, sample_weights, cluster_count, random_state=42, n_init=40)
+        model = _fit_weighted_kmeans(scaled_points, sample_weights, cluster_count, random_state=42, n_init=MODEL_N_INIT)
         labels = model.labels_
         scaled_centers = model.cluster_centers_
         transformed_centers = scaler.inverse_transform(model.cluster_centers_)
@@ -125,12 +126,12 @@ def _run_clustering(
             algorithm_key=algorithm_key,
             sample_weights=sample_weights,
             random_state=42,
-            n_init=40,
+            n_init=MODEL_N_INIT,
         )
         raw_centers, scaled_centers = _derive_cluster_centers(cluster_frame, scaled_points, labels, cluster_count)
         inertia = _compute_cluster_inertia(scaled_points, labels, scaled_centers=scaled_centers)
         initialization_ari = None
-    cluster_labels = [f"Тип {index + 1}" for index in range(cluster_count)]
+    cluster_labels = _cluster_labels(cluster_count)
     pca_projection_result = _compute_pca_projection(
         scaled_points=scaled_points,
         labels=labels,
@@ -188,11 +189,12 @@ def _evaluate_cluster_counts(
         for cluster_count in CLUSTER_COUNT_OPTIONS
         if 2 <= cluster_count <= min(MAX_K_DIAGNOSTICS, len(cluster_frame) - 1)
     ]
-    _, scaled_points, _, _, sample_weights = _prepare_model_inputs(
+    prepared_inputs = _prepare_model_inputs(
         cluster_frame,
         entity_frame,
         weighting_strategy=weighting_strategy,
     )
+    _, scaled_points, _, _, sample_weights = prepared_inputs
     gap_scores = _compute_gap_statistic(
         scaled_points,
         sample_weights,
@@ -209,6 +211,7 @@ def _evaluate_cluster_counts(
             entity_frame,
             cluster_count,
             weighting_strategy=weighting_strategy,
+            prepared_model_inputs=prepared_inputs,
         )
         method_rows_by_cluster_count[cluster_count] = method_rows
         best_row = next((item for item in method_rows if item.get("is_recommended")), None)
@@ -253,12 +256,16 @@ def _compare_clustering_methods(
     cluster_count: int,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
     selected_method_key: str | None = None,
+    prepared_model_inputs: tuple[pd.DataFrame, np.ndarray, Any, set[str], np.ndarray] | None = None,
 ) -> List[ClusteringMethodRow]:
-    _, scaled_points, _, _, _ = _prepare_model_inputs(
-        cluster_frame,
-        entity_frame,
-        weighting_strategy=weighting_strategy,
-    )
+    if prepared_model_inputs is None:
+        _, scaled_points, _, _, _ = _prepare_model_inputs(
+            cluster_frame,
+            entity_frame,
+            weighting_strategy=weighting_strategy,
+        )
+    else:
+        _, scaled_points, _, _, _ = prepared_model_inputs
     rows: List[ClusteringMethodRow] = []
     row_count = len(cluster_frame)
     primary_method_key = selected_method_key or _primary_method_key(weighting_strategy)
@@ -273,7 +280,7 @@ def _compare_clustering_methods(
                 algorithm_key=str(candidate["algorithm_key"]),
                 sample_weights=sample_weights,
                 random_state=42,
-                n_init=40,
+                n_init=MODEL_N_INIT,
             )
         except Exception:
             return

@@ -107,6 +107,7 @@ def _run_clustering_model_bundle(
             actual_cluster_count,
             weighting_strategy=str(feature_selection_report.get("weighting_strategy") or ""),
             selected_method_key=actual_method_key,
+            prepared_model_inputs=prepared_model_inputs,
         )
     else:
         method_comparison = [dict(row) for row in method_comparison]
