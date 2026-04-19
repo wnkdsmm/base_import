@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from app.services.shared.formatting import (
+    format_number_rounded as _format_number,
+    format_percent_ratio as _format_percent_ratio,
+)
 from config.constants import CORE_SERVICE_TIME_MINUTES, SERVICE_DISTANCE_TARGET_KM, SERVICE_TIME_TARGET_MINUTES
 
 
@@ -175,17 +179,6 @@ def _positive_or_none(value: Optional[float]) -> Optional[float]:
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
-
-
-def _format_number(value: float) -> str:
-    rounded = round(float(value), 1)
-    if abs(rounded - round(rounded)) < 1e-9:
-        return str(int(round(rounded)))
-    return str(rounded).replace('.', ',')
-
-
-def _format_percent_ratio(value: float) -> str:
-    return f'{_format_number(_clamp(value, 0.0, 1.0) * 100.0)}%'
 
 
 __all__ = [

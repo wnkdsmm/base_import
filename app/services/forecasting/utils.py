@@ -7,13 +7,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from config.db import engine
 from app.services.shared.formatting import (
-    _format_datetime,
     _format_float_for_input,
-    _format_integer,
-    _format_number,
-    _format_percent,
     _format_period,
     _format_signed_percent,
+    format_count_range as _format_count_range,
+    format_datetime as _format_datetime,
+    format_integer as _format_integer,
+    format_number as _format_number,
+    format_probability as _format_probability,
 )
 
 from .constants import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS, PLOTLY_PALETTE
@@ -186,10 +187,6 @@ def _forecast_stability_hint(daily_history: List[dict[str, Any]]) -> Tuple[str, 
     return "Ниже средней", "данных мало или они слишком редкие, поэтому важнее смотреть на общий тренд"
 
 
-def _format_probability(value: float) -> str:
-    return _format_percent(value * 100.0)
-
-
 def _forecast_level_label(value: float, reference: float) -> Tuple[str, str]:
     if reference <= 0:
         if value <= 0:
@@ -202,12 +199,6 @@ def _forecast_level_label(value: float, reference: float) -> Tuple[str, str]:
     if ratio <= 0.8:
         return "Ниже обычного", "forest"
     return "Около обычного", "sky"
-
-
-def _format_count_range(lower: float, upper: float) -> str:
-    lower_bound = max(0, int(math.floor(lower)))
-    upper_bound = max(lower_bound, int(math.ceil(upper)))
-    return f"{_format_integer(lower_bound)}-{_format_integer(upper_bound)} пожара"
 
 
 def _relative_delta_text(value: float, reference: float, reference_label: str) -> str:

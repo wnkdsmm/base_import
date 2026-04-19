@@ -1,31 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, List, Sequence
+from typing import Sequence
 
-from .constants import LOW_SUPPORT_TERRITORY_THRESHOLD, STABILITY_RESAMPLE_RATIO
-from .count_guidance import _build_cluster_count_guidance
-from .types import (
-    ClusterCountGuidance,
-    ClusterLabel,
-    ClusterMethod,
-    ClusterMetrics,
-    ClusteringQualityAssessment,
-    FeatureAblationRow,
-    FeatureSelectionReport,
-    MethodComparisonRow,
-    QualityConfigurationContext,
-    QualityDiagnostics,
-    QualityLabelContext,
-    QualityNoteContext,
-    QualityScore,
-    SupportSummary,
+from config.constants import LOW_SUPPORT_TERRITORY_THRESHOLD
+from .quality_assessment import (
+    compute_method_algorithm_key,
+    compute_segmentation_strength,
 )
+from .types import ClusterLabel, ClusterMethod, ClusterMetrics
 from .utils import _format_integer, _format_number, _format_percent
 
-__all__ = [
-    "_build_clustering_quality_assessment",
-    "_empty_clustering_quality_assessment",
-]
 
 def _summarize_segmentation_strength(
     clustering: ClusterMetrics,
@@ -34,55 +18,14 @@ def _summarize_segmentation_strength(
     cluster_count: int | None = None,
     recommended_k: int | None = None,
 ) -> ClusterLabel:
-    silhouette = float(clustering.get("silhouette") or 0.0)
-    davies_bouldin = float(clustering.get("davies_bouldin") or 0.0)
-    balance_ratio = float(clustering.get("cluster_balance_ratio") or 0.0)
-    stability_ari = float(clustering.get("stability_ari") or 0.0)
-    initialization_ari = float(clustering.get("initialization_ari") or 0.0)
-    has_microclusters = bool(clustering.get("has_microclusters"))
-    selected_algorithm_key = _resolve_method_algorithm_key(selected_method)
-    recommended_algorithm_key = _resolve_method_algorithm_key(recommended_method)
-    algorithm_mismatch = bool(selected_method and recommended_method) and selected_algorithm_key != recommended_algorithm_key
-    configuration_mismatch = bool(selected_method and recommended_method) and (
-        (selected_method or {}).get("method_key") != (recommended_method or {}).get("method_key")
+    return compute_segmentation_strength(
+        clustering,
+        selected_method=selected_method,
+        recommended_method=recommended_method,
+        cluster_count=cluster_count,
+        recommended_k=recommended_k,
     )
-    k_mismatch = bool(recommended_k and cluster_count) and int(recommended_k) != int(cluster_count)
-    stability_gap = initialization_ari - stability_ari if initialization_ari else 0.0
-    requires_caution = configuration_mismatch or k_mismatch or stability_gap >= 0.18
 
-    if (
-        not has_microclusters
-        and silhouette >= 0.40
-        and davies_bouldin <= 1.00
-        and stability_ari >= 0.70
-        and balance_ratio >= 0.18
-        and not requires_caution
-    ):
-        return {
-            "label": "Сильная",
-            "note": "Сегментация выглядит сильной: метрики согласованы между собой, кластеры заметно отделяются и в целом воспроизводятся на повторных подвыборках.",
-        }
-    if not has_microclusters and silhouette >= 0.25 and davies_bouldin <= 1.30 and stability_ari >= 0.45 and balance_ratio >= 0.10:
-        caution_suffix = ""
-        if algorithm_mismatch:
-            caution_suffix = " При этом итог лучше трактовать осторожнее: для текущего среза уже виден более убедительный альтернативный метод."
-        elif configuration_mismatch:
-            caution_suffix = " При этом итог лучше трактовать осторожнее: на том же наборе признаков более убедительно выглядит другая конфигурация весов или параметров."
-        elif k_mismatch:
-            caution_suffix = " При этом итог лучше трактовать осторожнее: рабочее число кластеров не совпадает с рекомендацией по совокупности метрик."
-        elif stability_gap >= 0.18:
-            caution_suffix = " При этом итог лучше трактовать осторожнее: устойчивость на одном и том же датасете заметно выше, чем на повторных подвыборках."
-        return {
-            "label": "Умеренная",
-            "note": (
-                "Сегментация выглядит умеренной: типология уже читается, но часть границ между кластерами остаётся чувствительной к составу данных или к балансу размеров групп."
-                f"{caution_suffix}"
-            ),
-        }
-    return {
-        "label": "Слабая",
-        "note": "Сегментация выглядит слабой: либо метрики между собой не согласованы, либо разбиение слишком чувствительно к составу выборки, либо его качество проседает из-за микрокластеров и дисбаланса.",
-    }
 
 def _build_stability_note(clustering: ClusterMetrics, resample_share_label: str) -> str:
     stability_ari = clustering.get("stability_ari")
@@ -108,6 +51,7 @@ def _build_stability_note(clustering: ClusterMetrics, resample_share_label: str)
         f"({_format_number(initialization_ari, 3)})."
     )
 
+
 def _build_method_recommendation_note(
     selected_method: ClusterMethod | None,
     recommended_method: ClusterMethod | None,
@@ -126,6 +70,7 @@ def _build_method_recommendation_note(
             f"Текущий вывод на странице построен методом {selected_label}, но по совокупности метрик и размеров кластеров для этого среза лучше выглядит {recommended_label}."
         )
     return f"{selected_label} остаётся предпочтительным методом: альтернативы не дают более сильного качества без ухудшения размеров кластеров."
+
 
 def _build_method_comparison_scope_note(method_comparison: Sequence[ClusterMethod]) -> str:
     selected_method = next((row for row in method_comparison if row.get("is_selected")), None)
@@ -147,10 +92,10 @@ def _build_method_comparison_scope_note(method_comparison: Sequence[ClusterMetho
         "с другой стратегией весов, поэтому рекомендация по методу не смешивает эффект алгоритма и эффект весов."
     )
 
+
 def _resolve_method_algorithm_key(method_row: ClusterMethod | None) -> str:
-    if not method_row:
-        return ""
-    return str(method_row.get("algorithm_key") or method_row.get("method_key") or "")
+    return compute_method_algorithm_key(method_row)
+
 
 def _build_cluster_shape_note(clustering: ClusterMetrics) -> str:
     smallest_cluster_size = int(clustering.get("smallest_cluster_size") or 0)
@@ -174,6 +119,7 @@ def _build_cluster_shape_note(clustering: ClusterMetrics) -> str:
         )
     return ""
 
+
 __all__ = [
     '_summarize_segmentation_strength',
     '_build_stability_note',
@@ -181,4 +127,6 @@ __all__ = [
     '_build_method_comparison_scope_note',
     '_resolve_method_algorithm_key',
     '_build_cluster_shape_note',
+    'compute_method_algorithm_key',
+    'compute_segmentation_strength',
 ]

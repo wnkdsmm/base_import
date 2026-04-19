@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from typing import Any, Sequence
 
 import numpy as np
@@ -8,6 +7,17 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 from app.services.model_quality import compute_clustering_metrics
+from app.labels import CLUSTERING_FEATURE_METADATA, CLUSTERING_WEIGHTING_STRATEGY_LABELS
+from config.constants import (
+    CARD_TONES,
+    CLUSTER_COUNT_OPTIONS,
+    FEATURE_SELECTION_MIN_IMPROVEMENT,
+    LOW_SUPPORT_TERRITORY_THRESHOLD,
+    MODEL_N_INIT,
+    WEIGHTING_STRATEGY_INCIDENT_LOG,
+    WEIGHTING_STRATEGY_NOT_APPLICABLE,
+    WEIGHTING_STRATEGY_UNIFORM,
+)
 
 from .analysis_stats import (
     _build_sample_weights,
@@ -26,19 +36,9 @@ from .analysis_stats import (
     _prepare_model_inputs,
     _restore_raw_centers,
 )
-from .constants import (
-    CARD_TONES,
-    CLUSTER_COUNT_OPTIONS,
-    FEATURE_METADATA,
-    FEATURE_SELECTION_MIN_IMPROVEMENT,
-    LOW_SUPPORT_TERRITORY_THRESHOLD,
-    MAX_K_DIAGNOSTICS,
-    MODEL_N_INIT,
-    WEIGHTING_STRATEGY_INCIDENT_LOG,
-    WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL,
-    WEIGHTING_STRATEGY_NOT_APPLICABLE,
-    WEIGHTING_STRATEGY_UNIFORM,
-    WEIGHTING_STRATEGY_UNIFORM_LABEL,
+from .quality_assessment import (
+    compute_diagnostics_row_sort_key,
+    compute_recommended_method_row,
 )
 from .types import (
     ClusteringDiagnosticsResult,
@@ -48,6 +48,11 @@ from .types import (
     FeatureSelectionReport,
 )
 from .utils import _format_integer, _format_number, _format_percent
+
+FEATURE_METADATA = CLUSTERING_FEATURE_METADATA
+MAX_K_DIAGNOSTICS = max(CLUSTER_COUNT_OPTIONS)
+WEIGHTING_STRATEGY_UNIFORM_LABEL = CLUSTERING_WEIGHTING_STRATEGY_LABELS[WEIGHTING_STRATEGY_UNIFORM]
+WEIGHTING_STRATEGY_INCIDENT_LOG_LABEL = CLUSTERING_WEIGHTING_STRATEGY_LABELS[WEIGHTING_STRATEGY_INCIDENT_LOG]
 
 
 def _primary_method_key(weighting_strategy: str) -> str:
@@ -242,15 +247,7 @@ def _evaluate_cluster_counts(
 
 
 def _diagnostics_row_sort_key(result: ClusteringMethodRow) -> tuple[float, float, float, float, float]:
-    davies_bouldin = result.get("davies_bouldin", float("inf"))
-    davies_value = float("inf") if davies_bouldin is None else float(davies_bouldin)
-    return (
-        float(result.get("quality_score", float("-inf"))),
-        float(result.get("silhouette", float("-inf"))),
-        -float(davies_value if math.isfinite(davies_value) else 1e9),
-        float(result.get("cluster_balance_ratio", 0.0)),
-        -float(result.get("shape_penalty", 0.0)),
-    )
+    return compute_diagnostics_row_sort_key(result)
 
 
 def _compare_clustering_methods(
@@ -272,6 +269,14 @@ def _compare_clustering_methods(
     rows: list[ClusteringMethodRow] = []
     row_count = len(cluster_frame)
     primary_method_key = selected_method_key or _primary_method_key(weighting_strategy)
+    metrics_cache: dict[
+        tuple[int, bytes],
+        tuple[dict[str, float | int | None], dict[str, float | bool], float, float],
+    ] = {}
+
+    def _labels_cache_key(labels: np.ndarray) -> tuple[int, bytes]:
+        normalized = np.asarray(labels, dtype=np.int32)
+        return (int(normalized.size), normalized.tobytes())
 
     def _append_method_row(candidate: ClusteringMethodCandidate) -> None:
         try:
@@ -287,10 +292,16 @@ def _compare_clustering_methods(
             )
         except Exception:
             return
-        metrics = compute_clustering_metrics(scaled_points, labels)
-        shape_diagnostics = _cluster_shape_diagnostics(metrics, row_count)
-        quality_score = _cluster_quality_score(metrics, row_count, shape_diagnostics=shape_diagnostics)
-        inertia = _compute_cluster_inertia(scaled_points, labels)
+        key = _labels_cache_key(labels)
+        cached = metrics_cache.get(key)
+        if cached is None:
+            metrics = compute_clustering_metrics(scaled_points, labels)
+            shape_diagnostics = _cluster_shape_diagnostics(metrics, row_count)
+            quality_score = _cluster_quality_score(metrics, row_count, shape_diagnostics=shape_diagnostics)
+            inertia = _compute_cluster_inertia(scaled_points, labels)
+            metrics_cache[key] = (metrics, shape_diagnostics, quality_score, inertia)
+        else:
+            metrics, shape_diagnostics, quality_score, inertia = cached
         rows.append(
             {
                 "method_key": candidate["method_key"],
@@ -330,34 +341,7 @@ def _build_kmeans_method_label(weighting_strategy: str, selected_weighting_strat
 
 
 def _select_recommended_method_row(method_rows: Sequence[ClusteringMethodRow]) -> ClusteringMethodRow | None:
-    if not method_rows:
-        return None
-    current_row = next((row for row in method_rows if row.get("is_selected")), None)
-    if current_row is None:
-        current_row = next(
-            (
-                row
-                for row in method_rows
-                if str(row.get("algorithm_key") or row.get("method_key") or "").startswith("kmeans")
-            ),
-            method_rows[0],
-        )
-    best_row = max(method_rows, key=_diagnostics_row_sort_key)
-    if best_row.get("method_key") == current_row.get("method_key"):
-        return current_row
-
-    quality_gap = float(best_row.get("quality_score") or 0.0) - float(current_row.get("quality_score") or 0.0)
-    balance_gap = float(best_row.get("cluster_balance_ratio") or 0.0) - float(current_row.get("cluster_balance_ratio") or 0.0)
-    smallest_gap = int(best_row.get("smallest_cluster_size") or 0) - int(current_row.get("smallest_cluster_size") or 0)
-    if (
-        quality_gap >= 0.01
-        and not bool(best_row.get("has_microclusters"))
-        and float(best_row.get("shape_penalty") or 0.0) <= float(current_row.get("shape_penalty") or 0.0) + 0.01
-        and balance_gap >= -0.05
-        and smallest_gap >= -2
-    ):
-        return best_row
-    return current_row
+    return compute_recommended_method_row(method_rows)
 
 
 def _build_cluster_profiles(

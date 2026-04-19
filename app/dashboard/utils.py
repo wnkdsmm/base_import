@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.services.shared.formatting import (
+    format_datetime as _format_datetime,
+    format_number_two_decimals as _format_number,
+    format_percentage as _format_percentage,
+)
 from app.table_catalog import select_user_table_names
 from config.db import engine
 
@@ -61,23 +65,6 @@ def _format_chart_date(value: Any) -> str:
     return str(value)
 
 
-def _format_number(value: Any, integer: bool = False) -> str:
-    if value is None:
-        return "-"
-    numeric_value = float(value)
-    if integer:
-        return f"{int(round(numeric_value)):,}".replace(",", " ")
-    if abs(numeric_value - round(numeric_value)) < 1e-9:
-        return f"{int(round(numeric_value)):,}".replace(",", " ")
-    return f"{numeric_value:,.2f}".replace(",", " ").replace(".", ",")
-
-
-def _format_percentage(value: float) -> str:
-    if abs(value - round(value)) < 1e-9:
-        return f"{int(round(value))}%"
-    return f"{value:.1f}%".replace(".", ",")
-
-
 def _format_signed_number(value: float, integer: bool = False) -> str:
     if value > 0:
         return f"+{_format_number(value, integer=integer)}"
@@ -91,10 +78,6 @@ def _format_period_label(years: List[int]) -> str:
     if len(normalized) == 1:
         return str(normalized[0])
     return f"{normalized[0]}-{normalized[-1]}"
-
-
-def _format_datetime(value: datetime) -> str:
-    return value.strftime("%d.%m.%Y %H:%M")
 
 
 __all__ = [

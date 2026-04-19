@@ -7,23 +7,26 @@ from typing import Any, Dict, List, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from app.labels import (
+    CLUSTERING_AUTO_DEFAULT_EXCLUDED_FEATURES,
+    CLUSTERING_DEFAULT_CLUSTER_FEATURES,
+    CLUSTERING_FEATURE_METADATA,
+    CLUSTERING_SAMPLING_STRATEGY_LABELS,
+)
+from app.statistics_constants import EXCLUDED_TABLE_PREFIXES as TABLE_EXCLUDED_PREFIXES
+from config.constants import (
+    CLUSTER_COUNT_OPTIONS,
+    MAX_FEATURE_OPTIONS,
+    MEAN_SMOOTHING_PRIOR_STRENGTH,
+    RATE_SMOOTHING_PRIOR_STRENGTH,
+    SAMPLE_LIMIT_OPTIONS,
+    SAMPLING_STRATEGY_VALUES,
+)
 from app.table_catalog import get_user_table_names
 
 from app.services.forecast_risk.data import _collect_risk_inputs
 from app.services.forecast_risk.utils import _counter_top_label, _is_rural_label
 
-from .constants import (
-    AUTO_DEFAULT_EXCLUDED_FEATURES,
-    CLUSTER_COUNT_OPTIONS,
-    DEFAULT_CLUSTER_FEATURES,
-    FEATURE_METADATA,
-    MAX_FEATURE_OPTIONS,
-    MEAN_SMOOTHING_PRIOR_STRENGTH,
-    RATE_SMOOTHING_PRIOR_STRENGTH,
-    SAMPLE_LIMIT_OPTIONS,
-    SAMPLING_STRATEGY_OPTIONS,
-    TABLE_EXCLUDED_PREFIXES,
-)
 from .types import (
     CandidateFeatureOption,
     ClusteringDatasetBundle,
@@ -34,6 +37,14 @@ from .types import (
     TerritorySupportSummary,
 )
 from .utils import _format_number, _format_percent
+
+AUTO_DEFAULT_EXCLUDED_FEATURES = set(CLUSTERING_AUTO_DEFAULT_EXCLUDED_FEATURES)
+DEFAULT_CLUSTER_FEATURES = list(CLUSTERING_DEFAULT_CLUSTER_FEATURES)
+FEATURE_METADATA = CLUSTERING_FEATURE_METADATA
+SAMPLING_STRATEGY_OPTIONS = [
+    {"value": value, "label": CLUSTERING_SAMPLING_STRATEGY_LABELS.get(value, value)}
+    for value in SAMPLING_STRATEGY_VALUES
+]
 
 INCIDENT_COUNT_COLUMN = "Число пожаров"
 AREA_SUPPORT_COLUMN = "__area_count"

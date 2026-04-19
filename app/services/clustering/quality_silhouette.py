@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Sequence
 
-from .constants import LOW_SUPPORT_TERRITORY_THRESHOLD, STABILITY_RESAMPLE_RATIO
+from config.constants import LOW_SUPPORT_TERRITORY_THRESHOLD, STABILITY_RESAMPLE_RATIO
 from .count_guidance import _build_cluster_count_guidance
 from .quality_cohesion import (
     _build_cluster_shape_note,

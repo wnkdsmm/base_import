@@ -13,10 +13,10 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
+from app.labels import CLUSTERING_LOG_SCALE_FEATURES
 from config.constants import GAP_STAT_MAX_WORKERS, GAP_STAT_N_REFERENCES
-from .constants import (
+from config.constants import (
     CLUSTER_COUNT_OPTIONS,
-    LOG_SCALE_FEATURES,
     MODEL_N_INIT,
     RATE_SMOOTHING_PRIOR_STRENGTH,
     STABILITY_RANDOM_SEEDS,
@@ -25,6 +25,8 @@ from .constants import (
     WEIGHTING_STRATEGY_NOT_APPLICABLE,
     WEIGHTING_STRATEGY_UNIFORM,
 )
+
+LOG_SCALE_FEATURES = set(CLUSTERING_LOG_SCALE_FEATURES)
 
 
 def _derive_feature_weights_from_profiles(

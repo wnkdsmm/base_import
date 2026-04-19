@@ -4,10 +4,10 @@ from contextlib import nullcontext
 from typing import Any, Callable, Dict, Sequence, Tuple
 
 from app.perf import current_perf_trace, profiled
+from config.constants import HOPKINS_MIN_CLUSTERABLE, MIN_ROWS_PER_CLUSTER, WEIGHTING_STRATEGY_INCIDENT_LOG
 from config.db import engine
 
 from .analysis_stats import _compute_hopkins_statistic, _prepare_model_inputs
-from .constants import HOPKINS_MIN_CLUSTERABLE, MIN_ROWS_PER_CLUSTER, WEIGHTING_STRATEGY_INCIDENT_LOG
 from .core_algorithms import _run_clustering_model_stage
 from .core_context import (
     _CLUSTERING_CACHE,

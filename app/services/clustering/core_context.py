@@ -6,12 +6,9 @@ from typing import Any, Dict, List, Sequence, Tuple
 from app.plotly_bundle import get_plotly_bundle
 from app.cache import CopyingTtlCache
 from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
+from app.labels import CLUSTERING_SAMPLING_STRATEGY_LABELS
+from config.constants import CLUSTER_COUNT_OPTIONS, SAMPLE_LIMIT_OPTIONS, SAMPLING_STRATEGY_VALUES
 
-from .constants import (
-    CLUSTER_COUNT_OPTIONS,
-    SAMPLE_LIMIT_OPTIONS,
-    SAMPLING_STRATEGY_OPTIONS,
-)
 from .data import (
     _build_table_options,
     _parse_cluster_count,
@@ -21,6 +18,11 @@ from .data import (
 )
 from .quality_silhouette import _empty_clustering_quality_assessment
 from .utils import _format_datetime, _format_integer
+
+SAMPLING_STRATEGY_OPTIONS = [
+    {"value": value, "label": CLUSTERING_SAMPLING_STRATEGY_LABELS.get(value, value)}
+    for value in SAMPLING_STRATEGY_VALUES
+]
 
 _CLUSTERING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
 _CLUSTERING_CACHE_SCHEMA_VERSION = "v3_feature_importance_chart"
