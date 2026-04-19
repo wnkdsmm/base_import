@@ -131,11 +131,18 @@ def _run_clustering(
         raw_centers, scaled_centers = _derive_cluster_centers(cluster_frame, scaled_points, labels, cluster_count)
         inertia = _compute_cluster_inertia(scaled_points, labels, scaled_centers=scaled_centers)
         initialization_ari = None
+    pca = PCA(n_components=2)
+    pca_points = pca.fit_transform(scaled_points)
+    explained = [float(item) for item in pca.explained_variance_ratio_[:2]]
+    while len(explained) < 2:
+        explained.append(0.0)
     cluster_labels = _cluster_labels(cluster_count)
     pca_projection_result = _compute_pca_projection(
         scaled_points=scaled_points,
         labels=labels,
         cluster_labels=cluster_labels,
+        projected=pca_points,
+        explained_variance=explained,
     )
     metrics = compute_clustering_metrics(scaled_points, labels)
     shape_diagnostics = _cluster_shape_diagnostics(metrics, len(cluster_frame))
@@ -145,9 +152,6 @@ def _run_clustering(
         sample_weights,
         algorithm_key=algorithm_key,
     )
-
-    pca = PCA(n_components=2)
-    pca_points = pca.fit_transform(scaled_points)
 
     return {
         "labels": labels,

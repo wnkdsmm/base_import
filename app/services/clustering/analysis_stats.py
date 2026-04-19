@@ -335,20 +335,26 @@ def _compute_pca_projection(
     scaled_points: np.ndarray,
     labels: np.ndarray,
     cluster_labels: list[str],
+    *,
+    projected: np.ndarray | None = None,
+    explained_variance: list[float] | None = None,
 ) -> dict[str, list]:
     points = np.asarray(scaled_points, dtype=float)
     point_labels = np.asarray(labels)
     if points.ndim != 2 or points.shape[0] == 0:
         return {"points": [], "explained_variance": [0.0, 0.0]}
 
-    pca = PCA(n_components=2)
-    projected = pca.fit_transform(points)
-    explained = [float(item) for item in pca.explained_variance_ratio_[:2]]
+    projection = np.asarray(projected, dtype=float) if projected is not None else None
+    explained = [float(item) for item in explained_variance] if explained_variance is not None else None
+    if projection is None or explained is None:
+        pca = PCA(n_components=2)
+        projection = pca.fit_transform(points)
+        explained = [float(item) for item in pca.explained_variance_ratio_[:2]]
     while len(explained) < 2:
         explained.append(0.0)
 
     rows: list[dict] = []
-    for index, (x_value, y_value) in enumerate(projected):
+    for index, (x_value, y_value) in enumerate(projection):
         cluster_id = int(point_labels[index]) if index < len(point_labels) else 0
         cluster_label = (
             cluster_labels[cluster_id]

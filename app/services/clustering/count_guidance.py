@@ -98,6 +98,7 @@ def _recommended_cluster_count_messages(
             f"Выбранное вручную число групп ({_format_integer(current_cluster_count)}) не совпадает с рекомендацией; "
             f"по совокупности метрик лучше выглядит k={_format_integer(recommended_k)}."
         )
+        quality_note = _append_gap_note(quality_note)
         return {
             "suggested_note": (
                 f"Диагностика рекомендует {recommended_k} группы, "
@@ -117,6 +118,7 @@ def _recommended_cluster_count_messages(
 
     if cluster_count_is_explicit:
         quality_note = f"Выбранное вручную число групп ({_format_integer(current_cluster_count)}) совпадает с рекомендацией."
+        quality_note = _append_gap_note(quality_note)
         return {
             "suggested_note": f"Диагностика подтверждает выбранное вручную значение: {current_cluster_count} группы.",
             "current_note": f"Сейчас используется выбранное вручную значение: {current_cluster_count} группы, и оно совпадает с рекомендацией.",
