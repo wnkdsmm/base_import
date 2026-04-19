@@ -11,7 +11,7 @@ def _share(numerator: float, denominator: float) -> float:
     try:
         numeric_numerator = float(numerator)
         numeric_denominator = float(denominator)
-    except Exception:
+    except (TypeError, ValueError):
         return 0.0
     if numeric_denominator <= 0 or not math.isfinite(numeric_numerator) or not math.isfinite(numeric_denominator):
         return 0.0
@@ -43,20 +43,19 @@ def _normalize_coordinate(value: Any, lower_bound: float, upper_bound: float) ->
     return coordinate
 
 
-def _finite_numeric_frame(frame: pd.DataFrame) -> pd.DataFrame:
+def _finite_numeric_frame(frame: pd.DataFrame, columns: Sequence[str] | None = None) -> pd.DataFrame:
+    target_columns = list(columns) if columns is not None else list(frame.columns)
     numeric_frame = pd.DataFrame(index=frame.index)
-    for column in frame.columns:
-        numeric_values = pd.to_numeric(frame[column], errors="coerce")
+    for column in target_columns:
+        source_values = frame[column] if column in frame.columns else np.nan
+        numeric_values = pd.to_numeric(source_values, errors="coerce")
         numeric_values = numeric_values.astype(float)
         numeric_frame[column] = numeric_values.where(pd.notna(numeric_values) & np.isfinite(numeric_values))
     return numeric_frame
 
 
 def _finite_numeric_columns(frame: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
-    source = pd.DataFrame(index=frame.index)
-    for column in columns:
-        source[column] = frame[column] if column in frame.columns else np.nan
-    return _finite_numeric_frame(source)
+    return _finite_numeric_frame(frame, columns=columns)
 
 
 def _clip_share_series(values: pd.Series, default: float = 0.0) -> pd.Series:

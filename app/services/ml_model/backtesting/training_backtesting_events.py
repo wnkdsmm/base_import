@@ -8,7 +8,7 @@ from sklearn.metrics import log_loss, roc_auc_score
 from app.services.model_quality import compute_classification_metrics
 
 from ..ml_model_config_types import CLASSIFICATION_THRESHOLD, EVENT_BASELINE_METHOD_LABEL, EVENT_BASELINE_ROLE_LABEL, EVENT_CLASSIFIER_ROLE_LABEL, EVENT_HEURISTIC_METHOD_LABEL, EVENT_HEURISTIC_ROLE_LABEL, EVENT_MODEL_LABEL, EVENT_PROBABILITY_REASON_SATURATED_EVENT_RATE, EVENT_PROBABILITY_REASON_SINGLE_CLASS_EVALUATION, EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS, EVENT_RATE_SATURATION_MARGIN, EVENT_SELECTION_RULE, MIN_BACKTEST_POINTS
-from ..ml_model_result_types import BacktestEvaluationRow, EventComparisonRow, EventMetrics
+from ..ml_model_result_types import BacktestEvaluationRow, EventComparisonRow, EventMetrics, EventScoreMetrics
 from .training_backtesting_support import (
     _empty_float_array,
     _empty_int_array,
@@ -426,18 +426,24 @@ def _build_event_metrics_result(
         logistic_available=event_inputs.logistic_available,
         selected_model_key=selection.selected_model_key,
         selected_model_label=_normalized_event_model_label(selection.selected_model_key, selection.selected_model_label),
-        brier_score=_optional_float(selection.selected_metrics.get('brier_score')),
-        baseline_brier_score=_optional_float(heuristic_metrics.get('baseline_brier_score')),
-        heuristic_brier_score=_optional_float(heuristic_metrics.get('brier_score')),
-        roc_auc=selection.selected_roc_auc,
-        baseline_roc_auc=probability_scores.baseline_roc_auc,
-        heuristic_roc_auc=probability_scores.heuristic_roc_auc,
-        f1=_optional_float(selection.selected_metrics.get('f1')),
-        baseline_f1=_optional_float(heuristic_metrics.get('baseline_f1')),
-        heuristic_f1=_optional_float(heuristic_metrics.get('f1')),
-        log_loss=selection.selected_log_loss,
-        baseline_log_loss=probability_scores.baseline_log_loss,
-        heuristic_log_loss=probability_scores.heuristic_log_loss,
+        selected_metrics=EventScoreMetrics(
+            brier_score=_optional_float(selection.selected_metrics.get('brier_score')),
+            roc_auc=selection.selected_roc_auc,
+            f1=_optional_float(selection.selected_metrics.get('f1')),
+            log_loss=selection.selected_log_loss,
+        ),
+        baseline_metrics=EventScoreMetrics(
+            brier_score=_optional_float(heuristic_metrics.get('baseline_brier_score')),
+            roc_auc=probability_scores.baseline_roc_auc,
+            f1=_optional_float(heuristic_metrics.get('baseline_f1')),
+            log_loss=probability_scores.baseline_log_loss,
+        ),
+        heuristic_metrics=EventScoreMetrics(
+            brier_score=_optional_float(heuristic_metrics.get('brier_score')),
+            roc_auc=probability_scores.heuristic_roc_auc,
+            f1=_optional_float(heuristic_metrics.get('f1')),
+            log_loss=probability_scores.heuristic_log_loss,
+        ),
         comparison_rows=_normalize_event_comparison_rows(selection.comparison_rows),
         rows_used=event_inputs.rows_used,
         selection_rule=EVENT_SELECTION_RULE,

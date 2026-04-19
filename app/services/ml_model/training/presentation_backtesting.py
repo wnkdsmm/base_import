@@ -231,11 +231,11 @@ def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
         'method_label': row.get('method_label', 'Метод'),
         'role_label': row.get('role_label', ''),
         'selection_label': _selection_label(row.get('is_selected')),
-        'mae_display': _format_optional_number(row.get('mae')),
-        'rmse_display': _format_optional_number(row.get('rmse')),
-        'smape_display': _format_optional_percent(row.get('smape')),
-        'poisson_display': _format_optional_number(row.get('poisson_deviance')),
-        'mae_delta_display': _format_optional_signed_percent(row.get('mae_delta_vs_baseline')),
+        'mae_display': _format_optional_number(row.metrics.mae),
+        'rmse_display': _format_optional_number(row.metrics.rmse),
+        'smape_display': _format_optional_percent(row.metrics.smape),
+        'poisson_display': _format_optional_number(row.metrics.poisson_deviance),
+        'mae_delta_display': _format_optional_signed_percent(row.metrics.mae_delta_vs_baseline),
     }
 
 

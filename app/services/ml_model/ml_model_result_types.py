@@ -77,34 +77,6 @@ class CountComparisonRow(MappingAccessMixin):
     is_selected: bool
     metrics: CountMetrics = field(default_factory=CountMetrics)
 
-    @property
-    def mae(self) -> Optional[float]:
-        return self.metrics.mae
-
-    @property
-    def rmse(self) -> Optional[float]:
-        return self.metrics.rmse
-
-    @property
-    def smape(self) -> Optional[float]:
-        return self.metrics.smape
-
-    @property
-    def poisson_deviance(self) -> Optional[float]:
-        return self.metrics.poisson_deviance
-
-    @property
-    def mae_delta_vs_baseline(self) -> Optional[float]:
-        return self.metrics.mae_delta_vs_baseline
-
-    @property
-    def rmse_delta_vs_baseline(self) -> Optional[float]:
-        return self.metrics.rmse_delta_vs_baseline
-
-    @property
-    def smape_delta_vs_baseline(self) -> Optional[float]:
-        return self.metrics.smape_delta_vs_baseline
-
     @classmethod
     def coerce(cls, value: Any) -> "CountComparisonRow":
         if isinstance(value, cls):
@@ -148,23 +120,34 @@ class EventComparisonRow(MappingAccessMixin):
 
 
 @dataclass
+class EventScoreMetrics(MappingAccessMixin):
+    brier_score: Optional[float] = None
+    roc_auc: Optional[float] = None
+    f1: Optional[float] = None
+    log_loss: Optional[float] = None
+
+    @classmethod
+    def coerce(cls, value: Any) -> "EventScoreMetrics":
+        if isinstance(value, cls):
+            return value
+        value = value or {}
+        return cls(
+            brier_score=_optional_float(value.get("brier_score")),
+            roc_auc=_optional_float(value.get("roc_auc")),
+            f1=_optional_float(value.get("f1")),
+            log_loss=_optional_float(value.get("log_loss")),
+        )
+
+
+@dataclass
 class EventMetrics(MappingAccessMixin):
     available: bool = False
     logistic_available: bool = False
     selected_model_key: Optional[str] = None
     selected_model_label: Optional[str] = None
-    brier_score: Optional[float] = None
-    baseline_brier_score: Optional[float] = None
-    heuristic_brier_score: Optional[float] = None
-    roc_auc: Optional[float] = None
-    baseline_roc_auc: Optional[float] = None
-    heuristic_roc_auc: Optional[float] = None
-    f1: Optional[float] = None
-    baseline_f1: Optional[float] = None
-    heuristic_f1: Optional[float] = None
-    log_loss: Optional[float] = None
-    baseline_log_loss: Optional[float] = None
-    heuristic_log_loss: Optional[float] = None
+    selected_metrics: EventScoreMetrics = field(default_factory=EventScoreMetrics)
+    baseline_metrics: EventScoreMetrics = field(default_factory=EventScoreMetrics)
+    heuristic_metrics: EventScoreMetrics = field(default_factory=EventScoreMetrics)
     comparison_rows: list[EventComparisonRow] = field(default_factory=list)
     rows_used: int = 0
     selection_rule: str = ""
@@ -179,23 +162,32 @@ class EventMetrics(MappingAccessMixin):
         if isinstance(value, cls):
             return value
         value = value or {}
+        selected_metrics_raw = value.get("selected_metrics") or {
+            "brier_score": value.get("brier_score"),
+            "roc_auc": value.get("roc_auc"),
+            "f1": value.get("f1"),
+            "log_loss": value.get("log_loss"),
+        }
+        baseline_metrics_raw = value.get("baseline_metrics") or {
+            "brier_score": value.get("baseline_brier_score"),
+            "roc_auc": value.get("baseline_roc_auc"),
+            "f1": value.get("baseline_f1"),
+            "log_loss": value.get("baseline_log_loss"),
+        }
+        heuristic_metrics_raw = value.get("heuristic_metrics") or {
+            "brier_score": value.get("heuristic_brier_score"),
+            "roc_auc": value.get("heuristic_roc_auc"),
+            "f1": value.get("heuristic_f1"),
+            "log_loss": value.get("heuristic_log_loss"),
+        }
         return cls(
             available=bool(value.get("available")),
             logistic_available=bool(value.get("logistic_available")),
             selected_model_key=value.get("selected_model_key"),
             selected_model_label=value.get("selected_model_label"),
-            brier_score=_optional_float(value.get("brier_score")),
-            baseline_brier_score=_optional_float(value.get("baseline_brier_score")),
-            heuristic_brier_score=_optional_float(value.get("heuristic_brier_score")),
-            roc_auc=_optional_float(value.get("roc_auc")),
-            baseline_roc_auc=_optional_float(value.get("baseline_roc_auc")),
-            heuristic_roc_auc=_optional_float(value.get("heuristic_roc_auc")),
-            f1=_optional_float(value.get("f1")),
-            baseline_f1=_optional_float(value.get("baseline_f1")),
-            heuristic_f1=_optional_float(value.get("heuristic_f1")),
-            log_loss=_optional_float(value.get("log_loss")),
-            baseline_log_loss=_optional_float(value.get("baseline_log_loss")),
-            heuristic_log_loss=_optional_float(value.get("heuristic_log_loss")),
+            selected_metrics=EventScoreMetrics.coerce(selected_metrics_raw),
+            baseline_metrics=EventScoreMetrics.coerce(baseline_metrics_raw),
+            heuristic_metrics=EventScoreMetrics.coerce(heuristic_metrics_raw),
             comparison_rows=[EventComparisonRow.coerce(row) for row in value.get("comparison_rows", [])],
             rows_used=int(value.get("rows_used") or 0),
             selection_rule=str(value.get("selection_rule") or ""),
@@ -355,6 +347,71 @@ class PredictionIntervalCalibrationByHorizon(MappingAccessMixin):
         return cls(by_horizon=dict(value or {}))
 
 
+_STR_FIELDS = [
+    "selection_rule",
+    "event_selection_rule",
+    "prediction_interval_level_display",
+    "prediction_interval_coverage_display",
+    "prediction_interval_method_label",
+    "prediction_interval_coverage_note",
+    "prediction_interval_calibration_range_label",
+    "prediction_interval_evaluation_range_label",
+    "rolling_scheme_label",
+]
+_INT_FIELDS = [
+    "folds",
+    "min_train_rows",
+    "candidate_window_count",
+    "prediction_interval_calibration_windows",
+    "prediction_interval_evaluation_windows",
+]
+_BOOL_FIELDS = [
+    "event_probability_informative",
+    "prediction_interval_coverage_validated",
+]
+_OPTIONAL_FLOAT_FIELDS = [
+    "event_backtest_event_rate",
+    "dispersion_ratio",
+    "prediction_interval_level",
+    "prediction_interval_coverage",
+]
+
+
+def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: Dict[str, list[str]]) -> Dict[str, Any]:
+    kwargs: Dict[str, Any] = {}
+    for field_name in cls_fields_map.get("str", []):
+        kwargs[field_name] = str(value.get(field_name) or "")
+    for field_name in cls_fields_map.get("int", []):
+        kwargs[field_name] = int(value.get(field_name) or 0)
+    for field_name in cls_fields_map.get("bool", []):
+        kwargs[field_name] = bool(value.get(field_name))
+    for field_name in cls_fields_map.get("optional_float", []):
+        kwargs[field_name] = _optional_float(value.get(field_name))
+    return kwargs
+
+
+def _coerce_backtest_overview_complex_fields(value: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "validation_horizon_days": int(value.get("validation_horizon_days") or 1),
+        "validation_horizon_label": str(value.get("validation_horizon_label") or "1 day"),
+        "forecast_horizon_days": int(value.get("forecast_horizon_days") or 1),
+        "forecast_horizon_label": str(value.get("forecast_horizon_label") or "1 day"),
+        "classification_threshold": float(value.get("classification_threshold") or 0.5),
+        "event_probability_note": value.get("event_probability_note"),
+        "event_probability_reason_code": value.get("event_probability_reason_code"),
+        "prediction_interval_validation_scheme_key": value.get("prediction_interval_validation_scheme_key"),
+        "prediction_interval_validation_scheme_label": value.get("prediction_interval_validation_scheme_label"),
+        "prediction_interval_validation_explanation": value.get("prediction_interval_validation_explanation"),
+        "validated_horizon_days": [int(item) for item in value.get("validated_horizon_days", [])],
+        "candidate_model_labels": [str(item) for item in value.get("candidate_model_labels", [])],
+        "candidate_covered_window_count_by_model": dict(value.get("candidate_covered_window_count_by_model") or {}),
+        "candidate_window_coverage_by_model": dict(value.get("candidate_window_coverage_by_model") or {}),
+        "prediction_interval_validated_horizon_days": [int(item) for item in value.get("prediction_interval_validated_horizon_days", [])],
+        "prediction_interval_coverage_by_horizon": dict(value.get("prediction_interval_coverage_by_horizon") or {}),
+        "prediction_interval_coverage_display_by_horizon": dict(value.get("prediction_interval_coverage_display_by_horizon") or {}),
+    }
+
+
 @dataclass
 class BacktestOverview(MappingAccessMixin):
     folds: int = 0
@@ -400,49 +457,12 @@ class BacktestOverview(MappingAccessMixin):
         if isinstance(value, cls):
             return value
         value = value or {}
-        return cls(
-            folds=int(value.get("folds") or 0),
-            min_train_rows=int(value.get("min_train_rows") or 0),
-            validation_horizon_days=int(value.get("validation_horizon_days") or 1),
-            validation_horizon_label=str(value.get("validation_horizon_label") or "1 day"),
-            forecast_horizon_days=int(value.get("forecast_horizon_days") or 1),
-            forecast_horizon_label=str(value.get("forecast_horizon_label") or "1 day"),
-            validated_horizon_days=[int(item) for item in value.get("validated_horizon_days", [])],
-            selection_rule=str(value.get("selection_rule") or ""),
-            event_selection_rule=str(value.get("event_selection_rule") or ""),
-            classification_threshold=float(value.get("classification_threshold") or 0.5),
-            event_backtest_event_rate=_optional_float(value.get("event_backtest_event_rate")),
-            event_probability_informative=bool(value.get("event_probability_informative")),
-            event_probability_note=value.get("event_probability_note"),
-            event_probability_reason_code=value.get("event_probability_reason_code"),
-            candidate_model_labels=[str(item) for item in value.get("candidate_model_labels", [])],
-            candidate_window_count=int(value.get("candidate_window_count") or 0),
-            candidate_covered_window_count_by_model=dict(value.get("candidate_covered_window_count_by_model") or {}),
-            candidate_window_coverage_by_model=dict(value.get("candidate_window_coverage_by_model") or {}),
-            dispersion_ratio=_optional_float(value.get("dispersion_ratio")),
-            prediction_interval_level=_optional_float(value.get("prediction_interval_level")),
-            prediction_interval_level_display=str(value.get("prediction_interval_level_display") or ""),
-            prediction_interval_coverage=_optional_float(value.get("prediction_interval_coverage")),
-            prediction_interval_coverage_display=str(value.get("prediction_interval_coverage_display") or ""),
-            prediction_interval_method_label=str(value.get("prediction_interval_method_label") or ""),
-            prediction_interval_coverage_validated=bool(value.get("prediction_interval_coverage_validated")),
-            prediction_interval_coverage_note=str(value.get("prediction_interval_coverage_note") or ""),
-            prediction_interval_calibration_windows=int(value.get("prediction_interval_calibration_windows") or 0),
-            prediction_interval_evaluation_windows=int(value.get("prediction_interval_evaluation_windows") or 0),
-            prediction_interval_validation_scheme_key=value.get("prediction_interval_validation_scheme_key"),
-            prediction_interval_validation_scheme_label=value.get("prediction_interval_validation_scheme_label"),
-            prediction_interval_validation_explanation=value.get("prediction_interval_validation_explanation"),
-            prediction_interval_calibration_range_label=str(value.get("prediction_interval_calibration_range_label") or ""),
-            prediction_interval_evaluation_range_label=str(value.get("prediction_interval_evaluation_range_label") or ""),
-            prediction_interval_validated_horizon_days=[
-                int(item) for item in value.get("prediction_interval_validated_horizon_days", [])
-            ],
-            prediction_interval_coverage_by_horizon=dict(value.get("prediction_interval_coverage_by_horizon") or {}),
-            prediction_interval_coverage_display_by_horizon=dict(
-                value.get("prediction_interval_coverage_display_by_horizon") or {}
-            ),
-            rolling_scheme_label=str(value.get("rolling_scheme_label") or ""),
+        kwargs = _coerce_scalar_fields(
+            value,
+            {"str": _STR_FIELDS, "int": _INT_FIELDS, "bool": _BOOL_FIELDS, "optional_float": _OPTIONAL_FLOAT_FIELDS},
         )
+        kwargs.update(_coerce_backtest_overview_complex_fields(value))
+        return cls(**kwargs)
 
 
 @dataclass
