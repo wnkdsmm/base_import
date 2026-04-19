@@ -23,6 +23,7 @@ from .constants import (
     DEFAULT_CLUSTER_MODE_PROFILE,
     DEFAULT_CLUSTER_MODE_PROFILE_LABEL,
     DEFAULT_FEATURE_TARGET_COUNT,
+    FEATURE_SELECTION_N_INIT,
     FEATURE_SELECTION_MIN_IMPROVEMENT,
     MIN_DEFAULT_FEATURE_COUNT,
     PROFILE_MODE_EXCLUDED_FEATURES,
@@ -545,7 +546,13 @@ def _evaluate_feature_subset(
         subset_entities,
         weighting_strategy=weighting_strategy,
     )
-    model = _fit_weighted_kmeans(scaled_points, sample_weights, actual_cluster_count, random_state=42, n_init=20)
+    model = _fit_weighted_kmeans(
+        scaled_points,
+        sample_weights,
+        actual_cluster_count,
+        random_state=42,
+        n_init=FEATURE_SELECTION_N_INIT,
+    )
     metrics = compute_clustering_metrics(scaled_points, model.labels_)
     return {
         "score": _cluster_quality_score(metrics, len(subset_frame)),

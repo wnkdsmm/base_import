@@ -174,6 +174,7 @@ def _build_clustering_success_payload(
         "representative_columns": representative_columns,
         "representative_rows": representative_rows,
         "cluster_risk": cluster_risk_rows,
+        "pca_projection": clustering.get("pca_projection", []),  # New key: serialized PCA 2D points for export/API.
         "charts": _build_clustering_charts_payload(
             clustering=clustering,
             labels=labels,

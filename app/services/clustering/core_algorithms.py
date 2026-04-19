@@ -136,6 +136,7 @@ def _run_clustering_model_bundle(
     return {
         "runtime_feature_context": runtime_feature_context,
         "clustering": clustering,
+        "pca_projection": clustering["pca_projection"],  # New key for thesis-grade 2D projection export.
         "method_comparison": method_comparison,
         "labels": labels,
         "cluster_labels": cluster_labels,

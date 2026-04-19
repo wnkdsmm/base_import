@@ -30,6 +30,12 @@ _FAILED_CLUSTERING_JOB_MESSAGE = (
     "\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441."
 )
 
+def _build_clustering_api_payload(**kwargs):
+    payload = get_clustering_data(**kwargs)
+    payload.setdefault("pca_projection", [])  # New key retained in API JSON for downstream thesis export.
+    return payload
+
+
 def start_clustering_job(**kwargs):
     from app.services.clustering.jobs import start_clustering_job as _start_clustering_job
 
@@ -52,7 +58,7 @@ def clustering_data_endpoint(
     feature_columns: list[str] | None = None,
 ):
     return run_analytics_request(
-        lambda: get_clustering_data(
+        lambda: _build_clustering_api_payload(
             table_name=table_name,
             cluster_count=cluster_count,
             sample_limit=sample_limit,

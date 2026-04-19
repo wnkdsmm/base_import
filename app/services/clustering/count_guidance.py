@@ -24,6 +24,7 @@ def _build_cluster_count_guidance_context(
 ) -> ClusterCountGuidanceContext:
     raw_recommended_k = (diagnostics or {}).get("best_quality_k")
     best_silhouette_k = (diagnostics or {}).get("best_silhouette_k")
+    best_gap_k = (diagnostics or {}).get("best_gap_k")
     requested_cluster_count = int(requested_cluster_count)
     adjusted_requested_cluster_count = int(
         adjusted_requested_cluster_count if adjusted_requested_cluster_count is not None else requested_cluster_count
@@ -38,6 +39,7 @@ def _build_cluster_count_guidance_context(
     return {
         "recommended_k": int(raw_recommended_k) if has_recommended_k else raw_recommended_k,
         "best_silhouette_k": best_silhouette_k,
+        "best_gap_k": best_gap_k,
         "requested_cluster_count": requested_cluster_count,
         "adjusted_requested_cluster_count": adjusted_requested_cluster_count,
         "current_cluster_count": current_cluster_count,

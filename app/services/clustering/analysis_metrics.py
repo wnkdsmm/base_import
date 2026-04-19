@@ -14,7 +14,10 @@ from .analysis_stats import (
     _cluster_quality_score,
     _cluster_shape_diagnostics,
     _compute_cluster_inertia,
+    _compute_gap_statistic,
+    _compute_pca_projection,
     _derive_cluster_centers,
+    _estimate_best_k_gap,
     _estimate_elbow_k,
     _estimate_kmeans_initialization_stability,
     _estimate_resampled_stability,
@@ -123,6 +126,12 @@ def _run_clustering(
         raw_centers, scaled_centers = _derive_cluster_centers(cluster_frame, scaled_points, labels, cluster_count)
         inertia = _compute_cluster_inertia(scaled_points, labels, scaled_centers=scaled_centers)
         initialization_ari = None
+    cluster_labels = [f"Тип {index + 1}" for index in range(cluster_count)]
+    pca_projection = _compute_pca_projection(
+        scaled_points=scaled_points,
+        labels=labels,
+        cluster_labels=cluster_labels,
+    )
     metrics = compute_clustering_metrics(scaled_points, labels)
     shape_diagnostics = _cluster_shape_diagnostics(metrics, len(cluster_frame))
     stability_ari = _estimate_resampled_stability(
@@ -155,6 +164,7 @@ def _run_clustering(
         "initialization_ari": initialization_ari,
         "inertia": inertia,
         "pca_points": pca_points,
+        "pca_projection": pca_projection,
         "explained_variance": float(np.sum(pca.explained_variance_ratio_)),
         "algorithm_key": algorithm_key,
         "method_key": method_key or (_primary_method_key(weighting_strategy) if algorithm_key == "kmeans" else algorithm_key),
@@ -174,6 +184,18 @@ def _evaluate_cluster_counts(
         for cluster_count in CLUSTER_COUNT_OPTIONS
         if 2 <= cluster_count <= min(MAX_K_DIAGNOSTICS, len(cluster_frame) - 1)
     ]
+    _, scaled_points, _, _, sample_weights = _prepare_model_inputs(
+        cluster_frame,
+        entity_frame,
+        weighting_strategy=weighting_strategy,
+    )
+    gap_scores = _compute_gap_statistic(
+        scaled_points,
+        sample_weights,
+        k_range=available_ks,
+        n_references=10,
+        random_state=42,
+    )
 
     rows: List[ClusteringMethodRow] = []
     method_rows_by_cluster_count: Dict[int, List[ClusteringMethodRow]] = {}
@@ -203,6 +225,7 @@ def _evaluate_cluster_counts(
         "method_rows_by_cluster_count": method_rows_by_cluster_count,
         "best_silhouette_k": best_silhouette_row["cluster_count"] if best_silhouette_row else None,
         "best_quality_k": best_quality_row["cluster_count"] if best_quality_row else None,
+        "best_gap_k": _estimate_best_k_gap(gap_scores),
         "best_configuration": dict(best_quality_row) if best_quality_row else None,
         "elbow_k": _estimate_elbow_k(rows),
     }
@@ -564,4 +587,3 @@ def _format_feature_value(column_name: str, value: Any) -> str:
     if column_name.startswith("Доля") or column_name.startswith("Покрытие"):
         return _format_percent(float(value))
     return _format_number(value, 2)
-

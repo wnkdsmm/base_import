@@ -7,12 +7,14 @@ from typing import Any, Dict, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, Birch, KMeans
+from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
 from .constants import (
     CLUSTER_COUNT_OPTIONS,
     LOG_SCALE_FEATURES,
+    MODEL_N_INIT,
     RATE_SMOOTHING_PRIOR_STRENGTH,
     STABILITY_RANDOM_SEEDS,
     STABILITY_RESAMPLE_RATIO,
@@ -22,13 +24,37 @@ from .constants import (
 )
 
 
-DEFAULT_CLUSTER_RISK_FEATURE_WEIGHTS: Dict[str, float] = {
-    "Число пожаров": 0.35,
-    "Средняя площадь пожара": 0.20,
-    "Доля ночных пожаров": 0.15,
-    "Среднее время прибытия, мин": 0.20,
-    "Доля без подтвержденного водоснабжения": 0.10,
-}
+def _derive_feature_weights_from_profiles(
+    cluster_profiles: dict[int, dict[str, float]],
+    candidate_features: list[str],
+) -> dict[str, float]:
+    cv_by_feature: dict[str, float] = {}
+    for feature_name in candidate_features:
+        values = np.asarray(
+            [
+                float((profile or {}).get(feature_name, 0.0) or 0.0)
+                for profile in cluster_profiles.values()
+            ],
+            dtype=float,
+        )
+        if values.size == 0:
+            cv_by_feature[feature_name] = 0.0
+            continue
+        mean_value = float(np.mean(values))
+        std_value = float(np.std(values))
+        if not math.isfinite(mean_value) or not math.isfinite(std_value) or mean_value == 0.0:
+            cv_by_feature[feature_name] = 0.0
+            continue
+        cv = std_value / abs(mean_value)
+        cv_by_feature[feature_name] = float(cv) if math.isfinite(cv) and cv > 0.0 else 0.0
+
+    total_cv = float(sum(cv_by_feature.values()))
+    if total_cv <= 0.0:
+        return {feature_name: 0.0 for feature_name in candidate_features}
+    return {
+        feature_name: float(cv_by_feature.get(feature_name, 0.0) / total_cv)
+        for feature_name in candidate_features
+    }
 
 
 def compute_cluster_risk_scores(
@@ -38,7 +64,19 @@ def compute_cluster_risk_scores(
     if not cluster_profiles:
         return []
 
-    weights = dict(feature_weights or DEFAULT_CLUSTER_RISK_FEATURE_WEIGHTS)
+    if feature_weights is None:
+        inferred_features: list[str] = []
+        for profile in cluster_profiles.values():
+            for feature_name, feature_value in (profile or {}).items():
+                try:
+                    float(feature_value)
+                except (TypeError, ValueError):
+                    continue
+                if feature_name not in inferred_features:
+                    inferred_features.append(str(feature_name))
+        weights = _derive_feature_weights_from_profiles(cluster_profiles, inferred_features)
+    else:
+        weights = dict(feature_weights)
     weighted_features = [
         feature
         for feature, weight in weights.items()
@@ -246,6 +284,89 @@ def _compute_cluster_inertia(
     return float(np.sum(np.square(distances)))
 
 
+def _compute_hopkins_statistic(
+    scaled_points: np.ndarray,
+    sample_size: int | None = None,
+    random_state: int = 42,
+) -> float | None:
+    points = np.asarray(scaled_points, dtype=float)
+    if points.ndim != 2:
+        return None
+    row_count, feature_count = points.shape
+    if row_count < 10 or feature_count <= 0:
+        return None
+
+    if sample_size is None:
+        m = min(row_count // 10, 50)
+    else:
+        m = min(max(int(sample_size), 1), row_count)
+    if m <= 0:
+        return None
+
+    rng = np.random.default_rng(random_state)
+    sampled_indexes = rng.choice(row_count, size=m, replace=False)
+    sampled_points = points[sampled_indexes]
+
+    data_min = np.min(points, axis=0)
+    data_max = np.max(points, axis=0)
+    uniform_points = rng.uniform(data_min, data_max, size=(m, feature_count))
+
+    u_distances = np.empty(m, dtype=float)
+    w_distances = np.empty(m, dtype=float)
+    for index in range(m):
+        deltas_u = points - uniform_points[index]
+        u_distances[index] = np.min(np.linalg.norm(deltas_u, axis=1))
+
+        deltas_w = points - sampled_points[index]
+        distances_w = np.linalg.norm(deltas_w, axis=1)
+        distances_w[sampled_indexes[index]] = np.inf
+        w_distances[index] = np.min(distances_w)
+
+    exponent = feature_count
+    u_power_sum = float(np.sum(np.power(u_distances, exponent)))
+    w_power_sum = float(np.sum(np.power(w_distances, exponent)))
+    denominator = u_power_sum + w_power_sum
+    if denominator <= 0:
+        return None
+    return float(np.clip(u_power_sum / denominator, 0.0, 1.0))
+
+
+def _compute_pca_projection(
+    scaled_points: np.ndarray,
+    labels: np.ndarray,
+    cluster_labels: list[str],
+) -> list[dict]:
+    points = np.asarray(scaled_points, dtype=float)
+    point_labels = np.asarray(labels)
+    if points.ndim != 2 or points.shape[0] == 0:
+        return [{"meta": {"explained_variance": [0.0, 0.0]}}]
+
+    pca = PCA(n_components=2)
+    projected = pca.fit_transform(points)
+    explained = [float(item) for item in pca.explained_variance_ratio_[:2]]
+    while len(explained) < 2:
+        explained.append(0.0)
+
+    rows: list[dict] = []
+    for index, (x_value, y_value) in enumerate(projected):
+        cluster_id = int(point_labels[index]) if index < len(point_labels) else 0
+        cluster_label = (
+            cluster_labels[cluster_id]
+            if 0 <= cluster_id < len(cluster_labels)
+            else f"Тип {cluster_id + 1}"
+        )
+        rows.append(
+            {
+                "x": float(x_value),
+                "y": float(y_value),
+                "cluster_id": cluster_id,
+                "cluster_label": str(cluster_label),
+            }
+        )
+    rows.append({"meta": {"explained_variance": explained}})
+    return rows
+
+
 def _fit_weighted_kmeans(
     scaled_points: np.ndarray,
     sample_weights: np.ndarray,
@@ -258,6 +379,72 @@ def _fit_weighted_kmeans(
     return model
 
 
+def _compute_gap_statistic(
+    scaled_points: np.ndarray,
+    sample_weights: np.ndarray,
+    k_range: Sequence[int],
+    n_references: int = 10,
+    random_state: int = 42,
+) -> dict[int, float]:
+    points = np.asarray(scaled_points, dtype=float)
+    weights = np.asarray(sample_weights, dtype=float)
+    if points.ndim != 2 or len(points) == 0:
+        return {}
+    if weights.shape[0] != points.shape[0]:
+        weights = np.ones(points.shape[0], dtype=float)
+
+    row_count, feature_count = points.shape
+    valid_ks = sorted({int(k) for k in k_range if 1 < int(k) <= row_count})
+    if not valid_ks:
+        return {}
+
+    refs_count = max(int(n_references), 1)
+    rng = np.random.default_rng(random_state)
+    data_min = np.min(points, axis=0)
+    data_max = np.max(points, axis=0)
+
+    gap_scores: dict[int, float] = {}
+    for cluster_count in valid_ks:
+        model = KMeans(n_clusters=cluster_count, random_state=random_state, n_init=10)
+        model.fit(points, sample_weight=weights)
+        observed_inertia = max(float(model.inertia_), 1e-12)
+
+        ref_logs: list[float] = []
+        for reference_index in range(refs_count):
+            reference_points = rng.uniform(data_min, data_max, size=(row_count, feature_count))
+            reference_model = KMeans(
+                n_clusters=cluster_count,
+                random_state=random_state + reference_index + 1,
+                n_init=10,
+            )
+            reference_model.fit(reference_points, sample_weight=weights)
+            reference_inertia = max(float(reference_model.inertia_), 1e-12)
+            ref_logs.append(float(np.log(reference_inertia)))
+
+        gap_scores[cluster_count] = float(np.mean(ref_logs) - np.log(observed_inertia))
+    return gap_scores
+
+
+def _estimate_best_k_gap(gap_scores: dict[int, float]) -> int | None:
+    if not gap_scores:
+        return None
+    ordered_ks = sorted(int(k) for k in gap_scores)
+    if len(ordered_ks) < 2:
+        return None
+
+    gap_values = np.asarray([float(gap_scores[k]) for k in ordered_ks], dtype=float)
+    if gap_values.size < 2:
+        return None
+    std_gap = float(np.std(gap_values, ddof=1)) if gap_values.size > 1 else 0.0
+
+    for index in range(len(ordered_ks) - 1):
+        current_gap = float(gap_scores[ordered_ks[index]])
+        next_gap = float(gap_scores[ordered_ks[index + 1]])
+        if current_gap >= (next_gap - std_gap):
+            return ordered_ks[index]
+    return None
+
+
 def _estimate_kmeans_initialization_stability(
     scaled_points: np.ndarray,
     cluster_count: int,
@@ -265,7 +452,13 @@ def _estimate_kmeans_initialization_stability(
 ) -> float | None:
     labels_per_seed: list[np.ndarray] = []
     for seed in STABILITY_RANDOM_SEEDS:
-        model = _fit_weighted_kmeans(scaled_points, sample_weights, cluster_count, random_state=seed, n_init=40)
+        model = _fit_weighted_kmeans(
+            scaled_points,
+            sample_weights,
+            cluster_count,
+            random_state=seed,
+            n_init=MODEL_N_INIT,
+        )
         labels_per_seed.append(model.labels_)
     pair_scores: list[float] = []
     for left_labels, right_labels in combinations(labels_per_seed, 2):
@@ -297,7 +490,7 @@ def _estimate_resampled_stability(
                 algorithm_key=algorithm_key,
                 sample_weights=sample_weights[sampled_indexes],
                 random_state=seed,
-                n_init=40,
+                n_init=MODEL_N_INIT,
             )
         except Exception:
             continue
