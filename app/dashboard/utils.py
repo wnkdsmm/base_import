@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional
 from app.table_catalog import select_user_table_names
 from config.db import engine
 
+DASHBOARD_HORIZON_OPTIONS: tuple[int, ...] = (7, 14, 30)
+
+
+def build_horizon_day_options() -> list[Dict[str, str]]:
+    return [{"value": str(day), "label": f"{day} дней"} for day in DASHBOARD_HORIZON_OPTIONS]
+
 
 def _select_tables(table_names: List[str]) -> List[str]:
     return select_user_table_names(table_names)
@@ -92,6 +98,8 @@ def _format_datetime(value: datetime) -> str:
 
 
 __all__ = [
+    "DASHBOARD_HORIZON_OPTIONS",
+    "build_horizon_day_options",
     "_select_tables",
     "_extract_year_from_name",
     "_parse_year",

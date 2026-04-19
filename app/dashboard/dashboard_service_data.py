@@ -48,9 +48,14 @@ from .types import (
     DashboardRequestState,
     DashboardTableRef,
 )
-from .utils import _find_option_label, _format_datetime
+from .utils import (
+    DASHBOARD_HORIZON_OPTIONS,
+    _find_option_label,
+    _format_datetime,
+    build_horizon_day_options,
+)
 
-_DASHBOARD_HORIZON_OPTIONS = (7, 14, 30)
+_DASHBOARD_HORIZON_OPTIONS = DASHBOARD_HORIZON_OPTIONS
 
 
 def _normalize_horizon_days(horizon_days: int | str) -> int:
@@ -59,10 +64,6 @@ def _normalize_horizon_days(horizon_days: int | str) -> int:
     except (TypeError, ValueError):
         return PRIORITY_HORIZON_DAYS
     return value if value in _DASHBOARD_HORIZON_OPTIONS else PRIORITY_HORIZON_DAYS
-
-
-def _build_horizon_day_options() -> list[DashboardOption]:
-    return [{"value": str(day), "label": f"{day} дней"} for day in _DASHBOARD_HORIZON_OPTIONS]
 
 
 def _build_dashboard_cache_key(
@@ -146,7 +147,7 @@ def _build_dashboard_shell_initial_data(
     initial_data["filters"]["available_tables"] = metadata["table_options"]
     initial_data["filters"]["available_years"] = filter_state["available_years"]
     initial_data["filters"]["available_group_columns"] = available_group_columns
-    initial_data["filters"]["available_horizon_days"] = _build_horizon_day_options()
+    initial_data["filters"]["available_horizon_days"] = build_horizon_day_options()
     initial_data["scope"]["table_label"] = _find_option_label(
         metadata["table_options"],
         filter_state["selected_table_name"],

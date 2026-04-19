@@ -42,7 +42,7 @@ from .types import (
     DashboardRequestState,
     DashboardTableRef,
 )
-from .utils import _find_option_label, _format_datetime
+from .utils import _find_option_label, _format_datetime, build_horizon_day_options
 
 def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -> DashboardContext:
     return {
@@ -169,25 +169,15 @@ def _build_dashboard_aggregation(
         rankings = summary_metrics["rankings"]
         highlights = summary_metrics["highlights"]
     widgets = dashboard_widgets_builder(selected_tables, selected_year, grouped_counts_bundle)
-    try:
-        management = management_snapshot_builder(
-            selected_tables=selected_tables,
-            selected_year=selected_year,
-            summary=summary,
-            trend=trend,
-            cause_overview=cause_overview,
-            district_widget=widgets["districts"],
-            planning_horizon_days=horizon_days,
-        )
-    except TypeError:
-        management = management_snapshot_builder(
-            selected_tables=selected_tables,
-            selected_year=selected_year,
-            summary=summary,
-            trend=trend,
-            cause_overview=cause_overview,
-            district_widget=widgets["districts"],
-        )
+    management = management_snapshot_builder(
+        selected_tables=selected_tables,
+        selected_year=selected_year,
+        summary=summary,
+        trend=trend,
+        cause_overview=cause_overview,
+        district_widget=widgets["districts"],
+        planning_horizon_days=horizon_days,
+    )
     try:
         scope = dashboard_scope_builder(
             summary=summary,
@@ -237,8 +227,6 @@ def _build_dashboard_payload(
     available_group_columns: list[DashboardOption],
     horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardPayload:
-    from .dashboard_service_data import _build_horizon_day_options
-
     summary = aggregation["summary"]
     scope = aggregation["scope"]
     trend = aggregation["trend"]
@@ -292,7 +280,7 @@ def _build_dashboard_payload(
             "available_tables": metadata["table_options"],
             "available_years": available_years,
             "available_group_columns": available_group_columns,
-            "available_horizon_days": _build_horizon_day_options(),
+            "available_horizon_days": build_horizon_day_options(),
         },
         "notes": notes,
     }
@@ -302,8 +290,6 @@ def _empty_dashboard_data(
     *,
     horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardPayload:
-    from .dashboard_service_data import _build_horizon_day_options
-
     return {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,
@@ -395,7 +381,7 @@ def _empty_dashboard_data(
             "available_tables": [{"value": "all", "label": "Все таблицы"}],
             "available_years": [],
             "available_group_columns": [],
-            "available_horizon_days": _build_horizon_day_options(),
+            "available_horizon_days": build_horizon_day_options(),
         },
         "notes": [error_message] if error_message else [],
     }
