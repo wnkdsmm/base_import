@@ -94,19 +94,9 @@ def _build_notes(
 
 
 __all__ = [
-    'MISSING_DISPLAY',
     '_build_notes',
     '_event_probability_context',
-    '_first_present',
-    '_format_first_present',
-    '_format_optional_integer',
-    '_format_optional_number',
-    '_format_optional_percent',
-    '_format_optional_signed_percent',
-    '_format_optional_text',
-    '_format_optional_value',
-    '_format_row_display',
-    '_is_missing_metric',
 ]
+
 
 

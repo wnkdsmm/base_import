@@ -6,7 +6,7 @@ import numpy as np
 
 from app.services.forecasting.utils import _format_integer, _format_number, _format_signed_percent
 
-MISSING_DISPLAY = 'вЂ”'
+MISSING_DISPLAY = '\\u2014'
 
 
 def _is_missing_metric(value: Any) -> bool:
@@ -82,3 +82,4 @@ __all__ = [
     '_format_row_display',
     '_is_missing_metric',
 ]
+
