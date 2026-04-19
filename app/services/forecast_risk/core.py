@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Sequence
 
@@ -60,35 +60,7 @@ def _validation_windows_count(historical_validation: HistoricalValidationPayload
     return int((historical_validation.get("metrics_raw") or {}).get("windows_count") or 0)
 
 
-def _build_placeholder_decision_support_payload(
-    *,
-    coverage_display: str,
-    quality_passport: QualityPassport,
-    feature_cards: Sequence[FeatureCard],
-    requested_weight_profile: RiskProfile,
-    notes: Sequence[str],
-    geo_summary: GeoSummary,
-    geo_prediction: GeoPredictionData | None,
-) -> RiskPresentation:
-    top_confidence = _top_territory_confidence_payload(None, quality_passport)
-    return _build_empty_decision_support_payload(
-        title=DECISION_SUPPORT_TITLE,
-        model_description=DECISION_SUPPORT_DESCRIPTION,
-        coverage_display=coverage_display,
-        quality_passport=quality_passport,
-        top_confidence=top_confidence,
-        feature_cards=feature_cards,
-        weight_profile=requested_weight_profile,
-        historical_validation=empty_historical_validation_payload(
-            requested_weight_profile.get("mode_label") or "Адаптивные веса"
-        ),
-        notes=notes,
-        geo_summary=geo_summary,
-        geo_prediction=geo_prediction or {},
-    )
-
-
-def _build_ranked_decision_support_payload(
+def _build_payload_from_territories(
     *,
     coverage_display: str,
     quality_passport: QualityPassport,
@@ -100,7 +72,23 @@ def _build_ranked_decision_support_payload(
     geo_summary: GeoSummary,
     geo_prediction: GeoPredictionData | None,
 ) -> RiskPresentation:
-    top_territory = territories[0] if territories else None
+    if not territories:
+        top_confidence = _top_territory_confidence_payload(None, quality_passport)
+        return _build_empty_decision_support_payload(
+            title=DECISION_SUPPORT_TITLE,
+            model_description=DECISION_SUPPORT_DESCRIPTION,
+            coverage_display=coverage_display,
+            quality_passport=quality_passport,
+            top_confidence=top_confidence,
+            feature_cards=feature_cards,
+            weight_profile=weight_profile,
+            historical_validation=historical_validation,
+            notes=notes,
+            geo_summary=geo_summary,
+            geo_prediction=geo_prediction or {},
+        )
+
+    top_territory = territories[0]
     top_confidence = _top_territory_confidence_payload(top_territory, quality_passport)
     return _build_decision_support_payload_response(
         title=DECISION_SUPPORT_TITLE,
@@ -113,7 +101,7 @@ def _build_ranked_decision_support_payload(
             historical_validation,
             quality_passport,
         ),
-        top_territory_label=top_territory["label"] if top_territory else "-",
+        top_territory_label=top_territory["label"],
         top_territory_explanation=_top_territory_lead(top_territory),
         top_confidence=top_confidence,
         territories=territories[:MAX_TERRITORIES],
@@ -125,6 +113,98 @@ def _build_ranked_decision_support_payload(
         geo_prediction=geo_prediction or {},
     )
 
+
+def _load_decision_support_data(params: Dict[str, Any]) -> Dict[str, Any]:
+    metadata_items, filtered_records, preload_notes = _collect_risk_inputs(
+        params["source_tables"],
+        district=params["selected_district"],
+        cause=params["selected_cause"],
+        object_category=params["selected_object_category"],
+        history_window=params["history_window"],
+        selected_year=params.get("selected_year"),
+    )
+    feature_cards = _build_feature_cards(metadata_items)
+    quality_passport = _build_quality_passport(feature_cards, metadata_items)
+    coverage_display = _feature_coverage_display(feature_cards)
+    requested_profile = get_risk_weight_profile(params["weight_mode"])
+    requested_weight_profile = build_weight_profile_snapshot(requested_profile)
+    return {
+        "metadata_items": metadata_items,
+        "filtered_records": filtered_records,
+        "preload_notes": preload_notes,
+        "feature_cards": feature_cards,
+        "quality_passport": quality_passport,
+        "coverage_display": coverage_display,
+        "requested_weight_profile": requested_weight_profile,
+        "planning_horizon_days": params["planning_horizon_days"],
+        "weight_mode": params["weight_mode"],
+        "include_historical_validation": params["include_historical_validation"],
+        "geo_prediction": params.get("geo_prediction"),
+    }
+
+
+def _build_geo_prediction_if_needed(raw_data: Dict[str, Any], include_geo: bool) -> GeoPredictionData | None:
+    geo_prediction = raw_data.get("geo_prediction")
+    if not include_geo:
+        return geo_prediction
+    if geo_prediction is not None:
+        return geo_prediction
+    filtered_records = raw_data.get("filtered_records") or []
+    if not filtered_records:
+        return None
+    return _build_geo_prediction(filtered_records, int(raw_data["planning_horizon_days"]))
+
+
+def _aggregate_territory_risk(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    filtered_records = raw_data["filtered_records"]
+    if not filtered_records:
+        mode_label = raw_data["requested_weight_profile"].get("mode_label") or "Адаптивные веса"
+        return {
+            "territories": [],
+            "historical_validation": empty_historical_validation_payload(mode_label),
+            "weight_profile": raw_data["requested_weight_profile"],
+        }
+
+    resolved_profile = resolve_weight_profile_for_records(
+        filtered_records,
+        raw_data["planning_horizon_days"],
+        weight_mode=raw_data["weight_mode"],
+        enable_calibration=raw_data["include_historical_validation"],
+        disabled_summary=(
+            "Для облегченного территориального snapshot автоматическая калибровка весов не запускалась; используется базовый профиль."
+            if not raw_data["include_historical_validation"]
+            else ""
+        ),
+    )
+    territories = _build_territory_rows(
+        filtered_records,
+        raw_data["planning_horizon_days"],
+        weight_mode=resolved_profile.get("mode") or raw_data["weight_mode"],
+        profile_override=resolved_profile,
+    )
+    historical_validation = empty_historical_validation_payload(
+        resolved_profile.get("mode_label") or "Адаптивные веса"
+    )
+    if raw_data["include_historical_validation"]:
+        historical_validation = build_historical_validation_payload(
+            filtered_records,
+            raw_data["planning_horizon_days"],
+            weight_mode=resolved_profile.get("mode") or raw_data["weight_mode"],
+            profile_override=resolved_profile,
+        )
+    territories = _attach_ranking_reliability(territories, raw_data["quality_passport"], historical_validation)
+    return {
+        "territories": territories,
+        "historical_validation": historical_validation,
+        "weight_profile": build_weight_profile_snapshot(resolved_profile),
+    }
+
+
+def _select_payload_builder(ranked_territories: Sequence[RiskScore]) -> Callable[..., RiskPresentation]:
+    territories = list(ranked_territories)
+    if territories:
+        return lambda **kwargs: _build_payload_from_territories(territories=territories, **kwargs)
+    return lambda **kwargs: _build_payload_from_territories(territories=[], **kwargs)
 
 def build_decision_support_payload(
     source_tables: Sequence[str],
@@ -154,27 +234,30 @@ def build_decision_support_payload(
         geo_prediction_enabled=include_geo_prediction,
         historical_validation_enabled=include_historical_validation,
     ) as perf:
+        params = {
+            "source_tables": source_tables,
+            "selected_district": selected_district,
+            "selected_cause": selected_cause,
+            "selected_object_category": selected_object_category,
+            "history_window": history_window,
+            "planning_horizon_days": planning_horizon_days,
+            "selected_year": selected_year,
+            "weight_mode": weight_mode,
+            "include_historical_validation": include_historical_validation,
+            "geo_prediction": geo_prediction,
+        }
+
         with perf.span("filter_prep"):
             if progress_callback is not None:
                 progress_callback(
                     "decision_support.loading",
                     "Собираем входные данные и признаки для блока поддержки решений.",
                 )
-            metadata_items, filtered_records, preload_notes = _collect_risk_inputs(
-                source_tables,
-                district=selected_district,
-                cause=selected_cause,
-                object_category=selected_object_category,
-                history_window=history_window,
-                selected_year=selected_year,
-            )
-            feature_cards = _build_feature_cards(metadata_items)
-            quality_passport = _build_quality_passport(feature_cards, metadata_items)
-            coverage_display = _feature_coverage_display(feature_cards)
+            raw_data = _load_decision_support_data(params)
             perf.update(
-                metadata_tables=len(metadata_items),
-                input_rows=len(filtered_records),
-                feature_cards=len(feature_cards),
+                metadata_tables=len(raw_data["metadata_items"]),
+                input_rows=len(raw_data["filtered_records"]),
+                feature_cards=len(raw_data["feature_cards"]),
             )
 
         with perf.span("aggregation"):
@@ -183,36 +266,8 @@ def build_decision_support_payload(
                     "decision_support.aggregation",
                     "Строим ранжирование территорий, паспорт качества и нужные агрегаты.",
                 )
-            if include_geo_prediction and geo_prediction is None and filtered_records:
-                geo_prediction = _build_geo_prediction(filtered_records, planning_horizon_days)
+            geo_prediction = _build_geo_prediction_if_needed(raw_data, include_geo_prediction)
             geo_summary = _build_geo_summary(geo_prediction or {})
-            requested_profile = get_risk_weight_profile(weight_mode)
-            requested_weight_profile = build_weight_profile_snapshot(requested_profile)
-
-        if not filtered_records:
-            with perf.span("payload_render"):
-                if progress_callback is not None:
-                    progress_callback(
-                        "decision_support.render",
-                        "Подготавливаем placeholder-результат блока поддержки решений.",
-                    )
-                notes = _placeholder_decision_support_notes(preload_notes)
-                payload = _build_placeholder_decision_support_payload(
-                    coverage_display=coverage_display,
-                    quality_passport=quality_passport,
-                    feature_cards=feature_cards,
-                    requested_weight_profile=requested_weight_profile,
-                    notes=notes,
-                    geo_summary=geo_summary,
-                    geo_prediction=geo_prediction,
-                )
-                perf.update(payload_has_data=False, payload_notes=len(notes), territory_rows=0)
-                if progress_callback is not None:
-                    progress_callback(
-                        "decision_support.completed",
-                        "Блок поддержки решений завершен в режиме placeholder.",
-                    )
-                return payload
 
         with perf.span("aggregation"):
             if progress_callback is not None:
@@ -224,38 +279,10 @@ def build_decision_support_payload(
                         else "Собираем ranking по территориям без полной исторической валидации."
                     ),
                 )
-            resolved_profile = resolve_weight_profile_for_records(
-                filtered_records,
-                planning_horizon_days,
-                weight_mode=weight_mode,
-                enable_calibration=include_historical_validation,
-                disabled_summary=(
-                    "Для облегченного территориального snapshot автоматическая калибровка весов не запускалась; используется базовый профиль."
-                    if not include_historical_validation
-                    else ""
-                ),
-            )
-            territories = _build_territory_rows(
-                filtered_records,
-                planning_horizon_days,
-                weight_mode=resolved_profile.get("mode") or weight_mode,
-                profile_override=resolved_profile,
-            )
-            historical_validation = empty_historical_validation_payload(
-                resolved_profile.get("mode_label") or "Адаптивные веса"
-            )
-            if include_historical_validation:
-                historical_validation = build_historical_validation_payload(
-                    filtered_records,
-                    planning_horizon_days,
-                    weight_mode=resolved_profile.get("mode") or weight_mode,
-                    profile_override=resolved_profile,
-                )
-            territories = _attach_ranking_reliability(territories, quality_passport, historical_validation)
-            weight_profile = build_weight_profile_snapshot(resolved_profile)
+            ranked_territories = _aggregate_territory_risk(raw_data)
             perf.update(
-                territory_rows=len(territories),
-                validation_windows=_validation_windows_count(historical_validation),
+                territory_rows=len(ranked_territories["territories"]),
+                validation_windows=_validation_windows_count(ranked_territories["historical_validation"]),
             )
 
         with perf.span("payload_render"):
@@ -263,15 +290,24 @@ def build_decision_support_payload(
                 progress_callback(
                     "decision_support.render",
                     "Собираем рекомендации, карты и итоговый payload.",
+                )
+            notes = (
+                _build_risk_notes(
+                    raw_data["feature_cards"],
+                    raw_data["preload_notes"],
+                    ranked_territories["weight_profile"],
+                    ranked_territories["historical_validation"],
+                )
+                if ranked_territories["territories"]
+                else _placeholder_decision_support_notes(raw_data["preload_notes"])
             )
-            notes = _build_risk_notes(feature_cards, preload_notes, weight_profile, historical_validation)
-            payload = _build_ranked_decision_support_payload(
-                coverage_display=coverage_display,
-                quality_passport=quality_passport,
-                territories=territories,
-                feature_cards=feature_cards,
-                weight_profile=weight_profile,
-                historical_validation=historical_validation,
+            payload_builder = _select_payload_builder(ranked_territories["territories"])
+            payload = payload_builder(
+                coverage_display=raw_data["coverage_display"],
+                quality_passport=raw_data["quality_passport"],
+                feature_cards=raw_data["feature_cards"],
+                weight_profile=ranked_territories["weight_profile"],
+                historical_validation=ranked_territories["historical_validation"],
                 notes=notes,
                 geo_summary=geo_summary,
                 geo_prediction=geo_prediction,
@@ -279,9 +315,17 @@ def build_decision_support_payload(
             perf.update(
                 payload_has_data=bool(payload["has_data"]),
                 payload_notes=len(notes),
+                territory_rows=len(ranked_territories["territories"]),
             )
             if progress_callback is not None:
-                progress_callback("decision_support.completed", "Блок поддержки решений готов.")
+                progress_callback(
+                    "decision_support.completed",
+                    (
+                        "Блок поддержки решений завершен в режиме placeholder."
+                        if not ranked_territories["territories"]
+                        else "Блок поддержки решений готов."
+                    ),
+                )
             return payload
 
 
@@ -305,3 +349,4 @@ def build_risk_forecast_payload(
         geo_prediction=geo_prediction,
         weight_mode=weight_mode,
     )
+

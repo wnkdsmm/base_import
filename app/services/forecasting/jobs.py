@@ -16,7 +16,7 @@ from app.services.job_support import (
 )
 from app.state import job_store
 
-from .core import (
+from .forecasting_pipeline import (
     _FORECASTING_CACHE,
     _build_forecasting_request_state,
     get_forecasting_decision_support_data,

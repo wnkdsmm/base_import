@@ -6,8 +6,6 @@ from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 
-from app.services.shared.data_utils import _clamp
-
 
 def _share(numerator: float, denominator: float) -> float:
     try:
@@ -41,10 +39,6 @@ def _normalize_nullable_float(value: Any) -> float | None:
 def _normalize_float(value: Any, default: float = 0.0) -> float:
     numeric = _normalize_nullable_float(value)
     return float(default) if numeric is None else numeric
-
-
-def _normalize_share(value: Any, default: float = 0.0) -> float:
-    return _clamp(_normalize_float(value, default), 0.0, 1.0)
 
 
 def _normalize_coordinate(value: Any, lower_bound: float, upper_bound: float) -> float | None:
@@ -88,15 +82,6 @@ def _clip_share_series(values: pd.Series, default: float = 0.0) -> pd.Series:
 
 def _nullable_series_values(values: pd.Series) -> np.ndarray:
     return values.astype(object).where(values.notna(), None).to_numpy(copy=False)
-
-
-def _normalize_share_series(values: Any, default: float = 0.0) -> pd.Series:
-    return _finite_numeric_series(values, default=default).clip(lower=0.0, upper=1.0)
-
-
-def _finite_numeric_max(values: Any, default: float = 0.0) -> float:
-    finite_values = _finite_numeric_series(values).dropna()
-    return float(finite_values.max()) if not finite_values.empty else float(default)
 
 
 def _finite_series_max(values: pd.Series, default: float = 0.0) -> float:

@@ -11,7 +11,6 @@ from config.db import engine
 from .charts import (
     _build_combined_impact_timeline_plotly,
     _build_sql_widget_bar_plotly,
-    _build_sql_widget_season_plotly,
     _finalize_chart,
 )
 from .data_access import (
@@ -140,6 +139,46 @@ def _build_sql_widgets(
     }
 
 
+def _build_ranked_bar_widget(
+    grouped: Dict[str, int],
+    title: str,
+    chart_id: str,
+    top_n: int = 8,
+) -> DistributionResult:
+    items = [
+        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
+        for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:top_n]
+    ]
+    chart_meta = {
+        "causes": {
+            "empty_message": "Нет данных по причинам возгорания.",
+            "color_key": "fire",
+        },
+        "districts": {
+            "empty_message": "В выбранных таблицах не найдено колонок района.",
+            "color_key": "forest",
+        },
+        "seasons": {
+            "empty_message": "Нет данных для сезонного SQL-виджета.",
+            "color_key": "forest",
+        },
+    }
+    resolved_meta = chart_meta.get(chart_id, chart_meta["causes"])
+    empty_message = resolved_meta["empty_message"]
+    return _finalize_chart(
+        title,
+        items,
+        empty_message,
+        plotly=_build_sql_widget_bar_plotly(
+            title,
+            items,
+            empty_message,
+            color_key=resolved_meta["color_key"],
+            value_label="Пожаров",
+        ),
+    )
+
+
 def _build_sql_cause_widget(
     selected_tables: List[DashboardTableRef],
     selected_year: Optional[int],
@@ -147,19 +186,7 @@ def _build_sql_cause_widget(
     cause_counts: Optional[Dict[str, int]] = None,
 ) -> DistributionResult:
     grouped = cause_counts if cause_counts is not None else _collect_cause_counts(selected_tables, selected_year)
-    items = [
-        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
-        for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
-    ]
-    title = "SQL-виджет: причины"
-    empty_message = "Нет данных по причинам возгорания."
-    return _finalize_chart(
-        title,
-        items,
-        empty_message,
-        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="fire", value_label="Пожаров"),
-    )
-
+    return _build_ranked_bar_widget(grouped, "SQL-виджет: причины", "causes")
 
 def _build_sql_district_widget(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> DistributionResult:
     grouped: Dict[str, int] = defaultdict(int)
@@ -186,34 +213,10 @@ def _build_sql_district_widget(selected_tables: List[DashboardTableRef], selecte
             for row in conn.execute(query, params).mappings().all():
                 grouped[row["label"]] += int(row["fire_count"] or 0)
 
-    items = [
-        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
-        for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)[:8]
-    ]
-    title = "SQL-виджет: районы"
-    empty_message = "В выбранных таблицах не найдено колонок района."
-    return _finalize_chart(
-        title,
-        items,
-        empty_message,
-        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="Пожаров"),
-    )
-
+    return _build_ranked_bar_widget(dict(grouped), "SQL-виджет: районы", "districts")
 
 def _build_sql_district_widget_from_counts(district_counts: Dict[str, int]) -> DistributionResult:
-    items = [
-        {"label": label, "value": value, "value_display": _format_number(value, integer=True)}
-        for label, value in sorted(district_counts.items(), key=lambda item: item[1], reverse=True)[:8]
-    ]
-    title = "SQL-виджет: районы"
-    empty_message = "В выбранных таблицах не найдено колонок района."
-    return _finalize_chart(
-        title,
-        items,
-        empty_message,
-        plotly=_build_sql_widget_bar_plotly(title, items, empty_message, color_key="forest", value_label="Пожаров"),
-    )
-
+    return _build_ranked_bar_widget(district_counts, "SQL-виджет: районы", "districts")
 
 def _build_sql_season_widget(
     selected_tables: List[DashboardTableRef],
@@ -235,24 +238,7 @@ def _build_sql_season_widget(
             season_label = autumn_label
         grouped[season_label] += int(fire_count or 0)
 
-    items = [
-        {
-            "label": season_label,
-            "value": grouped.get(season_label, 0),
-            "value_display": _format_number(grouped.get(season_label, 0), integer=True),
-        }
-        for season_label in SEASON_ORDER
-        if season_label in grouped
-    ]
-    title = "SQL-виджет: сезоны"
-    empty_message = "Нет данных для сезонного SQL-виджета."
-    return _finalize_chart(
-        title,
-        items,
-        empty_message,
-        plotly=_build_sql_widget_season_plotly(title, items, empty_message),
-    )
-
+    return _build_ranked_bar_widget(dict(grouped), "SQL-виджет: сезоны", "seasons")
 
 __all__ = [
     "_collect_impact_timeline_rows",

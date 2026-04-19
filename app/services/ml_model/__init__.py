@@ -25,6 +25,7 @@ _MODULE_EXPORTS = {
 }
 
 _ATTRIBUTE_EXPORTS = {
+    "_run_backtest": (".training.training", "_run_backtest"),
     "clear_ml_model_cache": (".core", "clear_ml_model_cache"),
     "get_ml_job_status": (".jobs", "get_ml_job_status"),
     "get_ml_model_data": (".core", "get_ml_model_data"),

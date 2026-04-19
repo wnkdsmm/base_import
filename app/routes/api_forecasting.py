@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Request
 
-from app.services.forecasting.core import (
+from app.services.forecasting.forecasting_pipeline import (
     get_forecasting_data,
     get_forecasting_decision_support_data,
     get_forecasting_metadata,

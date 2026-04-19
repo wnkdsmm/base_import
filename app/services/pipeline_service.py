@@ -95,18 +95,31 @@ def _profile_report_paths(output_folder: str, table_name: str) -> tuple[str, str
     return default_csv, default_xlsx
 
 
-def _safe_float(value: Any) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
+_CANDIDATE_FRAME_COLUMNS = [
+    "column",
+    "dtype",
+    "null_ratio",
+    "dominant_ratio",
+    "unique_count",
+    "variance",
+    "reasons",
+]
+_PROTECTED_FRAME_COLUMNS = [
+    "column",
+    "feature_id",
+    "feature_label",
+    "mandatory_feature_detected",
+    "protection_scope",
+    "protection_rule",
+    "protection_match",
+    "protection_reason",
+    "drop_reasons",
+]
+_KEPT_FRAME_COLUMNS = ["column"]
 
 
-def _safe_int(value: Any) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return 0
+def _safe_str_col(df: pd.DataFrame, col: str) -> pd.Series | str:
+    return df[col].astype("string").fillna("").astype(object) if col in df.columns else ""
 
 
 def _load_profile_summary(
@@ -144,14 +157,14 @@ def _load_profile_summary(
             profile_df[column_name] = coerce_bool_series(profile_df[column_name])
     for column_name in text_columns:
         if column_name in profile_df.columns:
-            profile_df[column_name] = profile_df[column_name].astype("string").fillna("").astype(object)
+            profile_df[column_name] = _safe_str_col(profile_df, column_name)
 
     candidate_mask = profile_df["candidate_to_drop"] if "candidate_to_drop" in profile_df.columns else pd.Series(False, index=profile_df.index)
     protected_mask = profile_df["protected_from_drop"] if "protected_from_drop" in profile_df.columns else pd.Series(False, index=profile_df.index)
 
     candidates_df = profile_df.loc[candidate_mask].copy()
     protected_df = profile_df.loc[protected_mask].copy()
-    kept_columns = profile_df.loc[~candidate_mask, "column"].dropna().tolist()
+    kept_df = profile_df.loc[~candidate_mask].copy()
 
     reason_labels = {str(item.get("id") or ""): str(item.get("label") or "") for item in base_reason_summary if item.get("id")}
     reason_summary = []
@@ -173,9 +186,39 @@ def _load_profile_summary(
     else:
         reasons_by_row = [[] for _ in range(len(candidates_df))]
 
-    candidate_export_frame = pd.DataFrame(index=candidates_df.index)
-    candidate_export_frame["column"] = candidates_df["column"].astype("string").fillna("").astype(object) if "column" in candidates_df.columns else ""
-    candidate_export_frame["dtype"] = candidates_df["dtype"].astype("string").fillna("").astype(object) if "dtype" in candidates_df.columns else ""
+    export_frames = {}
+    frame_sources: dict[str, pd.DataFrame] = {
+        "candidate": candidates_df,
+        "protected": protected_df,
+        "kept": kept_df,
+    }
+    frame_columns = {
+        "candidate": _CANDIDATE_FRAME_COLUMNS,
+        "protected": _PROTECTED_FRAME_COLUMNS,
+        "kept": _KEPT_FRAME_COLUMNS,
+    }
+
+    for frame_name, source_df in frame_sources.items():
+        export_frame = pd.DataFrame(index=source_df.index)
+        for column_name in frame_columns[frame_name]:
+            if column_name in {
+                "column",
+                "dtype",
+                "feature_id",
+                "feature_label",
+                "protection_scope",
+                "protection_rule",
+                "protection_match",
+                "protection_reason",
+            }:
+                source_column = {
+                    "feature_id": "protected_feature_id",
+                    "feature_label": "protected_feature_label",
+                }.get(column_name, column_name)
+                export_frame[column_name] = _safe_str_col(source_df, source_column)
+        export_frames[frame_name] = export_frame
+
+    candidate_export_frame = export_frames["candidate"]
     candidate_export_frame["null_ratio"] = (
         pd.to_numeric(candidates_df["null_ratio"], errors="coerce").fillna(0.0).astype(float)
         if "null_ratio" in candidates_df.columns
@@ -199,49 +242,16 @@ def _load_profile_summary(
     candidate_export_frame["reasons"] = reasons_by_row
     candidate_details = candidate_export_frame.to_dict(orient="records")
 
-    protected_export_frame = pd.DataFrame(index=protected_df.index)
-    protected_export_frame["column"] = (
-        protected_df["column"].astype("string").fillna("").astype(object)
-        if "column" in protected_df.columns
-        else ""
-    )
-    protected_export_frame["feature_id"] = (
-        protected_df["protected_feature_id"].astype("string").fillna("").astype(object)
-        if "protected_feature_id" in protected_df.columns
-        else ""
-    )
-    protected_export_frame["feature_label"] = (
-        protected_df["protected_feature_label"].astype("string").fillna("").astype(object)
-        if "protected_feature_label" in protected_df.columns
-        else ""
-    )
+    protected_export_frame = export_frames["protected"]
     protected_export_frame["mandatory_feature_detected"] = (
         protected_df["mandatory_feature_detected"].fillna(False).astype(bool)
         if "mandatory_feature_detected" in protected_df.columns
         else False
     )
-    protected_export_frame["protection_scope"] = (
-        protected_df["protection_scope"].astype("string").fillna("").astype(object)
-        if "protection_scope" in protected_df.columns
-        else ""
-    )
-    protected_export_frame["protection_rule"] = (
-        protected_df["protection_rule"].astype("string").fillna("").astype(object)
-        if "protection_rule" in protected_df.columns
-        else ""
-    )
-    protected_export_frame["protection_match"] = (
-        protected_df["protection_match"].astype("string").fillna("").astype(object)
-        if "protection_match" in protected_df.columns
-        else ""
-    )
-    protected_export_frame["protection_reason"] = (
-        protected_df["protection_reason"].astype("string").fillna("").astype(object)
-        if "protection_reason" in protected_df.columns
-        else ""
-    )
     protected_export_frame["drop_reasons"] = protected_df["drop_reasons"] if "drop_reasons" in protected_df.columns else ""
     protected_details = protected_export_frame.to_dict(orient="records")
+    kept_export_frame = export_frames["kept"]
+    kept_columns = kept_export_frame["column"].replace("", pd.NA).dropna().tolist() if "column" in kept_export_frame.columns else []
 
     return {
         "profile_df": profile_df,

@@ -7,15 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
 
-from . import forecast_bounds as _forecast_bounds
-from . import forecast_calibration as _forecast_calibration
 from . import forecast_intervals as _forecast_intervals
 from ..backtesting import training_backtesting as _backtesting
 from . import training_dataset as _dataset
 from . import training_importance as _importance
 from . import training_models as _models
 from . import training_result as _result
-from . import training_selection as _selection
 from . import training_temperature as _temperature
 from ..ml_model_config_types import COUNT_MODEL_KEYS, COUNT_MODEL_LABELS, EXPLAINABLE_COUNT_MODEL_KEY, MlProgressCallback, MAX_HISTORY_POINTS, MIN_DAILY_HISTORY, MIN_FEATURE_ROWS, _emit_progress
 from ..ml_model_result_types import BacktestSuccess, coerce_backtest_result
@@ -28,87 +25,7 @@ from .types import (
     TrainingTemperatureStats,
 )
 
-# Compatibility exports for tests and legacy imports.
-_all_count_metrics = _selection._all_count_metrics
-_available_count_model_labels = _selection._available_count_model_labels
-_baseline_event_probability = _backtesting._baseline_event_probability
-_baseline_expected_count = _backtesting._baseline_expected_count
-_bound_probability = _forecast_bounds._bound_probability
-_build_count_model = _models._build_count_model
-_build_count_model_pipeline = _models._build_count_model_pipeline
-_build_backtest_seed_dataset = _dataset._build_backtest_seed_dataset
-_build_count_comparison_rows = _selection._build_count_comparison_rows
-_build_count_selection_details = _selection._build_count_selection_details
-_build_design_matrix = _dataset._build_design_matrix
-_build_design_row = _dataset._build_design_row
-_build_feature_importance = _importance._build_feature_importance
-_build_history_frame = _dataset._build_history_frame
-_build_prediction_interval_calibration = _forecast_calibration._build_prediction_interval_calibration
-_can_train_event_model = _models._can_train_event_model
-_compute_event_metrics = _backtesting._compute_event_metrics
-_count_interval = _forecast_bounds._count_interval
-_count_model_scaled_columns = _models._count_model_scaled_columns
-_empty_event_metrics = _backtesting._empty_event_metrics
-_empty_ml_result = _result._empty_ml_result
-_estimate_negative_binomial_alpha = _models._estimate_negative_binomial_alpha
-_estimate_overdispersion_ratio = _backtesting._estimate_overdispersion_ratio
-_evaluate_prediction_interval_backtest = _forecast_calibration._evaluate_prediction_interval_backtest
-_event_metric_sort_key = _backtesting._event_metric_sort_key
-_event_probability_note = _backtesting._event_probability_note
-_event_rate = _backtesting._event_rate
-_event_rate_is_saturated = _backtesting._event_rate_is_saturated
-_feature_frame = _dataset._feature_frame
-_fit_count_model = _models._fit_count_model
-_fit_count_model_from_design = _models._fit_count_model_from_design
-_fit_event_model = _models._fit_event_model
-_fit_event_model_from_design = _models._fit_event_model_from_design
-_fit_negative_binomial_model_from_design = _models._fit_negative_binomial_model_from_design
-_fit_temperature_statistics = _temperature._fit_temperature_statistics
-_fit_with_convergence_guard = _models._fit_with_convergence_guard
-_aggregate_feature_name = _importance._aggregate_feature_name
-_assemble_training_result = _result._assemble_training_result
-_apply_temperature_statistics = _temperature._apply_temperature_statistics
-_fallback_feature_importance = _importance._fallback_feature_importance
-_format_probability = _forecast_bounds._format_probability
-_format_ratio_percent = _forecast_bounds._format_ratio_percent
-_future_feature_row = _forecast_intervals._future_feature_row
-_has_both_event_classes = _backtesting._has_both_event_classes
-_has_warning_instability = _models._has_warning_instability
-_history_records_from_frame = _forecast_intervals._history_records_from_frame
-_interval_coverage = _forecast_bounds._interval_coverage
-_metric_sort_key = _selection._metric_sort_key
-_metrics_within_selection_tolerance = _selection._metrics_within_selection_tolerance
-_normalize_event_comparison_rows = _backtesting._normalize_event_comparison_rows
-_normalized_event_model_label = _backtesting._normalized_event_model_label
-_predict_count_from_design = _models._predict_count_from_design
-_predict_count_model = _models._predict_count_model
-_predict_event_probability = _models._predict_event_probability
-_predict_event_probability_from_design = _models._predict_event_probability_from_design
-_prediction_interval_margin = _forecast_bounds._prediction_interval_margin
-_predict_future_count = _forecast_intervals._predict_future_count
-_prepare_reference_frame = _dataset._prepare_reference_frame
-_prepare_statsmodels_count_design = _models._prepare_statsmodels_count_design
-_prepare_training_dataset = _dataset._prepare_training_dataset
-_risk_band_from_index = _forecast_bounds._risk_band_from_index
-_risk_index = _forecast_bounds._risk_index
 _run_backtest = profiled('ml_backtest')(_backtesting._run_backtest)
-_safe_log_loss = _backtesting._safe_log_loss
-_safe_roc_auc = _backtesting._safe_roc_auc
-_scenario_reference_forecast = _backtesting._scenario_reference_forecast
-_select_count_method = _selection._select_count_method
-_select_count_model = _selection._select_count_model
-_selected_count_prediction = _backtesting._selected_count_prediction
-_temperature_feature_columns = _temperature._temperature_feature_columns
-_temperature_quality_note = _temperature._temperature_quality_note
-_temperature_quality_summary = _temperature._temperature_quality_summary
-_temperature_source_series = _temperature._temperature_source_series
-_warning_indicates_unstable_fit = _models._warning_indicates_unstable_fit
-
-ConvergenceWarning = _models.ConvergenceWarning
-HessianInversionWarning = _models.HessianInversionWarning
-PerfectSeparationWarning = _models.PerfectSeparationWarning
-StatsmodelsConvergenceWarning = _models.StatsmodelsConvergenceWarning
-sm = _models.sm
 
 
 @dataclass
@@ -235,7 +152,7 @@ def _forecast_rows_from_training_artifacts(
             artifacts.backtest.prediction_interval_calibration_by_horizon.by_horizon
             or artifacts.backtest.prediction_interval_calibration
         ),
-        baseline_expected_count=_baseline_expected_count,
+        baseline_expected_count=_backtesting._baseline_expected_count,
         temperature_stats=artifacts.final_temperature_stats,
     )
 
@@ -264,8 +181,8 @@ def _build_training_seed(
     perf: Any,
 ) -> _TrainingSeedData:
     history_tail = daily_history[-MAX_HISTORY_POINTS:]
-    frame = _prepare_reference_frame(_build_history_frame(history_tail))
-    dataset = _build_backtest_seed_dataset(frame, frame_is_prepared=True)
+    frame = _dataset._prepare_reference_frame(_dataset._build_history_frame(history_tail))
+    dataset = _dataset._build_backtest_seed_dataset(frame, frame_is_prepared=True)
     if perf is not None:
         perf.update(history_points=len(history_tail), feature_rows=len(dataset))
     return _TrainingSeedData(history_tail=history_tail, frame=frame, dataset=dataset)
@@ -274,7 +191,7 @@ def _build_training_seed(
 def _ensure_min_feature_rows(dataset: Any, message: str) -> Optional[TrainingResultPayload]:
     if len(dataset) >= MIN_FEATURE_ROWS:
         return None
-    return _empty_ml_result(message.format(rows=len(dataset)))
+    return _result._empty_ml_result(message.format(rows=len(dataset)))
 
 
 def _run_training_backtest(
@@ -302,7 +219,7 @@ def _fit_final_training_models(
     backtest: BacktestSuccess,
     progress_callback: MlProgressCallback,
 ) -> _FinalTrainingModels | TrainingResultPayload:
-    final_frame, final_dataset, final_temperature_stats = _prepare_training_dataset(
+    final_frame, final_dataset, final_temperature_stats = _dataset._prepare_training_dataset(
         seed.frame,
         frame_is_prepared=True,
     )
@@ -314,19 +231,19 @@ def _fit_final_training_models(
         return final_dataset_error
 
     selected_count_model_key = backtest.selected_count_model_key
-    feature_columns = _temperature_feature_columns(final_temperature_stats)
+    feature_columns = _temperature._temperature_feature_columns(final_temperature_stats)
     _emit_progress(
         progress_callback,
         'ml_model.running',
         f"Обучаем итоговую count-модель {COUNT_MODEL_LABELS.get(selected_count_model_key, selected_count_model_key)} на полной истории.",
     )
     final_count_model = (
-        _fit_count_model(selected_count_model_key, final_dataset, feature_columns=feature_columns)
+        _models._fit_count_model(selected_count_model_key, final_dataset, feature_columns=feature_columns)
         if selected_count_model_key in COUNT_MODEL_KEYS
         else None
     )
     if selected_count_model_key in COUNT_MODEL_KEYS and final_count_model is None:
-        return _empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
+        return _result._empty_ml_result('Не удалось обучить итоговую модель по числу пожаров на полной выборке.')
 
     selected_event_model_key = backtest.event_metrics.selected_model_key
     classifier_validated = (
@@ -334,9 +251,9 @@ def _fit_final_training_models(
         and backtest.event_metrics.available
         and backtest.event_metrics.logistic_available
         and backtest.event_metrics.event_probability_informative
-        and _can_train_event_model(final_dataset['event'])
+        and _models._can_train_event_model(final_dataset['event'])
     )
-    final_event_model = _fit_event_model(final_dataset, feature_columns=feature_columns) if classifier_validated else None
+    final_event_model = _models._fit_event_model(final_dataset, feature_columns=feature_columns) if classifier_validated else None
     return _FinalTrainingModels(
         final_frame=final_frame,
         final_dataset=final_dataset,
@@ -360,7 +277,7 @@ def _build_feature_importance_artifacts(
     feature_importance_model = training_models.final_count_model
     if feature_importance_model is None:
         feature_importance_model_key = EXPLAINABLE_COUNT_MODEL_KEY
-        feature_importance_model = _fit_count_model(
+        feature_importance_model = _models._fit_count_model(
             EXPLAINABLE_COUNT_MODEL_KEY,
             training_models.final_dataset,
             feature_columns=training_models.feature_columns,
@@ -433,7 +350,7 @@ def _train_ml_model(
  ) -> TrainingResultPayload:
     perf = current_perf_trace()
     if len(daily_history) < MIN_DAILY_HISTORY or forecast_days <= 0:
-        return _empty_ml_result(
+        return _result._empty_ml_result(
             f'Для ML-блока нужно минимум {MIN_DAILY_HISTORY} дней непрерывной дневной истории, чтобы выполнить rolling-origin backtesting и обучить модель.'
         )
 
@@ -480,7 +397,7 @@ def _train_ml_model(
     )
     if not backtest.is_ready:
         _emit_progress(progress_callback, 'ml_backtest.failed', backtest.message)
-        return _empty_ml_result(backtest.message)
+        return _result._empty_ml_result(backtest.message)
 
     training_models = _fit_final_training_models(
         seed,
@@ -502,7 +419,7 @@ def _train_ml_model(
             training_models.backtest.prediction_interval_calibration_by_horizon.by_horizon
             or training_models.backtest.prediction_interval_calibration
         ),
-        baseline_expected_count=_baseline_expected_count,
+        baseline_expected_count=_backtesting._baseline_expected_count,
         temperature_stats=training_models.final_temperature_stats,
     )
 

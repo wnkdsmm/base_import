@@ -15,7 +15,11 @@ from app.db_metadata import invalidate_db_metadata_cache
 from app.db_views import get_table_page, get_table_preview
 from app.services.clustering.core import clear_clustering_cache, get_clustering_data
 from app.services.forecast_risk.core import build_decision_support_payload
-from app.services.forecasting.core import clear_forecasting_cache, get_forecasting_data, get_forecasting_shell_context
+from app.services.forecasting.forecasting_pipeline import (
+    clear_forecasting_cache,
+    get_forecasting_data,
+    get_forecasting_shell_context,
+)
 from app.services.ml_model.core import clear_ml_model_cache, get_ml_model_data
 from config.db import engine
 
