@@ -7,11 +7,11 @@ from app.services.forecasting.presentation import _build_feature_cards_with_qual
 from app.services.forecasting.utils import _format_datetime, _format_float_for_input, _history_window_label
 
 from .ml_model_config_types import FORECAST_DAY_OPTIONS, HISTORY_WINDOW_OPTIONS, ML_PREDICTIVE_BLOCK_DESCRIPTION, MODEL_NAME
-from .training.presentation import (
+from .training.presentation_backtesting import _build_quality_assessment
+from .training.presentation_meta import _build_notes
+from .training.presentation_training import (
     _build_forecast_chart,
     _build_importance_chart,
-    _build_notes,
-    _build_quality_assessment,
     _build_summary,
     _empty_light_chart,
 )
@@ -189,3 +189,5 @@ def _empty_ml_model_data(
             'available_history_windows': HISTORY_WINDOW_OPTIONS,
         },
     }
+
+

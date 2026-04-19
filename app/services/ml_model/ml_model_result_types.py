@@ -157,44 +157,101 @@ class EventMetrics(MappingAccessMixin):
     event_probability_note: Optional[str] = None
     event_probability_reason_code: Optional[str] = None
 
+    @staticmethod
+    def _parse_numeric(value: Any, default: Optional[float]) -> Optional[float]:
+        if value is None:
+            return default
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
     @classmethod
-    def coerce(cls, value: Any) -> "EventMetrics":
-        if isinstance(value, cls):
-            return value
-        value = value or {}
+    def _coerce_brier(cls, raw: Any) -> Optional[float]:
+        raw = raw or {}
+        return cls._parse_numeric(raw.get("brier_score"), None)
+
+    @classmethod
+    def _coerce_roc_auc(cls, raw: Any) -> Optional[float]:
+        raw = raw or {}
+        return cls._parse_numeric(raw.get("roc_auc"), None)
+
+    @classmethod
+    def _coerce_f1(cls, raw: Any) -> Optional[float]:
+        raw = raw or {}
+        return cls._parse_numeric(raw.get("f1"), None)
+
+    @classmethod
+    def _coerce_log_loss(cls, raw: Any) -> Optional[float]:
+        raw = raw or {}
+        return cls._parse_numeric(raw.get("log_loss"), None)
+
+    @classmethod
+    def _coerce_score_metrics(cls, raw: Any) -> EventScoreMetrics:
+        return EventScoreMetrics(
+            brier_score=cls._coerce_brier(raw),
+            roc_auc=cls._coerce_roc_auc(raw),
+            f1=cls._coerce_f1(raw),
+            log_loss=cls._coerce_log_loss(raw),
+        )
+
+    @staticmethod
+    def _selected_metrics_raw(value: Dict[str, Any]) -> Dict[str, Any]:
         raw = value.get("selected_metrics")
-        selected_metrics_raw = raw if raw is not None else {
+        if raw is not None:
+            return raw
+        return {
             "brier_score": value.get("brier_score"),
             "roc_auc": value.get("roc_auc"),
             "f1": value.get("f1"),
             "log_loss": value.get("log_loss"),
         }
+
+    @staticmethod
+    def _baseline_metrics_raw(value: Dict[str, Any]) -> Dict[str, Any]:
         raw = value.get("baseline_metrics")
-        baseline_metrics_raw = raw if raw is not None else {
+        if raw is not None:
+            return raw
+        return {
             "brier_score": value.get("baseline_brier_score"),
             "roc_auc": value.get("baseline_roc_auc"),
             "f1": value.get("baseline_f1"),
             "log_loss": value.get("baseline_log_loss"),
         }
+
+    @staticmethod
+    def _heuristic_metrics_raw(value: Dict[str, Any]) -> Dict[str, Any]:
         raw = value.get("heuristic_metrics")
-        heuristic_metrics_raw = raw if raw is not None else {
+        if raw is not None:
+            return raw
+        return {
             "brier_score": value.get("heuristic_brier_score"),
             "roc_auc": value.get("heuristic_roc_auc"),
             "f1": value.get("heuristic_f1"),
             "log_loss": value.get("heuristic_log_loss"),
         }
+
+    @staticmethod
+    def _coerce_comparison_rows(value: Dict[str, Any]) -> list[EventComparisonRow]:
+        return [EventComparisonRow.coerce(row) for row in value.get("comparison_rows", [])]
+
+    @classmethod
+    def coerce(cls, value: Any) -> "EventMetrics":
+        if isinstance(value, cls):
+            return value
+        value = value or {}
         return cls(
             available=bool(value.get("available")),
             logistic_available=bool(value.get("logistic_available")),
             selected_model_key=value.get("selected_model_key"),
             selected_model_label=value.get("selected_model_label"),
-            selected_metrics=EventScoreMetrics.coerce(selected_metrics_raw),
-            baseline_metrics=EventScoreMetrics.coerce(baseline_metrics_raw),
-            heuristic_metrics=EventScoreMetrics.coerce(heuristic_metrics_raw),
-            comparison_rows=[EventComparisonRow.coerce(row) for row in value.get("comparison_rows", [])],
+            selected_metrics=cls._coerce_score_metrics(cls._selected_metrics_raw(value)),
+            baseline_metrics=cls._coerce_score_metrics(cls._baseline_metrics_raw(value)),
+            heuristic_metrics=cls._coerce_score_metrics(cls._heuristic_metrics_raw(value)),
+            comparison_rows=cls._coerce_comparison_rows(value),
             rows_used=int(value.get("rows_used") or 0),
             selection_rule=str(value.get("selection_rule") or ""),
-            event_rate=_optional_float(value.get("event_rate")),
+            event_rate=cls._parse_numeric(value.get("event_rate"), None),
             evaluation_has_both_classes=bool(value.get("evaluation_has_both_classes")),
             event_probability_informative=bool(value.get("event_probability_informative")),
             event_probability_note=value.get("event_probability_note"),

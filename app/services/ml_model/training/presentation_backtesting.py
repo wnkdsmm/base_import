@@ -11,9 +11,8 @@ from .types import (
     ModelChoiceSection,
     PredictionIntervalDisplayContext,
 )
-from .presentation_meta import (
+from .presentation_format import (
     MISSING_DISPLAY,
-    _event_probability_context,
     _first_present,
     _format_first_present,
     _format_optional_integer,
@@ -23,6 +22,7 @@ from .presentation_meta import (
     _format_optional_text,
     _is_missing_metric,
 )
+from .presentation_meta import _event_probability_context
 
 INTERVAL_SCHEME_LABELS = {
     'Forward rolling split conformal': 'скользящая проверка по истории',
@@ -227,27 +227,29 @@ def _comparison_metric_card(
 
 
 def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
+    normalized_row = CountComparisonRow.coerce(row)
     return {
-        'method_label': row.get('method_label', 'Метод'),
-        'role_label': row.get('role_label', ''),
-        'selection_label': _selection_label(row.get('is_selected')),
-        'mae_display': _format_optional_number(row.metrics.mae),
-        'rmse_display': _format_optional_number(row.metrics.rmse),
-        'smape_display': _format_optional_percent(row.metrics.smape),
-        'poisson_display': _format_optional_number(row.metrics.poisson_deviance),
-        'mae_delta_display': _format_optional_signed_percent(row.metrics.mae_delta_vs_baseline),
+        'method_label': normalized_row.get('method_label', 'Метод'),
+        'role_label': normalized_row.get('role_label', ''),
+        'selection_label': _selection_label(normalized_row.get('is_selected')),
+        'mae_display': _format_optional_number(normalized_row.metrics.mae),
+        'rmse_display': _format_optional_number(normalized_row.metrics.rmse),
+        'smape_display': _format_optional_percent(normalized_row.metrics.smape),
+        'poisson_display': _format_optional_number(normalized_row.metrics.poisson_deviance),
+        'mae_delta_display': _format_optional_signed_percent(normalized_row.metrics.mae_delta_vs_baseline),
     }
 
 
 def _event_comparison_row(row: EventComparisonRow) -> Dict[str, str]:
+    normalized_row = EventComparisonRow.coerce(row)
     return {
-        'method_label': row.get('method_label', 'Метод'),
-        'role_label': row.get('role_label', ''),
-        'selection_label': _selection_label(row.get('is_selected')),
-        'brier_display': _format_optional_number(row.get('brier_score')),
-        'roc_auc_display': _format_optional_number(row.get('roc_auc')),
-        'f1_display': _format_optional_number(row.get('f1')),
-        'log_loss_display': _format_optional_number(row.get('log_loss')),
+        'method_label': normalized_row.get('method_label', 'Метод'),
+        'role_label': normalized_row.get('role_label', ''),
+        'selection_label': _selection_label(normalized_row.get('is_selected')),
+        'brier_display': _format_optional_number(normalized_row.get('brier_score')),
+        'roc_auc_display': _format_optional_number(normalized_row.get('roc_auc')),
+        'f1_display': _format_optional_number(normalized_row.get('f1')),
+        'log_loss_display': _format_optional_number(normalized_row.get('log_loss')),
     }
 
 
@@ -598,3 +600,4 @@ __all__ = [
     '_translate_interval_scheme_label',
     '_translate_interval_validation_explanation',
 ]
+

@@ -41,6 +41,7 @@ from .training_backtesting_types import (
 )
 from ..training.training_dataset import _build_design_matrix, _feature_frame, _prepare_reference_frame
 from ..training.forecast_intervals import _build_recursive_forecast_seed, _simulate_recursive_forecast_path
+from ..training.training_models import _fit_count_model_from_design, _fit_event_model_from_design
 from ..training.training_selection import (
     _available_count_model_labels,
     _build_count_comparison_rows,
@@ -135,13 +136,11 @@ def _fit_candidates(
     *,
     forecast_days: int,
 ) -> _WindowCandidateFits:
-    from . import training_backtesting as _backtesting
-
     count_model_bundles = {
-        model_key: _backtesting._fit_count_model_from_design(model_key, window.model_train_design, window.count_targets)
+        model_key: _fit_count_model_from_design(model_key, window.model_train_design, window.count_targets)
         for model_key in COUNT_MODEL_KEYS
     }
-    event_bundle = _backtesting._fit_event_model_from_design(window.model_train_design, window.event_targets)
+    event_bundle = _fit_event_model_from_design(window.model_train_design, window.event_targets)
     return _WindowCandidateFits(
         event_bundle=event_bundle,
         forecast_paths=_simulate_candidate_paths(

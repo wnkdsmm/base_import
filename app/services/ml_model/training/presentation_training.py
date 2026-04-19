@@ -9,9 +9,8 @@ from app.services.forecasting.utils import _format_integer, _format_number, _for
 from ..ml_model_config_types import MODEL_NAME
 from .types import ForecastingDailyHistoryRow, TrainingFeatureImportanceRow, TrainingMlResultPayload
 from .presentation_backtesting import _prediction_interval_display_context
-from .presentation_meta import (
+from .presentation_format import (
     MISSING_DISPLAY,
-    _event_probability_context,
     _format_optional_integer,
     _format_optional_number,
     _format_optional_percent,
@@ -19,6 +18,7 @@ from .presentation_meta import (
     _format_optional_text,
     _format_row_display,
 )
+from .presentation_meta import _event_probability_context
 
 def _empty_light_chart(title: str, empty_message: str, kind: str = 'line') -> dict[str, Any]:  # one-off
     payload: dict[str, Any] = {

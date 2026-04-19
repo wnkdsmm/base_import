@@ -1,24 +1,34 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import logging
 from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 try:
     from joblib import parallel_backend
 except Exception:  # pragma: no cover - optional dependency
+    logger.debug("joblib parallel backend unavailable, importance will run without parallel backend", exc_info=True)
     parallel_backend = None
 
 try:
     from sklearn.inspection import permutation_importance
 except Exception:  # pragma: no cover - graceful fallback for older sklearn
+    logger.debug("sklearn permutation_importance unavailable, using fallback feature importance", exc_info=True)
     permutation_importance = None
 
 from app.services.forecasting.utils import _format_number
 
-from ..ml_model_config_types import FEATURE_LABELS, PERMUTATION_REPEATS
+from ..ml_model_config_types import (
+    FEATURE_LABELS,
+    IMPORTANCE_MAX_SAMPLE_SIZE,
+    IMPORTANCE_TRAIN_SPLIT_RATIO,
+    PERMUTATION_REPEATS,
+)
 from .training_dataset import _build_design_matrix
 
 
@@ -28,15 +38,15 @@ def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFram
     grouped_scores: Dict[str, float] = defaultdict(float)
 
     if permutation_importance is not None and model_bundle.get('backend') == 'sklearn':
-        split_index = int(len(design) * 0.7)
+        split_index = int(len(design) * IMPORTANCE_TRAIN_SPLIT_RATIO)
         holdout_X = design.iloc[split_index:]
         holdout_y = target[split_index:]
         if len(holdout_X) >= 20:
-            sample_size = min(len(holdout_X), 120)
+            sample_size = min(len(holdout_X), IMPORTANCE_MAX_SAMPLE_SIZE)
             sample_X = holdout_X.tail(sample_size)
             sample_y = holdout_y[-sample_size:]
         else:
-            sample_size = min(len(design), 120)
+            sample_size = min(len(design), IMPORTANCE_MAX_SAMPLE_SIZE)
             sample_X = design.tail(sample_size)
             sample_y = target[-sample_size:]
         try:
@@ -64,6 +74,7 @@ def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFram
             for column_name, score in zip(sample_X.columns, result.importances_mean):
                 grouped_scores[_aggregate_feature_name(column_name)] += max(0.0, float(score))
         except Exception:
+            logger.warning("permutation importance failed, using fallback feature importance", exc_info=True)
             grouped_scores.clear()
 
     if not grouped_scores:
@@ -113,3 +124,5 @@ def _aggregate_feature_name(column_name: str) -> str:
     if column_name.startswith('month_'):
         return 'month'
     return column_name
+
+

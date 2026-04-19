@@ -5,7 +5,16 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from ..ml_model_config_types import FEATURE_COLUMNS, MIN_TEMPERATURE_COVERAGE, NON_TEMPERATURE_FEATURE_COLUMNS
+from ..ml_model_config_types import (
+    FEATURE_COLUMNS,
+    LAG_DAYS_BIWEEK,
+    LAG_DAYS_SHORT,
+    LAG_DAYS_WEEK,
+    MIN_TEMPERATURE_COVERAGE,
+    NON_TEMPERATURE_FEATURE_COLUMNS,
+    ROLLING_WINDOW_LONG_DAYS,
+    ROLLING_WINDOW_SHORT_DAYS,
+)
 
 
 def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
@@ -59,10 +68,10 @@ def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     result['weekday'] = result['date'].dt.weekday.astype(int)
     result['month'] = result['date'].dt.month.astype(int)
-    for lag in (1, 7, 14):
+    for lag in (LAG_DAYS_SHORT, LAG_DAYS_WEEK, LAG_DAYS_BIWEEK):
         result[f'lag_{lag}'] = result['count'].shift(lag)
-    result['rolling_7'] = result['count'].shift(1).rolling(7).mean()
-    result['rolling_28'] = result['count'].shift(1).rolling(28).mean()
+    result['rolling_7'] = result['count'].shift(LAG_DAYS_SHORT).rolling(ROLLING_WINDOW_SHORT_DAYS).mean()
+    result['rolling_28'] = result['count'].shift(LAG_DAYS_SHORT).rolling(ROLLING_WINDOW_LONG_DAYS).mean()
     result['trend_gap'] = result['rolling_7'] - result['rolling_28']
     return result
 
@@ -162,3 +171,5 @@ def _prepare_training_dataset(
     valid_rows = featured[feature_columns + ['count']].notna().all(axis=1)
     dataset = featured.loc[valid_rows].reset_index(drop=True)
     return prepared, dataset, temperature_stats
+
+

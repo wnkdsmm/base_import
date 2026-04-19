@@ -10,7 +10,7 @@ _MODULE_EXPORTS = {
     "forecast_bounds": ".forecast_bounds",
     "forecast_calibration": ".forecast_calibration",
     "forecast_intervals": ".forecast_intervals",
-    "presentation": ".presentation",
+    "presentation": ".presentation_training",
     "presentation_backtesting": ".presentation_backtesting",
     "presentation_meta": ".presentation_meta",
     "presentation_training": ".presentation_training",
@@ -56,3 +56,4 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(set(globals().keys()) | set(__all__))
+

@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.services.forecasting.data import _build_forecast_rows as _build_scenario_forecast_rows
 
+from ..ml_model_config_types import BASELINE_RECENT_WEIGHT, BASELINE_WEEKDAY_WEIGHT
 from ..training.forecast_bounds import _bound_probability
 
 
@@ -14,7 +15,7 @@ def _baseline_expected_count(train: pd.DataFrame, target_date: pd.Timestamp) -> 
     recent_mean = float(train['count'].tail(28).mean()) if not train.empty else 0.0
     same_weekday = train.loc[train['weekday'] == int(target_date.weekday()), 'count'].tail(8)
     if len(same_weekday) >= 3:
-        return max(0.0, float(0.6 * same_weekday.mean() + 0.4 * recent_mean))
+        return max(0.0, float(BASELINE_WEEKDAY_WEIGHT * same_weekday.mean() + BASELINE_RECENT_WEIGHT * recent_mean))
     return max(0.0, recent_mean)
 
 
@@ -24,7 +25,7 @@ def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) 
     recent_rate = float(train['event'].tail(28).mean())
     same_weekday = train.loc[train['weekday'] == int(target_date.weekday()), 'event'].tail(8)
     if len(same_weekday) >= 3:
-        probability = 0.6 * float(same_weekday.mean()) + 0.4 * recent_rate
+        probability = BASELINE_WEEKDAY_WEIGHT * float(same_weekday.mean()) + BASELINE_RECENT_WEIGHT * recent_rate
     else:
         probability = recent_rate
     return _bound_probability(probability)
@@ -64,3 +65,5 @@ def _scenario_reference_forecast(
     row = forecast_rows[0]
     probability = row.get('fire_probability')
     return max(0.0, float(row.get('forecast_value', 0.0))), _bound_probability(probability if probability is not None else 0.0)
+
+

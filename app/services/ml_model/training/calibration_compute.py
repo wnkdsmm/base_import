@@ -8,7 +8,28 @@ import numpy as np
 import pandas as pd
 
 from .forecast_bounds import _count_interval, _format_ratio_percent
-from ..ml_model_interval_types import MIN_INTERVAL_BIN_RESIDUALS, MIN_INTERVAL_CALIBRATION_WINDOWS, MIN_INTERVAL_EVALUATION_WINDOWS, PredictionIntervalCalibration, PREDICTION_INTERVAL_BLOCKED_CV_LABEL, PREDICTION_INTERVAL_CALIBRATION_FRACTION, PREDICTION_INTERVAL_FIXED_CHRONO_LABEL, PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL, PREDICTION_INTERVAL_LEVEL, PREDICTION_INTERVAL_METHOD_LABEL, PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL, PREDICTION_INTERVAL_TARGET_BINS
+from ..ml_model_config_types import (
+    MIN_INTERVAL_BIN_RESIDUALS,
+    MIN_INTERVAL_CALIBRATION_WINDOWS,
+    MIN_INTERVAL_EVALUATION_WINDOWS,
+    PREDICTION_INTERVAL_BLOCK_COUNT_HIGH_VOLUME,
+    PREDICTION_INTERVAL_BLOCK_COUNT_LOW_VOLUME,
+    PREDICTION_INTERVAL_BLOCK_COUNT_MEDIUM_VOLUME,
+    PREDICTION_INTERVAL_BLOCKS_HIGH_VOLUME_MIN_WINDOWS,
+    PREDICTION_INTERVAL_BLOCKS_MEDIUM_VOLUME_MIN_WINDOWS,
+    PREDICTION_INTERVAL_BLOCKED_CV_LABEL,
+    PREDICTION_INTERVAL_CALIBRATION_FRACTION,
+    PREDICTION_INTERVAL_EDGE_DEDUP_ABS_TOL,
+    PREDICTION_INTERVAL_EDGE_DEDUP_REL_TOL,
+    PREDICTION_INTERVAL_FIXED_CHRONO_LABEL,
+    PREDICTION_INTERVAL_JACKKNIFE_PLUS_LABEL,
+    PREDICTION_INTERVAL_LEVEL,
+    PREDICTION_INTERVAL_METHOD_LABEL,
+    PREDICTION_INTERVAL_MIN_BIN_COUNT,
+    PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL,
+    PREDICTION_INTERVAL_TARGET_BINS,
+)
+from ..ml_model_interval_types import PredictionIntervalCalibration
 from .types import (
     PredictionIntervalBacktestEvaluation,
     PredictionIntervalBinsResult,
@@ -37,7 +58,7 @@ def _build_prediction_interval_bins(
     residual_values = np.asarray(residuals, dtype=float)
     residual_count = int(residual_values.size)
     target_bin_count = min(PREDICTION_INTERVAL_TARGET_BINS, max(1, residual_count // MIN_INTERVAL_BIN_RESIDUALS))
-    if target_bin_count < 2:
+    if target_bin_count < PREDICTION_INTERVAL_MIN_BIN_COUNT:
         return {
             'strategy': 'global_absolute_error_quantile',
             'edges': [],
@@ -52,7 +73,7 @@ def _build_prediction_interval_bins(
     edge_values = []
     for raw_edge in np.atleast_1d(raw_edges).tolist():
         edge_value = float(raw_edge)
-        if edge_values and math.isclose(edge_values[-1], edge_value, rel_tol=1e-9, abs_tol=1e-9):
+        if edge_values and math.isclose(edge_values[-1], edge_value, rel_tol=PREDICTION_INTERVAL_EDGE_DEDUP_REL_TOL, abs_tol=PREDICTION_INTERVAL_EDGE_DEDUP_ABS_TOL):
             continue
         edge_values.append(edge_value)
 
@@ -172,12 +193,12 @@ def _prediction_interval_validation_blocks(calibration_windows: int, total_windo
     evaluation_count = int(evaluation_indices.size)
     if evaluation_count <= 0:
         return []
-    if evaluation_count >= 12:
-        block_count = 4
-    elif evaluation_count >= 6:
-        block_count = 3
+    if evaluation_count >= PREDICTION_INTERVAL_BLOCKS_HIGH_VOLUME_MIN_WINDOWS:
+        block_count = PREDICTION_INTERVAL_BLOCK_COUNT_HIGH_VOLUME
+    elif evaluation_count >= PREDICTION_INTERVAL_BLOCKS_MEDIUM_VOLUME_MIN_WINDOWS:
+        block_count = PREDICTION_INTERVAL_BLOCK_COUNT_MEDIUM_VOLUME
     else:
-        block_count = 2
+        block_count = PREDICTION_INTERVAL_BLOCK_COUNT_LOW_VOLUME
     return [block for block in np.array_split(evaluation_indices, block_count) if block.size]
 
 def _prediction_interval_window_date_label(window_date: Any) -> str:
@@ -238,12 +259,12 @@ def _prediction_interval_stability_summary(
             'stability_score': float('inf'),
         }
 
-    if flag_values.size >= 12:
-        segment_count = 4
-    elif flag_values.size >= 6:
-        segment_count = 3
+    if flag_values.size >= PREDICTION_INTERVAL_BLOCKS_HIGH_VOLUME_MIN_WINDOWS:
+        segment_count = PREDICTION_INTERVAL_BLOCK_COUNT_HIGH_VOLUME
+    elif flag_values.size >= PREDICTION_INTERVAL_BLOCKS_MEDIUM_VOLUME_MIN_WINDOWS:
+        segment_count = PREDICTION_INTERVAL_BLOCK_COUNT_MEDIUM_VOLUME
     else:
-        segment_count = 2
+        segment_count = PREDICTION_INTERVAL_BLOCK_COUNT_LOW_VOLUME
     segments = [segment for segment in np.array_split(flag_values, segment_count) if segment.size]
     segment_coverages = [float(np.mean(segment)) for segment in segments]
     coverage = float(np.mean(flag_values))
@@ -436,3 +457,6 @@ __all__ = [
     '_evaluate_rolling_prediction_interval',
     '_prediction_interval_candidate_sort_key',
 ]
+
+
+

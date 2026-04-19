@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 try:
     from sklearn.linear_model import LogisticRegression, PoissonRegressor
 except Exception:  # pragma: no cover - graceful fallback for older sklearn
+    logger.debug("skipping PoissonRegressor import, fallback to LogisticRegression-only mode", exc_info=True)
     from sklearn.linear_model import LogisticRegression
 
     PoissonRegressor = None
@@ -19,6 +23,7 @@ try:
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
 except Exception:  # pragma: no cover - graceful fallback for older sklearn
+    logger.debug("sklearn preprocessing pipeline imports unavailable, using plain models", exc_info=True)
     ColumnTransformer = None
     ConvergenceWarning = None
     Pipeline = None
@@ -32,6 +37,7 @@ try:
         PerfectSeparationWarning,
     )
 except Exception:  # pragma: no cover - optional dependency
+    logger.debug("statsmodels imports unavailable, negative binomial backend disabled", exc_info=True)
     sm = None
     StatsmodelsConvergenceWarning = None
     HessianInversionWarning = None
@@ -141,6 +147,7 @@ def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train:
         if not _fit_with_convergence_guard(model, X_train, y_train):
             return None
     except Exception:
+        logger.warning("count model fit failed, returning no fitted count model", exc_info=True)
         return None
     return {
         'key': model_key,
@@ -172,6 +179,7 @@ def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.
             model = sm.GLM(y_train, exog, family=sm.families.NegativeBinomial(alpha=alpha))
             result = model.fit(maxiter=300, disp=0)
     except Exception:
+        logger.warning("negative binomial fit failed, returning no fitted model", exc_info=True)
         return None
     if _has_warning_instability(caught_warnings):
         return None
@@ -254,6 +262,7 @@ def _predict_count_from_design(model_bundle: dict[str, Any], X: pd.DataFrame) ->
             else:
                 predictions = np.asarray(model_bundle['model'].predict(X), dtype=float)
     except Exception:
+        logger.warning("count prediction failed, using NaN fallback predictions", exc_info=True)
         predictions = np.full(len(X), np.nan, dtype=float)
     return _sanitize_count_predictions(predictions, X)
 
@@ -303,6 +312,7 @@ def _fit_event_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> 
     try:
         model.fit(X_train, y_train)
     except Exception:
+        logger.warning("event model fit failed, returning no fitted event model", exc_info=True)
         return None
     return {
         'model': model,

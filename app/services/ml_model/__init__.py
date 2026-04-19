@@ -9,16 +9,16 @@ _MODULE_EXPORTS = {
     "backtesting": ".backtesting",
     "core": ".core",
     "jobs": ".jobs",
-    "ml_model_types": ".ml_model_types",
+    "ml_model_types": ".ml_model_config_types",
     "payloads": ".payloads",
     "training": ".training",
     # Legacy module aliases (kept for compatibility with old imports).
-    "constants": ".ml_model_types",
+    "constants": ".ml_model_config_types",
     "data_access": ".training.data_access",
-    "domain_types": ".ml_model_types",
-    "presentation": ".training.presentation",
-    "runtime": ".ml_model_types",
-    "training_backtesting": ".backtesting.training_backtesting",
+    "domain_types": ".ml_model_result_types",
+    "presentation": ".training.presentation_training",
+    "runtime": ".ml_model_result_types",
+    "training_backtesting": ".backtesting.training_backtesting_execution",
     "training_forecast": ".training.training_forecast",
     "training_models": ".training.training_models",
     "training_result": ".training.training_result",
@@ -59,3 +59,4 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(set(globals().keys()) | set(__all__))
+

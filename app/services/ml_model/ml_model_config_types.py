@@ -85,6 +85,32 @@ PERMUTATION_REPEATS = C_PERMUTATION_REPEATS
 ROLLING_MIN_TRAIN_ROWS = C_ROLLING_MIN_TRAIN_ROWS
 COUNT_MODEL_SELECTION_TOLERANCE = C_COUNT_MODEL_SELECTION_TOLERANCE
 
+# Calendar lags for autoregressive count features: 1, 7, and 14 days capture daily and weekly recurrence.
+LAG_DAYS_SHORT = 1
+LAG_DAYS_WEEK = 7
+LAG_DAYS_BIWEEK = 14
+# Rolling windows smooth short-term noise (7d) and provide a slower baseline trend (28d).
+ROLLING_WINDOW_SHORT_DAYS = 7
+ROLLING_WINDOW_LONG_DAYS = 28
+# Keep 70% prefix as pseudo-train so permutation importance is evaluated on a later holdout slice.
+IMPORTANCE_TRAIN_SPLIT_RATIO = 0.7
+# Cap importance sample size to bound runtime while preserving enough temporal variability.
+IMPORTANCE_MAX_SAMPLE_SIZE = 120
+# Blend baseline forecast toward weekday history while keeping recency influence for drift adaptation.
+BASELINE_WEEKDAY_WEIGHT = 0.6
+BASELINE_RECENT_WEIGHT = 0.4
+# Require at least two adaptive bins; otherwise quantile-by-bin calibration is not meaningful.
+PREDICTION_INTERVAL_MIN_BIN_COUNT = 2
+# Split validation blocks by evaluation size: 12+/6+ windows map to 4/3 blocks; otherwise use 2.
+PREDICTION_INTERVAL_BLOCKS_HIGH_VOLUME_MIN_WINDOWS = 12
+PREDICTION_INTERVAL_BLOCKS_MEDIUM_VOLUME_MIN_WINDOWS = 6
+PREDICTION_INTERVAL_BLOCK_COUNT_HIGH_VOLUME = 4
+PREDICTION_INTERVAL_BLOCK_COUNT_MEDIUM_VOLUME = 3
+PREDICTION_INTERVAL_BLOCK_COUNT_LOW_VOLUME = 2
+# Treat nearly identical quantile edges as duplicates to avoid zero-width adaptive bins.
+PREDICTION_INTERVAL_EDGE_DEDUP_REL_TOL = 1e-9
+PREDICTION_INTERVAL_EDGE_DEDUP_ABS_TOL = 1e-9
+
 FEATURE_COLUMNS = list(C_FEATURE_COLUMNS)
 NON_TEMPERATURE_FEATURE_COLUMNS = [column for column in FEATURE_COLUMNS if column != "temp_value"]
 COUNT_MODEL_CONTINUOUS_COLUMNS = list(C_COUNT_MODEL_CONTINUOUS_COLUMNS)
@@ -133,3 +159,4 @@ def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: s
         progress_callback(phase, message)
     except Exception:
         return
+

@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Optional, Tuple
 
 from app.perf import current_perf_trace, profiled
-from app.cache import build_immutable_payload_lru_cache
 from app.services.forecasting.data import (
     _build_daily_history_sql,
     _build_forecasting_table_options,
@@ -29,7 +28,8 @@ from app.services.forecasting.utils import (
 from app.services.shared.request_state import build_ml_request_state as _build_ml_request_state_impl
 from config.db import engine
 
-from .ml_model_config_types import ML_CACHE_SCHEMA_VERSION, MlProgressCallback, _CACHE_LIMIT, _emit_progress
+from .caches import MLModelCaches, create_default_caches
+from .ml_model_config_types import ML_CACHE_SCHEMA_VERSION, MlProgressCallback, _emit_progress
 from .training.data_access import (
     clear_ml_model_input_cache,
     load_ml_aggregation_inputs as _load_ml_aggregation_inputs_impl,
@@ -39,7 +39,7 @@ from .training.types import MlAggregationInputs, MlContext, MlFilterBundle, MlPa
 from .payloads import _build_ml_payload, _compact_ui_notes, _empty_ml_model_data
 from .training.training import _train_ml_model, clear_training_artifact_cache
 
-_ML_CACHE = build_immutable_payload_lru_cache(max_size=_CACHE_LIMIT)
+_DEFAULT_CACHES = create_default_caches()
 
 
 def _build_ml_context(initial_data: MlPayload) -> MlContext:
@@ -128,7 +128,9 @@ def get_ml_model_shell_context(
     forecast_days: str = '14',
     history_window: str = 'all',
     prefer_cached: bool = False,
+    caches: Optional[MLModelCaches] = None,
 ) -> MlContext:
+    cache_set = caches or _DEFAULT_CACHES
     request_state = _build_ml_request_state(
         table_name=table_name,
         cause=cause,
@@ -137,7 +139,7 @@ def get_ml_model_shell_context(
         forecast_days=forecast_days,
         history_window=history_window,
     )
-    cached = _cache_get(request_state['cache_key']) if prefer_cached else None
+    cached = _cache_get(request_state['cache_key'], cache_set) if prefer_cached else None
     if cached is not None:
         return _build_ml_context(cached)
 
@@ -159,7 +161,9 @@ def get_ml_model_data(
     forecast_days: str = '14',
     history_window: str = 'all',
     progress_callback: MlProgressCallback = None,
+    caches: Optional[MLModelCaches] = None,
 ) -> MlPayload:
+    cache_set = caches or _DEFAULT_CACHES
     perf = current_perf_trace()
     request_state = _build_ml_request_state(
         table_name=table_name,
@@ -187,7 +191,7 @@ def get_ml_model_data(
             forecast_horizon_days=days_ahead,
             history_window=selected_history_window,
         )
-    cached = _cache_get(cache_key)
+    cached = _cache_get(cache_key, cache_set)
     if cached is not None:
         if perf is not None:
             perf.update(cache_hit=True, payload_has_data=bool(cached.get('has_data')))
@@ -201,7 +205,7 @@ def get_ml_model_data(
         base = _build_no_source_ml_payload(base, source_table_notes=source_table_notes)
         if perf is not None:
             perf.update(payload_has_data=False, payload_notes=len(base['notes']))
-        return _cache_store(cache_key, base)
+        return _cache_store(cache_key, base, cache_set)
 
     _emit_progress(progress_callback, 'ml_model.running', '\u0421\u043e\u0431\u0438\u0440\u0430\u0435\u043c SQL-\u0430\u0433\u0440\u0435\u0433\u0430\u0442\u044b \u0438 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0435 \u0444\u0438\u043b\u044c\u0442\u0440\u044b \u0434\u043b\u044f ML-\u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430.')
     filter_prep_context = perf.span('filter_prep') if perf is not None else nullcontext()
@@ -247,6 +251,7 @@ def get_ml_model_data(
             days_ahead,
             scenario_temperature,
             progress_callback=progress_callback,
+            caches=cache_set,
         )
         temperature_quality = _temperature_quality_from_daily_history(daily_history)
     _emit_progress(progress_callback, 'ml_model.running', '\u0424\u043e\u0440\u043c\u0438\u0440\u0443\u0435\u043c \u0438\u0442\u043e\u0433\u043e\u0432\u044b\u0435 \u043c\u0435\u0442\u0440\u0438\u043a\u0438, \u0433\u0440\u0430\u0444\u0438\u043a\u0438 \u0438 \u0442\u0430\u0431\u043b\u0438\u0446\u044b ML-\u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430.')
@@ -279,15 +284,24 @@ def get_ml_model_data(
                 forecast_rows=len(payload['forecast_rows']),
             )
     _emit_progress(progress_callback, 'ml_model.completed', 'ML-\u0430\u043d\u0430\u043b\u0438\u0437 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d, \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0433\u043e\u0442\u043e\u0432 \u043a \u0432\u044b\u0434\u0430\u0447\u0435.')
-    return _cache_store(cache_key, payload)
+    return _cache_store(cache_key, payload, cache_set)
 
 
-def _cache_get(cache_key: Tuple[int, str, str, str, str, int, str]) -> Optional[MlPayload]:
-    return _ML_CACHE.get(cache_key)
+def _cache_get(
+    cache_key: Tuple[int, str, str, str, str, int, str],
+    caches: Optional[MLModelCaches] = None,
+) -> Optional[MlPayload]:
+    cache_set = caches or _DEFAULT_CACHES
+    return cache_set.ml_cache.get(cache_key)
 
 
-def _cache_store(cache_key: Tuple[int, str, str, str, str, int, str], payload: MlPayload) -> MlPayload:
-    _ML_CACHE.set(cache_key, payload)
+def _cache_store(
+    cache_key: Tuple[int, str, str, str, str, int, str],
+    payload: MlPayload,
+    caches: Optional[MLModelCaches] = None,
+) -> MlPayload:
+    cache_set = caches or _DEFAULT_CACHES
+    cache_set.ml_cache.set(cache_key, payload)
     return payload
 
 
@@ -318,10 +332,11 @@ def _build_ml_request_state(
     )
 
 
-def clear_ml_model_cache() -> None:
-    _ML_CACHE.clear()
+def clear_ml_model_cache(caches: Optional[MLModelCaches] = None) -> None:
+    cache_set = caches or _DEFAULT_CACHES
+    cache_set.ml_cache.clear()
     clear_ml_model_input_cache()
-    clear_training_artifact_cache()
+    clear_training_artifact_cache(cache_set)
     clear_forecasting_sql_cache()
 
 
