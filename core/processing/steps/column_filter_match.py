@@ -353,12 +353,6 @@ class NatashaColumnMatcher:
     _terms_cache: dict[str, ColumnTermPayload]
     _group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]]
 
-    def __new__(cls, *args, **kwargs):
-        instance = super().__new__(cls)
-        instance._terms_cache = {}
-        instance._group_catalog_cache = {}
-        return instance
-
     def __init__(self):
         self.morph_vocab = MorphVocab()
         self.segmenter = Segmenter()
@@ -366,8 +360,8 @@ class NatashaColumnMatcher:
         self.morph_tagger = NewsMorphTagger(self.emb)
         self.category_lemmas = _build_category_lemma_map(COLUMN_CATEGORY_RULES, self._lemmatize_text)
         self.mandatory_registry = [self._prepare_registry_feature(feature) for feature in MANDATORY_FEATURE_REGISTRY]
-        self._terms_cache: dict[str, ColumnTermPayload]
-        self._group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]]
+        self._terms_cache: dict[str, ColumnTermPayload] = {}
+        self._group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]] = {}
 
     def _lemmatize_text(self, value: str) -> List[str]:
         lemmas: List[str] = []
@@ -389,7 +383,14 @@ class NatashaColumnMatcher:
     def _prepare_registry_feature(self, feature: MandatoryFeatureSpec) -> MandatoryFeatureSpec:
         return _prepare_registry_feature_payload(feature, self._normalize_text, self._extract_words)
 
+    def _ensure_caches_initialized(self) -> None:
+        if not hasattr(self, "_terms_cache"):
+            self._terms_cache = {}
+        if not hasattr(self, "_group_catalog_cache"):
+            self._group_catalog_cache = {}
+
     def _column_terms(self, column_name: str) -> ColumnTermPayload:
+        self._ensure_caches_initialized()
         cached_payload = self._terms_cache.get(column_name)
         if cached_payload is not None:
             return cached_payload
@@ -529,6 +530,7 @@ class NatashaColumnMatcher:
         )
 
     def get_group_catalog(self, columns: List[str]) -> List[Dict[str, object]]:
+        self._ensure_caches_initialized()
         cache_key = frozenset(columns)
         cached_catalog = self._group_catalog_cache.get(cache_key)
         if cached_catalog is not None:

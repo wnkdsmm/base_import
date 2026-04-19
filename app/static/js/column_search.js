@@ -465,17 +465,7 @@
         const selectedColumns = Array.from(getSelectedColumnsUnion());
         const selectedGroups = Array.from(state.selectedGroups);
         const finalSelectedCount = selectedColumns.length;
-        const payloadColumns = ((state.payload && state.payload.columns) || [])
-            .map(function (item) { return item.name; });
-        const groupColumns = [];
-        ((state.payload && state.payload.groups) || []).forEach(function (group) {
-            (group.columns || []).forEach(function (col) {
-                if (!payloadColumns.includes(col)) {
-                    groupColumns.push(col);
-                }
-            });
-        });
-        const allKnownColumns = payloadColumns.concat(groupColumns);
+        const allKnownColumns = (state.payload && state.payload.all_columns) || [];
 
         if (!finalSelectedCount) {
             setStatus('Нужно выбрать хотя бы одну колонку или одну тематическую группу.', true);

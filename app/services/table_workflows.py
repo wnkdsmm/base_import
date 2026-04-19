@@ -47,6 +47,7 @@ def build_column_search_payload(table_name: str = "", query: str = "") -> dict[s
         "query": query_text,
         "count": 0,
         "columns": [],
+        "all_columns": [],
         "groups": [],
         "preview_columns": [],
         "preview_rows": [],
@@ -72,6 +73,7 @@ def build_column_search_payload(table_name: str = "", query: str = "") -> dict[s
 
     payload["count"] = len(matches)
     payload["columns"] = matches
+    payload["all_columns"] = columns
     payload["groups"] = groups
 
     if matches:
