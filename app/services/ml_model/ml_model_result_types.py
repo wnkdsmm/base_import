@@ -12,12 +12,6 @@ def _optional_float(value: Any) -> Optional[float]:
     return float(value)
 
 
-def _optional_int(value: Any) -> Optional[int]:
-    if value is None:
-        return None
-    return int(value)
-
-
 class MappingAccessMixin:
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)

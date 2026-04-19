@@ -36,28 +36,11 @@ def _normalize_nullable_float(value: Any) -> float | None:
     return numeric
 
 
-def _normalize_float(value: Any, default: float = 0.0) -> float:
-    numeric = _normalize_nullable_float(value)
-    return float(default) if numeric is None else numeric
-
-
 def _normalize_coordinate(value: Any, lower_bound: float, upper_bound: float) -> float | None:
     coordinate = _normalize_nullable_float(value)
     if coordinate is None or not (lower_bound <= coordinate <= upper_bound):
         return None
     return coordinate
-
-
-def _finite_numeric_series(values: Any, default: float | None = None) -> pd.Series:
-    raw_values = values if isinstance(values, pd.Series) else pd.Series(values)
-    numeric_values = pd.to_numeric(raw_values, errors="coerce")
-    if not isinstance(numeric_values, pd.Series):
-        numeric_values = pd.Series(numeric_values, index=getattr(raw_values, "index", None))
-    numeric_values = numeric_values.astype(float)
-    finite_values = numeric_values.where(pd.notna(numeric_values) & np.isfinite(numeric_values))
-    if default is not None:
-        finite_values = finite_values.fillna(float(default))
-    return finite_values
 
 
 def _finite_numeric_frame(frame: pd.DataFrame) -> pd.DataFrame:
