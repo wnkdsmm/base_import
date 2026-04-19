@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ def _primary_method_key(weighting_strategy: str) -> str:
     return f"kmeans_{weighting_strategy}"
 
 
-def _build_method_candidates(weighting_strategy: str) -> List[ClusteringMethodCandidate]:
+def _build_method_candidates(weighting_strategy: str) -> list[ClusteringMethodCandidate]:
     candidates = [
         {
             "method_key": _primary_method_key(weighting_strategy),
@@ -207,8 +207,8 @@ def _evaluate_cluster_counts(
         random_state=42,
     )
 
-    rows: List[ClusteringMethodRow] = []
-    method_rows_by_cluster_count: Dict[int, List[ClusteringMethodRow]] = {}
+    rows: list[ClusteringMethodRow] = []
+    method_rows_by_cluster_count: dict[int, list[ClusteringMethodRow]] = {}
     for cluster_count in available_ks:
         method_rows = _compare_clustering_methods(
             cluster_frame,
@@ -261,7 +261,7 @@ def _compare_clustering_methods(
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
     selected_method_key: str | None = None,
     prepared_model_inputs: tuple[pd.DataFrame, np.ndarray, Any, set[str], np.ndarray] | None = None,
-) -> List[ClusteringMethodRow]:
+) -> list[ClusteringMethodRow]:
     if prepared_model_inputs is None:
         _, scaled_points, _, _, _ = _prepare_model_inputs(
             cluster_frame,
@@ -270,7 +270,7 @@ def _compare_clustering_methods(
         )
     else:
         _, scaled_points, _, _, _ = prepared_model_inputs
-    rows: List[ClusteringMethodRow] = []
+    rows: list[ClusteringMethodRow] = []
     row_count = len(cluster_frame)
     primary_method_key = selected_method_key or _primary_method_key(weighting_strategy)
 
@@ -367,7 +367,7 @@ def _build_cluster_profiles(
     labels: np.ndarray,
     raw_centers: np.ndarray,
     cluster_labels: Sequence[str],
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     profiles = []
     total_entities = len(cluster_frame)
     total_incidents = int(entity_frame["Число пожаров"].sum()) if "Число пожаров" in entity_frame.columns else 0
@@ -417,10 +417,10 @@ def _build_centroid_table(
     labels: np.ndarray,
     raw_centers: np.ndarray,
     cluster_labels: Sequence[str],
-    cluster_profiles: Sequence[Dict[str, Any]],
-) -> Tuple[List[str], List[List[str]]]:
+    cluster_profiles: Sequence[dict[str, Any]],
+) -> tuple[list[str], list[list[str]]]:
     columns = ["Кластер", "Профиль", "Территорий", "Пожаров в истории"] + list(cluster_frame.columns)
-    rows: List[List[str]] = []
+    rows: list[list[str]] = []
     titles = {item["cluster_label"]: item.get("segment_title", "") for item in cluster_profiles}
     for cluster_id, cluster_label in enumerate(cluster_labels):
         mask = labels == cluster_id
@@ -439,9 +439,9 @@ def _build_representative_rows(
     scaled_points: np.ndarray,
     scaled_centers: np.ndarray,
     cluster_labels: Sequence[str],
-) -> Tuple[List[str], List[List[str]]]:
+) -> tuple[list[str], list[list[str]]]:
     columns = ["Кластер", "Территория", "Район", "Тип территории"] + list(cluster_frame.columns)
-    rows: List[List[str]] = []
+    rows: list[list[str]] = []
     distances = np.linalg.norm(scaled_points - scaled_centers[labels], axis=1)
 
     for cluster_id, cluster_label in enumerate(cluster_labels):
@@ -462,17 +462,17 @@ def _build_representative_rows(
 
 
 def _build_notes(
-    cluster_profiles: Sequence[Dict[str, Any]],
+    cluster_profiles: Sequence[dict[str, Any]],
     silhouette: float | None,
     selected_features: Sequence[str],
     diagnostics: ClusteringDiagnosticsResult,
     total_incidents: int,
     total_entities: int,
     sampled_entities: int,
-    support_summary: Dict[str, float] | None = None,
+    support_summary: dict[str, float] | None = None,
     stability_ari: float | None = None,
     feature_selection_report: FeatureSelectionReport | None = None,
-) -> List[str]:
+) -> list[str]:
     notes = [
         f"Кластеризация построена по { _format_integer(sampled_entities) } территориям/населённым пунктам, агрегированным из { _format_integer(total_incidents) } пожаров.",
     ]
@@ -598,7 +598,7 @@ def _build_k_selection_note(
     return None
 
 
-def _cluster_labels(cluster_count: int) -> List[str]:
+def _cluster_labels(cluster_count: int) -> list[str]:
     return [f"Тип {index + 1}" for index in range(cluster_count)]
 
 

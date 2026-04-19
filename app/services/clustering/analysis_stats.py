@@ -4,7 +4,7 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from itertools import combinations
-from typing import Any, Dict, Sequence, Tuple
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
+from config.constants import GAP_STAT_MAX_WORKERS, GAP_STAT_N_REFERENCES
 from .constants import (
     CLUSTER_COUNT_OPTIONS,
     LOG_SCALE_FEATURES,
@@ -60,9 +61,9 @@ def _derive_feature_weights_from_profiles(
 
 
 def compute_cluster_risk_scores(
-    cluster_profiles: Dict[int, Dict[str, float]],
-    feature_weights: Dict[str, float] | None = None,
-) -> list[Dict[str, Any]]:
+    cluster_profiles: dict[int, dict[str, float]],
+    feature_weights: dict[str, float] | None = None,
+) -> list[dict[str, Any]]:
     if not cluster_profiles:
         return []
 
@@ -87,7 +88,7 @@ def compute_cluster_risk_scores(
     if not weighted_features:
         return []
 
-    feature_ranges: Dict[str, tuple[float, float]] = {}
+    feature_ranges: dict[str, tuple[float, float]] = {}
     for feature_name in weighted_features:
         values = [
             float((profile or {}).get(feature_name, 0.0) or 0.0)
@@ -104,7 +105,7 @@ def compute_cluster_risk_scores(
     if effective_weight_sum <= 0:
         return []
 
-    risk_rows: list[Dict[str, Any]] = []
+    risk_rows: list[dict[str, Any]] = []
     for cluster_id in sorted(cluster_profiles.keys()):
         profile = cluster_profiles.get(cluster_id) or {}
         weighted_score = 0.0
@@ -136,9 +137,9 @@ def compute_cluster_risk_scores(
 
 
 def _cluster_quality_score(
-    metrics: Dict[str, float | None],
+    metrics: dict[str, float | None],
     row_count: int,
-    shape_diagnostics: Dict[str, float | bool | int] | None = None,
+    shape_diagnostics: dict[str, float | bool | int] | None = None,
 ) -> float:
     silhouette = float(metrics.get("silhouette") or 0.0)
     davies_bouldin = metrics.get("davies_bouldin")
@@ -151,7 +152,7 @@ def _cluster_quality_score(
     return float((silhouette * 0.55) + (inverse_db * 0.20) + (scaled_ch * 0.15) + (balance_ratio * 0.10) - shape_penalty)
 
 
-def _cluster_shape_diagnostics(metrics: Dict[str, float | None], row_count: int) -> Dict[str, float | bool | int]:
+def _cluster_shape_diagnostics(metrics: dict[str, float | None], row_count: int) -> dict[str, float | bool | int]:
     smallest_cluster_size = int(metrics.get("smallest_cluster_size") or 0)
     balance_ratio = float(metrics.get("cluster_balance_ratio") or 0.0)
     microcluster_threshold = max(3, int(math.ceil(max(float(row_count), 1.0) * 0.03)))
@@ -398,12 +399,12 @@ def _fit_weighted_kmeans(
 
 
 def _fit_reference_model(
-    reference_task: tuple[int, np.ndarray],
+    reference_index: int,
+    reference_points: np.ndarray,
     cluster_count: int,
     row_count: int,
     random_state: int,
 ) -> float:
-    reference_index, reference_points = reference_task
     reference_model = KMeans(
         n_clusters=cluster_count,
         random_state=random_state + reference_index + 1,
@@ -418,7 +419,7 @@ def _compute_gap_statistic(
     scaled_points: np.ndarray,
     sample_weights: np.ndarray,
     k_range: Sequence[int],
-    n_references: int = 10,
+    n_references: int = GAP_STAT_N_REFERENCES,
     random_state: int = 42,
 ) -> dict[int, float]:
     points = np.asarray(scaled_points, dtype=float)
@@ -439,7 +440,7 @@ def _compute_gap_statistic(
     data_max = np.max(points, axis=0)
 
     gap_scores: dict[int, float] = {}
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=GAP_STAT_MAX_WORKERS) as executor:
         for cluster_count in valid_ks:
             model = KMeans(n_clusters=cluster_count, random_state=random_state, n_init=MODEL_N_INIT)
             model.fit(points, sample_weight=weights)
@@ -455,7 +456,8 @@ def _compute_gap_statistic(
                 row_count=row_count,
                 random_state=random_state,
             )
-            ref_logs = list(executor.map(_fit, enumerate(reference_points_list)))
+            indices = range(len(reference_points_list))
+            ref_logs = list(executor.map(_fit, indices, reference_points_list))
 
             gap_scores[cluster_count] = float(np.mean(ref_logs) - np.log(observed_inertia))
     return gap_scores
@@ -553,7 +555,7 @@ def _assign_labels_from_centers(scaled_points: np.ndarray, centers: np.ndarray) 
     return np.argmin(distances, axis=1)
 
 
-def _prepare_model_frame(cluster_frame: pd.DataFrame) -> Tuple[pd.DataFrame, set[str]]:
+def _prepare_model_frame(cluster_frame: pd.DataFrame) -> tuple[pd.DataFrame, set[str]]:
     transformed = cluster_frame.copy().astype(float)
     transformed_columns: set[str] = set()
     for column in transformed.columns:

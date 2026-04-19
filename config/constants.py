@@ -6,6 +6,8 @@ This module is the canonical source for non-UI constants.
 UI labels (especially Russian copy) live in ``app.labels``.
 """
 
+import os
+
 # === DB / Config ===
 
 NULL_THRESHOLD = 0.9
@@ -98,6 +100,8 @@ STABILITY_RANDOM_SEEDS = [7, 21, 42, 84, 126]
 HOPKINS_MIN_CLUSTERABLE = 0.6
 FEATURE_SELECTION_N_INIT = 20
 MODEL_N_INIT = 40
+GAP_STAT_MAX_WORKERS = min(4, (os.cpu_count() or 1))
+GAP_STAT_N_REFERENCES = 10
 
 MAX_TERRITORIES = 12
 MIN_TEMPERATURE_NON_NULL_DAYS = 30
