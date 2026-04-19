@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
 from app.services.executive_brief import compose_executive_brief_text
+from config.constants import PRIORITY_HORIZON_DAYS
 from config.db import engine
 
 from .cache import (
@@ -66,6 +67,7 @@ def _build_dashboard_aggregation(
     selected_table_name: str,
     available_years: list[DashboardOption],
     available_group_columns: list[DashboardOption],
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardAggregation:
     # Compatibility: allow legacy monkeypatches on app.dashboard.service.*
     # to affect the split implementation transparently.
@@ -167,14 +169,25 @@ def _build_dashboard_aggregation(
         rankings = summary_metrics["rankings"]
         highlights = summary_metrics["highlights"]
     widgets = dashboard_widgets_builder(selected_tables, selected_year, grouped_counts_bundle)
-    management = management_snapshot_builder(
-        selected_tables=selected_tables,
-        selected_year=selected_year,
-        summary=summary,
-        trend=trend,
-        cause_overview=cause_overview,
-        district_widget=widgets["districts"],
-    )
+    try:
+        management = management_snapshot_builder(
+            selected_tables=selected_tables,
+            selected_year=selected_year,
+            summary=summary,
+            trend=trend,
+            cause_overview=cause_overview,
+            district_widget=widgets["districts"],
+            planning_horizon_days=horizon_days,
+        )
+    except TypeError:
+        management = management_snapshot_builder(
+            selected_tables=selected_tables,
+            selected_year=selected_year,
+            summary=summary,
+            trend=trend,
+            cause_overview=cause_overview,
+            district_widget=widgets["districts"],
+        )
     try:
         scope = dashboard_scope_builder(
             summary=summary,
@@ -222,6 +235,7 @@ def _build_dashboard_payload(
     selected_group_column: str,
     available_years: list[DashboardOption],
     available_group_columns: list[DashboardOption],
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardPayload:
     summary = aggregation["summary"]
     scope = aggregation["scope"]
@@ -272,14 +286,24 @@ def _build_dashboard_payload(
             "table_name": selected_table_name,
             "year": str(selected_year) if selected_year is not None else "all",
             "group_column": selected_group_column,
+            "horizon_days": str(horizon_days),
             "available_tables": metadata["table_options"],
             "available_years": available_years,
             "available_group_columns": available_group_columns,
+            "available_horizon_days": [
+                {"value": "7", "label": "7 дней"},
+                {"value": "14", "label": "14 дней"},
+                {"value": "30", "label": "30 дней"},
+            ],
         },
         "notes": notes,
     }
 
-def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
+def _empty_dashboard_data(
+    error_message: str = "",
+    *,
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
+) -> DashboardPayload:
     return {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,
@@ -340,7 +364,7 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "direction": "flat",
             "description": "Недостаточно данных для сравнения по годам.",
         },
-        "management": _empty_management_snapshot(),
+        "management": _empty_management_snapshot(priority_horizon_days=horizon_days),
         "highlights": [],
         "rankings": {
             "top_distribution": [],
@@ -367,10 +391,15 @@ def _empty_dashboard_data(error_message: str = "") -> DashboardPayload:
             "table_name": "all",
             "year": "",
             "group_column": "",
+            "horizon_days": str(horizon_days),
             "available_tables": [{"value": "all", "label": "Все таблицы"}],
             "available_years": [],
             "available_group_columns": [],
-
+            "available_horizon_days": [
+                {"value": "7", "label": "7 дней"},
+                {"value": "14", "label": "14 дней"},
+                {"value": "30", "label": "30 дней"},
+            ],
         },
         "notes": [error_message] if error_message else [],
     }
@@ -381,3 +410,4 @@ __all__ = [
     '_build_dashboard_payload',
     '_empty_dashboard_data',
 ]
+

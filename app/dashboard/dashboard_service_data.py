@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
 from app.services.executive_brief import compose_executive_brief_text
+from config.constants import PRIORITY_HORIZON_DAYS
 from config.db import engine
 
 from .dashboard_service_build import (
@@ -49,17 +50,34 @@ from .types import (
 )
 from .utils import _find_option_label, _format_datetime
 
+_DASHBOARD_HORIZON_OPTIONS = (7, 14, 30)
+
+
+def _normalize_horizon_days(horizon_days: int | str) -> int:
+    try:
+        value = int(horizon_days)
+    except (TypeError, ValueError):
+        return PRIORITY_HORIZON_DAYS
+    return value if value in _DASHBOARD_HORIZON_OPTIONS else PRIORITY_HORIZON_DAYS
+
+
+def _build_horizon_day_options() -> list[DashboardOption]:
+    return [{"value": str(day), "label": f"{day} дней"} for day in _DASHBOARD_HORIZON_OPTIONS]
+
+
 def _build_dashboard_cache_key(
     metadata: DashboardMetadata,
     table_name: str,
     year: str,
     normalized_group_column: str,
+    horizon_days: int,
 ) -> tuple[Any, ...]:
     return (
         _metadata_table_names(metadata),
         table_name,
         year,
         normalized_group_column,
+        horizon_days,
     )
 
 def _build_resolved_dashboard_cache_key(
@@ -67,12 +85,14 @@ def _build_resolved_dashboard_cache_key(
     selected_table_name: str,
     selected_year: Optional[int],
     selected_group_column: str,
+    horizon_days: int,
 ) -> tuple[Any, ...]:
     return _build_dashboard_cache_key(
         metadata,
         selected_table_name,
         str(selected_year) if selected_year is not None else "all",
         selected_group_column,
+        horizon_days,
     )
 
 def _build_dashboard_context_payload(
@@ -114,16 +134,19 @@ def _resolve_shell_group_columns(
 def _build_dashboard_shell_initial_data(
     metadata: DashboardMetadata,
     filter_state: DashboardRequestState,
+    horizon_days: int,
 ) -> tuple[DashboardPayload, list[DashboardOption]]:
     available_group_columns, selected_group_column = _resolve_shell_group_columns(metadata, filter_state)
-    initial_data = _empty_dashboard_data()
+    initial_data = _empty_dashboard_data(horizon_days=horizon_days)
     initial_data["bootstrap_mode"] = "deferred"
     initial_data["filters"]["table_name"] = filter_state["selected_table_name"]
     initial_data["filters"]["year"] = str(filter_state["selected_year"]) if filter_state["selected_year"] is not None else "all"
     initial_data["filters"]["group_column"] = selected_group_column
+    initial_data["filters"]["horizon_days"] = str(horizon_days)
     initial_data["filters"]["available_tables"] = metadata["table_options"]
     initial_data["filters"]["available_years"] = filter_state["available_years"]
     initial_data["filters"]["available_group_columns"] = available_group_columns
+    initial_data["filters"]["available_horizon_days"] = _build_horizon_day_options()
     initial_data["scope"]["table_label"] = _find_option_label(
         metadata["table_options"],
         filter_state["selected_table_name"],
@@ -144,9 +167,16 @@ def _resolve_requested_dashboard_cache(
     table_name: str,
     year: str,
     group_column: str,
+    horizon_days: int,
 ) -> tuple[str, tuple[Any, ...], Optional[DashboardPayload]]:
     normalized_group_column = group_column or metadata["default_group_column"]
-    cache_key = _build_dashboard_cache_key(metadata, table_name, year, normalized_group_column)
+    cache_key = _build_dashboard_cache_key(
+        metadata,
+        table_name,
+        year,
+        normalized_group_column,
+        horizon_days,
+    )
     return normalized_group_column, cache_key, _get_dashboard_cache(cache_key)
 
 def _build_dashboard_request_state(
@@ -155,6 +185,7 @@ def _build_dashboard_request_state(
     table_name: str,
     year: str,
     normalized_group_column: str,
+    horizon_days: int,
 ) -> DashboardRequestState:
     from . import service as _service_module
 
@@ -172,7 +203,9 @@ def _build_dashboard_request_state(
             filter_state["selected_table_name"],
             filter_state["selected_year"],
             filter_state["selected_group_column"],
+            horizon_days,
         ),
+        "horizon_days": horizon_days,
     }
 
 def _update_dashboard_filter_metrics(
@@ -198,12 +231,15 @@ def build_dashboard_context(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardContext:
+    normalized_horizon_days = _normalize_horizon_days(horizon_days)
     metadata = _collect_dashboard_metadata_cached()
     initial_data = get_dashboard_data(
         table_name=table_name,
         year=year,
         group_column=group_column or metadata["default_group_column"],
+        horizon_days=normalized_horizon_days,
         metadata=metadata,
     )
     return _build_dashboard_context_payload(
@@ -219,9 +255,15 @@ def get_dashboard_page_context(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
  ) -> DashboardContext:
     try:
-        return build_dashboard_context(table_name=table_name, year=year, group_column=group_column)
+        return build_dashboard_context(
+            table_name=table_name,
+            year=year,
+            group_column=group_column,
+            horizon_days=horizon_days,
+        )
     except Exception as exc:
         error_context = _build_dashboard_error_context(str(exc))
         del error_context["plotly_js"]
@@ -231,8 +273,10 @@ def get_dashboard_shell_context(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
  ) -> DashboardContext:
     try:
+        normalized_horizon_days = _normalize_horizon_days(horizon_days)
         metadata = _collect_dashboard_metadata_cached()
         filter_state = _resolve_dashboard_filters(
             metadata=metadata,
@@ -240,7 +284,11 @@ def get_dashboard_shell_context(
             year=year,
             group_column=group_column or metadata["default_group_column"],
         )
-        initial_data, available_group_columns = _build_dashboard_shell_initial_data(metadata, filter_state)
+        initial_data, available_group_columns = _build_dashboard_shell_initial_data(
+            metadata,
+            filter_state,
+            normalized_horizon_days,
+        )
         return _build_dashboard_context_payload(
             metadata=metadata,
             initial_data=initial_data,
@@ -256,6 +304,7 @@ def get_dashboard_data(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
     metadata: Optional[DashboardMetadata] = None,
     allow_fallback: bool = True,
 ) -> DashboardPayload:
@@ -293,13 +342,21 @@ def get_dashboard_data(
         requested_table=table_name,
         requested_year=year,
         requested_group_column=group_column or "",
+        requested_horizon_days=horizon_days,
         allow_fallback=allow_fallback,
     ) as perf:
         try:
             with perf.span("filter_prep"):
+                normalized_horizon_days = _normalize_horizon_days(horizon_days)
                 metadata = metadata or collect_dashboard_metadata()
                 normalized_group_column = group_column or metadata["default_group_column"]
-                cache_key = build_dashboard_cache_key(metadata, table_name, year, normalized_group_column)
+                cache_key = build_dashboard_cache_key(
+                    metadata,
+                    table_name,
+                    year,
+                    normalized_group_column,
+                    normalized_horizon_days,
+                )
                 cached = get_dashboard_cache(cache_key)
                 if cached is not None:
                     perf.update(
@@ -315,6 +372,7 @@ def get_dashboard_data(
                     table_name=table_name,
                     year=year,
                     normalized_group_column=normalized_group_column,
+                    horizon_days=normalized_horizon_days,
                 )
                 request_state["cache_key"] = cache_key
                 resolved_cache_key = request_state["resolved_cache_key"]
@@ -345,6 +403,7 @@ def get_dashboard_data(
                     selected_table_name=request_state["selected_table_name"],
                     available_years=request_state["available_years"],
                     available_group_columns=request_state["available_group_columns"],
+                    horizon_days=request_state["horizon_days"],
                 )
                 summary = aggregation["summary"]
                 perf.update(input_rows=summary.get("fires_count"))
@@ -359,6 +418,7 @@ def get_dashboard_data(
                     selected_group_column=request_state["selected_group_column"],
                     available_years=request_state["available_years"],
                     available_group_columns=request_state["available_group_columns"],
+                    horizon_days=request_state["horizon_days"],
                 )
                 perf.update(
                     payload_has_data=bool(data["has_data"]),
@@ -371,7 +431,7 @@ def get_dashboard_data(
             if not allow_fallback:
                 raise
             perf.fail(exc, status="fallback")
-            return empty_dashboard_data(str(exc))
+            return empty_dashboard_data(str(exc), horizon_days=_normalize_horizon_days(horizon_days))
 
 __all__ = [
     '_build_dashboard_cache_key',

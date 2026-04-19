@@ -12,7 +12,12 @@ from app.table_catalog import (
     get_user_table_options,
     resolve_selected_table_value,
 )
-from config.constants import DOMINANT_VALUE_THRESHOLD, LOW_VARIANCE_THRESHOLD, NULL_THRESHOLD
+from config.constants import (
+    DOMINANT_VALUE_THRESHOLD,
+    LOW_VARIANCE_THRESHOLD,
+    NULL_THRESHOLD,
+    PRIORITY_HORIZON_DAYS,
+)
 
 from .page_common import (
     ANALYTICS_PAGE_ASSETS,
@@ -109,8 +114,18 @@ def favicon() -> Response:
 
 
 @router.get("/brief/dashboard.txt")
-def dashboard_brief_download(table_name: str = "all", year: str = "all", group_column: str = "") -> Response:
-    data = get_dashboard_page_context(table_name=table_name, year=year, group_column=group_column)["initial_data"]
+def dashboard_brief_download(
+    table_name: str = "all",
+    year: str = "all",
+    group_column: str = "",
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
+) -> Response:
+    data = get_dashboard_page_context(
+        table_name=table_name,
+        year=year,
+        group_column=group_column,
+        horizon_days=horizon_days,
+    )["initial_data"]
     return _download_brief_response(data, "dashboard-brief.txt", "management", "export_text")
 
 
@@ -142,13 +157,19 @@ def home(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
+    horizon_days: int = PRIORITY_HORIZON_DAYS,
     mode: str = "full",
 ):
     dashboard = resolve_page_mode_context(
         mode=mode,
         page_loader=get_dashboard_page_context,
         shell_loader=get_dashboard_shell_context,
-        page_kwargs={"table_name": table_name, "year": year, "group_column": group_column},
+        page_kwargs={
+            "table_name": table_name,
+            "year": year,
+            "group_column": group_column,
+            "horizon_days": horizon_days,
+        },
     )
     return render_context_page(
         request,

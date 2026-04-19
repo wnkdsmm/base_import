@@ -74,7 +74,7 @@
 
 .dashboard-overview-column .stat-card-wide {
     grid-column: auto;
-    padding: 22px 24px;
+    padding: var(--space-token-21) var(--space-token-34);
 }
 
 .dashboard-overview-column .stat-value {
@@ -82,7 +82,7 @@
 }
 
 .dashboard-overview-column .stat-card-wide .stat-value {
-    font-size: 42px;
+    font-size: var(--font-size-token-06); /* approx */
 }
 
 .stat-card-accent {
@@ -96,7 +96,7 @@
 }
 
 .stat-card-wide .stat-value {
-    font-size: 46px;
+    font-size: var(--font-size-token-06); /* approx */
 }
 
 .stat-value {
@@ -332,7 +332,7 @@
 
 .executive-brief-summary-title {
     color: var(--ink);
-    font-size: 20px;
+    font-size: var(--font-size-token-11); /* approx */
     line-height: 1.2;
 }
 

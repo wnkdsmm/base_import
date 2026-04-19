@@ -48,12 +48,12 @@
             <h1>Интегральная оценка пожарной обстановки</h1>
             <p class="subtitle">Раздел предназначен для оперативной оценки масштаба ситуации, анализа ключевых показателей и определения первоочередного территориального приоритета.</p>
             <p class="hero-live-summary" id="dashboardLeadSummary">{{ management.summary_line }}</p>
-            <p class="hero-context-note">Панель отражает накопленную картину по выбранным данным и краткий территориальный приоритет на ближайшие 14 дней. Для календарной оценки риска и прогноза количества пожаров по дням используйте профильные разделы прогнозирования.</p>
+            <p class="hero-context-note">Панель отражает накопленную картину по выбранным данным и краткий территориальный приоритет на ближайшие {{ management.priority_horizon_days }} дней. Для календарной оценки риска и прогноза количества пожаров по дням используйте профильные разделы прогнозирования.</p>
             <div class="hero-tags">
                 <span class="hero-tag">Таблица: <strong id="heroTableLabel">{{ scope.table_label }}</strong></span>
                 <span class="hero-tag">Год: <strong id="heroYearLabel">{{ scope.year_label }}</strong></span>
                 <span class="hero-tag">Разрез: <strong id="heroGroupLabel">{{ scope.group_label }}</strong></span>
-                <span class="hero-tag">Горизонт приоритета: <strong>14 дней</strong></span>
+                <span class="hero-tag">Горизонт приоритета: <strong id="heroHorizonDays">{{ management.priority_horizon_days }} дней</strong></span>
             </div>
         </div>
 

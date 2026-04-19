@@ -7,6 +7,7 @@ from app.services.executive_brief import (
     empty_executive_brief,
 )
 from app.services.forecast_risk.core import build_decision_support_payload
+from config.constants import PRIORITY_HORIZON_DAYS
 
 from .types import DashboardSection, DashboardTableRef, DistributionResult, SummaryResult
 
@@ -17,6 +18,7 @@ def _build_management_snapshot_payload(
     territories: Optional[List[Dict[str, str]]] = None,
     actions: Optional[List[Dict[str, str]]] = None,
     notes: Optional[List[str]] = None,
+    priority_horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> dict[str, Any]:  # one-off
     resolved_notes = list(notes if notes is not None else brief.get("notes") or [])
     return {
@@ -35,14 +37,18 @@ def _build_management_snapshot_payload(
         "territories": list(territories or []),
         "actions": list(actions or []),
         "notes": resolved_notes,
+        "priority_horizon_days": priority_horizon_days,
         "export_title": brief["export_title"],
         "export_excerpt": brief["export_excerpt"],
         "export_text": "",
     }
 
 
-def _empty_management_snapshot() -> dict[str, Any]:  # one-off
-    return _build_management_snapshot_payload(empty_executive_brief())
+def _empty_management_snapshot(priority_horizon_days: int = PRIORITY_HORIZON_DAYS) -> dict[str, Any]:  # one-off
+    return _build_management_snapshot_payload(
+        empty_executive_brief(),
+        priority_horizon_days=priority_horizon_days,
+    )
 
 
 def _build_management_snapshot(
@@ -52,11 +58,10 @@ def _build_management_snapshot(
     trend: DashboardSection,
     cause_overview: DistributionResult,
     district_widget: DistributionResult,
+    planning_horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> dict[str, Any]:  # one-off
     if not selected_tables:
-        return _empty_management_snapshot()
-
-    planning_horizon_days = 14
+        return _empty_management_snapshot(priority_horizon_days=planning_horizon_days)
     tone_map = {"high": "fire", "medium": "sand", "low": "sky"}
     try:
         risk_payload = build_decision_support_payload(
@@ -71,7 +76,7 @@ def _build_management_snapshot(
             include_historical_validation=False,
         )
     except Exception as exc:
-        fallback = _empty_management_snapshot()
+        fallback = _empty_management_snapshot(priority_horizon_days=planning_horizon_days)
         fallback["summary_line"] = "Краткий территориальный вывод временно недоступен; ниже остаются базовые показатели и графики по выбранному срезу."
         fallback["notes"] = [f"Короткий вывод временно недоступен: {exc}"]
         fallback["brief"]["notes"] = list(fallback["notes"])
@@ -171,6 +176,7 @@ def _build_management_snapshot(
         territories=territories,
         actions=actions[:3],
         notes=list(brief["notes"] or notes),
+        priority_horizon_days=planning_horizon_days,
     )
 
 

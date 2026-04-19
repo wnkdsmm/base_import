@@ -7,12 +7,10 @@
 {% set trend = data.trend %}
 {% set management = data.management %}
 {% set rankings = data.rankings %}
+{% from "includes/chart_macros.html" import render_plotly_chart %}
 {% set sidebar_title = "Панель: интегральный обзор" %}
 {% set sidebar_active = "dashboard" %}
 {% set sidebar_description %}Интегральный обзор выбранного среза данных: ключевые показатели, краткий аналитический вывод и первоочередная территория для профилактических мер. Для календарной оценки риска и прогноза ожидаемого числа пожаров используйте специализированные разделы.{% endset %}
-{% macro render_plotly_chart(container_id) %}
-<div id="{{ container_id }}" class="plotly-chart"></div>
-{% endmacro %}
 
 {% block title %}Панель пожарной обстановки: интегральный обзор{% endblock %}
 

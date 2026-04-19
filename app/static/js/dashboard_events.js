@@ -12,8 +12,9 @@
             var tableSelect = byId('tableFilter');
             var yearSelect = byId('yearFilter');
             var groupColumnSelect = byId('groupColumnFilter');
+            var horizonDaysSelect = byId('horizonDaysFilter');
 
-            [tableSelect, yearSelect, groupColumnSelect].forEach(function (selectNode) {
+            [tableSelect, yearSelect, groupColumnSelect, horizonDaysSelect].forEach(function (selectNode) {
                 if (selectNode) {
                     selectNode.addEventListener('change', function () {
                         if (options && typeof options.onFilterChange === 'function') {

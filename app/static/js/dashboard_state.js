@@ -20,7 +20,8 @@
                 return {
                     table_name: byId('tableFilter') ? byId('tableFilter').value : '',
                     year: byId('yearFilter') ? byId('yearFilter').value : 'all',
-                    group_column: byId('groupColumnFilter') ? byId('groupColumnFilter').value : ''
+                    group_column: byId('groupColumnFilter') ? byId('groupColumnFilter').value : '',
+                    horizon_days: byId('horizonDaysFilter') ? byId('horizonDaysFilter').value : '14'
                 };
             }
 

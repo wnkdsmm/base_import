@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
     var shared = global.FireUi;
     if (!shared || !global.DashboardState || !global.DashboardRender || !global.DashboardEvents) {
         return;
@@ -17,8 +17,8 @@ function buildDashboardApiError(response, payload) {
         const statusCode = Number(errorPayload.status_code || (response && response.status) || 0);
         const fallbackMessage = (
             statusCode >= 500
-                ? 'Не удалось обновить dashboard. Попробуйте повторить запрос.'
-                : 'Не удалось обработать параметры dashboard.'
+                ? 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РґР°РЅРЅС‹Рµ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.'
+                : 'РџСЂРѕРІРµСЂСЊС‚Рµ РїР°СЂР°РјРµС‚СЂС‹ С„РёР»СЊС‚СЂР° Рё РїРѕРІС‚РѕСЂРёС‚Рµ Р·Р°РїСЂРѕСЃ.'
         );
         const message = getApiErrorMessage(payload, fallbackMessage);
         const error = new Error(message);
@@ -30,13 +30,13 @@ function buildDashboardApiError(response, payload) {
 
     function readDashboardPayload(payload) {
         if (!payload || typeof payload !== 'object') {
-            const contractError = new Error('Dashboard API вернул пустой ответ.');
+            const contractError = new Error('РЎРµСЂРІРёСЃ РЅРµ РІРµСЂРЅСѓР» РґР°РЅРЅС‹Рµ. РџСЂРѕРІРµСЂСЊС‚Рµ СЃРѕРµРґРёРЅРµРЅРёРµ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.');
             contractError.dashboardStatusCode = 502;
             throw contractError;
         }
 
         if (payload.bootstrap_mode === 'deferred') {
-            const contractError = new Error('Dashboard API вернул shell вместо готовых данных.');
+            const contractError = new Error('Р”Р°РЅРЅС‹Рµ РµС‰С‘ Р·Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ.');
             contractError.dashboardStatusCode = 502;
             throw contractError;
         }
@@ -49,12 +49,12 @@ function buildDashboardApiError(response, payload) {
             const result = await fetchJson(
                 url,
                 options,
-                'Не удалось обновить dashboard. Попробуйте повторить запрос.'
+                'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РґР°РЅРЅС‹Рµ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.'
             );
             return readDashboardPayload(result.payload);
         } catch (error) {
             if (error instanceof SyntaxError) {
-                const contractError = new Error('Dashboard API вернул пустой ответ.');
+                const contractError = new Error('РЎРµСЂРІРёСЃ РЅРµ РІРµСЂРЅСѓР» РґР°РЅРЅС‹Рµ. РџСЂРѕРІРµСЂСЊС‚Рµ СЃРѕРµРґРёРЅРµРЅРёРµ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.');
                 contractError.dashboardStatusCode = 502;
                 throw contractError;
             }
@@ -99,7 +99,6 @@ async function fetchDashboardData() {
 
     function syncBriefLink() {
         var filters = state.collectSelectedFilters();
-        renderApi.renderFilterSummary();
         renderApi.updateDashboardBriefExport(filters);
         renderApi.updateDashboardScreenLinks(filters);
     }
