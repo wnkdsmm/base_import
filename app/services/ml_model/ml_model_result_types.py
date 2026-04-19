@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields, replace
-from typing import Any, Dict, Iterable, Optional, Self
+from typing import Any, Dict, Iterable, Optional, Self, TypedDict
 
 from .ml_model_interval_types import PredictionIntervalCalibration
 
@@ -120,7 +120,7 @@ class EventComparisonRow(MappingAccessMixin):
 
 
 @dataclass
-class EventScoreMetrics(MappingAccessMixin):
+class EventScoreMetrics:
     brier_score: Optional[float] = None
     roc_auc: Optional[float] = None
     f1: Optional[float] = None
@@ -162,19 +162,22 @@ class EventMetrics(MappingAccessMixin):
         if isinstance(value, cls):
             return value
         value = value or {}
-        selected_metrics_raw = value.get("selected_metrics") or {
+        selected_metrics_raw_value = value.get("selected_metrics")
+        selected_metrics_raw = selected_metrics_raw_value if selected_metrics_raw_value is not None else {
             "brier_score": value.get("brier_score"),
             "roc_auc": value.get("roc_auc"),
             "f1": value.get("f1"),
             "log_loss": value.get("log_loss"),
         }
-        baseline_metrics_raw = value.get("baseline_metrics") or {
+        baseline_metrics_raw_value = value.get("baseline_metrics")
+        baseline_metrics_raw = baseline_metrics_raw_value if baseline_metrics_raw_value is not None else {
             "brier_score": value.get("baseline_brier_score"),
             "roc_auc": value.get("baseline_roc_auc"),
             "f1": value.get("baseline_f1"),
             "log_loss": value.get("baseline_log_loss"),
         }
-        heuristic_metrics_raw = value.get("heuristic_metrics") or {
+        heuristic_metrics_raw_value = value.get("heuristic_metrics")
+        heuristic_metrics_raw = heuristic_metrics_raw_value if heuristic_metrics_raw_value is not None else {
             "brier_score": value.get("heuristic_brier_score"),
             "roc_auc": value.get("heuristic_roc_auc"),
             "f1": value.get("heuristic_f1"),
@@ -347,37 +350,15 @@ class PredictionIntervalCalibrationByHorizon(MappingAccessMixin):
         return cls(by_horizon=dict(value or {}))
 
 
-_STR_FIELDS = [
-    "selection_rule",
-    "event_selection_rule",
-    "prediction_interval_level_display",
-    "prediction_interval_coverage_display",
-    "prediction_interval_method_label",
-    "prediction_interval_coverage_note",
-    "prediction_interval_calibration_range_label",
-    "prediction_interval_evaluation_range_label",
-    "rolling_scheme_label",
-]
-_INT_FIELDS = [
-    "folds",
-    "min_train_rows",
-    "candidate_window_count",
-    "prediction_interval_calibration_windows",
-    "prediction_interval_evaluation_windows",
-]
-_BOOL_FIELDS = [
-    "event_probability_informative",
-    "prediction_interval_coverage_validated",
-]
-_OPTIONAL_FLOAT_FIELDS = [
-    "event_backtest_event_rate",
-    "dispersion_ratio",
-    "prediction_interval_level",
-    "prediction_interval_coverage",
-]
+class _ScalarFieldsMap(TypedDict, total=False):
+    str: list[str]
+    int: list[str]
+    bool: list[str]
+    optional_float: list[str]
 
 
-def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: Dict[str, list[str]]) -> Dict[str, Any]:
+def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: _ScalarFieldsMap) -> Dict[str, Any]:
+    # Shared scalar coercion helper for dataclass `.coerce()` methods.
     kwargs: Dict[str, Any] = {}
     for field_name in cls_fields_map.get("str", []):
         kwargs[field_name] = str(value.get(field_name) or "")
@@ -390,30 +371,37 @@ def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: Dict[str, list[
     return kwargs
 
 
-def _coerce_backtest_overview_complex_fields(value: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "validation_horizon_days": int(value.get("validation_horizon_days") or 1),
-        "validation_horizon_label": str(value.get("validation_horizon_label") or "1 day"),
-        "forecast_horizon_days": int(value.get("forecast_horizon_days") or 1),
-        "forecast_horizon_label": str(value.get("forecast_horizon_label") or "1 day"),
-        "classification_threshold": float(value.get("classification_threshold") or 0.5),
-        "event_probability_note": value.get("event_probability_note"),
-        "event_probability_reason_code": value.get("event_probability_reason_code"),
-        "prediction_interval_validation_scheme_key": value.get("prediction_interval_validation_scheme_key"),
-        "prediction_interval_validation_scheme_label": value.get("prediction_interval_validation_scheme_label"),
-        "prediction_interval_validation_explanation": value.get("prediction_interval_validation_explanation"),
-        "validated_horizon_days": [int(item) for item in value.get("validated_horizon_days", [])],
-        "candidate_model_labels": [str(item) for item in value.get("candidate_model_labels", [])],
-        "candidate_covered_window_count_by_model": dict(value.get("candidate_covered_window_count_by_model") or {}),
-        "candidate_window_coverage_by_model": dict(value.get("candidate_window_coverage_by_model") or {}),
-        "prediction_interval_validated_horizon_days": [int(item) for item in value.get("prediction_interval_validated_horizon_days", [])],
-        "prediction_interval_coverage_by_horizon": dict(value.get("prediction_interval_coverage_by_horizon") or {}),
-        "prediction_interval_coverage_display_by_horizon": dict(value.get("prediction_interval_coverage_display_by_horizon") or {}),
-    }
-
-
 @dataclass
 class BacktestOverview(MappingAccessMixin):
+    _STR_FIELDS = [
+        "selection_rule",
+        "event_selection_rule",
+        "prediction_interval_level_display",
+        "prediction_interval_coverage_display",
+        "prediction_interval_method_label",
+        "prediction_interval_coverage_note",
+        "prediction_interval_calibration_range_label",
+        "prediction_interval_evaluation_range_label",
+        "rolling_scheme_label",
+    ]
+    _INT_FIELDS = [
+        "folds",
+        "min_train_rows",
+        "candidate_window_count",
+        "prediction_interval_calibration_windows",
+        "prediction_interval_evaluation_windows",
+    ]
+    _BOOL_FIELDS = [
+        "event_probability_informative",
+        "prediction_interval_coverage_validated",
+    ]
+    _OPTIONAL_FLOAT_FIELDS = [
+        "event_backtest_event_rate",
+        "dispersion_ratio",
+        "prediction_interval_level",
+        "prediction_interval_coverage",
+    ]
+
     folds: int = 0
     min_train_rows: int = 0
     validation_horizon_days: int = 1
@@ -452,16 +440,41 @@ class BacktestOverview(MappingAccessMixin):
     prediction_interval_coverage_display_by_horizon: Dict[str, str] = field(default_factory=dict)
     rolling_scheme_label: str = ""
 
+    @staticmethod
+    def _coerce_complex_fields(value: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "validation_horizon_days": int(value.get("validation_horizon_days") or 1),
+            "validation_horizon_label": str(value.get("validation_horizon_label") or "1 day"),
+            "forecast_horizon_days": int(value.get("forecast_horizon_days") or 1),
+            "forecast_horizon_label": str(value.get("forecast_horizon_label") or "1 day"),
+            "classification_threshold": float(value.get("classification_threshold") or 0.5),
+            "event_probability_note": value.get("event_probability_note"),
+            "event_probability_reason_code": value.get("event_probability_reason_code"),
+            "prediction_interval_validation_scheme_key": value.get("prediction_interval_validation_scheme_key"),
+            "prediction_interval_validation_scheme_label": value.get("prediction_interval_validation_scheme_label"),
+            "prediction_interval_validation_explanation": value.get("prediction_interval_validation_explanation"),
+            "validated_horizon_days": [int(item) for item in value.get("validated_horizon_days", [])],
+            "candidate_model_labels": [str(item) for item in value.get("candidate_model_labels", [])],
+            "candidate_covered_window_count_by_model": dict(value.get("candidate_covered_window_count_by_model") or {}),
+            "candidate_window_coverage_by_model": dict(value.get("candidate_window_coverage_by_model") or {}),
+            "prediction_interval_validated_horizon_days": [int(item) for item in value.get("prediction_interval_validated_horizon_days", [])],
+            "prediction_interval_coverage_by_horizon": dict(value.get("prediction_interval_coverage_by_horizon") or {}),
+            "prediction_interval_coverage_display_by_horizon": dict(value.get("prediction_interval_coverage_display_by_horizon") or {}),
+        }
+
     @classmethod
     def coerce(cls, value: Any) -> "BacktestOverview":
         if isinstance(value, cls):
             return value
         value = value or {}
-        kwargs = _coerce_scalar_fields(
-            value,
-            {"str": _STR_FIELDS, "int": _INT_FIELDS, "bool": _BOOL_FIELDS, "optional_float": _OPTIONAL_FLOAT_FIELDS},
-        )
-        kwargs.update(_coerce_backtest_overview_complex_fields(value))
+        scalar_fields_map: _ScalarFieldsMap = {
+            "str": cls._STR_FIELDS,
+            "int": cls._INT_FIELDS,
+            "bool": cls._BOOL_FIELDS,
+            "optional_float": cls._OPTIONAL_FLOAT_FIELDS,
+        }
+        kwargs = _coerce_scalar_fields(value, scalar_fields_map)
+        kwargs.update(cls._coerce_complex_fields(value))
         return cls(**kwargs)
 
 
