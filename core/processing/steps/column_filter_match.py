@@ -383,14 +383,7 @@ class NatashaColumnMatcher:
     def _prepare_registry_feature(self, feature: MandatoryFeatureSpec) -> MandatoryFeatureSpec:
         return _prepare_registry_feature_payload(feature, self._normalize_text, self._extract_words)
 
-    def _ensure_caches_initialized(self) -> None:
-        if not hasattr(self, "_terms_cache"):
-            self._terms_cache = {}
-        if not hasattr(self, "_group_catalog_cache"):
-            self._group_catalog_cache = {}
-
     def _column_terms(self, column_name: str) -> ColumnTermPayload:
-        self._ensure_caches_initialized()
         cached_payload = self._terms_cache.get(column_name)
         if cached_payload is not None:
             return cached_payload
@@ -530,7 +523,6 @@ class NatashaColumnMatcher:
         )
 
     def get_group_catalog(self, columns: List[str]) -> List[Dict[str, object]]:
-        self._ensure_caches_initialized()
         cache_key = frozenset(columns)
         cached_catalog = self._group_catalog_cache.get(cache_key)
         if cached_catalog is not None:

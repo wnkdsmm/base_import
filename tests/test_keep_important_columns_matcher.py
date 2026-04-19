@@ -11,6 +11,8 @@ DISTRICT_LABEL = "\u0420\u0430\u0439\u043e\u043d"
 class _CheapColumnMatcher(NatashaColumnMatcher):
     def __init__(self):
         self.column_term_calls = []
+        self._terms_cache = {}
+        self._group_catalog_cache = {}
         self.category_lemmas = {
             rule["id"]: {
                 lemma
