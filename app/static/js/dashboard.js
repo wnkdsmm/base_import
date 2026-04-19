@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
     var shared = global.FireUi;
     if (!shared || !global.DashboardState || !global.DashboardRender || !global.DashboardEvents) {
         return;
@@ -17,8 +17,8 @@ function buildDashboardApiError(response, payload) {
         const statusCode = Number(errorPayload.status_code || (response && response.status) || 0);
         const fallbackMessage = (
             statusCode >= 500
-                ? 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РґР°РЅРЅС‹Рµ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.'
-                : 'РџСЂРѕРІРµСЂСЊС‚Рµ РїР°СЂР°РјРµС‚СЂС‹ С„РёР»СЊС‚СЂР° Рё РїРѕРІС‚РѕСЂРёС‚Рµ Р·Р°РїСЂРѕСЃ.'
+                ? 'Не удалось обновить данные. Попробуйте повторить запрос.'
+                : 'Проверьте параметры фильтра и повторите запрос.'
         );
         const message = getApiErrorMessage(payload, fallbackMessage);
         const error = new Error(message);
@@ -30,13 +30,13 @@ function buildDashboardApiError(response, payload) {
 
     function readDashboardPayload(payload) {
         if (!payload || typeof payload !== 'object') {
-            const contractError = new Error('РЎРµСЂРІРёСЃ РЅРµ РІРµСЂРЅСѓР» РґР°РЅРЅС‹Рµ. РџСЂРѕРІРµСЂСЊС‚Рµ СЃРѕРµРґРёРЅРµРЅРёРµ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.');
+            const contractError = new Error('Сервис не вернул данные. Проверьте соединение и попробуйте снова.');
             contractError.dashboardStatusCode = 502;
             throw contractError;
         }
 
         if (payload.bootstrap_mode === 'deferred') {
-            const contractError = new Error('Р”Р°РЅРЅС‹Рµ РµС‰С‘ Р·Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ.');
+            const contractError = new Error('Данные ещё загружаются. Обновите страницу через несколько секунд.');
             contractError.dashboardStatusCode = 502;
             throw contractError;
         }
@@ -49,12 +49,12 @@ function buildDashboardApiError(response, payload) {
             const result = await fetchJson(
                 url,
                 options,
-                'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РґР°РЅРЅС‹Рµ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.'
+                'Не удалось обновить данные. Попробуйте повторить запрос.'
             );
             return readDashboardPayload(result.payload);
         } catch (error) {
             if (error instanceof SyntaxError) {
-                const contractError = new Error('РЎРµСЂРІРёСЃ РЅРµ РІРµСЂРЅСѓР» РґР°РЅРЅС‹Рµ. РџСЂРѕРІРµСЂСЊС‚Рµ СЃРѕРµРґРёРЅРµРЅРёРµ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.');
+                const contractError = new Error('Сервис не вернул данные. Проверьте соединение и попробуйте снова.');
                 contractError.dashboardStatusCode = 502;
                 throw contractError;
             }

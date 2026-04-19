@@ -237,6 +237,8 @@ def _build_dashboard_payload(
     available_group_columns: list[DashboardOption],
     horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardPayload:
+    from .dashboard_service_data import _build_horizon_day_options
+
     summary = aggregation["summary"]
     scope = aggregation["scope"]
     trend = aggregation["trend"]
@@ -290,11 +292,7 @@ def _build_dashboard_payload(
             "available_tables": metadata["table_options"],
             "available_years": available_years,
             "available_group_columns": available_group_columns,
-            "available_horizon_days": [
-                {"value": "7", "label": "7 дней"},
-                {"value": "14", "label": "14 дней"},
-                {"value": "30", "label": "30 дней"},
-            ],
+            "available_horizon_days": _build_horizon_day_options(),
         },
         "notes": notes,
     }
@@ -304,6 +302,8 @@ def _empty_dashboard_data(
     *,
     horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> DashboardPayload:
+    from .dashboard_service_data import _build_horizon_day_options
+
     return {
         "generated_at": _format_datetime(datetime.now()),
         "has_data": False,
@@ -395,11 +395,7 @@ def _empty_dashboard_data(
             "available_tables": [{"value": "all", "label": "Все таблицы"}],
             "available_years": [],
             "available_group_columns": [],
-            "available_horizon_days": [
-                {"value": "7", "label": "7 дней"},
-                {"value": "14", "label": "14 дней"},
-                {"value": "30", "label": "30 дней"},
-            ],
+            "available_horizon_days": _build_horizon_day_options(),
         },
         "notes": [error_message] if error_message else [],
     }

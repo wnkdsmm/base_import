@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.js]
+charset = utf-8
+# BOM запрещён: никогда не сохранять как UTF-8 with BOM
+
+[*.html]
+indent_size = 2
+
+[*.css]
+indent_size = 4
+
+[*.py]
+indent_size = 4
