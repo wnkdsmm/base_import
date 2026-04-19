@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections import OrderedDict
+import threading
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from natasha import MorphVocab, Doc, Segmenter, NewsEmbedding, NewsMorphTagger
 
-from .column_definitions import (
+from app.domain.column_matching import (
     COLUMN_CATEGORY_RULES,
     FALLBACK_IMPORTANT_PATTERNS,
     KEYWORD_IMPORTANCE_RULES,
@@ -37,6 +39,7 @@ from ...types import (
 )
 
 _COLUMN_MATCHER: Optional["NatashaColumnMatcher"] = None
+_COLUMN_MATCHER_LOCK = threading.Lock()
 _CATEGORY_ID_TO_LABEL: dict[str, str] = {
     rule["id"]: rule["label"] for rule in COLUMN_CATEGORY_RULES
 }
@@ -350,8 +353,8 @@ def _collect_column_matches(
 
 class NatashaColumnMatcher:
     """Переиспользуемый Natasha-поиск и доменный матчер по названиям колонок."""
-    _terms_cache: dict[str, ColumnTermPayload]
-    _group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]]
+    _terms_cache: OrderedDict[str, ColumnTermPayload]
+    _group_catalog_cache: OrderedDict[frozenset[str], List[Dict[str, object]]]
 
     def __init__(self):
         self.morph_vocab = MorphVocab()
@@ -360,8 +363,8 @@ class NatashaColumnMatcher:
         self.morph_tagger = NewsMorphTagger(self.emb)
         self.category_lemmas = _build_category_lemma_map(COLUMN_CATEGORY_RULES, self._lemmatize_text)
         self.mandatory_registry = [self._prepare_registry_feature(feature) for feature in MANDATORY_FEATURE_REGISTRY]
-        self._terms_cache: dict[str, ColumnTermPayload] = {}
-        self._group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]] = {}
+        self._terms_cache: OrderedDict[str, ColumnTermPayload] = OrderedDict()
+        self._group_catalog_cache: OrderedDict[frozenset[str], List[Dict[str, object]]] = OrderedDict()
 
     def _lemmatize_text(self, value: str) -> List[str]:
         lemmas: List[str] = []
@@ -386,11 +389,8 @@ class NatashaColumnMatcher:
     def _column_terms(self, column_name: str) -> ColumnTermPayload:
         cached_payload = self._terms_cache.get(column_name)
         if cached_payload is not None:
+            self._terms_cache.move_to_end(column_name)
             return cached_payload
-
-        if len(self._terms_cache) >= 4096:
-            oldest_key = next(iter(self._terms_cache))
-            del self._terms_cache[oldest_key]
 
         payload = _build_column_term_payload(
             column_name,
@@ -399,6 +399,8 @@ class NatashaColumnMatcher:
             self._lemmatize_text,
         )
         self._terms_cache[column_name] = payload
+        if len(self._terms_cache) > 4096:
+            self._terms_cache.popitem(last=False)
         return payload
 
     def _match_mandatory_feature(self, column_payload: ColumnTermPayload) -> Optional[ColumnMatchMetadata]:
@@ -526,11 +528,8 @@ class NatashaColumnMatcher:
         cache_key = frozenset(columns)
         cached_catalog = self._group_catalog_cache.get(cache_key)
         if cached_catalog is not None:
+            self._group_catalog_cache.move_to_end(cache_key)
             return cached_catalog
-
-        if len(self._group_catalog_cache) >= 32:
-            oldest_key = next(iter(self._group_catalog_cache))
-            del self._group_catalog_cache[oldest_key]
 
         grouped_columns = _build_grouped_columns_by_category(
             columns,
@@ -543,6 +542,8 @@ class NatashaColumnMatcher:
             for rule in COLUMN_CATEGORY_RULES
         ]
         self._group_catalog_cache[cache_key] = result
+        if len(self._group_catalog_cache) > 32:
+            self._group_catalog_cache.popitem(last=False)
         return result
 
     def get_mandatory_feature_catalog(self) -> List[Dict[str, object]]:
@@ -572,8 +573,11 @@ class NatashaColumnMatcher:
 def get_column_matcher() -> NatashaColumnMatcher:
     global _COLUMN_MATCHER
     if _COLUMN_MATCHER is None:
-        _COLUMN_MATCHER = NatashaColumnMatcher()
+        with _COLUMN_MATCHER_LOCK:
+            if _COLUMN_MATCHER is None:
+                _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
+
 
 
 

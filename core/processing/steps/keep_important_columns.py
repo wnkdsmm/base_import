@@ -8,17 +8,19 @@ import pandas as pd
 
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from core.processing.pipeline import PipelineStep
-
-from .column_definitions import (
+from app.domain.column_matching import (
     COLUMN_CATEGORY_RULES,
     FALLBACK_IMPORTANT_PATTERNS,
     KEYWORD_IMPORTANCE_RULES,
     LEGACY_EXPLICIT_IMPORTANT_COLUMNS,
     MANDATORY_FEATURE_REGISTRY,
+    get_mandatory_feature_catalog,
+)
+
+from .column_definitions import (
     PROTECTED_REPORT_COLUMNS,
     PROTECTION_REPORT_DEFAULTS,
     PROTECTION_TEXT_COLUMNS,
-    get_mandatory_feature_catalog,
 )
 from .column_filters import (
     NatashaColumnMatcher,
@@ -27,9 +29,7 @@ from .column_filters import (
 from .column_transforms import (
     apply_match_results,
     build_protected_report,
-    coerce_bool_series,
     coerce_report_bool_columns,
-    coerce_text_series,
     ensure_report_columns,
 )
 from ...types import ColumnMatchMetadata, KeepImportantColumnsResult
@@ -48,18 +48,6 @@ class KeepImportantColumnsStep(PipelineStep):
     def __init__(self):
         super().__init__("Keep Important Columns Report")
         self.matcher = get_column_matcher()
-
-    def _coerce_bool_series(self, series: pd.Series) -> pd.Series:
-        return coerce_bool_series(series)
-
-    def _coerce_text_series(self, series: pd.Series) -> pd.Series:
-        return coerce_text_series(series)
-
-    def _ensure_report_columns(self, profile_df: pd.DataFrame) -> pd.DataFrame:
-        return ensure_report_columns(profile_df)
-
-    def _build_protected_report(self, profile_df: pd.DataFrame) -> pd.DataFrame:
-        return build_protected_report(profile_df)
 
     def run(self, settings, profile_df: Optional[pd.DataFrame] = None) -> KeepImportantColumnsResult:
         output_folder = settings.output_folder
@@ -85,11 +73,9 @@ class KeepImportantColumnsStep(PipelineStep):
             if isinstance(cached_profile_df, pd.DataFrame):
                 resolved_profile_df = cached_profile_df
         if resolved_profile_df is None:
-            if not os.path.exists(profile_csv):
-                raise FileNotFoundError(f"Не найден отчёт профилирования: {profile_csv}")
             resolved_profile_df = pd.read_csv(profile_csv)
 
-        profile_df = self._ensure_report_columns(resolved_profile_df.copy())
+        profile_df = ensure_report_columns(resolved_profile_df.copy())
 
         if "candidate_to_drop" not in profile_df.columns:
             raise KeyError("В отчете отсутствует колонка 'candidate_to_drop'")
@@ -107,7 +93,7 @@ class KeepImportantColumnsStep(PipelineStep):
             by=["protected_from_drop", "candidate_to_drop", "null_ratio", "dominant_ratio"],
             ascending=[False, False, False, False],
         )
-        protected_df = self._build_protected_report(profile_df_sorted)
+        protected_df = build_protected_report(profile_df_sorted)
 
         profile_df_sorted.to_csv(updated_csv, index=False, encoding="utf-8-sig")
         profile_df_sorted.to_excel(updated_xlsx, index=False, engine="openpyxl")
@@ -146,3 +132,4 @@ class KeepImportantColumnsStep(PipelineStep):
             "protected_count": len(protected_columns),
             "mandatory_feature_catalog": self.matcher.get_mandatory_feature_catalog(),
         }
+

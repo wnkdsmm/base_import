@@ -6,28 +6,16 @@ from typing import Callable, Dict, List, Set
 from ...types import CategoryRule, ColumnTermPayload, MandatoryFeatureSpec
 
 def _normalize_column_text(value: str) -> str:
-    text = str(value).lower().replace("?", " ")
-    text = re.sub(r"[_/#-]+", " ", text)
-    text = re.sub(r"[^\w\s]+", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    text = re.sub(r"[?_/#\-]|[^\w\s]+", " ", str(value).lower())
+    return re.sub(r"\s+", " ", text).strip()
 
 def _extract_word_tokens(value: str) -> List[str]:
-    return [word for word in re.findall(r"\w+", value) if word]
+    return re.findall(r"\w+", value)
 
 def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, Set[str], Set[str]]:
     normalized_name = column_payload.get("normalized_name", "")
-    if not isinstance(normalized_name, str):
-        normalized_name = str(normalized_name)
-
     words = column_payload.get("words", set())
-    if not isinstance(words, set):
-        words = {str(word) for word in words}
-
     lemmas = column_payload.get("lemmas", set())
-    if not isinstance(lemmas, set):
-        lemmas = {str(lemma) for lemma in lemmas}
-
     return normalized_name, words, lemmas
 
 def _prepare_synonym_payloads(
@@ -35,11 +23,10 @@ def _prepare_synonym_payloads(
     normalize_text: Callable[[str], str],
     extract_words: Callable[[str], List[str]],
 ) -> List[Dict[str, object]]:
-    prepared = []
-    for synonym in synonyms:
-        normalized = normalize_text(synonym)
-        prepared.append({"raw": synonym, "normalized": normalized, "tokens": extract_words(normalized)})
-    return prepared
+    return [
+        {"raw": s, "normalized": (n := normalize_text(s)), "tokens": extract_words(n)}
+        for s in synonyms
+    ]
 
 def _prepare_token_sets(token_sets: List[List[str]], normalize_text: Callable[[str], str]) -> List[List[str]]:
     return [[normalize_text(token) for token in token_set if token] for token_set in token_sets]
