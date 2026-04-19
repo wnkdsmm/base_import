@@ -350,6 +350,8 @@ def _collect_column_matches(
 
 class NatashaColumnMatcher:
     """Переиспользуемый Natasha-поиск и доменный матчер по названиям колонок."""
+    _terms_cache: dict[str, ColumnTermPayload] = {}
+    _group_catalog_cache: dict[frozenset[str], List[Dict[str, object]]] = {}
 
     def __init__(self):
         self.morph_vocab = MorphVocab()
@@ -386,6 +388,10 @@ class NatashaColumnMatcher:
         if cached_payload is not None:
             return cached_payload
 
+        if len(self._terms_cache) >= 4096:
+            oldest_key = next(iter(self._terms_cache))
+            del self._terms_cache[oldest_key]
+
         payload = _build_column_term_payload(
             column_name,
             self._normalize_text,
@@ -393,8 +399,6 @@ class NatashaColumnMatcher:
             self._lemmatize_text,
         )
         self._terms_cache[column_name] = payload
-        if len(self._terms_cache) > 4096:
-            self._terms_cache.clear()
         return payload
 
 
@@ -502,13 +506,33 @@ class NatashaColumnMatcher:
             group_ids=group_ids,
         )
 
+    def _build_column_category_match(
+        self,
+        column_name: str,
+        column_payload: ColumnTermPayload,
+        wanted: set[str],
+    ) -> Optional[Dict[str, object]]:
+        matched = [
+            gid for gid in self._classify_column_payload_groups(column_payload)
+            if gid in wanted
+        ]
+        if not matched:
+            return None
+        return _build_column_category_result(
+            column_name=column_name,
+            matched_groups=matched,
+            important_label=self._important_label_from_payload(column_payload) or "",
+        )
+
     def get_group_catalog(self, columns: List[str]) -> List[Dict[str, object]]:
-        if not hasattr(self, "_group_catalog_cache"):
-            self._group_catalog_cache = {}
         cache_key = frozenset(columns)
         cached_catalog = self._group_catalog_cache.get(cache_key)
         if cached_catalog is not None:
             return cached_catalog
+
+        if len(self._group_catalog_cache) >= 32:
+            oldest_key = next(iter(self._group_catalog_cache))
+            del self._group_catalog_cache[oldest_key]
 
         grouped_columns = _build_grouped_columns_by_category(
             columns,
@@ -521,8 +545,6 @@ class NatashaColumnMatcher:
             for rule in COLUMN_CATEGORY_RULES
         ]
         self._group_catalog_cache[cache_key] = result
-        if len(self._group_catalog_cache) > 32:
-            self._group_catalog_cache.clear()
         return result
 
     def get_mandatory_feature_catalog(self) -> List[Dict[str, object]]:
@@ -535,15 +557,7 @@ class NatashaColumnMatcher:
         return _collect_column_matches(
             columns,
             self._column_terms,
-            lambda column_name, column_payload: (
-                None
-                if not (matched := [gid for gid in self._classify_column_payload_groups(column_payload) if gid in wanted])
-                else _build_column_category_result(
-                    column_name=column_name,
-                    matched_groups=matched,
-                    important_label=self._important_label_from_payload(column_payload) or "",
-                )
-            ),
+            lambda column_name, column_payload: self._build_column_category_match(column_name, column_payload, wanted),
         )
 
     def find_columns_by_query(self, columns: List[str], query_text: str) -> List[Dict[str, object]]:
@@ -562,4 +576,5 @@ def get_column_matcher() -> NatashaColumnMatcher:
     if _COLUMN_MATCHER is None:
         _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
+
 

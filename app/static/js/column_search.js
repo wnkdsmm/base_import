@@ -315,7 +315,12 @@
 
         const selectedUnion = getSelectedColumnsUnion();
         node.innerHTML = columns.map(function (item) {
-            const checked = selectedUnion.has(item.name) ? 'checked' : '';
+            const isChecked = selectedUnion.has(item.name);
+            const checked = isChecked ? 'checked' : '';
+            const isExcluded = state.excludedColumns.has(item.name);
+            const cardClass = 'column-match-card'
+                + (isChecked ? ' selected' : '')
+                + (isExcluded ? ' excluded' : '');
             const matchedTerms = Array.isArray(item.matched_terms) && item.matched_terms.length
                 ? item.matched_terms.map(function (term) {
                     return '<span class="column-tag">' + escapeHtml(term) + '</span>';
@@ -331,7 +336,7 @@
             const matchModeLabel = item.match_mode === 'group' ? 'group' : 'query';
 
             return '' +
-                '<label class="column-match-card">' +
+                '<label class="' + cardClass + '">' +
                     '<input class="column-match-checkbox" type="checkbox" data-column-name="' + escapeHtml(item.name) + '" ' + checked + '>' +
                     '<span class="column-match-body">' +
                         '<strong class="column-match-name">' + escapeHtml(item.name) + '</strong>' +
@@ -362,8 +367,10 @@
                     }
                 }
 
+                const isGroupProvided = isColumnProvidedBySelectedGroup(name);
                 if (card) {
                     card.classList.toggle('selected', event.target.checked);
+                    card.classList.toggle('excluded', !event.target.checked && isGroupProvided);
                 }
                 updateSelectionSummary();
                 refreshPreviewForSelection();
@@ -554,3 +561,4 @@
         }
     });
 })();
+
