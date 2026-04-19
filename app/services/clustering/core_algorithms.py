@@ -83,6 +83,7 @@ def _run_clustering_model_bundle(
     actual_algorithm_key: str,
     actual_weighting_strategy: str,
     method_comparison: Sequence[ClusteringMethodRow] | None = None,
+    prepared_model_inputs: tuple[Any, Any, Any, Any, Any] | None = None,
 ) -> ClusteringRuntimeBundle:
     runtime_feature_context = _build_runtime_clustering_context(
         feature_selection_report,
@@ -97,6 +98,7 @@ def _run_clustering_model_bundle(
         weighting_strategy=actual_weighting_strategy,
         algorithm_key=actual_algorithm_key,
         method_key=actual_method_key,
+        prepared_model_inputs=prepared_model_inputs,
     )
     if method_comparison is None:
         method_comparison = _compare_clustering_methods(
@@ -155,6 +157,7 @@ def _run_clustering_diagnostics_bundle(
     feature_selection_report: FeatureSelectionReport,
     requested_working_cluster_count: int,
     cluster_count_is_explicit: bool,
+    prepared_model_inputs: tuple[Any, Any, Any, Any, Any] | None = None,
 ) -> ClusteringDiagnosticsRuntimeBundle:
     weighting_strategy = str(feature_selection_report.get("weighting_strategy") or "")
     diagnostics = _evaluate_cluster_counts(
@@ -188,6 +191,7 @@ def _run_clustering_diagnostics_bundle(
         actual_algorithm_key=actual_algorithm_key,
         actual_weighting_strategy=actual_weighting_strategy,
         method_comparison=method_comparison,
+        prepared_model_inputs=prepared_model_inputs,
     )
     return {
         **model_bundle,
@@ -209,6 +213,7 @@ def _run_clustering_model_stage(
     requested_working_cluster_count: int,
     cluster_count_is_explicit: bool,
     perf: Any,
+    prepared_model_inputs: tuple[Any, Any, Any, Any, Any] | None = None,
 ) -> ClusteringDiagnosticsRuntimeBundle:
     with (perf.span("model_training") if perf is not None else nullcontext()):
         return _run_clustering_diagnostics_bundle(
@@ -217,4 +222,5 @@ def _run_clustering_model_stage(
             feature_selection_report=feature_selection_report,
             requested_working_cluster_count=requested_working_cluster_count,
             cluster_count_is_explicit=cluster_count_is_explicit,
+            prepared_model_inputs=prepared_model_inputs,
         )

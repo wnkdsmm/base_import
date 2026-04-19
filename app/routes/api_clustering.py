@@ -32,7 +32,7 @@ _FAILED_CLUSTERING_JOB_MESSAGE = (
 
 def _build_clustering_api_payload(**kwargs):
     payload = get_clustering_data(**kwargs)
-    payload.setdefault("pca_projection", [])  # New key retained in API JSON for downstream thesis export.
+    payload.setdefault("pca_projection", {"points": [], "explained_variance": [0.0, 0.0]})  # New key retained in API JSON for downstream thesis export.
     return payload
 
 

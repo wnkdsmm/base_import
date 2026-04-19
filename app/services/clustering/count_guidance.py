@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
@@ -51,7 +51,7 @@ def _build_cluster_count_guidance_context(
 
 
 def _cluster_count_suggested_label(cluster_count_is_explicit: bool) -> str:
-    return "Автоматический выбор" if not cluster_count_is_explicit else "Рекомендуемое значение"
+    return "РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРёР№ РІС‹Р±РѕСЂ" if not cluster_count_is_explicit else "Р РµРєРѕРјРµРЅРґСѓРµРјРѕРµ Р·РЅР°С‡РµРЅРёРµ"
 
 
 def _initial_cluster_count_recommendation_messages(
@@ -61,8 +61,8 @@ def _initial_cluster_count_recommendation_messages(
 ) -> ClusterCountRecommendationMessages:
     return {
         "suggested_label": _cluster_count_suggested_label(cluster_count_is_explicit),
-        "suggested_note": "Рекомендация по числу групп появится, когда хватит данных для сравнения нескольких вариантов.",
-        "current_note": f"Сейчас страница показывает {current_cluster_count} группы.",
+        "suggested_note": "Р РµРєРѕРјРµРЅРґР°С†РёСЏ РїРѕ С‡РёСЃР»Сѓ РіСЂСѓРїРї РїРѕСЏРІРёС‚СЃСЏ, РєРѕРіРґР° С…РІР°С‚РёС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃСЂР°РІРЅРµРЅРёСЏ РЅРµСЃРєРѕР»СЊРєРёС… РІР°СЂРёР°РЅС‚РѕРІ.",
+        "current_note": f"РЎРµР№С‡Р°СЃ СЃС‚СЂР°РЅРёС†Р° РїРѕРєР°Р·С‹РІР°РµС‚ {current_cluster_count} РіСЂСѓРїРїС‹.",
         "quality_note": "",
         "notes_message": "",
         "model_note": "",
@@ -75,53 +75,67 @@ def _recommended_cluster_count_messages(
     cluster_count_is_explicit: bool,
 ) -> ClusterCountRecommendationMessages:
     recommended_k = context["recommended_k"]
+    best_gap_k = context["best_gap_k"]
     current_cluster_count = context["current_cluster_count"]
     adjusted_requested_cluster_count = context["adjusted_requested_cluster_count"]
     recommendation_gap = context["recommendation_gap"]
     auto_switched_to_recommended = context["auto_switched_to_recommended"]
 
+    def _append_gap_note(note: str) -> str:
+        if best_gap_k is None:
+            return note
+        if best_gap_k == recommended_k:
+            gap_note = f"Gap statistic РїРѕРґС‚РІРµСЂР¶РґР°РµС‚ СЂРµРєРѕРјРµРЅРґР°С†РёСЋ: k={recommended_k}."
+        else:
+            gap_note = (
+                f"РџРѕ РєСЂРёС‚РµСЂРёСЋ Gap statistic РѕРїС‚РёРјР°Р»СЊРЅРѕ k={best_gap_k}, "
+                f"РїРѕ СЃРѕРІРѕРєСѓРїРЅРѕРјСѓ РєР°С‡РµСЃС‚РІСѓ вЂ” k={recommended_k}."
+            )
+        return gap_note if not note else f"{note} {gap_note}".strip()
+
     if cluster_count_is_explicit and recommendation_gap:
         quality_note = (
-            f"Выбранное вручную число групп ({_format_integer(current_cluster_count)}) не совпадает с рекомендацией; "
-            f"по совокупности метрик лучше выглядит k={_format_integer(recommended_k)}."
+            f"Р’С‹Р±СЂР°РЅРЅРѕРµ РІСЂСѓС‡РЅСѓСЋ С‡РёСЃР»Рѕ РіСЂСѓРїРї ({_format_integer(current_cluster_count)}) РЅРµ СЃРѕРІРїР°РґР°РµС‚ СЃ СЂРµРєРѕРјРµРЅРґР°С†РёРµР№; "
+            f"РїРѕ СЃРѕРІРѕРєСѓРїРЅРѕСЃС‚Рё РјРµС‚СЂРёРє Р»СѓС‡С€Рµ РІС‹РіР»СЏРґРёС‚ k={_format_integer(recommended_k)}."
         )
         return {
             "suggested_note": (
-                f"Диагностика рекомендует {recommended_k} группы, "
-                f"но сейчас сохранено выбранное вручную значение: {current_cluster_count}."
+                f"Р”РёР°РіРЅРѕСЃС‚РёРєР° СЂРµРєРѕРјРµРЅРґСѓРµС‚ {recommended_k} РіСЂСѓРїРїС‹, "
+                f"РЅРѕ СЃРµР№С‡Р°СЃ СЃРѕС…СЂР°РЅРµРЅРѕ РІС‹Р±СЂР°РЅРЅРѕРµ РІСЂСѓС‡РЅСѓСЋ Р·РЅР°С‡РµРЅРёРµ: {current_cluster_count}."
             ),
             "current_note": (
-                f"Сейчас используется выбранное вручную значение: {current_cluster_count} группы; "
-                f"диагностика советует {recommended_k}."
+                f"РЎРµР№С‡Р°СЃ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІС‹Р±СЂР°РЅРЅРѕРµ РІСЂСѓС‡РЅСѓСЋ Р·РЅР°С‡РµРЅРёРµ: {current_cluster_count} РіСЂСѓРїРїС‹; "
+                f"РґРёР°РіРЅРѕСЃС‚РёРєР° СЃРѕРІРµС‚СѓРµС‚ {recommended_k}."
             ),
             "quality_note": quality_note,
             "model_note": (
-                f"Число групп зафиксировано вручную на уровне {current_cluster_count}, "
-                "поэтому страница не переключает его автоматически."
+                f"Р§РёСЃР»Рѕ РіСЂСѓРїРї Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ РІСЂСѓС‡РЅСѓСЋ РЅР° СѓСЂРѕРІРЅРµ {current_cluster_count}, "
+                "РїРѕСЌС‚РѕРјСѓ СЃС‚СЂР°РЅРёС†Р° РЅРµ РїРµСЂРµРєР»СЋС‡Р°РµС‚ РµРіРѕ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё."
             ),
             "notes_message": quality_note,
         }
 
     if cluster_count_is_explicit:
-        quality_note = f"Выбранное вручную число групп ({_format_integer(current_cluster_count)}) совпадает с рекомендацией."
+        quality_note = f"Р’С‹Р±СЂР°РЅРЅРѕРµ РІСЂСѓС‡РЅСѓСЋ С‡РёСЃР»Рѕ РіСЂСѓРїРї ({_format_integer(current_cluster_count)}) СЃРѕРІРїР°РґР°РµС‚ СЃ СЂРµРєРѕРјРµРЅРґР°С†РёРµР№."
         return {
-            "suggested_note": f"Диагностика подтверждает выбранное вручную значение: {current_cluster_count} группы.",
-            "current_note": f"Сейчас используется выбранное вручную значение: {current_cluster_count} группы, и оно совпадает с рекомендацией.",
+            "suggested_note": f"Р”РёР°РіРЅРѕСЃС‚РёРєР° РїРѕРґС‚РІРµСЂР¶РґР°РµС‚ РІС‹Р±СЂР°РЅРЅРѕРµ РІСЂСѓС‡РЅСѓСЋ Р·РЅР°С‡РµРЅРёРµ: {current_cluster_count} РіСЂСѓРїРїС‹.",
+            "current_note": f"РЎРµР№С‡Р°СЃ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІС‹Р±СЂР°РЅРЅРѕРµ РІСЂСѓС‡РЅСѓСЋ Р·РЅР°С‡РµРЅРёРµ: {current_cluster_count} РіСЂСѓРїРїС‹, Рё РѕРЅРѕ СЃРѕРІРїР°РґР°РµС‚ СЃ СЂРµРєРѕРјРµРЅРґР°С†РёРµР№.",
             "quality_note": quality_note,
-            "model_note": f"Число групп задано вручную: {current_cluster_count}. Это же значение рекомендует диагностика.",
+            "model_note": f"Р§РёСЃР»Рѕ РіСЂСѓРїРї Р·Р°РґР°РЅРѕ РІСЂСѓС‡РЅСѓСЋ: {current_cluster_count}. Р­С‚Рѕ Р¶Рµ Р·РЅР°С‡РµРЅРёРµ СЂРµРєРѕРјРµРЅРґСѓРµС‚ РґРёР°РіРЅРѕСЃС‚РёРєР°.",
             "notes_message": quality_note,
         }
 
-    suggested_note = f"Автоматический выбор использует {current_cluster_count} группы как лучший вариант по совокупности метрик."
+    suggested_note = f"РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРёР№ РІС‹Р±РѕСЂ РёСЃРїРѕР»СЊР·СѓРµС‚ {current_cluster_count} РіСЂСѓРїРїС‹ РєР°Рє Р»СѓС‡С€РёР№ РІР°СЂРёР°РЅС‚ РїРѕ СЃРѕРІРѕРєСѓРїРЅРѕСЃС‚Рё РјРµС‚СЂРёРє."
     if auto_switched_to_recommended:
         quality_note = (
-            "Страница автоматически подстроила число групп под рекомендацию диагностики: "
-            f"вместо стартового k={_format_integer(adjusted_requested_cluster_count)} "
-            f"используется k={_format_integer(current_cluster_count)}."
+            "РЎС‚СЂР°РЅРёС†Р° Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРѕРґСЃС‚СЂРѕРёР»Р° С‡РёСЃР»Рѕ РіСЂСѓРїРї РїРѕРґ СЂРµРєРѕРјРµРЅРґР°С†РёСЋ РґРёР°РіРЅРѕСЃС‚РёРєРё: "
+            f"РІРјРµСЃС‚Рѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ k={_format_integer(adjusted_requested_cluster_count)} "
+            f"РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ k={_format_integer(current_cluster_count)}."
         )
+        quality_note = _append_gap_note(quality_note)
         model_note = (
-            f"По умолчанию страница показывает рекомендованное число групп: {current_cluster_count} "
-            f"вместо стартового {adjusted_requested_cluster_count}."
+            f"РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ СЃС‚СЂР°РЅРёС†Р° РїРѕРєР°Р·С‹РІР°РµС‚ СЂРµРєРѕРјРµРЅРґРѕРІР°РЅРЅРѕРµ С‡РёСЃР»Рѕ РіСЂСѓРїРї: {current_cluster_count} "
+            f"РІРјРµСЃС‚Рѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ {adjusted_requested_cluster_count}."
         )
         return {
             "suggested_note": suggested_note,
@@ -132,10 +146,11 @@ def _recommended_cluster_count_messages(
         }
 
     quality_note = (
-        "Текущее число групп уже совпадает с рекомендацией диагностики: "
+        "РўРµРєСѓС‰РµРµ С‡РёСЃР»Рѕ РіСЂСѓРїРї СѓР¶Рµ СЃРѕРІРїР°РґР°РµС‚ СЃ СЂРµРєРѕРјРµРЅРґР°С†РёРµР№ РґРёР°РіРЅРѕСЃС‚РёРєРё: "
         f"k={_format_integer(current_cluster_count)}."
     )
-    model_note = f"По умолчанию страница показывает рекомендованное число групп: {current_cluster_count}."
+    quality_note = _append_gap_note(quality_note)
+    model_note = f"РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ СЃС‚СЂР°РЅРёС†Р° РїРѕРєР°Р·С‹РІР°РµС‚ СЂРµРєРѕРјРµРЅРґРѕРІР°РЅРЅРѕРµ С‡РёСЃР»Рѕ РіСЂСѓРїРї: {current_cluster_count}."
     return {
         "suggested_note": suggested_note,
         "current_note": model_note,
@@ -182,8 +197,8 @@ def _apply_cluster_count_adjustment_warning(
     quality_note = adjusted["quality_note"]
     model_note = adjusted["model_note"]
     adjustment_note = (
-        f"Запрошенное число групп ({_format_integer(requested_cluster_count)}) автоматически скорректировано до "
-        f"{_format_integer(adjusted_requested_cluster_count)} из-за ограничений текущей выборки."
+        f"Р—Р°РїСЂРѕС€РµРЅРЅРѕРµ С‡РёСЃР»Рѕ РіСЂСѓРїРї ({_format_integer(requested_cluster_count)}) Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё СЃРєРѕСЂСЂРµРєС‚РёСЂРѕРІР°РЅРѕ РґРѕ "
+        f"{_format_integer(adjusted_requested_cluster_count)} РёР·-Р·Р° РѕРіСЂР°РЅРёС‡РµРЅРёР№ С‚РµРєСѓС‰РµР№ РІС‹Р±РѕСЂРєРё."
     )
     adjusted["current_note"] = adjustment_note if not current_note else f"{adjustment_note} {current_note}".strip()
     adjusted["suggested_note"] = f"{adjustment_note} {suggested_note}".strip()
@@ -214,11 +229,13 @@ def _build_cluster_count_guidance(
     recommendation_context = _apply_cluster_count_adjustment_warning(guidance_context, recommendation_context)
     recommended_k = guidance_context["recommended_k"]
     best_silhouette_k = guidance_context["best_silhouette_k"]
+    best_gap_k = guidance_context["best_gap_k"]
     recommendation_gap = guidance_context["recommendation_gap"]
     request_adjusted = guidance_context["request_adjusted"]
     return {
         "recommended_cluster_count": recommended_k,
         "best_silhouette_k": best_silhouette_k,
+        "best_gap_k": best_gap_k,
         "has_recommendation_gap": recommendation_gap,
         "request_adjusted": request_adjusted,
         "suggested_label": recommendation_context["suggested_label"],

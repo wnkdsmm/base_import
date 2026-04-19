@@ -335,11 +335,11 @@ def _compute_pca_projection(
     scaled_points: np.ndarray,
     labels: np.ndarray,
     cluster_labels: list[str],
-) -> list[dict]:
+) -> dict[str, list]:
     points = np.asarray(scaled_points, dtype=float)
     point_labels = np.asarray(labels)
     if points.ndim != 2 or points.shape[0] == 0:
-        return [{"meta": {"explained_variance": [0.0, 0.0]}}]
+        return {"points": [], "explained_variance": [0.0, 0.0]}
 
     pca = PCA(n_components=2)
     projected = pca.fit_transform(points)
@@ -363,8 +363,7 @@ def _compute_pca_projection(
                 "cluster_label": str(cluster_label),
             }
         )
-    rows.append({"meta": {"explained_variance": explained}})
-    return rows
+    return {"points": rows, "explained_variance": explained}
 
 
 def _fit_weighted_kmeans(
@@ -417,7 +416,7 @@ def _compute_gap_statistic(
                 random_state=random_state + reference_index + 1,
                 n_init=10,
             )
-            reference_model.fit(reference_points, sample_weight=weights)
+            reference_model.fit(reference_points, sample_weight=np.ones(row_count, dtype=float))
             reference_inertia = max(float(reference_model.inertia_), 1e-12)
             ref_logs.append(float(np.log(reference_inertia)))
 

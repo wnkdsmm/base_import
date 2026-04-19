@@ -100,12 +100,16 @@ def _run_clustering(
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
     algorithm_key: str = "kmeans",
     method_key: str | None = None,
+    prepared_model_inputs: tuple[pd.DataFrame, np.ndarray, Any, set[str], np.ndarray] | None = None,
 ) -> ClusteringRunResult:
-    _, scaled_points, scaler, transformed_columns, sample_weights = _prepare_model_inputs(
-        cluster_frame,
-        entity_frame,
-        weighting_strategy=weighting_strategy,
-    )
+    if prepared_model_inputs is None:
+        _, scaled_points, scaler, transformed_columns, sample_weights = _prepare_model_inputs(
+            cluster_frame,
+            entity_frame,
+            weighting_strategy=weighting_strategy,
+        )
+    else:
+        _, scaled_points, scaler, transformed_columns, sample_weights = prepared_model_inputs
     if algorithm_key == "kmeans":
         model = _fit_weighted_kmeans(scaled_points, sample_weights, cluster_count, random_state=42, n_init=40)
         labels = model.labels_
@@ -127,7 +131,7 @@ def _run_clustering(
         inertia = _compute_cluster_inertia(scaled_points, labels, scaled_centers=scaled_centers)
         initialization_ari = None
     cluster_labels = [f"Тип {index + 1}" for index in range(cluster_count)]
-    pca_projection = _compute_pca_projection(
+    pca_projection_result = _compute_pca_projection(
         scaled_points=scaled_points,
         labels=labels,
         cluster_labels=cluster_labels,
@@ -164,8 +168,8 @@ def _run_clustering(
         "initialization_ari": initialization_ari,
         "inertia": inertia,
         "pca_points": pca_points,
-        "pca_projection": pca_projection,
-        "explained_variance": float(np.sum(pca.explained_variance_ratio_)),
+        "pca_projection": pca_projection_result,
+        "explained_variance": float(sum(pca_projection_result["explained_variance"])),
         "algorithm_key": algorithm_key,
         "method_key": method_key or (_primary_method_key(weighting_strategy) if algorithm_key == "kmeans" else algorithm_key),
         "weighting_strategy": weighting_strategy,

@@ -155,6 +155,7 @@ class ClusterCountGuidance(TypedDict):
 
     recommended_cluster_count: int | None
     best_silhouette_k: int | None
+    best_gap_k: int | None
     has_recommendation_gap: bool
     request_adjusted: bool
     suggested_label: str
@@ -246,7 +247,7 @@ class ClusteringModelOutput(TypedDict, total=False):
     explained_variance: float | None
     inertia: float | None
     pca_points: Any
-    pca_projection: list[dict[str, Any]]
+    pca_projection: dict[str, Any]
     stability_ari: float | None
 
 
@@ -297,7 +298,7 @@ class ClusteringPayload(TypedDict, total=False):
     representative_columns: list[dict[str, Any]]
     representative_rows: list[dict[str, Any]]
     cluster_risk: list[dict[str, Any]]
-    pca_projection: list[dict[str, Any]]
+    pca_projection: dict[str, Any]
     charts: ClusteringCharts
     notes: list[str]
     filters: ClusteringFilters
@@ -505,7 +506,7 @@ class ClusteringRunResult(TypedDict, total=False):
     initialization_ari: float | None
     inertia: float | None
     pca_points: Any
-    pca_projection: list[dict[str, Any]]
+    pca_projection: dict[str, Any]
     explained_variance: float | None
     algorithm_key: str
     method_key: str
@@ -517,7 +518,7 @@ class ClusteringRuntimeBundle(TypedDict, total=False):
 
     runtime_feature_context: FeatureSelectionReport
     clustering: ClusteringRunResult
-    pca_projection: list[dict[str, Any]]
+    pca_projection: dict[str, Any]
     method_comparison: list[ClusteringMethodRow]
     labels: Any
     cluster_labels: list[str]
