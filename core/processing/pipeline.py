@@ -1,4 +1,4 @@
-import logging
+Ôªøimport logging
 import time
 
 
@@ -11,7 +11,12 @@ class PipelineStep:
     def __init__(self, name: str):
         self.name = name
 
-    def run(self, settings, **kwargs) -> dict[str, object] | None:`r`n        """`r`n        ÀÓ„ËÍ‡ ¯‡„‡. settings ó Ó·˙ÂÍÚ ÍÓÌÙË„Û‡ˆËË.`r`n        œÓ‰ÍÎ‡ÒÒ˚ ÏÓ„ÛÚ ÔËÌËÏ‡Ú¸ ‰ÓÔÓÎÌËÚÂÎ¸Ì˚Â kwargs.`r`n        """`r`n        raise NotImplementedError
+    def run(self, settings, **kwargs) -> dict[str, object] | None:
+        """
+        –õ–æ–≥–∏–∫–∞ —à–∞–≥–∞. settings ‚Äî –æ–±—ä–µ–∫—Ç –∫–æ–Ω—Ñ–∏–≥—É—Ä–∞—Ü–∏–∏.
+        –ü–æ–¥–∫–ª–∞—Å—Å—ã –º–æ–≥—É—Ç –ø—Ä–∏–Ω–∏–º–∞—Ç—å –¥–æ–ø–æ–ª–Ω–∏—Ç–µ–ª—å–Ω—ã–µ kwargs.
+        """
+        raise NotImplementedError
 
 
 class Pipeline:
@@ -59,5 +64,3 @@ class Pipeline:
             "project_name": self.settings.project_name,
             "step_results": step_results,
         }
-
-
