@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -90,7 +90,7 @@ def _match_to_row(match: ColumnMatchMetadata | None) -> dict[str, object]:
 def apply_match_results(
     profile_df: pd.DataFrame,
     column_names: pd.Series,
-    matches: list[Optional[ColumnMatchMetadata]],
+    matches: list[ColumnMatchMetadata | None],
 ) -> list[ProtectedColumnInfo]:
     match_df = pd.DataFrame(
         [_match_to_row(match) for match in matches],

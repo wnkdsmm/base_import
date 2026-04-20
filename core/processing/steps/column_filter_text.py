@@ -31,10 +31,11 @@ def _prepare_synonym_payloads(
     normalize_text: Callable[[str], str],
     extract_words: Callable[[str], list[str]],
 ) -> list[dict[str, object]]:
-    return [
-        {"raw": s, "normalized": (n := normalize_text(s)), "tokens": extract_words(n)}
-        for s in synonyms
-    ]
+    result: list[dict[str, object]] = []
+    for s in synonyms:
+        normalized = normalize_text(s)
+        result.append({"raw": s, "normalized": normalized, "tokens": extract_words(normalized)})
+    return result
 
 
 def _prepare_token_sets(token_sets: list[list[str]], normalize_text: Callable[[str], str]) -> list[list[str]]:

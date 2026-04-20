@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import List, Optional
+from typing import Optional
 
 import pandas as pd
 
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from core.processing.pipeline import PipelineStep
+from app.domain.column_matching import (
+    COLUMN_CATEGORY_RULES,
+    FALLBACK_IMPORTANT_PATTERNS,
+    KEYWORD_IMPORTANCE_RULES,
+    LEGACY_EXPLICIT_IMPORTANT_COLUMNS,
+    MANDATORY_FEATURE_REGISTRY,
+    get_mandatory_feature_catalog,
+)
 
 from .column_definitions import (
     PROTECTED_REPORT_COLUMNS,
@@ -75,7 +83,7 @@ class KeepImportantColumnsStep(PipelineStep):
         profile_df = coerce_report_bool_columns(profile_df)
 
         column_names = profile_df["column"].astype("string").fillna("").str.strip()
-        matches: List[Optional[ColumnMatchMetadata]] = [
+        matches: list[Optional[ColumnMatchMetadata]] = [
             self.matcher.match_column_metadata(column_name) if column_name else None
             for column_name in column_names.tolist()
         ]
