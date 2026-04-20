@@ -17,7 +17,7 @@ def _build_management_snapshot_payload(
     *,
     territories: list[dict[str, str | None]] = None,
     actions: list[dict[str, str | None]] = None,
-    notes: list[str | None] = None,
+    notes: list[str] | None = None,
     priority_horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> dict[str, Any]:  # one-off
     resolved_notes = list(notes if notes is not None else brief.get("notes") or [])

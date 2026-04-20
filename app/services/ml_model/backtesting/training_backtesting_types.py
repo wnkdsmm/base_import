@@ -155,7 +155,7 @@ class _BacktestWindow:
 
 
 class _WindowCandidateFits:
-    event_bundle: dict[str, Any | None]  # one-off
+    event_bundle: dict[str, Any] | None  # one-off
     forecast_paths: dict[str, list[BacktestWindowRow | None]]  # one-off
 
 

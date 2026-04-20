@@ -80,8 +80,8 @@ def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _build_design_matrix(
     frame: pd.DataFrame,
-    expected_columns: list[str | None] = None,
-    feature_columns: list[str | None] = None,
+    expected_columns: list[str] | None = None,
+    feature_columns: list[str] | None = None,
 ) -> pd.DataFrame:
     selected_columns = feature_columns or FEATURE_COLUMNS
     if expected_columns is not None:
@@ -112,8 +112,8 @@ def _build_design_matrix(
 
 def _build_design_row(
     feature_row: dict[str, float],
-    expected_columns: list[str | None] = None,
-    feature_columns: list[str | None] = None,
+    expected_columns: list[str] | None = None,
+    feature_columns: list[str] | None = None,
 ) -> pd.DataFrame:
     selected_columns = feature_columns or FEATURE_COLUMNS
     if expected_columns is None:
@@ -173,4 +173,3 @@ def _prepare_training_dataset(
     valid_rows = featured[feature_columns + ['count']].notna().all(axis=1)
     dataset = featured.loc[valid_rows].reset_index(drop=True)
     return prepared, dataset, temperature_stats
-
