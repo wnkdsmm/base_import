@@ -101,12 +101,12 @@ def _build_window(
 def _simulate_candidate_paths(
     *,
     window: _BacktestWindow,
-    count_model_bundles: dict[str, dict[str, Any | None]],
-    event_bundle: dict[str, Any | None],
+    count_model_bundles: dict[str, dict[str, Any] | None],
+    event_bundle: dict[str, Any] | None,
     forecast_days: int,
-) -> dict[str, list[dict[str, Any | None]]]:
-    forecast_paths: dict[str, list[dict[str, Any | None]]] = {}
-    candidate_specs: list[tuple[str, dict[str, Any | None], dict[str, Any | None]]] = [
+) -> dict[str, list[dict[str, Any]] | None]:
+    forecast_paths: dict[str, list[dict[str, Any]] | None] = {}
+    candidate_specs: list[tuple[str, dict[str, Any] | None, dict[str, Any] | None]] = [
         ('seasonal_baseline', None, None),
         ('heuristic_forecast', None, None),
     ]

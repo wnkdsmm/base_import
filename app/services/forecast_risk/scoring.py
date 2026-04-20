@@ -11,7 +11,7 @@ def _build_territory_rows(
     records: Sequence[dict[str, Any]],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-    profile_override: dict[str, Any | None] = None,
+    profile_override: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     return _build_territory_rows_impl(
         records=records,
@@ -21,5 +21,5 @@ def _build_territory_rows(
     )
 
 
-def _top_territory_lead(top_territory: dict[str, Any | None]) -> str:
+def _top_territory_lead(top_territory: dict[str, Any] | None) -> str:
     return _top_territory_lead_impl(top_territory)

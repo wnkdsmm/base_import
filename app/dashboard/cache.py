@@ -31,7 +31,7 @@ def _current_dashboard_table_names() -> tuple[str, ...]:
     return tuple(sorted(select_user_table_names(list(get_table_signature_cached()))))
 
 
-def _metadata_table_names(metadata: dict[str, Any | None]) -> tuple[str, ...]:
+def _metadata_table_names(metadata: dict[str, Any] | None) -> tuple[str, ...]:
     if not metadata:
         return ()
     cached_signature = metadata.get("table_signature")
@@ -59,7 +59,7 @@ def _collect_dashboard_metadata_cached() -> dict[str, Any]:
     return metadata
 
 
-def _get_dashboard_cache(cache_key: tuple[Any, ...]) -> dict[str, Any | None]:
+def _get_dashboard_cache(cache_key: tuple[Any, ...]) -> dict[str, Any] | None:
     return _DASHBOARD_CACHE.get(cache_key)
 
 
@@ -75,4 +75,3 @@ __all__ = [
     "_metadata_table_names",
     "_set_dashboard_cache",
 ]
-

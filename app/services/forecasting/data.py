@@ -121,7 +121,7 @@ def _collect_forecasting_inputs(
 def _build_option_catalog_sql(
     source_tables: Sequence[str],
     history_window: str = "all",
-    metadata_items: Sequence[dict[str, Any | None]] = None,
+    metadata_items: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, list[dict[str, str]]]:
     return _LOADER.build_option_catalog_sql(
         source_tables,
@@ -136,7 +136,7 @@ def _build_daily_history_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Sequence[dict[str, Any | None]] = None,
+    metadata_items: Sequence[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     return _LOADER.build_daily_history_sql(
         source_tables,
@@ -154,7 +154,7 @@ def _count_forecasting_records_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Sequence[dict[str, Any | None]] = None,
+    metadata_items: Sequence[dict[str, Any]] | None = None,
 ) -> int:
     return _LOADER.count_forecasting_records_sql(
         source_tables,

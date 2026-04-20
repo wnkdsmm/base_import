@@ -34,7 +34,7 @@ def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) 
 def _scenario_reference_forecast(
     train: pd.DataFrame,
     test: pd.DataFrame,
-    temperature_stats: dict[str, Any | None] = None,
+    temperature_stats: dict[str, Any] | None = None,
 ) -> tuple[float, float | None]:
     if train.empty:
         return 0.0, None
@@ -65,5 +65,4 @@ def _scenario_reference_forecast(
     row = forecast_rows[0]
     probability = row.get('fire_probability')
     return max(0.0, float(row.get('forecast_value', 0.0))), _bound_probability(probability if probability is not None else 0.0)
-
 

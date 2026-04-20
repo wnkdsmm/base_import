@@ -56,7 +56,7 @@ def _format_first_present(formatter: Callable[[Any], str], *values: Any) -> str:
 
 
 def _format_row_display(
-    row: dict[str, Any | None],
+    row: dict[str, Any] | None,
     display_key: str,
     raw_key: str,
     raw_formatter: Callable[[Any], str],
@@ -82,4 +82,3 @@ __all__ = [
     '_format_row_display',
     '_is_missing_metric',
 ]
-

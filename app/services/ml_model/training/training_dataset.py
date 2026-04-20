@@ -155,7 +155,7 @@ def _build_backtest_seed_dataset(
 
 def _prepare_training_dataset(
     frame: pd.DataFrame,
-    temperature_stats: dict[str, Any | None] = None,
+    temperature_stats: dict[str, Any] | None = None,
     *,
     frame_is_prepared: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
@@ -173,5 +173,4 @@ def _prepare_training_dataset(
     valid_rows = featured[feature_columns + ['count']].notna().all(axis=1)
     dataset = featured.loc[valid_rows].reset_index(drop=True)
     return prepared, dataset, temperature_stats
-
 

@@ -172,7 +172,7 @@ def _build_ranking_reason(index: int, gap_to_next: float, gap_to_top: float, com
     return f"Территория остается в списке из-за вкладов {component_lead}, хотя ниже лидера на {_format_number(gap_to_top)} балла."
 
 
-def _top_territory_lead(top_territory: dict[str, Any | None]) -> str:
+def _top_territory_lead(top_territory: dict[str, Any] | None) -> str:
     if not top_territory:
         return "Недостаточно данных для лидирующей территории."
     strongest_components = ", ".join(

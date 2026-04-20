@@ -92,7 +92,7 @@ def empty_executive_brief() -> dict[str, Any]:
 
 
 def build_executive_brief_from_risk_payload(
-    risk_payload: dict[str, Any | None],
+    risk_payload: dict[str, Any] | None,
     *,
     notes: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
@@ -223,7 +223,7 @@ def build_executive_brief_from_risk_payload(
 
 
 def compose_executive_brief_text(
-    brief: dict[str, Any | None],
+    brief: dict[str, Any] | None,
     *,
     scope_label: str = "",
     generated_at: str = "",
