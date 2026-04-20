@@ -5,6 +5,7 @@ from typing import Callable
 from ...types import ColumnMatchMetadata, ColumnTermPayload
 from .column_filter_text import _column_payload_parts
 
+
 def _build_column_term_payload(
     column_name: str,
     normalize_text: Callable[[str], str],
