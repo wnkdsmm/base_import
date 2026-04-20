@@ -27,13 +27,20 @@ class Pipeline:
 
     def __init__(self, settings: Any) -> None:
         self.settings = settings
-        self.steps = []
+        self.steps: list[PipelineStep] = []
         self._step_kwargs: dict[str, dict[str, object]] = {}
 
     def add_step(self, step: PipelineStep) -> None:
         self.steps.append(step)
 
     def set_step_kwargs(self, step_name: str, **kwargs: object) -> None:
+        known = {step.name for step in self.steps}
+        if known and step_name not in known:
+            logger.warning(
+                "set_step_kwargs: шаг '%s' не найден. Известные шаги: %s",
+                step_name,
+                sorted(known),
+            )
         self._step_kwargs[step_name] = kwargs
 
     def run(self) -> dict[str, object]:
