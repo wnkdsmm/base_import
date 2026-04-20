@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 import pandas as pd
 
@@ -49,7 +48,7 @@ class KeepImportantColumnsStep(PipelineStep):
         super().__init__("Keep Important Columns Report")
         self.matcher: NatashaColumnMatcher = get_column_matcher()
 
-    def run(self, settings, profile_df: Optional[pd.DataFrame] = None) -> KeepImportantColumnsResult:
+    def run(self, settings, profile_df: pd.DataFrame | None = None) -> KeepImportantColumnsResult:
         output_folder = settings.output_folder
         os.makedirs(output_folder, exist_ok=True)
 
@@ -83,7 +82,7 @@ class KeepImportantColumnsStep(PipelineStep):
         profile_df = coerce_report_bool_columns(profile_df)
 
         column_names = profile_df["column"].astype("string").fillna("").str.strip()
-        matches: list[Optional[ColumnMatchMetadata]] = [
+        matches: list[ColumnMatchMetadata | None] = [
             self.matcher.match_column_metadata(column_name) if column_name else None
             for column_name in column_names.tolist()
         ]

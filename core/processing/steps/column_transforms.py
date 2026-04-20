@@ -118,34 +118,24 @@ def apply_match_results(
     profile_df.loc[protected_mask, "candidate_to_drop"] = False
     profile_df.loc[protected_mask, "protected_from_drop"] = True
 
-    protected_export = pd.DataFrame(index=profile_df.index)
-    protected_export["column"] = column_names.astype(object)
-    protected_export["protected_feature_id"] = match_df["feature_id"].astype(object)
-    protected_export["protected_feature_label"] = match_df["feature_label"].astype(object)
-    protected_export["mandatory_feature_detected"] = match_df["mandatory"].astype(bool)
-    protected_export["protection_scope"] = match_df["scope"].astype(object)
-    protected_export["protection_rule"] = match_df["rule_id"].astype(object)
-    protected_export["protection_match"] = match_df["matched_value"].astype(object)
-    protected_export["protection_reason"] = match_df["reason"].astype(object)
-    protected_export["drop_reasons"] = (
-        profile_df["drop_reasons"]
-        if "drop_reasons" in profile_df.columns
-        else [[] for _ in range(len(profile_df))]
-    )
-    protected_columns: list[ProtectedColumnInfo] = protected_export.loc[
-        protected_mask,
-        [
-            "column",
-            "protected_feature_id",
-            "protected_feature_label",
-            "mandatory_feature_detected",
-            "protection_scope",
-            "protection_rule",
-            "protection_match",
-            "protection_reason",
-            "drop_reasons",
-        ],
-    ].to_dict(orient="records")
+    protected_columns: list[ProtectedColumnInfo] = []
+    if protected_mask.any():
+        protected_rows = profile_df.loc[protected_mask].copy()
+        protected_columns = [
+            {
+                "column": str(column_names.loc[idx]),
+                "protected_feature_id": str(match_df.loc[idx, "feature_id"]),
+                "protected_feature_label": str(match_df.loc[idx, "feature_label"]),
+                "mandatory_feature_detected": bool(match_df.loc[idx, "mandatory"]),
+                "protection_scope": str(match_df.loc[idx, "scope"]),
+                "protection_rule": str(match_df.loc[idx, "rule_id"]),
+                "protection_match": str(match_df.loc[idx, "matched_value"]),
+                "protection_reason": str(match_df.loc[idx, "reason"]),
+                "drop_reasons": profile_df.loc[idx, "drop_reasons"]
+                if "drop_reasons" in profile_df.columns else [],
+            }
+            for idx in protected_rows.index
+        ]
     return protected_columns
 
 
