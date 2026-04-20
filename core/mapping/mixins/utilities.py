@@ -5,7 +5,7 @@ import json
 import math
 from collections import Counter
 from datetime import date, datetime, time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ import pandas as pd
 from ...types import PopupRow, ProcessedRecord, SpatialPoint
 
 class MapCreatorUtilityMixin:
-    def _get_marker_category(self, row: pd.Series, columns: Dict[str, Optional[str]]) -> str:
+    def _get_marker_category(self, row: pd.Series, columns: dict[str, str | None]) -> str:
         """Определяет категорию маркера по данным строки"""
         if self.cleaner.safe_get(row, columns.get('deaths'), 0):
             return "deaths"
@@ -47,10 +47,10 @@ class MapCreatorUtilityMixin:
 
     def _build_popup_rows(
         self,
-        items: List[Tuple[str, Any]],
-        title: Optional[str] = None,
-    ) -> List[PopupRow]:
-        rows: List[PopupRow] = []
+        items: list[tuple[str, Any]],
+        title: str | None = None,
+    ) -> list[PopupRow]:
+        rows: list[PopupRow] = []
         if title:
             rows.append({"title": "" if title is None else str(title)})
         for label, value in items:
@@ -60,7 +60,7 @@ class MapCreatorUtilityMixin:
             })
         return rows
 
-    def _build_fire_popup_rows(self, data: Dict[str, str]) -> List[PopupRow]:
+    def _build_fire_popup_rows(self, data: dict[str, str]) -> list[PopupRow]:
         return self._build_popup_rows(
             [
                 ("Дата", data.get("date", "")),
@@ -79,7 +79,7 @@ class MapCreatorUtilityMixin:
             ]
         )
 
-    def _calculate_initial_view(self, features: List[Dict]) -> Tuple[Tuple[float, float], int]:
+    def _calculate_initial_view(self, features: list[dict[str, object]]) -> tuple[tuple[float, float], int]:
         """Estimate a robust стартовый центр и зум по координатам."""
         coords = np.array([feature["geometry"]["coordinates"] for feature in features], dtype=float)
         lons = coords[:, 0]
@@ -127,7 +127,7 @@ class MapCreatorUtilityMixin:
     def _clean_text(self, value: Any) -> str:
         return "" if value is None else str(value).strip()
 
-    def _to_float(self, value: Any) -> Optional[float]:
+    def _to_float(self, value: Any) -> float | None:
         text_value = self._clean_text(value)
         if not text_value:
             return None
@@ -136,7 +136,7 @@ class MapCreatorUtilityMixin:
         except ValueError:
             return None
 
-    def _parse_date(self, value: Any) -> Optional[date]:
+    def _parse_date(self, value: Any) -> date | None:
         if value is None or (isinstance(value, float) and np.isnan(value)):
             return None
         if isinstance(value, pd.Timestamp):
@@ -148,7 +148,7 @@ class MapCreatorUtilityMixin:
         parsed = pd.to_datetime(self._clean_text(value), errors='coerce', dayfirst=True)
         return parsed.date() if pd.notna(parsed) else None
 
-    def _parse_datetime_like(self, value: Any, event_date: Optional[date]) -> Optional[datetime]:
+    def _parse_datetime_like(self, value: Any, event_date: date | None) -> datetime | None:
         if value is None or (isinstance(value, float) and np.isnan(value)):
             return None
         if isinstance(value, pd.Timestamp):
@@ -176,7 +176,7 @@ class MapCreatorUtilityMixin:
                 continue
         return None
 
-    def _calculate_response_minutes(self, report_value: Any, arrival_value: Any, event_date: Optional[date]) -> Optional[float]:
+    def _calculate_response_minutes(self, report_value: Any, arrival_value: Any, event_date: date | None) -> float | None:
         report_time = self._parse_datetime_like(report_value, event_date)
         arrival_time = self._parse_datetime_like(arrival_value, event_date)
         if report_time is None or arrival_time is None:
@@ -195,7 +195,7 @@ class MapCreatorUtilityMixin:
         )
         return any(token in normalized for token in ('сель', 'деревн', 'посел', 'село', 'хутор', 'станиц', 'аул', 'снт', 'днп'))
 
-    def _dominant_label(self, records: List[ProcessedRecord], key: str, fallback: str) -> str:
+    def _dominant_label(self, records: list[ProcessedRecord], key: str, fallback: str) -> str:
         counter = Counter(
             self._clean_text(item.get(key))
             for item in records
@@ -211,7 +211,7 @@ class MapCreatorUtilityMixin:
         dy = (float(left['latitude']) - float(right['latitude'])) * lat_factor
         return math.hypot(dx, dy)
 
-    def _risk_level(self, value: float) -> Tuple[str, str]:
+    def _risk_level(self, value: float) -> tuple[str, str]:
         if value >= 80:
             return 'Критический', 'critical'
         if value >= 60:
@@ -220,8 +220,8 @@ class MapCreatorUtilityMixin:
             return 'Средний', 'medium'
         return 'Наблюдение', 'watch'
 
-    def _build_circle_polygon(self, lon: float, lat: float, radius_km: float, steps: int = 36) -> List[List[float]]:
-        points: List[List[float]] = []
+    def _build_circle_polygon(self, lon: float, lat: float, radius_km: float, steps: int = 36) -> list[list[float]]:
+        points: list[list[float]] = []
         lat_factor = 110.574
         lon_factor = max(111.320 * max(math.cos(math.radians(lat)), 0.1), 0.1)
         for step in range(steps):

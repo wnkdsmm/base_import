@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -8,9 +8,9 @@ class ColumnFinder:
     """Поиск колонок в DataFrame с кэшированием"""
     
     def __init__(self):
-        self._cache: Dict[int, Dict[Tuple, Optional[str]]] = {}
+        self._cache: dict[int, dict[tuple[str, ...], str | None]] = {}
     
-    def find(self, df: pd.DataFrame, possible_names: Tuple[str, ...]) -> Optional[str]:
+    def find(self, df: pd.DataFrame, possible_names: tuple[str, ...]) -> str | None:
         """Находит колонку по возможным именам"""
         df_id = id(df)
         if df_id not in self._cache:
@@ -62,7 +62,7 @@ class DataCleaner:
         return df[valid_coords].dropna(subset=[lat_col, lon_col])
     
     @staticmethod
-    def safe_get(row: pd.Series, col: Optional[str], default: Any = 0) -> Any:
+    def safe_get(row: pd.Series, col: str | None, default: Any = 0) -> Any:
         """Безопасное получение значения из строки"""
         if col and col in row.index:
             val = row[col]

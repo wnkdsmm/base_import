@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Callable, List
+from typing import Callable
 
 import numpy as np
 
@@ -12,19 +12,19 @@ from .analytics_geometry import group_records_by_field, mean_record_value
 
 
 def build_priority_territories(
-    records: List[ProcessedRecord],
-    risk_zones: List[RiskZone],
+    records: list[ProcessedRecord],
+    risk_zones: list[RiskZone],
     *,
     risk_level: Callable[[float], tuple[str, str]],
     km_distance: Callable[[SpatialPoint, SpatialPoint], float],
-) -> List[PriorityTerritory]:
+) -> list[PriorityTerritory]:
     grouped = group_records_by_field(records, 'territory_label')
     if not grouped:
         return []
 
     max_incidents = max(len(items) for items in grouped.values()) or 1
     max_weight = max(sum(point['weight'] for point in items) for items in grouped.values()) or 1.0
-    territories: List[PriorityTerritory] = []
+    territories: list[PriorityTerritory] = []
     for label, items in grouped.items():
         incident_count = len(items)
         severe_count = sum(1 for item in items if item['has_victims'])
@@ -108,15 +108,15 @@ def build_priority_territories(
 
 
 def build_fallback_risk_zones(
-    records: List[ProcessedRecord],
-    priority_territories: List[PriorityTerritory],
+    records: list[ProcessedRecord],
+    priority_territories: list[PriorityTerritory],
     *,
     risk_level: Callable[[float], tuple[str, str]],
     km_distance: Callable[[SpatialPoint, SpatialPoint], float],
-    build_circle_polygon: Callable[[float, float, float], List[List[float]]],
-) -> List[RiskZone]:
+    build_circle_polygon: Callable[[float, float, float], list[list[float]]],
+) -> list[RiskZone]:
     grouped = group_records_by_field(records, 'territory_label')
-    fallback_zones: List[RiskZone] = []
+    fallback_zones: list[RiskZone] = []
     for rank, territory in enumerate(priority_territories[:3], start=1):
         items = grouped.get(territory['label'], [])
         if not items:
@@ -148,12 +148,12 @@ def build_fallback_risk_zones(
 
 def build_spatial_risk_zones(
     dbscan: DbscanResult,
-    hotspots: List[HotspotPayload],
+    hotspots: list[HotspotPayload],
     *,
     km_distance: Callable[[SpatialPoint, SpatialPoint], float],
-    build_circle_polygon: Callable[[float, float, float], List[List[float]]],
-) -> List[RiskZone]:
-    risk_zone_candidates: List[RiskZone] = []
+    build_circle_polygon: Callable[[float, float, float], list[list[float]]],
+) -> list[RiskZone]:
+    risk_zone_candidates: list[RiskZone] = []
     for cluster in dbscan.get('clusters', []):
         risk_zone_candidates.append({
             'label': cluster['label'], 'latitude': cluster['latitude'], 'longitude': cluster['longitude'], 'radius_km': max(cluster['radius_km'], 1.0), 'risk_score': cluster['risk_score'], 'risk_score_display': cluster['risk_score_display'], 'risk_label': cluster['risk_label'], 'risk_tone': cluster['risk_tone'], 'support_count': cluster['incident_count'], 'source': 'DBSCAN', 'explanation': cluster['explanation'],
@@ -165,7 +165,7 @@ def build_spatial_risk_zones(
             'label': hotspot['label'], 'latitude': hotspot['latitude'], 'longitude': hotspot['longitude'], 'radius_km': hotspot['radius_km'], 'risk_score': hotspot['risk_score'], 'risk_score_display': hotspot['risk_score_display'], 'risk_label': hotspot['risk_label'], 'risk_tone': hotspot['risk_tone'], 'support_count': hotspot['support_count'], 'source': 'Hotspot', 'explanation': hotspot['explanation'],
         })
     risk_zone_candidates.sort(key=lambda item: (item['risk_score'], item['support_count']), reverse=True)
-    risk_zones: List[RiskZone] = []
+    risk_zones: list[RiskZone] = []
     for rank, item in enumerate(risk_zone_candidates[:6], start=1):
         risk_zones.append({
             **item,

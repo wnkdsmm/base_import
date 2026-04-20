@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 
@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover - graceful fallback when sklearn is unavai
     SKLEARN_AVAILABLE = False
 
 class MapCreatorAnalyticsMixin:
-    def _collect_spatial_records(self, df: pd.DataFrame, lat_col: str, lon_col: str, columns: ColumnMapping) -> List[ProcessedRecord]:
+    def _collect_spatial_records(self, df: pd.DataFrame, lat_col: str, lon_col: str, columns: ColumnMapping) -> list[ProcessedRecord]:
         latitudes = pd.to_numeric(df[lat_col], errors='coerce')
         longitudes = pd.to_numeric(df[lon_col], errors='coerce')
         valid_mask = latitudes.notna() & longitudes.notna()
@@ -113,7 +113,7 @@ class MapCreatorAnalyticsMixin:
         )
         return records_frame.to_dict(orient='records')
 
-    def _build_spatial_analytics(self, table_name: str, records: List[ProcessedRecord], source_record_count: int) -> SpatialAnalyticsPayload:
+    def _build_spatial_analytics(self, table_name: str, records: list[ProcessedRecord], source_record_count: int) -> SpatialAnalyticsPayload:
         if not records:
             return build_empty_spatial_analytics(source_record_count)
 

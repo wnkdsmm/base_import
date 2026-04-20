@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List
+from typing import Any, Iterable
 
 import numpy as np
 
 from ...types import ProcessedRecord
 
 
-def project_records_to_local_xy(records: List[ProcessedRecord]) -> np.ndarray:
+def project_records_to_local_xy(records: list[ProcessedRecord]) -> np.ndarray:
     coords = np.array([[item['latitude'], item['longitude']] for item in records], dtype=float)
     lat0 = float(np.mean(coords[:, 0]))
     lon0 = float(np.mean(coords[:, 1]))
@@ -23,18 +23,18 @@ def project_records_to_local_xy(records: List[ProcessedRecord]) -> np.ndarray:
 def group_records_by_field(
     records: Iterable[ProcessedRecord],
     field_name: str,
-) -> Dict[Any, List[ProcessedRecord]]:
-    grouped: Dict[Any, List[ProcessedRecord]] = defaultdict(list)
+) -> dict[Any, list[ProcessedRecord]]:
+    grouped: dict[Any, list[ProcessedRecord]] = defaultdict(list)
     for item in records:
         grouped[item[field_name]].append(item)
     return dict(grouped)
 
 
 def group_records_by_cluster_label(
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     labels: Iterable[Any],
-) -> Dict[int, List[ProcessedRecord]]:
-    grouped: Dict[int, List[ProcessedRecord]] = defaultdict(list)
+) -> dict[int, list[ProcessedRecord]]:
+    grouped: dict[int, list[ProcessedRecord]] = defaultdict(list)
     for index, label in enumerate(labels):
         if label >= 0:
             grouped[int(label)].append(records[index])

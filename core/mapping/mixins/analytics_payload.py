@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 from ...types import (
     DbscanResult,
@@ -22,7 +22,7 @@ from ...types import (
 
 def build_spatial_heatmap_payload(
     record_count: int,
-    heatmap_points: List[HeatmapPoint],
+    heatmap_points: list[HeatmapPoint],
 ) -> SpatialHeatmapPayload:
     return {
         'enabled': record_count >= 3,
@@ -50,10 +50,10 @@ def build_spatial_layer_defaults(
     *,
     record_count: int,
     mode: str,
-    hotspots: List[HotspotPayload],
+    hotspots: list[HotspotPayload],
     dbscan: DbscanResult,
-    risk_zones: List[RiskZone],
-    priority_territories: List[PriorityTerritory],
+    risk_zones: list[RiskZone],
+    priority_territories: list[PriorityTerritory],
 ) -> SpatialLayerDefaults:
     return {
         'incidents': True,
@@ -69,11 +69,11 @@ def build_spatial_analytics_payload(
     *,
     quality: SpatialQualityPayload,
     record_count: int,
-    heatmap_points: List[HeatmapPoint],
-    hotspots: List[HotspotPayload],
+    heatmap_points: list[HeatmapPoint],
+    hotspots: list[HotspotPayload],
     dbscan: DbscanResult,
-    risk_zones: List[RiskZone],
-    priority_territories: List[PriorityTerritory],
+    risk_zones: list[RiskZone],
+    priority_territories: list[PriorityTerritory],
     logistics: LogisticsSummaryPayload,
     summary: SpatialSummaryPayload,
     mode: str,
@@ -123,14 +123,14 @@ def build_empty_spatial_analytics(source_record_count: int) -> SpatialAnalyticsP
 
 
 def build_spatial_quality_context(
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     source_record_count: int,
 ) -> SpatialQualityContext:
     unique_coordinates = len({(item['latitude'], item['longitude']) for item in records})
     duplicate_ratio = (1.0 - unique_coordinates / max(len(records), 1)) * 100.0
     mode = 'full' if len(records) >= 18 and unique_coordinates >= 10 else 'limited' if len(records) >= 6 else 'minimal'
     mode_label = 'Полный режим' if mode == 'full' else 'Ограниченный режим' if mode == 'limited' else 'Минимальный режим'
-    notes: List[str] = []
+    notes: list[str] = []
     if duplicate_ratio > 45.0:
         notes.append(f'Координаты заметно повторяются: {duplicate_ratio:.1f}% повторов.')
     if len(records) < source_record_count:
@@ -148,7 +148,7 @@ def build_spatial_quality_context(
     }
 
 
-def build_heatmap_points(records: List[ProcessedRecord]) -> List[HeatmapPoint]:
+def build_heatmap_points(records: list[ProcessedRecord]) -> list[HeatmapPoint]:
     max_weight = max(item['weight'] for item in records) or 1.0
     return [
         {'latitude': item['latitude'], 'longitude': item['longitude'], 'weight': round(max(0.08, min(1.0, item['weight'] / max_weight)), 4)}
@@ -157,13 +157,13 @@ def build_heatmap_points(records: List[ProcessedRecord]) -> List[HeatmapPoint]:
 
 
 def build_spatial_methods(
-    records: List[ProcessedRecord],
-    hotspots: List[HotspotPayload],
+    records: list[ProcessedRecord],
+    hotspots: list[HotspotPayload],
     dbscan: DbscanResult,
-    risk_zones: List[RiskZone],
-    priority_territories: List[PriorityTerritory],
+    risk_zones: list[RiskZone],
+    priority_territories: list[PriorityTerritory],
     logistics: LogisticsSummaryPayload,
-) -> List[str]:
+) -> list[str]:
     methods = ['Точечный слой пожаров']
     if len(records) >= 3:
         methods.append('KDE / heatmap плотности')
@@ -181,12 +181,12 @@ def build_spatial_methods(
 
 
 def build_spatial_insights(
-    hotspots: List[HotspotPayload],
-    priority_territories: List[PriorityTerritory],
+    hotspots: list[HotspotPayload],
+    priority_territories: list[PriorityTerritory],
     logistics: LogisticsSummaryPayload,
     dbscan: DbscanResult,
-    notes: List[str],
-) -> List[str]:
+    notes: list[str],
+) -> list[str]:
     insights = []
     if hotspots:
         insights.append(f"Главный hotspot: {hotspots[0]['label']} ({hotspots[0]['risk_score_display']}).")
@@ -204,13 +204,13 @@ def build_spatial_insights(
 
 def build_spatial_thesis_paragraphs(
     table_name: str,
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     source_record_count: int,
-    methods: List[str],
-    risk_zones: List[RiskZone],
-    priority_territories: List[PriorityTerritory],
+    methods: list[str],
+    risk_zones: list[RiskZone],
+    priority_territories: list[PriorityTerritory],
     logistics: LogisticsSummaryPayload,
-) -> List[str]:
+) -> list[str]:
     enhanced_methods = methods[1:] if len(methods) > 1 else ['ранжирования территорий и резервного пространственного режима']
     return [
         f"\u0414\u043b\u044f \u0442\u0430\u0431\u043b\u0438\u0446\u044b {table_name} \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0435\u043d\u043d\u044b\u0439 \u0430\u043d\u0430\u043b\u0438\u0437 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d \u043f\u043e {len(records)} \u043f\u043e\u0436\u0430\u0440\u0430\u043c \u0441 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u0430\u043c\u0438 \u0438\u0437 {source_record_count} \u0438\u0441\u0445\u043e\u0434\u043d\u044b\u0445 \u0437\u0430\u043f\u0438\u0441\u0435\u0439. \u0411\u0430\u0437\u043e\u0432\u0430\u044f \u0442\u043e\u0447\u0435\u0447\u043d\u0430\u044f \u043a\u0430\u0440\u0442\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0430, \u043d\u043e \u0443\u0441\u0438\u043b\u0435\u043d\u0430 \u043c\u0435\u0442\u043e\u0434\u0430\u043c\u0438 {', '.join(enhanced_methods)}.",
@@ -220,7 +220,7 @@ def build_spatial_thesis_paragraphs(
 
 
 def build_spatial_quality_payload(
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     source_record_count: int,
     quality_context: SpatialQualityContext,
 ) -> SpatialQualityPayload:
@@ -241,9 +241,9 @@ def build_spatial_quality_payload(
 
 def build_spatial_summary_payload(
     mode: str,
-    methods: List[str],
-    insights: List[str],
-    thesis_paragraphs: List[str],
+    methods: list[str],
+    insights: list[str],
+    thesis_paragraphs: list[str],
 ) -> SpatialSummaryPayload:
     return {
         'title': 'Пространственная аналитика пожаров',

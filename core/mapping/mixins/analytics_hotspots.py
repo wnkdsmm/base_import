@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import Callable
 
 from app.services.forecast_risk.geo import _build_geo_prediction
 
@@ -10,8 +10,8 @@ from ...types import GeoPredictionPayload, HotspotPayload, ProcessedRecord
 def build_hotspot_payloads(
     geo_prediction: GeoPredictionPayload,
     risk_level: Callable[[float], tuple[str, str]],
-) -> List[HotspotPayload]:
-    hotspots: List[HotspotPayload] = []
+) -> list[HotspotPayload]:
+    hotspots: list[HotspotPayload] = []
     for rank, item in enumerate((geo_prediction.get('hotspots') or [])[:8], start=1):
         risk_score = float(item.get('risk_score') or 0.0)
         risk_label, risk_tone = risk_level(risk_score)
@@ -32,10 +32,10 @@ def build_hotspot_payloads(
 
 
 def build_hotspots_from_dated_records(
-    dated_records: List[ProcessedRecord],
-    notes: List[str],
+    dated_records: list[ProcessedRecord],
+    notes: list[str],
     risk_level: Callable[[float], tuple[str, str]],
-) -> List[HotspotPayload]:
+) -> list[HotspotPayload]:
     geo_prediction: GeoPredictionPayload = {'hotspots': []}
     if len(dated_records) >= 3:
         geo_prediction = _build_geo_prediction(dated_records, planning_horizon_days=30)

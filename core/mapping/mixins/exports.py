@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ...types import AnalysisExportPayload, MapTablePayload
 
+
 class MapCreatorExportMixin:
     def _build_analysis_export_payload(self, tables: list[MapTablePayload]) -> AnalysisExportPayload:
         return {
@@ -62,4 +63,3 @@ class MapCreatorExportMixin:
     # =====================================================
 
 __all__ = ["MapCreatorExportMixin"]
-

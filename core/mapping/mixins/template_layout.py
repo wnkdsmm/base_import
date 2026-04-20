@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 from ...types import AnalyticsLayersPayload, CategoryStyleLike, MapTablePayload, SpatialLayerDefaults
 from .template_analytics import analytics_layer_definitions
@@ -80,8 +80,8 @@ PAGE_STYLE_LINES = [
 ]
 
 
-def build_category_filter_items(category_styles: Dict[str, CategoryStyleLike], table: MapTablePayload, escape: Callable[[Any], str]) -> List[str]:
-    category_items: List[str] = []
+def build_category_filter_items(category_styles: dict[str, CategoryStyleLike], table: MapTablePayload, escape: Callable[[Any], str]) -> list[str]:
+    category_items: list[str] = []
     for category_id, style in category_styles.items():
         count = table["counts"].get(category_id, 0)
         category_items.append(
@@ -104,8 +104,8 @@ def build_category_filter_items(category_styles: Dict[str, CategoryStyleLike], t
 def build_layer_filter_items(
     analytics_layers: AnalyticsLayersPayload,
     analytics_defaults: SpatialLayerDefaults,
-) -> List[str]:
-    layer_items: List[str] = []
+) -> list[str]:
+    layer_items: list[str] = []
     for layer_id, icon_html, label, available in analytics_layer_definitions(analytics_layers):
         if not available:
             continue
@@ -131,7 +131,7 @@ def build_filter_panel_html(
     table: MapTablePayload,
     analytics_layers: AnalyticsLayersPayload,
     analytics_defaults: SpatialLayerDefaults,
-    category_styles: Dict[str, CategoryStyleLike],
+    category_styles: dict[str, CategoryStyleLike],
     escape: Callable[[Any], str],
 ) -> str:
     filter_panel_lines = [
@@ -157,14 +157,14 @@ def build_filter_panel_html(
 
 
 def _render_tabs(
-    tables: List[MapTablePayload],
+    tables: list[MapTablePayload],
     *,
     render_tab_content: Callable[..., str],
     escape: Callable[[Any], str],
 ) -> tuple[str, str]:
     single_table = len(tables) == 1
-    tabs_nav: List[str] = []
-    tabs_content: List[str] = []
+    tabs_nav: list[str] = []
+    tabs_content: list[str] = []
 
     for idx, table in enumerate(tables):
         if not single_table:
@@ -198,7 +198,7 @@ def _render_tabs(
     )
 
 
-def _body_script_lines(table_count: int, tab_resize_script: str) -> List[str]:
+def _body_script_lines(table_count: int, tab_resize_script: str) -> list[str]:
     return [
         "    <script>",
         "        // Resize maps after tab switches",
@@ -213,8 +213,8 @@ def _body_script_lines(table_count: int, tab_resize_script: str) -> List[str]:
 
 
 def generate_html(
-    tables: List[MapTablePayload],
-    total_categories: Dict[str, int],
+    tables: list[MapTablePayload],
+    total_categories: dict[str, int],
     *,
     render_tab_content: Callable[..., str],
     escape: Callable[[Any], str],
@@ -236,7 +236,7 @@ def build_tab_outer_lines(
     analytics_panel_html: str,
     use_tab_wrapper: bool,
     active: bool,
-) -> List[str]:
+) -> list[str]:
     outer_lines = ['<div class="tab-pane fade%s" id="tab%s">' % (" show active" if active else "", idx)] if use_tab_wrapper else []
     outer_lines.extend(
         [

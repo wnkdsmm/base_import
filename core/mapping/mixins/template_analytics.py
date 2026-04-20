@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 from ...types import (
     AnalyticsLayersPayload,
@@ -12,7 +12,7 @@ from ...types import (
 
 def build_analytics_layer_geojsons(
     analytics: SpatialAnalyticsPayload,
-    build_popup_rows: Callable[..., List[PopupRow]],
+    build_popup_rows: Callable[..., list[PopupRow]],
 ) -> AnalyticsLayersPayload:
     layers = {
         "heatmap": {"type": "FeatureCollection", "features": []},
@@ -134,7 +134,7 @@ def build_analytics_layer_geojsons(
     return layers
 
 
-def default_analytics_layer_flags() -> Dict[str, bool]:
+def default_analytics_layer_flags() -> dict[str, bool]:
     return {
         "incidents": True,
         "heatmap": False,
@@ -149,7 +149,7 @@ def analytics_layer_defaults(analytics: SpatialAnalyticsPayload) -> SpatialLayer
     return analytics.get("layer_defaults", default_analytics_layer_flags())
 
 
-def analytics_heatmap_config(analytics: SpatialAnalyticsPayload) -> Dict[str, object]:
+def analytics_heatmap_config(analytics: SpatialAnalyticsPayload) -> dict[str, object]:
     heatmap = analytics.get("heatmap") or {}
     return {
         "enabled": bool(heatmap.get("enabled", False)),
@@ -158,7 +158,7 @@ def analytics_heatmap_config(analytics: SpatialAnalyticsPayload) -> Dict[str, ob
     }
 
 
-def analytics_layer_definitions(analytics_layers: AnalyticsLayersPayload) -> List[tuple[str, str, str, bool]]:
+def analytics_layer_definitions(analytics_layers: AnalyticsLayersPayload) -> list[tuple[str, str, str, bool]]:
     return [
         ("incidents", "🗺", "\u0422\u043e\u0447\u043a\u0438 \u043f\u043e\u0436\u0430\u0440\u043e\u0432", True),
         ("heatmap", "🔥", "KDE / heatmap", bool(analytics_layers.get("heatmap", {}).get("features"))),

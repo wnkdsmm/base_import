@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 from ...types import AnalyticsLayersPayload, CategoryStyleLike, MapTablePayload, SpatialLayerDefaults
 
@@ -12,7 +12,7 @@ _POINT_ANALYTICS_LAYER_SPECS = (
 )
 
 
-def build_filter_script_lines(idx: int, container_id: str) -> List[str]:
+def build_filter_script_lines(idx: int, container_id: str) -> list[str]:
     return [
         '    const categoryCheckboxes = document.querySelectorAll("#%s .category-filter");' % container_id,
         '    const layerCheckboxes = document.querySelectorAll("#%s .layer-filter");' % container_id,
@@ -70,7 +70,7 @@ def build_filter_script_lines(idx: int, container_id: str) -> List[str]:
     ]
 
 
-def _map_constructor_script_lines(idx: int, center_lon: Any, center_lat: Any, initial_zoom: Any) -> List[str]:
+def _map_constructor_script_lines(idx: int, center_lon: Any, center_lat: Any, initial_zoom: Any) -> list[str]:
     return [
         "<script>",
         "(function() {",
@@ -91,7 +91,7 @@ def _payload_constant_script_lines(
     analytics_layers_json: str,
     analytics_defaults_json: str,
     heatmap_json: str,
-) -> List[str]:
+) -> list[str]:
     return [
         "    const styles = %s;" % styles_json,
         "    const analyticsLayersPayload = %s;" % analytics_layers_json,
@@ -101,7 +101,7 @@ def _payload_constant_script_lines(
     ]
 
 
-def _style_helper_script_lines() -> List[str]:
+def _style_helper_script_lines() -> list[str]:
     return [
         "    function tonePalette(tone) {",
         "        const palette = {",
@@ -151,7 +151,7 @@ def _style_helper_script_lines() -> List[str]:
     ]
 
 
-def _feature_setup_script_lines(geojson_json: str, center_lon: Any, center_lat: Any, initial_zoom: Any) -> List[str]:
+def _feature_setup_script_lines(geojson_json: str, center_lon: Any, center_lat: Any, initial_zoom: Any) -> list[str]:
     return [
         "    const features = readGeoJson(%s);" % geojson_json,
         "    const restoreMapView = () => {",
@@ -174,7 +174,7 @@ def build_map_setup_script_lines(
     analytics_defaults_json: str,
     heatmap_json: str,
     geojson_json: str,
-) -> List[str]:
+) -> list[str]:
     return (
         _map_constructor_script_lines(idx, center_lon, center_lat, initial_zoom)
         + _payload_constant_script_lines(styles_json, analytics_layers_json, analytics_defaults_json, heatmap_json)
@@ -183,7 +183,7 @@ def build_map_setup_script_lines(
     )
 
 
-def _incident_category_layer_script_lines() -> List[str]:
+def _incident_category_layer_script_lines() -> list[str]:
     return [
         "    const categoryLayers = {};",
         '    ["deaths", "injured", "children", "evacuated", "other"].forEach(cat => {',
@@ -202,7 +202,7 @@ def _incident_category_layer_script_lines() -> List[str]:
     ]
 
 
-def _heatmap_layer_script_lines() -> List[str]:
+def _heatmap_layer_script_lines() -> list[str]:
     return [
         "    const analyticsLayers = {};",
         "    if ((analyticsLayersPayload.heatmap?.features || []).length) {",
@@ -221,7 +221,7 @@ def _heatmap_layer_script_lines() -> List[str]:
     ]
 
 
-def _point_analytics_layer_script_lines(layer_id: str, base_radius: int) -> List[str]:
+def _point_analytics_layer_script_lines(layer_id: str, base_radius: int) -> list[str]:
     return [
         "    if ((analyticsLayersPayload.%s?.features || []).length) {" % layer_id,
         "        analyticsLayers.%s = new ol.layer.Vector({" % layer_id,
@@ -235,14 +235,14 @@ def _point_analytics_layer_script_lines(layer_id: str, base_radius: int) -> List
     ]
 
 
-def _point_analytics_layers_script_lines(layer_specs: tuple[tuple[str, int], ...]) -> List[str]:
-    lines: List[str] = []
+def _point_analytics_layers_script_lines(layer_specs: tuple[tuple[str, int], ...]) -> list[str]:
+    lines: list[str] = []
     for layer_id, base_radius in layer_specs:
         lines.extend(_point_analytics_layer_script_lines(layer_id, base_radius))
     return lines
 
 
-def _risk_zone_layer_script_lines() -> List[str]:
+def _risk_zone_layer_script_lines() -> list[str]:
     return [
         "    if ((analyticsLayersPayload.risk_zones?.features || []).length) {",
         "        analyticsLayers.risk_zones = new ol.layer.Vector({",
@@ -262,7 +262,7 @@ def _risk_zone_layer_script_lines() -> List[str]:
     ]
 
 
-def _analytics_layer_script_lines() -> List[str]:
+def _analytics_layer_script_lines() -> list[str]:
     return (
         _heatmap_layer_script_lines()
         + _point_analytics_layers_script_lines(_POINT_ANALYTICS_LAYER_SPECS[:2])
@@ -271,11 +271,11 @@ def _analytics_layer_script_lines() -> List[str]:
     )
 
 
-def build_map_layer_script_lines() -> List[str]:
+def build_map_layer_script_lines() -> list[str]:
     return _incident_category_layer_script_lines() + _analytics_layer_script_lines()
 
 
-def _popup_overlay_script_lines() -> List[str]:
+def _popup_overlay_script_lines() -> list[str]:
     return [
         "    const overlay = new ol.Overlay({",
         '        element: document.createElement("div"),',
@@ -287,7 +287,7 @@ def _popup_overlay_script_lines() -> List[str]:
     ]
 
 
-def _popup_builder_script_lines() -> List[str]:
+def _popup_builder_script_lines() -> list[str]:
     return [
         "    function buildPopupElement(feature) {",
         '        const rows = feature.get("popup_rows");',
@@ -322,7 +322,7 @@ def _popup_builder_script_lines() -> List[str]:
     ]
 
 
-def _popup_click_handler_script_lines() -> List[str]:
+def _popup_click_handler_script_lines() -> list[str]:
     return [
         "    function featureHasPopupRows(feature) {",
         "        const rows = feature ? feature.get(\"popup_rows\") : null;",
@@ -352,7 +352,7 @@ def _popup_click_handler_script_lines() -> List[str]:
     ]
 
 
-def build_popup_script_lines() -> List[str]:
+def build_popup_script_lines() -> list[str]:
     return _popup_overlay_script_lines() + _popup_builder_script_lines() + _popup_click_handler_script_lines()
 
 
@@ -362,11 +362,11 @@ def build_tab_script_lines(
     container_id: str,
     analytics_layers: AnalyticsLayersPayload,
     analytics_defaults: SpatialLayerDefaults,
-    heatmap_config: Dict[str, object],
+    heatmap_config: dict[str, object],
     *,
-    category_styles: Dict[str, CategoryStyleLike],
+    category_styles: dict[str, CategoryStyleLike],
     json_for_script: Callable[[Any], str],
-) -> List[str]:
+) -> list[str]:
     center_lon, center_lat = table["center"]
     initial_zoom = min(table.get("initial_zoom", 6) + 4, 13)
     styles_json = json_for_script({key: vars(value) for key, value in category_styles.items()})

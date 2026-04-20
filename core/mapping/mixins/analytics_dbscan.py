@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Dict, Iterable, List
+from typing import Any, Callable, Iterable
 
 import numpy as np
 
@@ -10,14 +10,14 @@ from .analytics_geometry import group_records_by_cluster_label, nanmean_record_v
 
 
 def build_dbscan_cluster_result(
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     labels: Iterable[Any],
     eps_km: float,
     min_samples: int,
     *,
     risk_level: Callable[[float], tuple[str, str]],
     km_distance: Callable[[SpatialPoint, SpatialPoint], float],
-    dominant_label: Callable[[List[ProcessedRecord], str, str], str],
+    dominant_label: Callable[[list[ProcessedRecord], str, str], str],
 ) -> DbscanResult:
     labels_array = np.asarray(list(labels))
     noise_count = int(np.count_nonzero(labels_array == -1))
@@ -33,7 +33,7 @@ def build_dbscan_cluster_result(
 
     grouped = group_records_by_cluster_label(records, labels_array)
     max_weight = max(sum(item['weight'] for item in items) for items in grouped.values()) or 1.0
-    clusters: List[DbscanCluster] = []
+    clusters: list[DbscanCluster] = []
     for items in grouped.values():
         total_weight = sum(item['weight'] for item in items)
         center_lat = sum(item['latitude'] * item['weight'] for item in items) / max(total_weight, 0.1)
@@ -76,7 +76,7 @@ def build_dbscan_cluster_result(
 
 
 def estimate_dbscan_eps_km(
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     *,
     sklearn_available: bool,
     nearest_neighbors_cls: Any,
@@ -93,14 +93,14 @@ def estimate_dbscan_eps_km(
 
 
 def build_dbscan_clusters(
-    records: List[ProcessedRecord],
+    records: list[ProcessedRecord],
     *,
     sklearn_available: bool,
     dbscan_cls: Any,
     nearest_neighbors_cls: Any,
     risk_level: Callable[[float], tuple[str, str]],
     km_distance: Callable[[SpatialPoint, SpatialPoint], float],
-    dominant_label: Callable[[List[ProcessedRecord], str, str], str],
+    dominant_label: Callable[[list[ProcessedRecord], str, str], str],
 ) -> DbscanResult:
     if len(records) < 8 or not sklearn_available or dbscan_cls is None:
         return {'clusters': [], 'eps_km': 0.0, 'min_samples': 0, 'noise_count': 0, 'availability_note': 'DBSCAN отключен: наблюдений пока недостаточно.'}
