@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections import OrderedDict
-import threading
+import threading`r`nfrom collections import OrderedDict
 from typing import Any, Callable
 
 from natasha import MorphVocab, Doc, Segmenter, NewsEmbedding, NewsMorphTagger
@@ -244,12 +243,12 @@ def _matching_category_rule_ids(
 def _keyword_rule_match_specs(rule: MandatoryFeatureSpec) -> list[tuple[list[list[str]], str, str]]:
     return [
         (
-            list(rule.get("include_all", [])),
+            rule.get("include_all") or [],
             "keyword_include_all",
             "Колонка сохранена по keyword-правилу с обязательным набором токенов '{joined_tokens}'.",
         ),
         (
-            list(rule.get("include_any", [])),
+            rule.get("include_any") or [],
             "keyword_include_any",
             "Колонка сохранена по keyword-правилу с токеном '{joined_tokens}'.",
         ),
@@ -261,7 +260,7 @@ def _match_keyword_rule_payload(
     rule: MandatoryFeatureSpec,
     normalize_text: Callable[[str], str],
 ) -> ColumnMatchMetadata | None:
-    exclude_tokens = _prepare_exclude_tokens(list(rule.get("exclude", [])), normalize_text)
+    exclude_tokens = _prepare_exclude_tokens(rule.get("exclude") or [], normalize_text)
     if exclude_tokens and _payload_has_excluded_token(column_payload, exclude_tokens):
         return None
 
@@ -378,13 +377,7 @@ class NatashaColumnMatcher:
     _terms_cache: OrderedDict[str, ColumnTermPayload]
     _group_catalog_cache: OrderedDict[frozenset[str], list[dict[str, object]]]
 
-    def __init__(self):
-        self.morph_vocab = MorphVocab()
-        self.segmenter = Segmenter()
-        self.emb = NewsEmbedding()
-        self.morph_tagger = NewsMorphTagger(self.emb)
-        self.category_lemmas = _build_category_lemma_map(COLUMN_CATEGORY_RULES, self._lemmatize_text)
-        self.mandatory_registry = [self._prepare_registry_feature(feature) for feature in MANDATORY_FEATURE_REGISTRY]
+    def __init__(self) -> None:`r`n        self.morph_vocab: MorphVocab = MorphVocab()`r`n        self.segmenter: Segmenter = Segmenter()`r`n        self.emb: NewsEmbedding = NewsEmbedding()`r`n        self.morph_tagger: NewsMorphTagger = NewsMorphTagger(self.emb)`r`n        self.category_lemmas: dict[str, set[str]] = _build_category_lemma_map(`r`n            COLUMN_CATEGORY_RULES, self._lemmatize_text`r`n        )`r`n        self.mandatory_registry: list[MandatoryFeatureSpec] = [`r`n            self._prepare_registry_feature(feature) for feature in MANDATORY_FEATURE_REGISTRY`r`n        ]
         self._terms_cache: OrderedDict[str, ColumnTermPayload] = OrderedDict()
         self._group_catalog_cache: OrderedDict[frozenset[str], list[dict[str, object]]] = OrderedDict()
 
@@ -600,4 +593,5 @@ def get_column_matcher() -> NatashaColumnMatcher:
             if _COLUMN_MATCHER is None:
                 _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
+
 
