@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
 import numpy as np
 
 from app.services.explainable_logistics import build_explainable_logistics_profile
@@ -10,8 +8,8 @@ from ...types import LogisticsSummaryPayload, PriorityTerritory, ProcessedRecord
 
 
 def build_logistics_summary_payload(
-    records: List[ProcessedRecord],
-    priority_territories: List[PriorityTerritory],
+    records: list[ProcessedRecord],
+    priority_territories: list[PriorityTerritory],
 ) -> LogisticsSummaryPayload:
     distance_values = [item['fire_station_distance'] for item in records if item['fire_station_distance'] is not None]
     response_values = [item['response_minutes'] for item in records if item['response_minutes'] is not None]

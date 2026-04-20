@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional
-
 import pandas as pd
 
 from .config import Config, MarkerStyle
@@ -61,14 +59,14 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
     def __init__(
         self,
         config: Config,
-        finder: Optional[ColumnFinder] = None,
-        cleaner: Optional[DataCleaner] = None,
+        finder: ColumnFinder | None = None,
+        cleaner: DataCleaner | None = None,
     ) -> None:
         self.config = config
         self.finder = finder or ColumnFinder()
         self.cleaner = cleaner or DataCleaner()
 
-    def _prepare_table_data(self, df: pd.DataFrame, table_name: str) -> Optional[Dict]:
+    def _prepare_table_data(self, df: pd.DataFrame, table_name: str) -> dict | None:
         """Подготавливает данные одной таблицы"""
         lat_col = self.finder.find(df, self.config.lat_names)
         lon_col = self.finder.find(df, self.config.lon_names)
@@ -128,7 +126,7 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
         latitudes = latitudes.loc[valid_mask].astype(float)
         longitudes = longitudes.loc[valid_mask].astype(float)
 
-        def _popup_series(column_name: Optional[str]) -> pd.Series:
+        def _popup_series(column_name: str | None) -> pd.Series:
             if column_name and column_name in feature_frame.columns:
                 return feature_frame[column_name].astype("string").fillna("").astype(object)
             return pd.Series([""] * len(feature_frame), index=feature_frame.index, dtype=object)
@@ -138,7 +136,7 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
             index=feature_frame.index,
         )
 
-        def _numeric_or_zero(column_name: Optional[str]) -> pd.Series:
+        def _numeric_or_zero(column_name: str | None) -> pd.Series:
             if column_name and column_name in feature_frame.columns:
                 return pd.to_numeric(feature_frame[column_name], errors="coerce").fillna(0.0)
             return pd.Series(0.0, index=feature_frame.index)
@@ -203,7 +201,7 @@ class MapCreator(MapCreatorUtilityMixin, MapCreatorAnalyticsMixin, MapCreatorTem
     # =====================================================
     # CREATE MAP
     # =====================================================
-    def create_map(self, tables_data: Dict[str, pd.DataFrame]) -> Optional[Path]:
+    def create_map(self, tables_data: dict[str, pd.DataFrame]) -> Path | None:
         """Создает HTML-карту с вкладками для всех таблиц"""
         
         # Подготовка данных для всех таблиц

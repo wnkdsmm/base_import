@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
 from ...types import MapTablePayload
 from .template_analytics import (
     analytics_heatmap_config,
@@ -14,7 +12,7 @@ from .template_scripts import build_tab_script_lines
 
 
 class MapCreatorTemplateMixin:
-    def _generate_html(self, tables: List[MapTablePayload], total_categories: Dict[str, int]) -> str:
+    def _generate_html(self, tables: list[MapTablePayload], total_categories: dict[str, int]) -> str:
         return generate_html(
             tables,
             total_categories,
