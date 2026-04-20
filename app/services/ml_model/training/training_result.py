@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+
 
 from ..ml_model_config_types import CLASSIFICATION_THRESHOLD, COUNT_MODEL_LABELS, COUNT_SELECTION_RULE, EVENT_MODEL_LABEL, EVENT_SELECTION_RULE, EXPLAINABLE_COUNT_MODEL_KEY
 from ..ml_model_interval_types import PREDICTION_INTERVAL_LEVEL, PREDICTION_INTERVAL_METHOD_LABEL
@@ -94,8 +94,8 @@ def _serialize_horizon_summary(summary: HorizonSummary) -> TrainingHorizonSummar
 
 
 def _serialize_horizon_summaries(
-    horizon_summaries: Dict[str, HorizonSummary],
-) -> Dict[str, TrainingHorizonSummaryPayload]:
+    horizon_summaries: dict[str, HorizonSummary],
+) -> dict[str, TrainingHorizonSummaryPayload]:
     return {
         str(horizon_day): _serialize_horizon_summary(summary)
         for horizon_day, summary in horizon_summaries.items()
@@ -249,15 +249,15 @@ def _empty_ml_result(message: str) -> TrainingMlResultPayload:
 def _assemble_training_result(
     *,
     backtest: BacktestSuccess,
-    forecast_rows: List[TrainingForecastRow],
-    feature_importance: List[TrainingFeatureImportanceRow],
-    feature_importance_source_key: Optional[str],
-    feature_importance_source_label: Optional[str],
-    feature_importance_note: Optional[str],
+    forecast_rows: list[TrainingForecastRow],
+    feature_importance: list[TrainingFeatureImportanceRow],
+    feature_importance_source_key: str | None,
+    feature_importance_source_label: str | None,
+    feature_importance_note: str | None,
     final_temperature_stats: TrainingTemperatureStats,
-    final_event_model: Optional[TrainingEventModelPayload],  # one-off
+    final_event_model: TrainingEventModelPayload | None,  # one-off
     selected_count_model_key: str,
-    trend_warning: Optional[str] = None,
+    trend_warning: str | None = None,
 ) -> TrainingMlResultPayload:
     backtest_rows = [_serialize_backtest_row(row) for row in backtest.rows]
     overview = _serialize_backtest_overview(backtest.backtest_overview)

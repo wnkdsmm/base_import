@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 import numbers
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from app.perf import profiled
 from app.cache import CopyingTtlCache
@@ -103,12 +103,12 @@ def _sanitize_json_payload(value: Any) -> Any:
 def _build_access_points_cache_key(
     *,
     selected_table: str,
-    source_tables: List[str],
+    source_tables: list[str],
     district: str,
     year: str,
     limit: int,
-    feature_columns: List[str],
-) -> Tuple[str, ...]:
+    feature_columns: list[str],
+) -> tuple[str, ...]:
     return (
         "v6",
         selected_table,
@@ -120,7 +120,7 @@ def _build_access_points_cache_key(
     )
 
 
-def _build_limit_options() -> List[Dict[str, str]]:
+def _build_limit_options() -> list[dict[str, str]]:
     return [{"value": str(value), "label": f"Top {value}"} for value in ACCESS_POINT_LIMIT_OPTIONS]
 
 
@@ -154,7 +154,7 @@ def _build_access_points_request_state(
     district: str = "all",
     year: str = "all",
     limit: str = "25",
-    feature_columns: List[str] | None = None,
+    feature_columns: list[str] | None = None,
 ) -> dict[str, Any]:
     table_options = _build_access_points_table_options()
     selected_table = _resolve_selected_table(table_options, table_name)
@@ -181,7 +181,7 @@ def _build_access_points_request_state(
     }
 
 
-def _shell_options(current_value: str, all_label: str) -> List[Dict[str, str]]:
+def _shell_options(current_value: str, all_label: str) -> list[dict[str, str]]:
     if current_value == "all":
         return [{"value": "all", "label": all_label}]
     return [
@@ -191,13 +191,15 @@ def _shell_options(current_value: str, all_label: str) -> List[Dict[str, str]]:
 
 
 @profiled("access_points.shell", engine=engine)
+
+
 def get_access_points_shell_context(
     *,
     table_name: str = "all",
     district: str = "all",
     year: str = "all",
     limit: str = "25",
-    feature_columns: List[str] | None = None,
+    feature_columns: list[str] | None = None,
 ) -> dict[str, Any]:
     request_state = _build_access_points_request_state(
         table_name=table_name,
@@ -266,13 +268,15 @@ def get_access_points_shell_context(
 
 
 @profiled("access_points", engine=engine)
+
+
 def get_access_points_data(
     *,
     table_name: str = "all",
     district: str = "all",
     year: str = "all",
     limit: str = "25",
-    feature_columns: List[str] | None = None,
+    feature_columns: list[str] | None = None,
 ) -> dict[str, Any]:
     request_state = _build_access_points_request_state(
         table_name=table_name,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from .shaping import _build_daily_history
 from .types import ForecastingInputRecord, ForecastingTableMetadata, SqlFilters, SqlMaterializedRow, SqlMergedBucket
@@ -10,12 +10,12 @@ class SourceQueryRegistryMixin:
     def _load_daily_history_rows(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        min_year: Optional[int] = None,
-    ) -> List[SqlMaterializedRow]:
+        min_year: int | None = None,
+    ) -> list[SqlMaterializedRow]:
         if self._aggregations._daily_aggregate_view_exists(table_name):
             return self._load_materialized_daily_history_rows(
                 table_name,
@@ -38,13 +38,13 @@ class SourceQueryRegistryMixin:
     def _load_materialized_daily_history_rows(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> List[SqlMaterializedRow]:
+        min_year: int | None,
+    ) -> list[SqlMaterializedRow]:
         return self._aggregations._load_materialized_daily_history_rows(
             table_name,
             resolved_columns,
@@ -61,8 +61,8 @@ class SourceQueryRegistryMixin:
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        min_year: Optional[int] = None,
-    ) -> Optional[List[SqlMaterializedRow]]:
+        min_year: int | None = None,
+    ) -> list[SqlMaterializedRow | None]:
         params: SqlFilters = {}
         query_parts = self._daily_history_union_query_parts(
             metadata_items,
@@ -87,9 +87,9 @@ class SourceQueryRegistryMixin:
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> List[str]:
-        query_parts: List[str] = []
+        min_year: int | None,
+    ) -> list[str]:
+        query_parts: list[str] = []
         view_status_loader = self._resolve_hook(
             "_daily_aggregate_view_status_map",
             self._aggregations._daily_aggregate_view_status_map,
@@ -126,7 +126,7 @@ class SourceQueryRegistryMixin:
                 query_parts.append(query_part)
         return query_parts
 
-    def _daily_history_rows_from_record_fallback(self, records: Sequence[ForecastingInputRecord]) -> List[SqlMaterializedRow]:
+    def _daily_history_rows_from_record_fallback(self, records: Sequence[ForecastingInputRecord]) -> list[SqlMaterializedRow]:
         return [
             {
                 "date": item["date"],
@@ -140,13 +140,13 @@ class SourceQueryRegistryMixin:
     def _load_table_daily_history_record_fallback(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> List[SqlMaterializedRow]:
+        min_year: int | None,
+    ) -> list[SqlMaterializedRow]:
         load_records = self._resolve_hook("_load_forecasting_records", self._load_forecasting_records)
         fallback_records = load_records(
             table_name,
@@ -165,9 +165,9 @@ class SourceQueryRegistryMixin:
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> Dict[Any, SqlMergedBucket]:
-        merged_rows: Dict[Any, SqlMergedBucket] = {}
+        min_year: int | None,
+    ) -> dict[Any, SqlMergedBucket]:
+        merged_rows: dict[Any, SqlMergedBucket] = {}
         load_daily_history_rows = self._resolve_hook("_load_daily_history_rows", self._load_daily_history_rows)
         load_record_fallback = self._resolve_hook(
             "_load_table_daily_history_record_fallback",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import timedelta
-from typing import Any, Dict, List, Sequence, cast
+from typing import Any, Sequence, cast
 
 from .profiles import resolve_component_weights
 from .types import ComponentWeightRow, HorizonContext, RiskEventRecord, RiskProfile, TerritoryBucket
@@ -11,16 +11,17 @@ from .utils import _is_heating_season
 
 def _component_weights_for_rural(
     profile: RiskProfile,
-    cache: Dict[bool, List[ComponentWeightRow]],
+    cache: dict[bool, list[ComponentWeightRow]],
     *,
     is_rural: bool,
-) -> List[ComponentWeightRow]:
+) -> list[ComponentWeightRow]:
     rural_key = bool(is_rural)
     component_weights = cache.get(rural_key)
     if component_weights is None:
-        component_weights = cast(List[ComponentWeightRow], resolve_component_weights(profile, is_rural=rural_key))
+        component_weights = cast(list[ComponentWeightRow], resolve_component_weights(profile, is_rural=rural_key))
         cache[rural_key] = component_weights
     return component_weights
+
 
 def _history_date_bounds(records: Sequence[RiskEventRecord]) -> tuple[Any, Any]:
     record_iterator = iter(records)
@@ -35,8 +36,10 @@ def _history_date_bounds(records: Sequence[RiskEventRecord]) -> tuple[Any, Any]:
             history_end = record_date
     return history_start, history_end
 
+
 def _territory_label(record: RiskEventRecord) -> str:
     return record["territory_label"] or record["district"] or "Территория не указана"
+
 
 def _horizon_context(
     records: Sequence[RiskEventRecord],
@@ -57,6 +60,7 @@ def _horizon_context(
         "recent_window_days": recent_window_days,
         "recent_window_start": history_end - timedelta(days=recent_window_days - 1),
     }
+
 
 def _empty_territory_bucket(label: str) -> TerritoryBucket:
     return {
@@ -85,6 +89,7 @@ def _empty_territory_bucket(label: str) -> TerritoryBucket:
         "settlement_types": Counter(),
     }
 
+
 def _history_weight_for_record(record_date: Any, horizon: HorizonContext) -> tuple[float, float, float]:
     horizon_days = horizon["horizon_days"]
     age_days = max(0, (horizon["history_end"] - record_date).days)
@@ -93,6 +98,7 @@ def _history_weight_for_record(record_date: Any, horizon: HorizonContext) -> tup
     recency_weight = max(0.25, 1.0 - age_days / max(210.0, float(horizon["history_days"])))
     history_weight = recency_weight * (1.0 + 0.40 * month_alignment) * (1.0 + 0.18 * weekday_alignment)
     return month_alignment, weekday_alignment, history_weight
+
 
 def _update_territory_bucket(
     bucket: TerritoryBucket,
@@ -139,12 +145,13 @@ def _update_territory_bucket(
     if record["settlement_type"]:
         bucket["settlement_types"][record["settlement_type"]] += 1
 
+
 def _collect_territory_buckets(
     records: Sequence[RiskEventRecord],
     horizon: HorizonContext,
-) -> tuple[Dict[str, TerritoryBucket], int]:
+) -> tuple[dict[str, TerritoryBucket], int]:
     recent_incidents = 0
-    territories: Dict[str, TerritoryBucket] = {}
+    territories: dict[str, TerritoryBucket] = {}
     for record in records:
         record_date = record["date"]
         if record_date >= horizon["recent_window_start"]:

@@ -1,6 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, Sequence
+from typing import Any, Callable, Sequence
 
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from config.db import engine
@@ -114,7 +114,7 @@ def _build_payload_from_territories(
     )
 
 
-def _load_decision_support_data(params: Dict[str, Any]) -> Dict[str, Any]:
+def _load_decision_support_data(params: dict[str, Any]) -> dict[str, Any]:
     metadata_items, filtered_records, preload_notes = _collect_risk_inputs(
         params["source_tables"],
         district=params["selected_district"],
@@ -143,7 +143,7 @@ def _load_decision_support_data(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _build_geo_prediction_if_needed(raw_data: Dict[str, Any], include_geo: bool) -> GeoPredictionData | None:
+def _build_geo_prediction_if_needed(raw_data: dict[str, Any], include_geo: bool) -> GeoPredictionData | None:
     geo_prediction = raw_data.get("geo_prediction")
     if not include_geo:
         return geo_prediction
@@ -155,7 +155,7 @@ def _build_geo_prediction_if_needed(raw_data: Dict[str, Any], include_geo: bool)
     return _build_geo_prediction(filtered_records, int(raw_data["planning_horizon_days"]))
 
 
-def _aggregate_territory_risk(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+def _aggregate_territory_risk(raw_data: dict[str, Any]) -> dict[str, Any]:
     filtered_records = raw_data["filtered_records"]
     if not filtered_records:
         mode_label = raw_data["requested_weight_profile"].get("mode_label") or "Адаптивные веса"
@@ -206,6 +206,7 @@ def _select_payload_builder(ranked_territories: Sequence[RiskScore]) -> Callable
         return lambda **kwargs: _build_payload_from_territories(territories=territories, **kwargs)
     return lambda **kwargs: _build_payload_from_territories(territories=[], **kwargs)
 
+
 def build_decision_support_payload(
     source_tables: Sequence[str],
     selected_district: str,
@@ -213,10 +214,10 @@ def build_decision_support_payload(
     selected_object_category: str,
     history_window: str,
     planning_horizon_days: int,
-    geo_prediction: Optional[GeoPredictionData] = None,
+    geo_prediction: GeoPredictionData | None = None,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-    selected_year: Optional[int] = None,
-    progress_callback: Optional[Callable[[str, str], None]] = None,
+    selected_year: int | None = None,
+    progress_callback: Callable[[str, str | None, None]] = None,
     include_geo_prediction: bool = True,
     include_historical_validation: bool = True,
 ) -> RiskPresentation:
@@ -336,7 +337,7 @@ def build_risk_forecast_payload(
     selected_object_category: str,
     history_window: str,
     forecast_rows: Sequence[dict[str, Any]],  # one-off structure: forecasting rows used only for horizon length
-    geo_prediction: Optional[GeoPredictionData] = None,
+    geo_prediction: GeoPredictionData | None = None,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
 ) -> RiskPresentation:
     return build_decision_support_payload(

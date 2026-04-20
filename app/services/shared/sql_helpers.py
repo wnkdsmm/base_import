@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterable, Sequence
 
 
 def select_expression_or_fallback(
-    column_name: Optional[str],
+    column_name: str | None,
     expression_builder: Callable[[str], str],
     *,
     fallback: str,
@@ -15,16 +15,16 @@ def select_expression_or_fallback(
 
 
 def build_scope_conditions(
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     *,
     date_field: str,
     date_expression_builder: Callable[[str], str],
     text_expression_builder: Callable[[str], str],
-    text_filters: Iterable[Tuple[str, object]],
-    min_year: Optional[int] = None,
-    selected_year: Optional[int] = None,
+    text_filters: Iterable[tuple[str, object]],
+    min_year: int | None = None,
+    selected_year: int | None = None,
     all_value: str = "all",
-) -> tuple[Optional[str], list[str], dict[str, Any], bool]:
+) -> tuple[str | None, list[str], dict[str, Any], bool]:
     date_column = resolved_columns.get(date_field)
     if not date_column:
         return None, [], {}, True
@@ -54,10 +54,10 @@ def build_scope_conditions(
 
 
 def build_select_parts(
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     *,
-    text_aliases: Dict[str, str],
-    numeric_aliases: Dict[str, str],
+    text_aliases: dict[str, str],
+    numeric_aliases: dict[str, str],
     text_expression_builder: Callable[[str], str],
     numeric_expression_builder: Callable[[str], str],
 ) -> list[str]:

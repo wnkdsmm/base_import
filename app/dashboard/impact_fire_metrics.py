@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -44,8 +44,8 @@ _AREA_BUCKET_ORDER = ["До 1 га", "1-5 га", "5-20 га", "20-100 га", "10
 _IMPACT_TIMELINE_METRIC_KEYS = ("deaths", "injuries", "evacuated", "evacuated_children", "rescued_children")
 
 
-def _collect_cause_counts(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> Dict[str, int]:
-    grouped: Dict[str, int] = defaultdict(int)
+def _collect_cause_counts(selected_tables: list[DashboardTableRef], selected_year: int | None) -> dict[str, int]:
+    grouped: dict[str, int] = defaultdict(int)
     with engine.connect() as conn:
         for table in selected_tables:
             cause_column = _resolve_cause_column(table)
@@ -73,10 +73,10 @@ def _collect_cause_counts(selected_tables: List[DashboardTableRef], selected_yea
 
 
 def _build_cause_chart(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
     *,
-    cause_counts: Optional[Dict[str, int]] = None,
+    cause_counts: dict[str, int | None] = None,
 ) -> DistributionResult:
     grouped = cause_counts if cause_counts is not None else _collect_cause_counts(selected_tables, selected_year)
     items = [
@@ -88,8 +88,8 @@ def _build_cause_chart(
     return _finalize_chart(title, items, empty_message, plotly=_build_cause_plotly(title, items, empty_message))
 
 
-def _collect_month_counts(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> Dict[int, int]:
-    grouped: Dict[int, int] = defaultdict(int)
+def _collect_month_counts(selected_tables: list[DashboardTableRef], selected_year: int | None) -> dict[int, int]:
+    grouped: dict[int, int] = defaultdict(int)
 
     with engine.connect() as conn:
         for table in selected_tables:
@@ -126,13 +126,13 @@ def _column_label_expression(column_name: str) -> str:
 
 def _resolve_grouped_count_query_context(
     table: DashboardTableRef,
-    selected_year: Optional[int],
-    selected_group_column: Optional[str],
+    selected_year: int | None,
+    selected_group_column: str | None,
     *,
     include_area_buckets: bool,
     include_impact_timeline: bool,
     include_positive_columns: bool = False,
-) -> Optional[DashboardGroupedQueryContext]:
+) -> DashboardGroupedQueryContext | None:
     where_clause = _build_year_filter_clause(table, selected_year)
     if where_clause is None:
         return None
@@ -146,7 +146,7 @@ def _resolve_grouped_count_query_context(
     district_column = _resolve_district_column(table)
     has_date_column = DATE_COLUMN in table["column_set"]
     has_timeline = include_impact_timeline and (has_date_column or table["table_year"] is not None)
-    dimensions: List[tuple[str, str]] = []
+    dimensions: list[tuple[str, str]] = []
     if cause_column:
         dimensions.append(("cause", "cause_label"))
     if distribution_column:
@@ -178,7 +178,7 @@ def _build_grouped_count_dimension_sql(
     dimensions: Sequence[tuple[str, str]],
     *,
     include_positive_columns: bool = False,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     if not dimensions:
         return {
             "metric_kind_case": "'positive_column_bundle'",
@@ -266,8 +266,8 @@ def _build_grouped_count_source_selects(
     month_label_expression: str,
     date_value_expression: str,
     positive_count_columns: Sequence[str] = (),
-) -> List[str]:
-    source_selects: List[str] = []
+) -> list[str]:
+    source_selects: list[str] = []
     if context["cause_column"]:
         source_selects.append(f"{_column_label_expression(context['cause_column'])} AS cause_label")
     if context["distribution_column"]:
@@ -328,14 +328,14 @@ def _build_grouped_count_result_selects(
 
 def _build_dashboard_grouped_counts_query(
     table: DashboardTableRef,
-    selected_year: Optional[int],
-    selected_group_column: Optional[str],
+    selected_year: int | None,
+    selected_group_column: str | None,
     query_index: int,
     *,
     include_area_buckets: bool = True,
     include_impact_timeline: bool = True,
     positive_count_columns: Sequence[str] = (),
-) -> tuple[Optional[str], bool]:
+) -> tuple[str | None, bool]:
     positive_columns = tuple(positive_count_columns)
     context = _resolve_grouped_count_query_context(
         table,
@@ -396,26 +396,26 @@ def _build_dashboard_grouped_counts_query(
 
 
 def _collect_dashboard_grouped_counts(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
-    selected_group_column: Optional[str] = None,
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
+    selected_group_column: str | None = None,
     *,
     include_area_buckets: bool = True,
     include_impact_timeline: bool = True,
-    positive_count_columns: Optional[Sequence[str]] = None,
+    positive_count_columns: Sequence[str | None] = None,
 ) -> DashboardGroupedCounts:
-    cause_counts: Dict[str, int] = defaultdict(int)
-    district_counts: Dict[str, int] = defaultdict(int)
-    month_counts: Dict[int, int] = defaultdict(int)
-    area_bucket_counts: Dict[str, int] = defaultdict(int)
-    distribution_counts: Dict[str, int] = defaultdict(int)
+    cause_counts: dict[str, int] = defaultdict(int)
+    district_counts: dict[str, int] = defaultdict(int)
+    month_counts: dict[int, int] = defaultdict(int)
+    area_bucket_counts: dict[str, int] = defaultdict(int)
+    distribution_counts: dict[str, int] = defaultdict(int)
     positive_columns = tuple(positive_count_columns or ())
-    positive_column_counts: Dict[str, int] = {
+    positive_column_counts: dict[str, int] = {
         column_name: 0
         for column_name in positive_columns
     }
-    impact_timeline_rows: List[ImpactTimelineSqlRow] = []
-    subqueries: List[str] = []
+    impact_timeline_rows: list[ImpactTimelineSqlRow] = []
+    subqueries: list[str] = []
     uses_selected_year_param = False
 
     for table in selected_tables:
@@ -476,10 +476,10 @@ def _collect_dashboard_grouped_counts(
 
 
 def _build_monthly_profile_chart(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
     *,
-    month_counts: Optional[Dict[int, int]] = None,
+    month_counts: dict[int, int | None] = None,
 ) -> DistributionResult:
     grouped = month_counts if month_counts is not None else _collect_month_counts(selected_tables, selected_year)
     items = []
@@ -498,8 +498,8 @@ def _build_monthly_profile_chart(
     return _finalize_chart(title, items, empty_message, plotly=_build_monthly_profile_plotly(title, items, empty_message))
 
 
-def _build_area_buckets_chart(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> DistributionResult:
-    grouped: Dict[str, int] = defaultdict(int)
+def _build_area_buckets_chart(selected_tables: list[DashboardTableRef], selected_year: int | None) -> DistributionResult:
+    grouped: dict[str, int] = defaultdict(int)
     bucket_order = ["До 1 га", "1-5 га", "5-20 га", "20-100 га", "100+ га", "Не указано"]
 
     with engine.connect() as conn:
@@ -535,7 +535,7 @@ def _build_area_buckets_chart(selected_tables: List[DashboardTableRef], selected
     return _finalize_chart(title, items, empty_message, plotly=_build_area_bucket_plotly(title, items, empty_message))
 
 
-def _build_area_buckets_chart_from_counts(bucket_counts: Dict[str, int]) -> DistributionResult:
+def _build_area_buckets_chart_from_counts(bucket_counts: dict[str, int]) -> DistributionResult:
     items = [
         {
             "label": bucket,
@@ -551,9 +551,9 @@ def _build_area_buckets_chart_from_counts(bucket_counts: Dict[str, int]) -> Dist
 
 
 def _resolve_cumulative_area_year(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
-) -> Optional[int]:
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
+) -> int | None:
     if selected_year is not None:
         return selected_year
 
@@ -572,12 +572,12 @@ def _resolve_cumulative_area_year(
 
 
 def _collect_cumulative_area_rows(
-    selected_tables: List[DashboardTableRef],
+    selected_tables: list[DashboardTableRef],
     current_year: int,
     previous_year: int,
 ) -> tuple[list[dict[str, float]], list[dict[str, float]]]:
-    current_by_day: Dict[int, float] = defaultdict(float)
-    previous_by_day: Dict[int, float] = defaultdict(float)
+    current_by_day: dict[int, float] = defaultdict(float)
+    previous_by_day: dict[int, float] = defaultdict(float)
 
     with engine.connect() as conn:
         for table in selected_tables:
@@ -616,7 +616,7 @@ def _collect_cumulative_area_rows(
                 elif int(year_value) == previous_year:
                     previous_by_day[day_value] += area_value
 
-    def to_cumulative(data: Dict[int, float]) -> list[dict[str, float]]:
+    def to_cumulative(data: dict[int, float]) -> list[dict[str, float]]:
         running_total = 0.0
         items: list[dict[str, float]] = []
         for day in sorted(data):
@@ -628,8 +628,8 @@ def _collect_cumulative_area_rows(
 
 
 def _build_cumulative_area_chart(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
 ) -> DistributionResult:
     title = "Накопленная площадь по дням года"
     empty_message = "Недостаточно данных для накопленного графика площади."
@@ -664,10 +664,10 @@ def _build_cumulative_area_chart(
 
 
 def _build_monthly_heatmap_chart(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int] = None,
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None = None,
 ) -> DistributionResult:
-    grouped: Dict[int, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    grouped: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
 
     with engine.connect() as conn:
         for table in selected_tables:

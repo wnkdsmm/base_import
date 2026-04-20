@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 from datetime import date, datetime, timedelta
 from statistics import mean
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from config.db import engine
 from app.services.shared.formatting import (
@@ -55,7 +55,7 @@ def _resolve_column_name(columns: Sequence[str], candidates: Sequence[str]) -> s
     return best_match if best_score >= 8 else ""
 
 
-def _resolve_option_value(options: List[Dict[str, str]], selected_value: str) -> str:
+def _resolve_option_value(options: list[dict[str, str]], selected_value: str) -> str:
     available_values = {option["value"] for option in options}
     return selected_value if selected_value in available_values else "all"
 
@@ -78,7 +78,7 @@ def _history_window_label(value: str) -> str:
     return "\u0412\u0441\u0435 \u0433\u043e\u0434\u044b"
 
 
-def _apply_history_window(records: List[dict[str, Any]], history_window: str) -> List[dict[str, Any]]:
+def _apply_history_window(records: list[dict[str, Any]], history_window: str) -> list[dict[str, Any]]:
     if not records or history_window == "all":
         return records
 
@@ -101,7 +101,7 @@ def _parse_forecast_days(value: str) -> int:
     return parsed if parsed in FORECAST_DAY_OPTIONS else 14
 
 
-def _parse_float(value: str) -> Optional[float]:
+def _parse_float(value: str) -> float | None:
     if value is None:
         return None
     normalized = str(value).strip().replace(",", ".")
@@ -113,7 +113,7 @@ def _parse_float(value: str) -> Optional[float]:
         return None
 
 
-def _to_float_or_none(value: Any) -> Optional[float]:
+def _to_float_or_none(value: Any) -> float | None:
     if value is None:
         return None
     try:
@@ -122,7 +122,7 @@ def _to_float_or_none(value: Any) -> Optional[float]:
         return None
 
 
-def _clean_coordinate(value: Any, minimum: float, maximum: float) -> Optional[float]:
+def _clean_coordinate(value: Any, minimum: float, maximum: float) -> float | None:
     numeric = _to_float_or_none(value)
     if numeric is None:
         return None
@@ -131,7 +131,7 @@ def _clean_coordinate(value: Any, minimum: float, maximum: float) -> Optional[fl
     return round(numeric, 6)
 
 
-def _compute_temperature_slope(pairs: List[tuple[float, float]]) -> Optional[float]:
+def _compute_temperature_slope(pairs: list[tuple[float, float]]) -> float | None:
     if len(pairs) < 5:
         return None
     temperatures = [pair[0] for pair in pairs]
@@ -153,9 +153,9 @@ def _parse_iso_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
-def _rolling_average(values: Sequence[float], window: int) -> List[float]:
+def _rolling_average(values: Sequence[float], window: int) -> list[float]:
     items = [float(value) for value in values]
-    result: List[float] = []
+    result: list[float] = []
     for index in range(len(items)):
         start = max(0, index - window + 1)
         subset = items[start:index + 1]
@@ -177,7 +177,7 @@ def _scenario_color(tone: str) -> str:
     return palette.get(tone, PLOTLY_PALETTE["sky"])
 
 
-def _forecast_stability_hint(daily_history: List[dict[str, Any]]) -> Tuple[str, str]:
+def _forecast_stability_hint(daily_history: list[dict[str, Any]]) -> tuple[str, str]:
     total_days = len(daily_history)
     active_days = sum(1 for item in daily_history if float(item["count"]) > 0)
     if total_days >= 180 and active_days >= 45:
@@ -187,7 +187,7 @@ def _forecast_stability_hint(daily_history: List[dict[str, Any]]) -> Tuple[str, 
     return "Ниже средней", "данных мало или они слишком редкие, поэтому важнее смотреть на общий тренд"
 
 
-def _forecast_level_label(value: float, reference: float) -> Tuple[str, str]:
+def _forecast_level_label(value: float, reference: float) -> tuple[str, str]:
     if reference <= 0:
         if value <= 0:
             return "На уровне нуля", "sky"

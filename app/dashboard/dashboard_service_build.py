@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
@@ -44,6 +44,7 @@ from .types import (
 )
 from .utils import _find_option_label, _format_datetime, build_horizon_day_options
 
+
 def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -> DashboardContext:
     return {
         "generated_at": _format_datetime(datetime.now()),
@@ -58,11 +59,12 @@ def _build_dashboard_error_context(error_message: str, *, plotly_js: str = "") -
         "plotly_js": plotly_js,
     }
 
+
 def _build_dashboard_aggregation(
     *,
     metadata: DashboardMetadata,
     selected_tables: list[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_year: int | None,
     selected_group_column: str,
     selected_table_name: str,
     available_years: list[DashboardOption],
@@ -215,13 +217,14 @@ def _build_dashboard_aggregation(
         "scope": scope,
     }
 
+
 def _build_dashboard_payload(
     *,
     metadata: DashboardMetadata,
     aggregation: DashboardAggregation,
     selected_tables: list[DashboardTableRef],
     selected_table_name: str,
-    selected_year: Optional[int],
+    selected_year: int | None,
     selected_group_column: str,
     available_years: list[DashboardOption],
     available_group_columns: list[DashboardOption],
@@ -284,6 +287,7 @@ def _build_dashboard_payload(
         },
         "notes": notes,
     }
+
 
 def _empty_dashboard_data(
     error_message: str = "",

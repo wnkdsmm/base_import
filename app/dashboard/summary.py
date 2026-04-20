@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -38,10 +38,10 @@ from .utils import (
 
 
 def _collect_summary_table_rows(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
-) -> List[SummaryRow]:
-    summary_rows: List[SummaryRow] = []
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
+) -> list[SummaryRow]:
+    summary_rows: list[SummaryRow] = []
 
     with engine.connect() as conn:
         for table in selected_tables:
@@ -89,12 +89,12 @@ def _sql_string_literal(value: Any) -> str:
 
 
 def _collect_dashboard_summary_bundle(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
 ) -> SummaryBundle:
-    summary_rows: List[SummaryRow] = []
-    yearly_grouped: Dict[int, Dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
-    query_parts: List[str] = []
+    summary_rows: list[SummaryRow] = []
+    yearly_grouped: dict[int, dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
+    query_parts: list[str] = []
 
     for table in selected_tables:
         area_expression = _area_expression(table)
@@ -146,7 +146,7 @@ def _collect_dashboard_summary_bundle(
                 """
             )
 
-    rows_by_table: Dict[str, List[Any]] = defaultdict(list)
+    rows_by_table: dict[str, list[Any]] = defaultdict(list)
     if query_parts:
         with engine.connect() as conn:
             for row in conn.execute(text("\nUNION ALL\n".join(query_parts))).mappings().all():
@@ -196,10 +196,10 @@ def _collect_dashboard_summary_bundle(
 
 
 def _build_summary(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
     *,
-    summary_rows: Optional[Sequence[SummaryRow]] = None,
+    summary_rows: Sequence[SummaryRow | None] = None,
 ) -> SummaryResult:
     fires_count = 0
     total_area = 0.0
@@ -267,13 +267,13 @@ def _build_summary(
 
 
 def _build_yearly_chart(
-    selected_tables: List[DashboardTableRef],
+    selected_tables: list[DashboardTableRef],
     metric: str,
     *,
-    yearly_grouped: Optional[Dict[int, Dict[str, float]]] = None,
+    yearly_grouped: dict[int, dict[str, float | None]] = None,
     include_plotly: bool = True,
 ) -> DistributionResult:
-    grouped: Dict[int, Dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
+    grouped: dict[int, dict[str, float]] = defaultdict(lambda: {"count": 0.0, "area": 0.0})
 
     if yearly_grouped is not None:
         for year_value, values in yearly_grouped.items():
@@ -318,7 +318,7 @@ def _build_scope(
     metadata: DashboardMetadata,
     selected_table_label: str,
     selected_group_label: str,
-    available_years: List[DashboardOption],
+    available_years: list[DashboardOption],
 ) -> DashboardSection:
     available_years_count = len(available_years)
     database_tables_count = len(metadata["tables"])
@@ -379,7 +379,7 @@ def _build_highlights(
     summary: SummaryResult,
     yearly_fires: DistributionResult,
     cause_chart: DistributionResult,
-) -> List[SummaryCard]:
+) -> list[SummaryCard]:
     peak_fire = max(yearly_fires["items"], key=lambda item: item["value"], default=None)
     dominant_cause = cause_chart["items"][0] if cause_chart["items"] else None
 

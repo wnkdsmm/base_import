@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields, replace
-from typing import Any, ClassVar, Dict, Iterable, Optional, Self, TypedDict
+from typing import Any, ClassVar, Iterable, Self, TypedDict
 
 from .ml_model_interval_types import PredictionIntervalCalibration
 
 
-def _optional_float(value: Any) -> Optional[float]:
+def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
@@ -44,14 +44,16 @@ class MappingAccessMixin:
 
 
 @dataclass
+
+
 class CountMetrics(MappingAccessMixin):
-    mae: Optional[float] = None
-    rmse: Optional[float] = None
-    smape: Optional[float] = None
-    poisson_deviance: Optional[float] = None
-    mae_delta_vs_baseline: Optional[float] = None
-    rmse_delta_vs_baseline: Optional[float] = None
-    smape_delta_vs_baseline: Optional[float] = None
+    mae: float | None = None
+    rmse: float | None = None
+    smape: float | None = None
+    poisson_deviance: float | None = None
+    mae_delta_vs_baseline: float | None = None
+    rmse_delta_vs_baseline: float | None = None
+    smape_delta_vs_baseline: float | None = None
 
     @classmethod
     def coerce(cls, value: Any) -> "CountMetrics":
@@ -70,6 +72,8 @@ class CountMetrics(MappingAccessMixin):
 
 
 @dataclass
+
+
 class CountComparisonRow(MappingAccessMixin):
     method_key: str
     method_label: str
@@ -92,14 +96,16 @@ class CountComparisonRow(MappingAccessMixin):
 
 
 @dataclass
+
+
 class EventComparisonRow(MappingAccessMixin):
     method_key: str
     method_label: str
     role_label: str
-    brier_score: Optional[float] = None
-    roc_auc: Optional[float] = None
-    f1: Optional[float] = None
-    log_loss: Optional[float] = None
+    brier_score: float | None = None
+    roc_auc: float | None = None
+    f1: float | None = None
+    log_loss: float | None = None
     is_selected: bool = False
 
     @classmethod
@@ -120,11 +126,13 @@ class EventComparisonRow(MappingAccessMixin):
 
 
 @dataclass
+
+
 class EventScoreMetrics:
-    brier_score: Optional[float] = None
-    roc_auc: Optional[float] = None
-    f1: Optional[float] = None
-    log_loss: Optional[float] = None
+    brier_score: float | None = None
+    roc_auc: float | None = None
+    f1: float | None = None
+    log_loss: float | None = None
 
     @classmethod
     def coerce(cls, value: Any) -> "EventScoreMetrics":
@@ -140,25 +148,27 @@ class EventScoreMetrics:
 
 
 @dataclass
+
+
 class EventMetrics(MappingAccessMixin):
     available: bool = False
     logistic_available: bool = False
-    selected_model_key: Optional[str] = None
-    selected_model_label: Optional[str] = None
+    selected_model_key: str | None = None
+    selected_model_label: str | None = None
     selected_metrics: EventScoreMetrics = field(default_factory=EventScoreMetrics)
     baseline_metrics: EventScoreMetrics = field(default_factory=EventScoreMetrics)
     heuristic_metrics: EventScoreMetrics = field(default_factory=EventScoreMetrics)
     comparison_rows: list[EventComparisonRow] = field(default_factory=list)
     rows_used: int = 0
     selection_rule: str = ""
-    event_rate: Optional[float] = None
+    event_rate: float | None = None
     evaluation_has_both_classes: bool = False
     event_probability_informative: bool = False
-    event_probability_note: Optional[str] = None
-    event_probability_reason_code: Optional[str] = None
+    event_probability_note: str | None = None
+    event_probability_reason_code: str | None = None
 
     @staticmethod
-    def _parse_numeric(value: Any, default: Optional[float]) -> Optional[float]:
+    def _parse_numeric(value: Any, default: float | None) -> float | None:
         if value is None:
             return default
         try:
@@ -167,22 +177,22 @@ class EventMetrics(MappingAccessMixin):
             return default
 
     @classmethod
-    def _coerce_brier(cls, raw: Any) -> Optional[float]:
+    def _coerce_brier(cls, raw: Any) -> float | None:
         raw = raw or {}
         return cls._parse_numeric(raw.get("brier_score"), None)
 
     @classmethod
-    def _coerce_roc_auc(cls, raw: Any) -> Optional[float]:
+    def _coerce_roc_auc(cls, raw: Any) -> float | None:
         raw = raw or {}
         return cls._parse_numeric(raw.get("roc_auc"), None)
 
     @classmethod
-    def _coerce_f1(cls, raw: Any) -> Optional[float]:
+    def _coerce_f1(cls, raw: Any) -> float | None:
         raw = raw or {}
         return cls._parse_numeric(raw.get("f1"), None)
 
     @classmethod
-    def _coerce_log_loss(cls, raw: Any) -> Optional[float]:
+    def _coerce_log_loss(cls, raw: Any) -> float | None:
         raw = raw or {}
         return cls._parse_numeric(raw.get("log_loss"), None)
 
@@ -196,7 +206,7 @@ class EventMetrics(MappingAccessMixin):
         )
 
     @staticmethod
-    def _selected_metrics_raw(value: Dict[str, Any]) -> Dict[str, Any]:
+    def _selected_metrics_raw(value: dict[str, Any]) -> dict[str, Any]:
         raw = value.get("selected_metrics")
         if raw is not None:
             return raw
@@ -208,7 +218,7 @@ class EventMetrics(MappingAccessMixin):
         }
 
     @staticmethod
-    def _baseline_metrics_raw(value: Dict[str, Any]) -> Dict[str, Any]:
+    def _baseline_metrics_raw(value: dict[str, Any]) -> dict[str, Any]:
         raw = value.get("baseline_metrics")
         if raw is not None:
             return raw
@@ -220,7 +230,7 @@ class EventMetrics(MappingAccessMixin):
         }
 
     @staticmethod
-    def _heuristic_metrics_raw(value: Dict[str, Any]) -> Dict[str, Any]:
+    def _heuristic_metrics_raw(value: dict[str, Any]) -> dict[str, Any]:
         raw = value.get("heuristic_metrics")
         if raw is not None:
             return raw
@@ -232,7 +242,7 @@ class EventMetrics(MappingAccessMixin):
         }
 
     @staticmethod
-    def _coerce_comparison_rows(value: Dict[str, Any]) -> list[EventComparisonRow]:
+    def _coerce_comparison_rows(value: dict[str, Any]) -> list[EventComparisonRow]:
         return [EventComparisonRow.coerce(row) for row in value.get("comparison_rows", [])]
 
     @classmethod
@@ -260,19 +270,21 @@ class EventMetrics(MappingAccessMixin):
 
 
 @dataclass
+
+
 class BacktestWindowRow(MappingAccessMixin):
-    origin_date: Optional[str]
+    origin_date: str | None
     date: str
     horizon_days: int
     actual_count: float
     baseline_count: float
     heuristic_count: float
     actual_event: int
-    baseline_event_probability: Optional[float]
-    heuristic_event_probability: Optional[float]
-    predictions: Dict[str, Optional[float]] = field(default_factory=dict)
-    predicted_event_probabilities: Dict[str, Optional[float]] = field(default_factory=dict)
-    predicted_event_probability: Optional[float] = None
+    baseline_event_probability: float | None
+    heuristic_event_probability: float | None
+    predictions: dict[str, float | None] = field(default_factory=dict)
+    predicted_event_probabilities: dict[str, float | None] = field(default_factory=dict)
+    predicted_event_probability: float | None = None
 
     @classmethod
     def coerce(cls, value: Any) -> "BacktestWindowRow":
@@ -296,8 +308,10 @@ class BacktestWindowRow(MappingAccessMixin):
 
 
 @dataclass
+
+
 class BacktestEvaluationRow(MappingAccessMixin):
-    origin_date: Optional[str]
+    origin_date: str | None
     horizon_days: int
     date: str
     actual_count: float
@@ -307,9 +321,9 @@ class BacktestEvaluationRow(MappingAccessMixin):
     baseline_count: float
     heuristic_count: float
     actual_event: int
-    predicted_event_probability: Optional[float]
-    baseline_event_probability: Optional[float]
-    heuristic_event_probability: Optional[float]
+    predicted_event_probability: float | None
+    baseline_event_probability: float | None
+    heuristic_event_probability: float | None
 
     @classmethod
     def coerce(cls, value: Any) -> "BacktestEvaluationRow":
@@ -334,35 +348,37 @@ class BacktestEvaluationRow(MappingAccessMixin):
 
 
 @dataclass
+
+
 class HorizonSummary(MappingAccessMixin):
     horizon_days: int
     horizon_label: str
     folds: int
     count_metrics: CountMetrics = field(default_factory=CountMetrics)
-    baseline_count_mae: Optional[float] = None
-    heuristic_count_mae: Optional[float] = None
-    prediction_interval_coverage: Optional[float] = None
+    baseline_count_mae: float | None = None
+    heuristic_count_mae: float | None = None
+    prediction_interval_coverage: float | None = None
     prediction_interval_coverage_display: str = ""
     prediction_interval_coverage_validated: bool = False
-    prediction_interval_coverage_note: Optional[str] = None
-    prediction_interval_validation_scheme_key: Optional[str] = None
-    prediction_interval_validation_scheme_label: Optional[str] = None
-    prediction_interval_method_label: Optional[str] = None
+    prediction_interval_coverage_note: str | None = None
+    prediction_interval_validation_scheme_key: str | None = None
+    prediction_interval_validation_scheme_label: str | None = None
+    prediction_interval_method_label: str | None = None
 
     @property
-    def count_mae(self) -> Optional[float]:
+    def count_mae(self) -> float | None:
         return self.count_metrics.mae
 
     @property
-    def count_rmse(self) -> Optional[float]:
+    def count_rmse(self) -> float | None:
         return self.count_metrics.rmse
 
     @property
-    def count_smape(self) -> Optional[float]:
+    def count_smape(self) -> float | None:
         return self.count_metrics.smape
 
     @property
-    def count_poisson_deviance(self) -> Optional[float]:
+    def count_poisson_deviance(self) -> float | None:
         return self.count_metrics.poisson_deviance
 
     @classmethod
@@ -393,6 +409,8 @@ class HorizonSummary(MappingAccessMixin):
 
 
 @dataclass
+
+
 class PredictionIntervalCalibrationByHorizon(MappingAccessMixin):
     by_horizon: dict[int, PredictionIntervalCalibration] = field(default_factory=dict)
 
@@ -414,9 +432,9 @@ class _ScalarFieldsMap(TypedDict, total=False):
     optional_float: list[str]
 
 
-def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: _ScalarFieldsMap) -> Dict[str, Any]:
+def _coerce_scalar_fields(value: dict[str, Any], cls_fields_map: _ScalarFieldsMap) -> dict[str, Any]:
     # Shared scalar coercion helper for dataclass `.coerce()` methods.
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     for field_name in cls_fields_map.get("str", []):
         kwargs[field_name] = str(value.get(field_name) or "")
     for field_name in cls_fields_map.get("int", []):
@@ -429,6 +447,8 @@ def _coerce_scalar_fields(value: Dict[str, Any], cls_fields_map: _ScalarFieldsMa
 
 
 @dataclass
+
+
 class BacktestOverview(MappingAccessMixin):
     _STR_FIELDS: ClassVar[list[str]] = [
         "selection_rule",
@@ -469,36 +489,36 @@ class BacktestOverview(MappingAccessMixin):
     selection_rule: str = ""
     event_selection_rule: str = ""
     classification_threshold: float = 0.5
-    event_backtest_event_rate: Optional[float] = None
+    event_backtest_event_rate: float | None = None
     event_probability_informative: bool = False
-    event_probability_note: Optional[str] = None
-    event_probability_reason_code: Optional[str] = None
+    event_probability_note: str | None = None
+    event_probability_reason_code: str | None = None
     candidate_model_labels: list[str] = field(default_factory=list)
     candidate_window_count: int = 0
-    candidate_covered_window_count_by_model: Dict[str, int] = field(default_factory=dict)
-    candidate_window_coverage_by_model: Dict[str, float] = field(default_factory=dict)
-    dispersion_ratio: Optional[float] = None
-    prediction_interval_level: Optional[float] = None
+    candidate_covered_window_count_by_model: dict[str, int] = field(default_factory=dict)
+    candidate_window_coverage_by_model: dict[str, float] = field(default_factory=dict)
+    dispersion_ratio: float | None = None
+    prediction_interval_level: float | None = None
     prediction_interval_level_display: str = ""
-    prediction_interval_coverage: Optional[float] = None
+    prediction_interval_coverage: float | None = None
     prediction_interval_coverage_display: str = ""
     prediction_interval_method_label: str = ""
     prediction_interval_coverage_validated: bool = False
     prediction_interval_coverage_note: str = ""
     prediction_interval_calibration_windows: int = 0
     prediction_interval_evaluation_windows: int = 0
-    prediction_interval_validation_scheme_key: Optional[str] = None
-    prediction_interval_validation_scheme_label: Optional[str] = None
-    prediction_interval_validation_explanation: Optional[str] = None
+    prediction_interval_validation_scheme_key: str | None = None
+    prediction_interval_validation_scheme_label: str | None = None
+    prediction_interval_validation_explanation: str | None = None
     prediction_interval_calibration_range_label: str = ""
     prediction_interval_evaluation_range_label: str = ""
     prediction_interval_validated_horizon_days: list[int] = field(default_factory=list)
-    prediction_interval_coverage_by_horizon: Dict[str, Optional[float]] = field(default_factory=dict)
-    prediction_interval_coverage_display_by_horizon: Dict[str, str] = field(default_factory=dict)
+    prediction_interval_coverage_by_horizon: dict[str, float | None] = field(default_factory=dict)
+    prediction_interval_coverage_display_by_horizon: dict[str, str] = field(default_factory=dict)
     rolling_scheme_label: str = ""
 
     @staticmethod
-    def _coerce_complex_fields(value: Dict[str, Any]) -> Dict[str, Any]:
+    def _coerce_complex_fields(value: dict[str, Any]) -> dict[str, Any]:
         return {
             "validation_horizon_days": int(value.get("validation_horizon_days") or 1),
             "validation_horizon_label": str(value.get("validation_horizon_label") or "1 day"),
@@ -536,12 +556,16 @@ class BacktestOverview(MappingAccessMixin):
 
 
 @dataclass
+
+
 class BacktestFailure(MappingAccessMixin):
     is_ready: bool = False
     message: str = ""
 
 
 @dataclass
+
+
 class BacktestSuccess(MappingAccessMixin):
     is_ready: bool = True
     message: str = ""
@@ -549,7 +573,7 @@ class BacktestSuccess(MappingAccessMixin):
     window_rows: list[BacktestWindowRow] = field(default_factory=list)
     baseline_metrics: CountMetrics = field(default_factory=CountMetrics)
     heuristic_metrics: CountMetrics = field(default_factory=CountMetrics)
-    count_metrics: Dict[str, CountMetrics] = field(default_factory=dict)
+    count_metrics: dict[str, CountMetrics] = field(default_factory=dict)
     count_comparison_rows: list[CountComparisonRow] = field(default_factory=list)
     selected_count_model_key: str = ""
     selected_count_model_reason: str = ""
@@ -560,9 +584,9 @@ class BacktestSuccess(MappingAccessMixin):
         default_factory=PredictionIntervalCalibrationByHorizon
     )
     event_metrics: EventMetrics = field(default_factory=EventMetrics)
-    horizon_summaries: Dict[str, HorizonSummary] = field(default_factory=dict)
+    horizon_summaries: dict[str, HorizonSummary] = field(default_factory=dict)
     backtest_overview: BacktestOverview = field(default_factory=BacktestOverview)
-    horizon_7_mae: Optional[float] = None
+    horizon_7_mae: float | None = None
 
 
 BacktestRunResult = BacktestSuccess | BacktestFailure

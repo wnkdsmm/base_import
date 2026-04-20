@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
-from typing import Optional, Tuple
+
 
 from app.perf import current_perf_trace, profiled
 from app.services.forecasting.data import (
@@ -128,7 +128,7 @@ def get_ml_model_shell_context(
     forecast_days: str = '14',
     history_window: str = 'all',
     prefer_cached: bool = False,
-    caches: Optional[MLModelCaches] = None,
+    caches: MLModelCaches | None = None,
 ) -> MlContext:
     cache_set = caches or _DEFAULT_CACHES
     request_state = _build_ml_request_state(
@@ -153,6 +153,8 @@ def get_ml_model_shell_context(
 
 
 @profiled('ml_model', engine=engine)
+
+
 def get_ml_model_data(
     table_name: str = 'all',
     cause: str = 'all',
@@ -161,7 +163,7 @@ def get_ml_model_data(
     forecast_days: str = '14',
     history_window: str = 'all',
     progress_callback: MlProgressCallback = None,
-    caches: Optional[MLModelCaches] = None,
+    caches: MLModelCaches | None = None,
 ) -> MlPayload:
     cache_set = caches or _DEFAULT_CACHES
     perf = current_perf_trace()
@@ -288,17 +290,17 @@ def get_ml_model_data(
 
 
 def _cache_get(
-    cache_key: Tuple[int, str, str, str, str, int, str],
-    caches: Optional[MLModelCaches] = None,
-) -> Optional[MlPayload]:
+    cache_key: tuple[int, str, str, str, str, int, str],
+    caches: MLModelCaches | None = None,
+) -> MlPayload | None:
     cache_set = caches or _DEFAULT_CACHES
     return cache_set.ml_cache.get(cache_key)
 
 
 def _cache_store(
-    cache_key: Tuple[int, str, str, str, str, int, str],
+    cache_key: tuple[int, str, str, str, str, int, str],
     payload: MlPayload,
-    caches: Optional[MLModelCaches] = None,
+    caches: MLModelCaches | None = None,
 ) -> MlPayload:
     cache_set = caches or _DEFAULT_CACHES
     cache_set.ml_cache.set(cache_key, payload)
@@ -332,7 +334,7 @@ def _build_ml_request_state(
     )
 
 
-def clear_ml_model_cache(caches: Optional[MLModelCaches] = None) -> None:
+def clear_ml_model_cache(caches: MLModelCaches | None = None) -> None:
     cache_set = caches or _DEFAULT_CACHES
     cache_set.ml_cache.clear()
     clear_ml_model_input_cache()

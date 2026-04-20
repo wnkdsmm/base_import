@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, List
+from typing import Any
 
 from .types import ComponentWeightRow, RiskProfile
 from .utils import _format_decimal, _format_integer
@@ -174,7 +174,7 @@ def get_risk_weight_profile(mode: str = DEFAULT_RISK_WEIGHT_MODE) -> RiskProfile
 
 
 
-def resolve_component_weights(profile: RiskProfile, is_rural: bool) -> List[ComponentWeightRow]:
+def resolve_component_weights(profile: RiskProfile, is_rural: bool) -> list[ComponentWeightRow]:
     base_weights = {key: float(value) for key, value in (profile.get("component_weights") or {}).items()}
     adjusted_weights = dict(base_weights)
     if is_rural:
@@ -182,7 +182,7 @@ def resolve_component_weights(profile: RiskProfile, is_rural: bool) -> List[Comp
             adjusted_weights[key] = max(0.0, adjusted_weights.get(key, 0.0) + float(shift))
     total_weight = sum(adjusted_weights.values()) or 1.0
 
-    rows: List[ComponentWeightRow] = []
+    rows: list[ComponentWeightRow] = []
     for key in profile.get("component_order", []):
         spec = (profile.get("components") or {}).get(key, {})
         weight = adjusted_weights.get(key, 0.0) / total_weight
@@ -212,7 +212,7 @@ def build_weight_profile_snapshot(profile: RiskProfile) -> dict[str, Any]:  # on
         for key, value in (profile.get("expert_component_weights") or profile.get("component_weights") or {}).items()
     }
 
-    components: List[dict[str, Any]] = []
+    components: list[dict[str, Any]] = []
     for item in base_components:
         rural_item = rural_components.get(item["key"], item)
         expert_weight = float(expert_component_weights.get(item["key"], item["weight"]))
@@ -230,7 +230,7 @@ def build_weight_profile_snapshot(profile: RiskProfile) -> dict[str, Any]:  # on
             }
         )
 
-    available_modes: List[Dict[str, str]] = []
+    available_modes: list[dict[str, str]] = []
     for key, value in RISK_WEIGHT_PROFILES.items():
         available_modes.append(
             {
@@ -254,7 +254,7 @@ def build_weight_profile_snapshot(profile: RiskProfile) -> dict[str, Any]:  # on
     if comparison_summary and comparison_summary not in calibration_notes:
         calibration_notes.insert(1 if calibration_notes else 0, comparison_summary)
 
-    metric_cards: List[Dict[str, str]] = []
+    metric_cards: list[dict[str, str]] = []
     k_value = int(selected_metrics.get("k_value") or 3)
     if selected_metrics:
         metric_cards.append(

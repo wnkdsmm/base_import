@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import math
-from typing import Dict, List, Optional, Tuple
+
 
 import numpy as np
 
@@ -29,9 +29,9 @@ from ..training.forecast_calibration import _evaluate_prediction_interval_backte
 
 
 def _enforce_monotonic_horizon_interval_calibrations(
-    interval_calibration_by_horizon: Dict[int, PredictionIntervalCalibration],
-) -> Dict[int, PredictionIntervalCalibration]:
-    monotonic_calibrations: Dict[int, PredictionIntervalCalibration] = {}
+    interval_calibration_by_horizon: dict[int, PredictionIntervalCalibration],
+) -> dict[int, PredictionIntervalCalibration]:
+    monotonic_calibrations: dict[int, PredictionIntervalCalibration] = {}
     running_floor = 0.0
     for horizon_day in sorted(interval_calibration_by_horizon):
         calibration = dict(interval_calibration_by_horizon[horizon_day])
@@ -39,7 +39,7 @@ def _enforce_monotonic_horizon_interval_calibrations(
         horizon_floor = max(running_floor, original_floor)
         running_floor = horizon_floor
 
-        adaptive_bins: List[PredictionIntervalAdaptiveBin] = []
+        adaptive_bins: list[PredictionIntervalAdaptiveBin] = []
         for bin_row in calibration.get('adaptive_bins') or []:
             normalized_bin = dict(bin_row)
             normalized_bin['absolute_error_quantile'] = max(
@@ -63,8 +63,8 @@ def _enforce_monotonic_horizon_interval_calibrations(
 
 def _selected_count_arrays_from_evaluation_data(
     evaluation_data: _HorizonEvaluationData,
-    selected_count_model_key: Optional[str],
-) -> Tuple[np.ndarray, np.ndarray]:
+    selected_count_model_key: str | None,
+) -> tuple[np.ndarray, np.ndarray]:
     row_count = len(evaluation_data.rows)
     if selected_count_model_key == 'seasonal_baseline':
         return evaluation_data.baseline_predictions, _nan_float_array(row_count)
@@ -114,20 +114,20 @@ def _with_selected_count_model(
 
 
 def _build_horizon_evaluation_data(
-    rows_for_horizon: List[BacktestWindowRow],
-    selected_count_model_key: Optional[str] = None,
+    rows_for_horizon: list[BacktestWindowRow],
+    selected_count_model_key: str | None = None,
     *,
     include_count_model_predictions: bool = False,
 ) -> _HorizonEvaluationData:
-    actuals: List[float] = []
-    baseline_predictions: List[float] = []
-    heuristic_predictions: List[float] = []
-    actual_events: List[int] = []
-    baseline_event_probabilities: List[float] = []
-    heuristic_event_probabilities: List[float] = []
-    dates: List[str] = []
-    prediction_buffers: Dict[str, List[float]] = {}
-    event_probability_buffers: Dict[str, List[float]] = {}
+    actuals: list[float] = []
+    baseline_predictions: list[float] = []
+    heuristic_predictions: list[float] = []
+    actual_events: list[int] = []
+    baseline_event_probabilities: list[float] = []
+    heuristic_event_probabilities: list[float] = []
+    dates: list[str] = []
+    prediction_buffers: dict[str, list[float]] = {}
+    event_probability_buffers: dict[str, list[float]] = {}
     if include_count_model_predictions:
         prediction_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
         event_probability_buffers = {model_key: [] for model_key in COUNT_MODEL_KEYS}
@@ -148,9 +148,9 @@ def _build_horizon_evaluation_data(
                     _nan_or_float(row.predicted_event_probabilities.get(model_key))
                 )
 
-    count_model_predictions: Dict[str, np.ndarray] = {}
-    count_model_event_probabilities: Dict[str, np.ndarray] = {}
-    coverage_by_model: Dict[str, _CandidateCoverage] = {}
+    count_model_predictions: dict[str, np.ndarray] = {}
+    count_model_event_probabilities: dict[str, np.ndarray] = {}
+    coverage_by_model: dict[str, _CandidateCoverage] = {}
     if include_count_model_predictions:
         window_count = len(rows_for_horizon)
         for model_key, predictions in prediction_buffers.items():
@@ -188,12 +188,12 @@ def _build_horizon_evaluation_data(
 
 
 def _build_horizon_evaluation_data_by_horizon(
-    horizon_rows: Dict[int, List[BacktestWindowRow]],
-    horizon_days: List[int],
+    horizon_rows: dict[int, list[BacktestWindowRow]],
+    horizon_days: list[int],
     selected_count_model_key: str,
-    precomputed: Optional[Dict[int, _HorizonEvaluationData]] = None,
-) -> Dict[int, _HorizonEvaluationData]:
-    evaluation_data_by_horizon: Dict[int, _HorizonEvaluationData] = {}
+    precomputed: dict[int, _HorizonEvaluationData | None] = None,
+) -> dict[int, _HorizonEvaluationData]:
+    evaluation_data_by_horizon: dict[int, _HorizonEvaluationData] = {}
     precomputed = precomputed or {}
     for horizon_day in horizon_days:
         evaluation_data = precomputed.get(horizon_day)
@@ -207,7 +207,7 @@ def _build_horizon_evaluation_data_by_horizon(
     return evaluation_data_by_horizon
 
 
-def _prediction_interval_evaluation_slice(calibration: PredictionIntervalCalibration, total_rows: int) -> Optional[slice]:
+def _prediction_interval_evaluation_slice(calibration: PredictionIntervalCalibration, total_rows: int) -> slice | None:
     if not bool(calibration.get('coverage_validated')):
         return None
 
@@ -224,11 +224,11 @@ def _prediction_interval_evaluation_slice(calibration: PredictionIntervalCalibra
 
 
 def _remeasure_deployed_interval_calibration(
-    rows_for_horizon: List[BacktestWindowRow],
+    rows_for_horizon: list[BacktestWindowRow],
     *,
     selected_count_model_key: str,
     calibration: PredictionIntervalCalibration,
-    evaluation_data: Optional[_HorizonEvaluationData] = None,
+    evaluation_data: _HorizonEvaluationData | None = None,
 ) -> PredictionIntervalCalibration:
     updated_calibration = dict(calibration)
     total_rows = len(evaluation_data.rows) if evaluation_data is not None else len(rows_for_horizon)
@@ -296,15 +296,15 @@ def _sync_horizon_summary_with_calibration(
 
 
 def _reconcile_horizon_interval_metadata(
-    interval_calibration_by_horizon: Dict[int, PredictionIntervalCalibration],
-    horizon_rows: Dict[int, List[BacktestWindowRow]],
-    horizon_summaries: Dict[str, HorizonSummary],
+    interval_calibration_by_horizon: dict[int, PredictionIntervalCalibration],
+    horizon_rows: dict[int, list[BacktestWindowRow]],
+    horizon_summaries: dict[str, HorizonSummary],
     *,
     selected_count_model_key: str,
-    evaluation_data_by_horizon: Optional[Dict[int, _HorizonEvaluationData]] = None,
-) -> Tuple[Dict[int, PredictionIntervalCalibration], Dict[str, HorizonSummary]]:
-    updated_calibrations: Dict[int, PredictionIntervalCalibration] = {}
-    updated_summaries: Dict[str, HorizonSummary] = {}
+    evaluation_data_by_horizon: dict[int, _HorizonEvaluationData | None] = None,
+) -> tuple[dict[int, PredictionIntervalCalibration], dict[str, HorizonSummary]]:
+    updated_calibrations: dict[int, PredictionIntervalCalibration] = {}
+    updated_summaries: dict[str, HorizonSummary] = {}
     for horizon_day, calibration in interval_calibration_by_horizon.items():
         evaluation_data = (evaluation_data_by_horizon or {}).get(horizon_day)
         updated_calibration = _remeasure_deployed_interval_calibration(
@@ -325,7 +325,7 @@ def _evaluate_horizon_rows(
     evaluation_data: _HorizonEvaluationData,
     *,
     horizon_day: int,
-) -> Tuple[HorizonSummary, PredictionIntervalCalibration]:
+) -> tuple[HorizonSummary, PredictionIntervalCalibration]:
     baseline_metrics_h = CountMetrics.coerce(
         compute_count_metrics(evaluation_data.actuals, evaluation_data.baseline_predictions)
     )
@@ -363,13 +363,13 @@ def _evaluate_horizon_rows(
 
 def _evaluate_backtest_horizon_metadata(
     *,
-    horizon_rows: Dict[int, List[BacktestWindowRow]],
-    horizon_days: List[int],
+    horizon_rows: dict[int, list[BacktestWindowRow]],
+    horizon_days: list[int],
     selected_count_model_key: str,
-    evaluation_data_by_horizon: Dict[int, _HorizonEvaluationData],
-) -> Tuple[Dict[int, PredictionIntervalCalibration], Dict[str, HorizonSummary]]:
-    interval_calibration_by_horizon: Dict[int, PredictionIntervalCalibration] = {}
-    horizon_summaries: Dict[str, HorizonSummary] = {}
+    evaluation_data_by_horizon: dict[int, _HorizonEvaluationData],
+) -> tuple[dict[int, PredictionIntervalCalibration], dict[str, HorizonSummary]]:
+    interval_calibration_by_horizon: dict[int, PredictionIntervalCalibration] = {}
+    horizon_summaries: dict[str, HorizonSummary] = {}
     for horizon_day in horizon_days:
         horizon_summary, interval_calibration = _evaluate_horizon_rows(
             evaluation_data_by_horizon[horizon_day],
@@ -393,9 +393,9 @@ def _build_backtest_payload_rows(
     evaluation_data: _HorizonEvaluationData,
     prediction_interval_calibration: PredictionIntervalCalibration,
     validation_horizon_days: int,
-) -> Tuple[List[BacktestEvaluationRow], List[BacktestWindowRow]]:
-    backtest_rows: List[BacktestEvaluationRow] = []
-    window_rows: List[BacktestWindowRow] = []
+) -> tuple[list[BacktestEvaluationRow], list[BacktestWindowRow]]:
+    backtest_rows: list[BacktestEvaluationRow] = []
+    window_rows: list[BacktestWindowRow] = []
     for row, predicted_value, event_probability in zip(
         evaluation_data.rows,
         evaluation_data.selected_predictions,

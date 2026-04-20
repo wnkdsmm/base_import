@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Sequence
 
 from app.services.shared.summary_cards import build_summary_cards
 
@@ -80,7 +80,7 @@ def _attach_ranking_reliability(
 
 
 def _top_territory_confidence_payload(
-    top_territory: Optional[RiskScore],
+    top_territory: RiskScore | None,
     quality_passport: QualityPassport,
 ) -> TopConfidence:
     if top_territory:
@@ -112,6 +112,8 @@ def _ranking_confidence_state(score: int) -> tuple[str, str, str]:
 # intentionally separate from access_points/presentation.py::_build_summary_cards and
 # table_summary.py::_build_summary_cards:
 # forecast-risk cards combine ranking reliability, calibration and quality signals.
+
+
 def _build_summary_cards(
     territories: Sequence[RiskScore],
     weight_profile: RiskProfile,

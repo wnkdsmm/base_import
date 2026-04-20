@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Sequence
+from typing import Any, Sequence
 
 from .analysis_metrics import _build_notes
 from .analysis_stats import compute_cluster_risk_scores

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Sequence
+from typing import Any, Sequence
 
 from config.constants import LOW_SUPPORT_TERRITORY_THRESHOLD, STABILITY_RESAMPLE_RATIO
 from .count_guidance import _build_cluster_count_guidance
@@ -35,6 +35,7 @@ __all__ = [
     "_empty_clustering_quality_assessment",
 ]
 
+
 def _format_configuration_label(configuration: ClusterMethod | None) -> str:
     if not configuration:
         return "—"
@@ -43,6 +44,7 @@ def _format_configuration_label(configuration: ClusterMethod | None) -> str:
     if cluster_count:
         return f"{method_label}, k={_format_integer(cluster_count)}"
     return method_label
+
 
 def _empty_clustering_quality_assessment() -> ClusteringQualityAssessment:
     return {
@@ -54,6 +56,7 @@ def _empty_clustering_quality_assessment() -> ClusteringQualityAssessment:
         "comparison_rows": [],
         "dissertation_points": ["Пока недостаточно данных для расчета метрик качества кластеризации."],
     }
+
 
 def _build_configuration_recommendation_note(
     working_configuration: ClusterMethod | None,
@@ -76,6 +79,7 @@ def _build_configuration_recommendation_note(
         f"Сейчас страница построена по конфигурации {working_label}, "
         f"но по всему доступному диапазону лучше выглядит {recommended_label}."
     )
+
 
 def _resolve_quality_configuration_context(
     *,
@@ -107,6 +111,7 @@ def _resolve_quality_configuration_context(
         "recommended_config_label": _format_configuration_label(effective_recommended_configuration),
     }
 
+
 def _build_feature_selection_quality_label_context(
     feature_selection_report: FeatureSelectionReport | None,
 ) -> QualityLabelContext:
@@ -119,6 +124,7 @@ def _build_feature_selection_quality_label_context(
         "weighting_meta": str(report.get("weighting_meta") or ""),
         "ablation_rows": list(report.get("ablation_rows") or []),
     }
+
 
 def _build_ablation_warning_note(ablation_rows: Sequence[FeatureAblationRow]) -> str:
     negative_adds = [
@@ -133,6 +139,7 @@ def _build_ablation_warning_note(ablation_rows: Sequence[FeatureAblationRow]) ->
         "потому что с ней кластеры разделялись хуже."
     )
 
+
 def _format_quality_method_selection_label(row: ClusterMethod) -> str:
     if row.get("is_selected") and row.get("is_recommended"):
         return "Рабочий и лучший на текущем k"
@@ -142,9 +149,10 @@ def _format_quality_method_selection_label(row: ClusterMethod) -> str:
         return "Лучше на текущем k"
     return "Сравнение"
 
+
 def _build_quality_method_comparison_rows(
     method_comparison: Sequence[ClusterMethod],
-) -> List[MethodComparisonRow]:
+) -> list[MethodComparisonRow]:
     return [
         {
             "method_label": row.get("method_label", "Метод"),
@@ -156,6 +164,7 @@ def _build_quality_method_comparison_rows(
         }
         for row in method_comparison
     ]
+
 
 def _build_quality_dissertation_points(
     *,
@@ -174,7 +183,7 @@ def _build_quality_dissertation_points(
     weighting_note: str,
     mode_note: str,
     ablation_note: str,
-) -> List[str]:
+) -> list[str]:
     dissertation_points = [
         segmentation_note,
         method_note,
@@ -208,6 +217,7 @@ def _build_quality_dissertation_points(
     if ablation_note:
         dissertation_points.append(ablation_note)
     return [item for item in dissertation_points if str(item).strip()]
+
 
 def _build_quality_note_context(
     *,
@@ -245,7 +255,8 @@ def _build_quality_note_context(
         "ablation_note": _build_ablation_warning_note(label_context["ablation_rows"]),
     }
 
-def _build_quality_metric_cards(clustering: ClusterMetrics, resample_share_label: str) -> List[QualityScore]:
+
+def _build_quality_metric_cards(clustering: ClusterMetrics, resample_share_label: str) -> list[QualityScore]:
     return [
         {
             "label": "Насколько кластеры отделены",
@@ -278,6 +289,7 @@ def _build_quality_metric_cards(clustering: ClusterMetrics, resample_share_label
         },
     ]
 
+
 def _build_quality_methodology_items(
     *,
     selected_features: Sequence[str],
@@ -290,7 +302,7 @@ def _build_quality_methodology_items(
     weighting_meta: str,
     low_support_display: str,
     explained_variance: Any,
-) -> List[QualityScore]:
+) -> list[QualityScore]:
     return [
         {
             "label": "Текущая настройка",
@@ -338,6 +350,7 @@ def _build_quality_methodology_items(
             "meta": "Сколько общей картины сохраняется, когда данные сводим к плоской карте",
         },
     ]
+
 
 def _build_clustering_quality_assessment(
     clustering: ClusterMetrics,

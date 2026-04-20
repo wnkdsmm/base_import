@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Any, Dict, List
+from typing import Any
 
 from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go
 from app.services.charting import (
@@ -36,7 +36,7 @@ from .utils import (
 )
 
 
-def _build_forecast_chart(daily_history: List[dict[str, Any]], forecast_rows: List[dict[str, Any]]) -> dict[str, Any]:
+def _build_forecast_chart(daily_history: list[dict[str, Any]], forecast_rows: list[dict[str, Any]]) -> dict[str, Any]:
     title = "История и сценарный прогноз"
     if not daily_history:
         return {
@@ -144,7 +144,7 @@ def _build_forecast_chart(daily_history: List[dict[str, Any]], forecast_rows: Li
     return build_chart_bundle(title, figure)
 
 
-def _build_forecast_breakdown_chart(forecast_rows: List[dict[str, Any]], recent_average: float) -> dict[str, Any]:
+def _build_forecast_breakdown_chart(forecast_rows: list[dict[str, Any]], recent_average: float) -> dict[str, Any]:
     title = "Сценарная вероятность пожара по ближайшим дням"
     if not forecast_rows:
         return _empty_chart_bundle(title, "Нет данных для ближайших дней.")
@@ -196,7 +196,7 @@ def _build_forecast_breakdown_chart(forecast_rows: List[dict[str, Any]], recent_
     return build_chart_bundle(title, figure)
 
 
-def _build_weekday_chart(weekday_profile: List[dict[str, Any]]) -> dict[str, Any]:
+def _build_weekday_chart(weekday_profile: list[dict[str, Any]]) -> dict[str, Any]:
     title = "В какие дни недели пожары случаются чаще"
     if not weekday_profile:
         return _empty_chart_bundle(title, "Нет данных по дням недели.")
@@ -245,6 +245,8 @@ def _build_weekday_chart(weekday_profile: List[dict[str, Any]]) -> dict[str, Any
         )
     )
     return build_chart_bundle(title, figure)
+
+
 def _build_geo_chart(geo_prediction: dict[str, Any]) -> dict[str, Any]:
     title = "Карта зон риска"
     points = geo_prediction.get("points") or []
@@ -328,6 +330,7 @@ def _build_geo_chart(geo_prediction: dict[str, Any]) -> dict[str, Any]:
     )
     return build_chart_bundle(title, figure)
 
+
 def _empty_chart_bundle(title: str, message: str, use_plotly: bool = True) -> dict[str, Any]:
     return build_empty_chart_bundle(
         title,
@@ -342,20 +345,20 @@ def _build_empty_plotly(message: str) -> dict[str, Any]:
 
 
 def build_forecasting_forecast_chart(
-    daily_history: List[ForecastingDailyHistoryRow],
-    forecast_rows: List[ForecastingForecastRow],
+    daily_history: list[ForecastingDailyHistoryRow],
+    forecast_rows: list[ForecastingForecastRow],
 ) -> ForecastingPayload:
     return _build_forecast_chart(daily_history, forecast_rows)
 
 
 def build_forecasting_forecast_breakdown_chart(
-    forecast_rows: List[ForecastingForecastRow],
+    forecast_rows: list[ForecastingForecastRow],
     recent_average: float,
 ) -> ForecastingPayload:
     return _build_forecast_breakdown_chart(forecast_rows, recent_average)
 
 
-def build_forecasting_weekday_chart(weekday_profile: List[ForecastingWeekdayProfileRow]) -> ForecastingPayload:
+def build_forecasting_weekday_chart(weekday_profile: list[ForecastingWeekdayProfileRow]) -> ForecastingPayload:
     return _build_weekday_chart(weekday_profile)
 
 

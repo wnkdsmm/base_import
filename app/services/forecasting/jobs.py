@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from app.services.job_support import (
     JobLaunchBundle,
@@ -28,7 +28,7 @@ _FORECASTING_DECISION_SUPPORT_EXECUTOR = ThreadPoolExecutor(
     thread_name_prefix="forecasting-decision-support",
 )
 _FORECASTING_DECISION_SUPPORT_LOCK = RLock()
-_FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY: Dict[Tuple[str, str], str] = {}
+_FORECASTING_DECISION_SUPPORT_JOB_IDS_BY_CACHE_KEY: dict[tuple[str, str], str] = {}
 
 
 def start_forecasting_decision_support_job(
@@ -102,7 +102,7 @@ def get_forecasting_decision_support_job_status(session_id: str, job_id: str) ->
 def _run_forecasting_decision_support_job(
     session_id: str,
     job_id: str,
-    params_payload: Dict[str, str],
+    params_payload: dict[str, str],
     cache_key_token: str,
 ) -> None:
     reporter = StageTrackingJobProgressReporter(
@@ -151,7 +151,7 @@ def _create_forecasting_job_bundle(
     *,
     session_id: str,
     cache_key_token: str,
-    params_payload: Dict[str, str],
+    params_payload: dict[str, str],
     cache_hit: bool,
 ) -> JobLaunchBundle:
     job = job_store.create_or_reset_job(session_id=session_id, kind="forecasting_decision_support")
@@ -213,7 +213,7 @@ def _submit_forecasting_job(
     *,
     session_id: str,
     bundle: JobLaunchBundle,
-    params_payload: Dict[str, str],
+    params_payload: dict[str, str],
     cache_key_token: str,
 ) -> None:
     _FORECASTING_DECISION_SUPPORT_EXECUTOR.submit(
@@ -285,7 +285,7 @@ def _build_params_payload(
     temperature: str,
     forecast_days: str,
     history_window: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     return {
         "table_name": str(table_name or "all"),
         "district": str(district or "all"),

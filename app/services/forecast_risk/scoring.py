@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from .profiles import DEFAULT_RISK_WEIGHT_MODE
 from .scoring_compute import _build_territory_rows as _build_territory_rows_impl
@@ -11,8 +11,8 @@ def _build_territory_rows(
     records: Sequence[dict[str, Any]],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-    profile_override: Optional[dict[str, Any]] = None,
-) -> List[dict[str, Any]]:
+    profile_override: dict[str, Any | None] = None,
+) -> list[dict[str, Any]]:
     return _build_territory_rows_impl(
         records=records,
         planning_horizon_days=planning_horizon_days,
@@ -21,5 +21,5 @@ def _build_territory_rows(
     )
 
 
-def _top_territory_lead(top_territory: Optional[dict[str, Any]]) -> str:
+def _top_territory_lead(top_territory: dict[str, Any | None]) -> str:
     return _top_territory_lead_impl(top_territory)

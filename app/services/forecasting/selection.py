@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Sequence
+from typing import Sequence
 
 from app.table_catalog import get_user_table_options, resolve_selected_table_value
 
@@ -18,7 +18,7 @@ def _history_window_year_span(history_window: str) -> int:
     return 0
 
 
-def _build_forecasting_table_options() -> List[Dict[str, str]]:
+def _build_forecasting_table_options() -> list[dict[str, str]]:
     options = []
     seen = set()
     for option in get_user_table_options(prefer_clean=True):
@@ -53,9 +53,9 @@ def _source_table_deduplication_note(raw_table: str, clean_table: str) -> str:
     )
 
 
-def _unique_notes(notes: Sequence[str]) -> List[str]:
+def _unique_notes(notes: Sequence[str]) -> list[str]:
     seen = set()
-    unique: List[str] = []
+    unique: list[str] = []
     for note in notes:
         normalized = str(note or "").strip()
         if not normalized or normalized in seen:
@@ -65,9 +65,9 @@ def _unique_notes(notes: Sequence[str]) -> List[str]:
     return unique
 
 
-def _canonicalize_source_tables(source_tables: Sequence[str]) -> tuple[List[str], List[str]]:
-    selected_by_key: Dict[str, str] = {}
-    deduplication_notes: List[str] = []
+def _canonicalize_source_tables(source_tables: Sequence[str]) -> tuple[list[str], list[str]]:
+    selected_by_key: dict[str, str] = {}
+    deduplication_notes: list[str] = []
     for source_table in source_tables:
         normalized = _normalize_source_table_name(source_table)
         if not normalized:
@@ -92,18 +92,18 @@ def _canonicalize_source_tables(source_tables: Sequence[str]) -> tuple[List[str]
     return list(selected_by_key.values()), _unique_notes(deduplication_notes)
 
 
-def _resolve_forecasting_selection(table_options: List[Dict[str, str]], table_name: str) -> str:
+def _resolve_forecasting_selection(table_options: list[dict[str, str]], table_name: str) -> str:
     return resolve_selected_table_value(table_options, table_name, fallback_value="all")
 
 
-def _selected_source_table_notes(table_options: List[Dict[str, str]], selected_table: str) -> List[str]:
+def _selected_source_table_notes(table_options: list[dict[str, str]], selected_table: str) -> list[str]:
     concrete = [option["value"] for option in table_options if option.get("value") and option["value"] != "all"]
     if selected_table != "all":
         return []
     return _canonicalize_source_tables(concrete)[1]
 
 
-def _selected_source_tables(table_options: List[Dict[str, str]], selected_table: str) -> List[str]:
+def _selected_source_tables(table_options: list[dict[str, str]], selected_table: str) -> list[str]:
     concrete = [option["value"] for option in table_options if option.get("value") and option["value"] != "all"]
     if selected_table == "all":
         return _canonicalize_source_tables(concrete)[0]

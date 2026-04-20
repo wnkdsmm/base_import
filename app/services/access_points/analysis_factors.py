@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, NamedTuple, Sequence
+from typing import Any, NamedTuple, Sequence
 
 import pandas as pd
 
@@ -98,7 +98,7 @@ class _AccessPointFactorSeries(NamedTuple):
     uncertainty_factor: pd.Series
 
 
-def _normalize_selected_access_features(selected_features: Sequence[str] | None) -> List[str]:
+def _normalize_selected_access_features(selected_features: Sequence[str] | None) -> list[str]:
     allowed = set(DEFAULT_ACCESS_POINT_FEATURES)
     normalized = [str(item).strip() for item in (selected_features or []) if str(item).strip() in allowed]
     return normalized or list(DEFAULT_ACCESS_POINT_FEATURES)
@@ -127,7 +127,7 @@ def _weighted_score_series(
 
 def _resolve_access_point_weight_context(
     selected_features: Sequence[str] | None,
-) -> tuple[List[str], set[str], Dict[str, float]]:
+) -> tuple[list[str], set[str], dict[str, float]]:
     normalized_selected_features = _normalize_selected_access_features(selected_features)
     active_reason_codes = set(normalized_selected_features)
     selected_weight_sum = sum(float(FACTOR_WEIGHTS[code]) for code in normalized_selected_features if code in FACTOR_WEIGHTS)
@@ -310,7 +310,7 @@ def _build_access_point_factor_series(base: _AccessPointBaseSeries) -> _AccessPo
 def _build_access_point_score_series(
     numeric_inputs: pd.DataFrame,
     active_reason_codes: set[str],
-) -> Dict[str, pd.Series]:
+) -> dict[str, pd.Series]:
     frame_index = numeric_inputs.index
     base = _build_access_point_base_series(numeric_inputs)
     factors = _build_access_point_factor_series(base)
@@ -384,7 +384,7 @@ def _build_access_point_score_series(
     return score_series
 
 
-def _access_point_precomputed_arrays(series_map: Dict[str, pd.Series]) -> Dict[str, Sequence[Any]]:
+def _access_point_precomputed_arrays(series_map: dict[str, pd.Series]) -> dict[str, Sequence[Any]]:
     nullable_keys = {"average_distance", "average_response", "latitude", "longitude"}
     return {
         key: _nullable_series_values(series) if key in nullable_keys else series.to_numpy(copy=False)
@@ -416,9 +416,9 @@ def _prepare_access_point_row_context(
 def _frame_column_values(
     frame: pd.DataFrame,
     excluded_columns: set[str] | frozenset[str] = frozenset(),
-) -> Dict[str, Sequence[Any]]:
+) -> dict[str, Sequence[Any]]:
     return {column: frame[column].to_numpy(copy=False) for column in frame.columns if column not in excluded_columns}
 
 
-def _record_from_column_values(column_values: Dict[str, Sequence[Any]], row_index: int) -> dict[str, Any]:
+def _record_from_column_values(column_values: dict[str, Sequence[Any]], row_index: int) -> dict[str, Any]:
     return {column: values[row_index] for column, values in column_values.items()}

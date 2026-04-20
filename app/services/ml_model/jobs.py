@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from app.services.job_support import (
     JobLaunchBundle,
@@ -22,7 +22,7 @@ from .core import _build_ml_request_state, _cache_get, get_ml_model_data
 
 _ML_JOB_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ml-model")
 _ML_JOB_LOCK = RLock()
-_ML_JOB_IDS_BY_CACHE_KEY: Dict[Tuple[str, str], str] = {}
+_ML_JOB_IDS_BY_CACHE_KEY: dict[tuple[str, str], str] = {}
 _BACKTEST_STATUS_SPEC = LinkedJobStatusSpec(
     payload_key="backtest_job",
     meta_key="backtest_job_id",
@@ -99,7 +99,7 @@ def _run_ml_model_job(
     session_id: str,
     main_job_id: str,
     backtest_job_id: str,
-    params_payload: Dict[str, str],
+    params_payload: dict[str, str],
     cache_key_token: str,
 ) -> None:
     primary_reporter = StageTrackingJobProgressReporter(
@@ -155,7 +155,7 @@ def _create_ml_job_bundle(
     *,
     session_id: str,
     cache_key_token: str,
-    params_payload: Dict[str, str],
+    params_payload: dict[str, str],
     cache_hit: bool,
 ) -> JobLaunchBundle:
     main_job = job_store.create_or_reset_job(session_id=session_id, kind="ml_model")
@@ -233,7 +233,7 @@ def _submit_ml_job(
     *,
     session_id: str,
     bundle: JobLaunchBundle,
-    params_payload: Dict[str, str],
+    params_payload: dict[str, str],
     cache_key_token: str,
 ) -> None:
     _ML_JOB_EXECUTOR.submit(
@@ -331,7 +331,7 @@ def _build_params_payload(
     temperature: str,
     forecast_days: str,
     history_window: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     return {
         "table_name": str(table_name or "all"),
         "cause": str(cause or "all"),
@@ -355,7 +355,7 @@ def _extract_backtest_result(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _serialize_cache_key(cache_key: Tuple[Any, ...]) -> str:
+def _serialize_cache_key(cache_key: tuple[Any, ...]) -> str:
     return serialize_job_cache_key(cache_key)
 
 

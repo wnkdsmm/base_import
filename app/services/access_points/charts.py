@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Sequence
+from typing import Any, Sequence
 
 from app.plotly_bundle import PLOTLY_AVAILABLE, go, serialize_plotly_figure
 from app.services.charting import (
@@ -15,7 +15,7 @@ from app.services.chart_utils import (
 )
 from app.statistics_constants import PLOTLY_PALETTE
 
-TYPOLOGY_LABELS: Dict[str, str] = {
+TYPOLOGY_LABELS: dict[str, str] = {
     "access": "Дальний выезд",
     "water": "Дефицит воды",
     "severity": "Тяжелые последствия",
@@ -24,7 +24,7 @@ TYPOLOGY_LABELS: Dict[str, str] = {
     "mixed": "Комбинированный риск",
 }
 
-TYPOLOGY_COLORS: Dict[str, str] = {
+TYPOLOGY_COLORS: dict[str, str] = {
     "access": PLOTLY_PALETTE["fire"],
     "water": PLOTLY_PALETTE["sand"],
     "severity": PLOTLY_PALETTE["forest"],
@@ -85,7 +85,7 @@ def _build_points_scatter_chart(rows: Sequence[dict[str, Any]]) -> dict[str, Any
     )
 
     typology_order: list[str] = []
-    typology_labels: Dict[str, str] = {}
+    typology_labels: dict[str, str] = {}
     for row in rows:
         code, label = _resolve_typology(row)
         typology_labels[code] = label

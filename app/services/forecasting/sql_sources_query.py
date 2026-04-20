@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -22,12 +22,12 @@ from .utils import (
 class SourceQuerySqlMixin:
     def _build_scope_conditions(
         self,
-        resolved_columns: Dict[str, str],
-        min_year: Optional[int] = None,
+        resolved_columns: dict[str, str],
+        min_year: int | None = None,
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-    ) -> tuple[Optional[str], list[str], dict[str, Any], bool]:
+    ) -> tuple[str | None, list[str], dict[str, Any], bool]:
         date_column = resolved_columns["date"]
         if not date_column:
             return None, [], {}, True
@@ -57,12 +57,12 @@ class SourceQuerySqlMixin:
     def _load_forecasting_records(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        min_year: Optional[int] = None,
-    ) -> List[dict[str, Any]]:
+        min_year: int | None = None,
+    ) -> list[dict[str, Any]]:
         date_expression, conditions, params, scope_is_valid = self._build_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -99,7 +99,7 @@ class SourceQuerySqlMixin:
         with engine.connect() as conn:
             rows = conn.execute(query, params).mappings().all()
 
-        records: List[dict[str, Any]] = []
+        records: list[dict[str, Any]] = []
         for row in rows:
             fire_date = row.get("fire_date")
             if fire_date is None:
@@ -127,16 +127,16 @@ class SourceQuerySqlMixin:
     def _load_all_option_counts(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
-        min_year: Optional[int] = None,
-    ) -> Dict[str, Counter]:
+        resolved_columns: dict[str, str],
+        min_year: int | None = None,
+    ) -> dict[str, Counter]:
         field_names = ("district", "cause", "object_category")
-        counters: Dict[str, Counter] = {field_name: Counter() for field_name in field_names}
+        counters: dict[str, Counter] = {field_name: Counter() for field_name in field_names}
         available_fields = [field_name for field_name in field_names if resolved_columns.get(field_name)]
         if not available_fields:
             return counters
 
-        query_parts: List[str] = []
+        query_parts: list[str] = []
         params: dict[str, Any] = {}
         if self._aggregations._daily_aggregate_view_exists(table_name):
             conditions, params, scope_is_valid = self._aggregations._build_materialized_scope_conditions(
@@ -197,9 +197,9 @@ class SourceQuerySqlMixin:
     def _load_option_counts(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         field_name: str,
-        min_year: Optional[int] = None,
+        min_year: int | None = None,
     ) -> Counter:
         if resolved_columns.get(field_name) and self._aggregations._daily_aggregate_view_exists(table_name):
             conditions, params, scope_is_valid = self._aggregations._build_materialized_scope_conditions(
@@ -258,8 +258,8 @@ class SourceQuerySqlMixin:
     def _daily_history_source_select_parts(
         self,
         date_expression: str,
-        resolved_columns: Dict[str, str],
-    ) -> List[str]:
+        resolved_columns: dict[str, str],
+    ) -> list[str]:
         select_parts = [f"{date_expression} AS fire_date", "COUNT(*) AS incident_count"]
         temperature_column = resolved_columns.get("temperature")
         if temperature_column:
@@ -274,13 +274,13 @@ class SourceQuerySqlMixin:
     def _load_source_daily_history_rows(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> List[dict[str, Any]]:
+        min_year: int | None,
+    ) -> list[dict[str, Any]]:
         date_expression, conditions, params, scope_is_valid = self._build_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -307,14 +307,14 @@ class SourceQuerySqlMixin:
     def _daily_history_union_materialized_part_sql(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         params: dict[str, Any],
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> Optional[str]:
+        min_year: int | None,
+    ) -> str | None:
         return self._aggregations._daily_history_union_materialized_part_sql(
             table_name,
             resolved_columns,
@@ -328,14 +328,14 @@ class SourceQuerySqlMixin:
     def _daily_history_union_source_part_sql(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         params: dict[str, Any],
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> Optional[str]:
+        min_year: int | None,
+    ) -> str | None:
         date_expression, conditions, table_params, scope_is_valid = self._build_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -370,11 +370,11 @@ class SourceQuerySqlMixin:
     def _load_scope_total_count(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        min_year: Optional[int] = None,
+        min_year: int | None = None,
     ) -> int:
         if self._aggregations._daily_aggregate_view_exists(table_name):
             conditions, params, scope_is_valid = self._aggregations._build_materialized_scope_conditions(

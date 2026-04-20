@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import date, datetime
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 import pandas as pd
 
@@ -17,29 +17,29 @@ class OptionItem(TypedDict, total=False):
 class ResolvedColumns(TypedDict, total=False):
     """Resolved source-column mapping for access-points SQL extraction."""
 
-    district: Optional[str]
-    settlement: Optional[str]
-    settlement_type: Optional[str]
-    territory_label: Optional[str]
-    object_category: Optional[str]
-    object_name: Optional[str]
-    address: Optional[str]
-    address_comment: Optional[str]
-    latitude: Optional[str]
-    longitude: Optional[str]
-    report_time: Optional[str]
-    arrival_time: Optional[str]
-    detection_time: Optional[str]
-    distance_to_fire_station: Optional[str]
-    water_supply_count: Optional[str]
-    water_supply_details: Optional[str]
-    consequence: Optional[str]
-    deaths: Optional[str]
-    injuries: Optional[str]
-    casualty_flag: Optional[str]
-    destroyed_area: Optional[str]
-    destroyed_buildings: Optional[str]
-    registered_damage: Optional[str]
+    district: str | None
+    settlement: str | None
+    settlement_type: str | None
+    territory_label: str | None
+    object_category: str | None
+    object_name: str | None
+    address: str | None
+    address_comment: str | None
+    latitude: str | None
+    longitude: str | None
+    report_time: str | None
+    arrival_time: str | None
+    detection_time: str | None
+    distance_to_fire_station: str | None
+    water_supply_count: str | None
+    water_supply_details: str | None
+    consequence: str | None
+    deaths: str | None
+    injuries: str | None
+    casualty_flag: str | None
+    destroyed_area: str | None
+    destroyed_buildings: str | None
+    registered_damage: str | None
 
 
 class AccessPointMetadata(TypedDict, total=False):

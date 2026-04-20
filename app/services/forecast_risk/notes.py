@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Sequence
 
 from .constants import LONG_RESPONSE_THRESHOLD_MINUTES
 from .utils import _unique_non_empty
@@ -11,7 +11,7 @@ def _build_risk_notes(
     preload_notes: Sequence[str],
     weight_profile: dict[str, Any],
     historical_validation: dict[str, Any],
-) -> List[str]:
+) -> list[str]:
     notes = list(preload_notes[:2])
     missing_labels = {item["label"] for item in feature_cards if item["status"] == "missing"}
     partial_labels = {item["label"] for item in feature_cards if item["status"] == "partial"}

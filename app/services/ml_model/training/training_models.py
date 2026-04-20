@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -59,7 +59,7 @@ def _build_count_model(model_key: str):
     raise ValueError(f'Unsupported count model: {model_key}')
 
 
-def _count_model_scaled_columns(columns: List[str]) -> List[str]:
+def _count_model_scaled_columns(columns: list[str]) -> list[str]:
     return [column for column in COUNT_MODEL_CONTINUOUS_COLUMNS if column in columns]
 
 
@@ -89,7 +89,7 @@ def _build_count_model_pipeline(model_key: str, X_train: pd.DataFrame):
 
 def _prepare_statsmodels_count_design(
     X_train: pd.DataFrame,
-) -> Tuple[pd.DataFrame, List[str], Optional[Any]]:
+) -> tuple[pd.DataFrame, list[str], Any | None]:
     prepared = X_train.copy()
     scaled_columns = _count_model_scaled_columns(list(prepared.columns))
     if StandardScaler is None or not scaled_columns:
@@ -114,7 +114,7 @@ def _warning_indicates_unstable_fit(warning_item: warnings.WarningMessage) -> bo
     return any(token in message for token in WARNING_INSTABILITY_MESSAGE_TOKENS)
 
 
-def _has_warning_instability(caught_warnings: List[warnings.WarningMessage]) -> bool:
+def _has_warning_instability(caught_warnings: list[warnings.WarningMessage]) -> bool:
     return any(_warning_indicates_unstable_fit(item) for item in caught_warnings)
 
 
@@ -127,13 +127,13 @@ def _fit_with_convergence_guard(model: Any, X_train: pd.DataFrame, y_train: np.n
     return not _has_warning_instability(caught_warnings)
 
 
-def _fit_count_model(model_key: str, frame: pd.DataFrame, feature_columns: Optional[List[str]] = None) -> Optional[dict[str, Any]]:  # one-off
+def _fit_count_model(model_key: str, frame: pd.DataFrame, feature_columns: list[str | None] = None) -> dict[str, Any | None]:  # one-off
     X_train = _build_design_matrix(frame, feature_columns=feature_columns)
     y_train = frame['count'].to_numpy(dtype=float)
     return _fit_count_model_from_design(model_key, X_train, y_train)
 
 
-def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[dict[str, Any]]:  # one-off
+def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train: np.ndarray) -> dict[str, Any | None]:  # one-off
     if model_key == 'negative_binomial':
         if not _can_train_negative_binomial(y_train):
             return None
@@ -157,7 +157,7 @@ def _fit_count_model_from_design(model_key: str, X_train: pd.DataFrame, y_train:
     }
 
 
-def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[dict[str, Any]]:  # one-off
+def _fit_negative_binomial_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> dict[str, Any | None]:  # one-off
     if sm is None:
         return None
 
@@ -299,13 +299,13 @@ def _can_train_event_model(event_series: pd.Series) -> bool:
     return positives >= MIN_EVENT_CLASS_COUNT and negatives >= MIN_EVENT_CLASS_COUNT
 
 
-def _fit_event_model(frame: pd.DataFrame, feature_columns: Optional[List[str]] = None) -> Optional[dict[str, Any]]:  # one-off
+def _fit_event_model(frame: pd.DataFrame, feature_columns: list[str | None] = None) -> dict[str, Any | None]:  # one-off
     X_train = _build_design_matrix(frame, feature_columns=feature_columns)
     y_train = frame['event'].to_numpy(dtype=int)
     return _fit_event_model_from_design(X_train, y_train)
 
 
-def _fit_event_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> Optional[dict[str, Any]]:  # one-off
+def _fit_event_model_from_design(X_train: pd.DataFrame, y_train: np.ndarray) -> dict[str, Any | None]:  # one-off
     if not _can_train_event_model(pd.Series(y_train)):
         return None
     model = LogisticRegression(**_LOGISTIC_PARAMS)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,7 @@ def _prepare_reference_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return reference
 
 
-def _detect_trend_warning(dataset: pd.DataFrame) -> Optional[str]:
+def _detect_trend_warning(dataset: pd.DataFrame) -> str | None:
     if len(dataset) < 60:
         return None
     ordered = dataset.sort_values('date').reset_index(drop=True)
@@ -54,7 +54,7 @@ def _detect_trend_warning(dataset: pd.DataFrame) -> Optional[str]:
     )
 
 
-def _build_history_frame(history_tail: List[dict[str, Any]]) -> pd.DataFrame:
+def _build_history_frame(history_tail: list[dict[str, Any]]) -> pd.DataFrame:
     frame = pd.DataFrame(
         {
             'date': pd.to_datetime([item['date'] for item in history_tail]),
@@ -64,6 +64,8 @@ def _build_history_frame(history_tail: List[dict[str, Any]]) -> pd.DataFrame:
     ).sort_values('date').reset_index(drop=True)
     frame['avg_temperature'] = pd.to_numeric(frame['avg_temperature'], errors='coerce')
     return frame
+
+
 def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     result['weekday'] = result['date'].dt.weekday.astype(int)
@@ -78,8 +80,8 @@ def _feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _build_design_matrix(
     frame: pd.DataFrame,
-    expected_columns: Optional[List[str]] = None,
-    feature_columns: Optional[List[str]] = None,
+    expected_columns: list[str | None] = None,
+    feature_columns: list[str | None] = None,
 ) -> pd.DataFrame:
     selected_columns = feature_columns or FEATURE_COLUMNS
     if expected_columns is not None:
@@ -109,9 +111,9 @@ def _build_design_matrix(
 
 
 def _build_design_row(
-    feature_row: Dict[str, float],
-    expected_columns: Optional[List[str]] = None,
-    feature_columns: Optional[List[str]] = None,
+    feature_row: dict[str, float],
+    expected_columns: list[str | None] = None,
+    feature_columns: list[str | None] = None,
 ) -> pd.DataFrame:
     selected_columns = feature_columns or FEATURE_COLUMNS
     if expected_columns is None:
@@ -153,10 +155,10 @@ def _build_backtest_seed_dataset(
 
 def _prepare_training_dataset(
     frame: pd.DataFrame,
-    temperature_stats: Optional[dict[str, Any]] = None,
+    temperature_stats: dict[str, Any | None] = None,
     *,
     frame_is_prepared: bool = False,
-) -> Tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     from .training_temperature import (
         _apply_temperature_statistics,
         _fit_temperature_statistics,

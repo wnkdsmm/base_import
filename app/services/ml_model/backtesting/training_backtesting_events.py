@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from sklearn.metrics import log_loss, roc_auc_score
@@ -25,7 +25,7 @@ from .training_backtesting_types import (
 )
 
 
-def _event_rate(actuals: np.ndarray) -> Optional[float]:
+def _event_rate(actuals: np.ndarray) -> float | None:
     if actuals.size == 0:
         return None
     return float(np.mean(actuals))
@@ -35,18 +35,18 @@ def _has_both_event_classes(actuals: np.ndarray) -> bool:
     return bool(actuals.size and np.min(actuals) != np.max(actuals))
 
 
-def _event_rate_is_saturated(event_rate: Optional[float]) -> bool:
+def _event_rate_is_saturated(event_rate: float | None) -> bool:
     if event_rate is None:
         return True
     return event_rate <= EVENT_RATE_SATURATION_MARGIN or event_rate >= (1.0 - EVENT_RATE_SATURATION_MARGIN)
 
 
 def _event_probability_note(
-    reason_code: Optional[str],
+    reason_code: str | None,
     *,
     rows_used: int,
-    event_rate: Optional[float],
-) -> Optional[str]:
+    event_rate: float | None,
+) -> str | None:
     if reason_code == EVENT_PROBABILITY_REASON_TOO_FEW_COMPARABLE_WINDOWS:
         if rows_used > 0:
             return (
@@ -85,9 +85,9 @@ def _event_probability_note(
 def _empty_event_metrics(
     *,
     rows_used: int,
-    event_rate: Optional[float],
+    event_rate: float | None,
     evaluation_has_both_classes: bool,
-    reason_code: Optional[str],
+    reason_code: str | None,
 ) -> EventMetrics:
     return EventMetrics(
         available=False,
@@ -109,7 +109,7 @@ def _empty_event_metrics(
     )
 
 
-def _normalized_event_model_label(selected_model_key: Optional[str], fallback_label: Optional[str]) -> Optional[str]:
+def _normalized_event_model_label(selected_model_key: str | None, fallback_label: str | None) -> str | None:
     if selected_model_key == 'event_baseline':
         return EVENT_BASELINE_METHOD_LABEL
     if selected_model_key == 'heuristic_probability':
@@ -120,9 +120,9 @@ def _normalized_event_model_label(selected_model_key: Optional[str], fallback_la
 
 
 def _normalize_event_comparison_rows(
-    rows: List[dict[str, Any] | EventComparisonRow],
-) -> List[EventComparisonRow]:
-    normalized_rows: List[EventComparisonRow] = []
+    rows: list[dict[str, Any] | EventComparisonRow],
+) -> list[EventComparisonRow]:
+    normalized_rows: list[EventComparisonRow] = []
     for row in rows:
         normalized_row = EventComparisonRow.coerce(row)
         method_key = str(normalized_row.method_key or '')
@@ -230,7 +230,7 @@ def _build_event_metric_inputs_from_arrays(
 
 
 def _event_metric_arrays(
-    rows: List[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+    rows: list[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if isinstance(rows, _HorizonEvaluationData):
         return (
@@ -250,7 +250,7 @@ def _event_metric_arrays(
 
 
 def _event_metric_inputs(
-    rows: List[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+    rows: list[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> _EventMetricInputs:
     (
         actual_events,
@@ -288,10 +288,10 @@ def _score_event_probability_candidates(
 def _initial_event_metric_selection(
     *,
     heuristic_metrics: dict[str, Any],
-    baseline_roc_auc: Optional[float],
-    heuristic_roc_auc: Optional[float],
-    baseline_log_loss: Optional[float],
-    heuristic_log_loss: Optional[float],
+    baseline_roc_auc: float | None,
+    heuristic_roc_auc: float | None,
+    baseline_log_loss: float | None,
+    heuristic_log_loss: float | None,
 ) -> _EventMetricSelection:
     return _EventMetricSelection(
         selected_model_key='heuristic_probability',
@@ -330,8 +330,8 @@ def _with_classifier_event_selection(
     event_inputs: _EventMetricInputs,
     event_probability_informative: bool,
     heuristic_metrics: dict[str, Any],
-    heuristic_log_loss: Optional[float],
-    heuristic_roc_auc: Optional[float],
+    heuristic_log_loss: float | None,
+    heuristic_roc_auc: float | None,
 ) -> _EventMetricSelection:
     if not event_inputs.logistic_available:
         return selection
@@ -456,7 +456,7 @@ def _build_event_metrics_result(
 
 
 def _compute_event_metrics(
-    rows: List[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
+    rows: list[dict[str, Any] | BacktestEvaluationRow] | _HorizonEvaluationData,
 ) -> EventMetrics:
     event_inputs = _event_metric_inputs(rows)
     if event_inputs.common_rows < MIN_BACKTEST_POINTS:
@@ -502,10 +502,10 @@ def _compute_event_metrics(
 
 
 def _event_metric_sort_key(
-    brier_score: Optional[float],
-    log_loss_value: Optional[float],
-    roc_auc: Optional[float],
-    f1_score: Optional[float],
+    brier_score: float | None,
+    log_loss_value: float | None,
+    roc_auc: float | None,
+    f1_score: float | None,
 ) -> float:
     brier = brier_score if brier_score is not None else 1.0
     log_loss_val = log_loss_value if log_loss_value is not None else 2.0
@@ -514,13 +514,13 @@ def _event_metric_sort_key(
     return 0.40 * brier + 0.25 * log_loss_val - 0.25 * roc_val - 0.10 * f1_val
 
 
-def _safe_roc_auc(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[float]:
+def _safe_roc_auc(actuals: np.ndarray, probabilities: np.ndarray) -> float | None:
     if len(np.unique(actuals)) <= 1:
         return None
     return float(roc_auc_score(actuals, probabilities))
 
 
-def _safe_log_loss(actuals: np.ndarray, probabilities: np.ndarray) -> Optional[float]:
+def _safe_log_loss(actuals: np.ndarray, probabilities: np.ndarray) -> float | None:
     if actuals.size == 0:
         return None
     clipped = np.clip(probabilities.astype(float, copy=False), 0.001, 0.999)

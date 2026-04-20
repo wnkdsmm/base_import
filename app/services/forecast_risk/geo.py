@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections import Counter
 from datetime import timedelta
 import math
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 from app.services.shared.formatting import _format_integer, _format_number
 from config.constants import GEO_LOOKBACK_DAYS, MAX_GEO_CHART_POINTS, MAX_GEO_HOTSPOTS
 
 
 def _build_geo_prediction(
-    records: List[dict[str, Any]],
+    records: list[dict[str, Any]],
     planning_horizon_days: int,
 ) -> dict[str, Any]:
     geo_records = [
@@ -45,7 +45,7 @@ def _build_geo_prediction(
     latitudes = [float(record["latitude"]) for record in geo_records]
     longitudes = [float(record["longitude"]) for record in geo_records]
     cell_size = _derive_geo_cell_size(latitudes, longitudes)
-    cells: Dict[Tuple[int, int], dict[str, Any]] = {}
+    cells: dict[tuple[int, int], dict[str, Any]] = {}
 
     for record in geo_records:
         latitude = float(record["latitude"])
@@ -83,7 +83,7 @@ def _build_geo_prediction(
         if record.get("object_category"):
             cell["object_categories"][record["object_category"]] += 1
 
-    ranked_cells: List[dict[str, Any]] = []
+    ranked_cells: list[dict[str, Any]] = []
     for cell in cells.values():
         freshness_days = min((last_observed_date - cell["last_fire"]).days, GEO_LOOKBACK_DAYS)
         freshness = max(0.0, 1 - freshness_days / GEO_LOOKBACK_DAYS)
@@ -106,7 +106,7 @@ def _build_geo_prediction(
 
     ranked_cells.sort(key=lambda item: (item["raw_risk"], item["incidents"]), reverse=True)
     max_risk = ranked_cells[0]["raw_risk"] if ranked_cells else 1.0
-    points: List[dict[str, Any]] = []
+    points: list[dict[str, Any]] = []
 
     for rank, cell in enumerate(ranked_cells, start=1):
         risk_score = round((cell["raw_risk"] / max_risk) * 100, 1) if max_risk > 0 else 0.0
@@ -142,7 +142,7 @@ def _build_geo_prediction(
             }
         )
 
-    districts_map: Dict[str, Dict[str, float]] = {}
+    districts_map: dict[str, dict[str, float]] = {}
     for point in points:
         district_name = point["dominant_district"] or "Без района"
         bucket = districts_map.setdefault(
@@ -218,7 +218,7 @@ def _counter_top_label(counter: Counter, fallback: str) -> str:
     return counter.most_common(1)[0][0]
 
 
-def _geo_risk_level(value: float) -> Tuple[str, str]:
+def _geo_risk_level(value: float) -> tuple[str, str]:
     if value >= 80:
         return "Критический", "critical"
     if value >= 60:
@@ -228,7 +228,7 @@ def _geo_risk_level(value: float) -> Tuple[str, str]:
     return "Наблюдение", "watch"
 
 
-def _geo_risk_legend() -> List[Dict[str, str]]:
+def _geo_risk_legend() -> list[dict[str, str]]:
     return [
         {"label": "Критический", "range_label": "80-100", "tone": "critical"},
         {"label": "Высокий", "range_label": "60-79", "tone": "high"},

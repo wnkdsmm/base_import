@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,10 +32,10 @@ from ..ml_model_config_types import (
 from .training_dataset import _build_design_matrix
 
 
-def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFrame) -> List[dict[str, Any]]:
+def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFrame) -> list[dict[str, Any]]:
     design = _build_design_matrix(dataset, model_bundle['columns'])
     target = dataset['count'].to_numpy(dtype=float)
-    grouped_scores: Dict[str, float] = defaultdict(float)
+    grouped_scores: dict[str, float] = defaultdict(float)
 
     if permutation_importance is not None and model_bundle.get('backend') == 'sklearn':
         split_index = int(len(design) * IMPORTANCE_TRAIN_SPLIT_RATIO)
@@ -100,7 +100,7 @@ def _build_feature_importance(model_bundle: dict[str, Any], dataset: pd.DataFram
     return items
 
 
-def _fallback_feature_importance(model_bundle: dict[str, Any]) -> Dict[str, float]:
+def _fallback_feature_importance(model_bundle: dict[str, Any]) -> dict[str, float]:
     model = model_bundle['model']
     columns = model_bundle['columns']
     if hasattr(model, 'feature_importances_'):

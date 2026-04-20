@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Any, Dict, List
+from typing import Any
 
 from app.services.model_quality import compute_count_metrics
 
@@ -9,7 +9,7 @@ from .shaping import _build_forecast_rows
 from .utils import _format_integer, _format_number, _format_signed_percent
 
 
-def _scenario_baseline_expected_count(history: List[dict[str, Any]], target_date: Any) -> float:
+def _scenario_baseline_expected_count(history: list[dict[str, Any]], target_date: Any) -> float:
     if not history:
         return 0.0
     history_counts = [float(item["count"]) for item in history]
@@ -20,7 +20,7 @@ def _scenario_baseline_expected_count(history: List[dict[str, Any]], target_date
     return max(0.0, recent_mean)
 
 
-def _run_scenario_backtesting(daily_history: List[dict[str, Any]]) -> dict[str, Any]:
+def _run_scenario_backtesting(daily_history: list[dict[str, Any]]) -> dict[str, Any]:
     if len(daily_history) < 30:
         return {
             "is_ready": False,
@@ -44,7 +44,7 @@ def _run_scenario_backtesting(daily_history: List[dict[str, Any]]) -> dict[str, 
         }
 
     start_index = len(daily_history) - min(90, available_points)
-    rows: List[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for index in range(start_index, len(daily_history)):
         train_history = daily_history[:index]
         actual_row = daily_history[index]

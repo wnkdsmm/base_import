@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Sequence
+from typing import Any, Callable, Sequence
 
 TableOptionsBuilder = Callable[[], list[dict[str, Any]]]
 SelectionResolver = Callable[[list[dict[str, Any]], str], str]

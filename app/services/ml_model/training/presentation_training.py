@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -19,6 +19,7 @@ from .presentation_format import (
     _format_row_display,
 )
 from .presentation_meta import _event_probability_context
+
 
 def _empty_light_chart(title: str, empty_message: str, kind: str = 'line') -> dict[str, Any]:  # one-off
     payload: dict[str, Any] = {
@@ -41,7 +42,7 @@ def _empty_light_chart(title: str, empty_message: str, kind: str = 'line') -> di
     return payload
 
 
-def _build_forecast_chart(daily_history: List[ForecastingDailyHistoryRow], ml_result: TrainingMlResultPayload) -> dict[str, Any]:  # one-off
+def _build_forecast_chart(daily_history: list[ForecastingDailyHistoryRow], ml_result: TrainingMlResultPayload) -> dict[str, Any]:  # one-off
     title = 'ML-прогноз ожидаемого числа пожаров'
     if not daily_history or not ml_result.get('is_ready'):
         return _empty_light_chart(title, ml_result.get('message') or 'Недостаточно данных для построения прогноза.')
@@ -99,7 +100,7 @@ def _build_forecast_chart(daily_history: List[ForecastingDailyHistoryRow], ml_re
     }
 
 
-def _build_importance_chart(feature_importance: List[TrainingFeatureImportanceRow], note: str = '') -> dict[str, Any]:  # one-off
+def _build_importance_chart(feature_importance: list[TrainingFeatureImportanceRow], note: str = '') -> dict[str, Any]:  # one-off
     title = 'Важность признаков ML-блока'
     if not feature_importance:
         payload = _empty_light_chart(title, 'Модель ещё не обучена: важность признаков появится после расчёта.', kind='bars')
@@ -125,15 +126,17 @@ def _build_importance_chart(feature_importance: List[TrainingFeatureImportanceRo
 # intentionally separate from access_points/presentation.py::_build_summary and
 # forecasting/presentation.py::_build_summary:
 # ML-training summary exposes model diagnostics/backtest/event-probability details.
+
+
 def _build_summary(
     selected_table: str,
     selected_cause: str,
     selected_object_category: str,
-    daily_history: List[ForecastingDailyHistoryRow],
+    daily_history: list[ForecastingDailyHistoryRow],
     filtered_records_count: int,
     ml_result: TrainingMlResultPayload,
     history_window: str,
-    scenario_temperature: Optional[float],
+    scenario_temperature: float | None,
 ) -> dict[str, Any]:  # one-off
     history_dates = [item['date'] for item in daily_history]
     slice_parts = []

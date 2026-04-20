@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Sequence
 
 from app.services.shared.data_utils import _clean_text, _unique_non_empty
 from app.services.shared.formatting import _format_integer
@@ -45,6 +45,8 @@ def _build_top_point_lead(top_point: PointData | None) -> str:
 # intentionally separate from forecasting/presentation.py::_build_summary and
 # ml_model/training/presentation_training.py::_build_summary:
 # access-points summary has its own point-risk and verification semantics.
+
+
 def _build_summary(
     rows: Sequence[PointData],
     *,
@@ -88,12 +90,14 @@ def _build_summary(
 # intentionally separate from forecast_risk/reliability.py::_build_summary_cards and
 # table_summary.py::_build_summary_cards:
 # access-points cards are incident-point prioritization widgets.
+
+
 def _build_summary_cards(
     rows: Sequence[PointData],
     *,
     total_incidents: int,
     incomplete_points: Sequence[PointData],
-) -> List[AccessPointCard]:
+) -> list[AccessPointCard]:
     top_point = rows[0] if rows else None
     high_or_above_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") in {"high", "critical"})
     critical_count = sum(1 for row in rows if str(row.get("severity_band_code") or "") == "critical")
@@ -133,8 +137,8 @@ def _build_notes(
     input_notes: Sequence[str],
     rows: Sequence[PointData],
     incomplete_points: Sequence[PointData],
-) -> List[str]:
-    notes: List[str] = []
+) -> list[str]:
+    notes: list[str] = []
     if rows:
         notes.append(
             "Score 0-100 строится как explainable model: вклад каждого фактора виден отдельно, а неполнота данных даёт ограниченный penalty и не должна доминировать над реальным риском."

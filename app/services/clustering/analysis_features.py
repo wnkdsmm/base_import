@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from itertools import combinations
-from typing import Any, List, Sequence, Tuple
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -195,7 +195,7 @@ def _build_default_feature_selection_analysis(
             },
         )
 
-    mode_candidates: List[ClusteringMethodCandidate] = []
+    mode_candidates: list[ClusteringMethodCandidate] = []
     for mode_key, mode_label, excluded_features in [
         (DEFAULT_CLUSTER_MODE_PROFILE, DEFAULT_CLUSTER_MODE_PROFILE_LABEL, PROFILE_MODE_EXCLUDED_FEATURES),
         (DEFAULT_CLUSTER_MODE_LOAD, DEFAULT_CLUSTER_MODE_LOAD_LABEL, set()),
@@ -283,7 +283,7 @@ def _select_default_cluster_features(
     entity_frame: pd.DataFrame,
     available_features: Sequence[str],
     cluster_count: int,
-) -> List[str]:
+) -> list[str]:
     return list(
         _build_default_feature_selection_analysis(
             feature_frame=feature_frame,
@@ -300,20 +300,20 @@ def _choose_features_from_pool(
     available_features: Sequence[str],
     cluster_count: int,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
-) -> List[str]:
+) -> list[str]:
     ordered_features = [feature for feature in available_features if feature in feature_frame.columns]
     if len(ordered_features) < 2:
         return list(ordered_features)
 
     feature_order = {feature: index for index, feature in enumerate(ordered_features)}
-    evaluation_cache: Dict[Tuple[str, ...], Dict[str, float]] = {}
+    evaluation_cache: dict[tuple[str, ...], dict[str, float]] = {}
     preferred_features = [feature for feature in DEFAULT_CLUSTER_FEATURES if feature in feature_order]
     anchor_feature = preferred_features[0] if preferred_features else ordered_features[0]
 
-    def _normalize_subset(subset: Sequence[str]) -> Tuple[str, ...]:
+    def _normalize_subset(subset: Sequence[str]) -> tuple[str, ...]:
         return tuple(sorted(dict.fromkeys(subset), key=lambda feature: feature_order[feature]))
 
-    def _evaluate_subset(subset: Sequence[str]) -> Dict[str, float]:
+    def _evaluate_subset(subset: Sequence[str]) -> dict[str, float]:
         normalized_subset = _normalize_subset(subset)
         if normalized_subset not in evaluation_cache:
             evaluation_cache[normalized_subset] = _evaluate_feature_subset(
@@ -333,8 +333,8 @@ def _choose_features_from_pool(
     if not pair_candidates:
         pair_candidates = list(combinations(ordered_features, 2))
 
-    best_pair: Tuple[str, ...] | None = None
-    best_result: Dict[str, float] | None = None
+    best_pair: tuple[str, ...] | None = None
+    best_result: dict[str, float] | None = None
     for pair in pair_candidates:
         result = _evaluate_subset(pair)
         if best_result is None or _subset_result_sort_key(result) > _subset_result_sort_key(best_result):
@@ -425,7 +425,7 @@ def _build_feature_ablation_rows(
     candidate_features: Sequence[str],
     cluster_count: int,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
-) -> List[FeatureAblationRow]:
+) -> list[FeatureAblationRow]:
     base_result = _evaluate_feature_subset(
         feature_frame,
         entity_frame,
@@ -433,7 +433,7 @@ def _build_feature_ablation_rows(
         cluster_count,
         weighting_strategy=weighting_strategy,
     )
-    rows: List[FeatureAblationRow] = []
+    rows: list[FeatureAblationRow] = []
 
     for feature in selected_features:
         reduced_features = [item for item in selected_features if item != feature]
@@ -483,7 +483,7 @@ def _build_feature_ablation_rows(
     )
 
 
-def _summarize_volume_role(selection_report: ClusteringMethodCandidate) -> Dict[str, str]:
+def _summarize_volume_role(selection_report: ClusteringMethodCandidate) -> dict[str, str]:
     if selection_report["mode_key"] == DEFAULT_CLUSTER_MODE_PROFILE:
         return {
             "code": DEFAULT_CLUSTER_MODE_PROFILE,
@@ -529,7 +529,7 @@ def _evaluate_feature_subset(
     selected_features: Sequence[str],
     cluster_count: int,
     weighting_strategy: str = WEIGHTING_STRATEGY_INCIDENT_LOG,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     subset_frame, subset_entities = _prepare_subset_frame(feature_frame, entity_frame, selected_features)
     if len(subset_frame) <= 2:
         return {

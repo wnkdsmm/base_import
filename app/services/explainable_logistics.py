@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.services.shared.formatting import (
     format_number_rounded as _format_number,
@@ -11,8 +11,8 @@ from config.constants import CORE_SERVICE_TIME_MINUTES, SERVICE_DISTANCE_TARGET_
 
 def build_explainable_logistics_profile(
     *,
-    avg_distance_km: Optional[float],
-    avg_response_minutes: Optional[float],
+    avg_distance_km: float | None,
+    avg_response_minutes: float | None,
     long_arrival_rate: float,
     is_rural: bool,
     response_observations: int = 0,
@@ -32,7 +32,7 @@ def build_explainable_logistics_profile(
     safe_distance = _positive_or_none(avg_distance_km)
     safe_response = _positive_or_none(avg_response_minutes)
 
-    estimated_from_distance: Optional[float] = None
+    estimated_from_distance: float | None = None
     if safe_distance is not None:
         base_speed_kmh = 34.0 if is_rural else 42.0
         adjusted_speed_kmh = max(22.0, base_speed_kmh * (1.0 - 0.14 * safe_night_share))
@@ -167,7 +167,7 @@ def _logistics_priority_label(score: float) -> str:
     return 'Плановый логистический контроль'
 
 
-def _positive_or_none(value: Optional[float]) -> Optional[float]:
+def _positive_or_none(value: float | None) -> float | None:
     if value is None:
         return None
     try:

@@ -1,8 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Any, Iterable, List, Sequence
+from typing import Any, Iterable, Sequence
 
 import pandas as pd
 
@@ -49,7 +49,7 @@ def _normalize_text(value: Any) -> str:
     return text
 
 
-def _extract_words(value: str) -> List[str]:
+def _extract_words(value: str) -> list[str]:
     return [word for word in re.findall(r"\w+", value) if word]
 
 
@@ -216,7 +216,7 @@ def _build_feature_stat(
 
     column_indexes = [columns.index(column_name) for column_name in matched_columns if column_name in columns]
     non_empty_rows = 0
-    observed_values: List[Any] = []
+    observed_values: list[Any] = []
     counter: Counter[str] = Counter()
     numeric_sum = 0.0
     numeric_count = 0
@@ -337,16 +337,18 @@ def _first_found(feature_stats: dict[str, dict[str, Any]], feature_ids: Sequence
 # intentionally separate from access_points/presentation.py::_build_summary_cards and
 # forecast_risk/reliability.py::_build_summary_cards:
 # table-summary cards describe schema/coverage readiness, not risk prioritization.
+
+
 def _build_summary_cards(
     row_count: int,
     column_count: int,
     feature_stats: dict[str, dict[str, Any]],  # one-off
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     mandatory_total = len(MANDATORY_FEATURE_REGISTRY)
     found_total = sum(1 for item in feature_stats.values() if item["found"])
     average_fill = _average(item["coverage"] for item in feature_stats.values() if item["found"])
 
-    cards: List[Dict[str, str]] = [
+    cards: list[dict[str, str]] = [
         {
             "label": "Размер",
             "value": f"{_format_int(row_count)} x {_format_int(column_count)}",
@@ -397,8 +399,8 @@ def _build_summary_cards(
     return build_summary_cards(cards)
 
 
-def _build_group_cards(feature_stats: dict[str, dict[str, Any]]) -> List[Dict[str, str]]:  # one-off
-    cards: List[Dict[str, str]] = []
+def _build_group_cards(feature_stats: dict[str, dict[str, Any]]) -> list[dict[str, str]]:  # one-off
+    cards: list[dict[str, str]] = []
     for group in FEATURE_GROUPS:
         group_stats = [feature_stats[feature_id] for feature_id in group["feature_ids"] if feature_id in feature_stats]
         found_stats = [item for item in group_stats if item["found"]]

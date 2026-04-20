@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -48,6 +48,7 @@ from ..training.training_temperature import (
     _temperature_feature_columns,
 )
 
+
 def _collect_backtest_horizon_rows(
     *,
     history_frame: pd.DataFrame,
@@ -56,16 +57,16 @@ def _collect_backtest_horizon_rows(
     total_windows: int,
     max_horizon_days: int,
     min_train_rows: int,
-    horizon_days: List[int],
+    horizon_days: list[int],
     progress_callback: MlProgressCallback,
-) -> Tuple[Dict[int, List[BacktestWindowRow]], int]:
+) -> tuple[dict[int, list[BacktestWindowRow]], int]:
     from .training_backtesting_execution import (
         _build_window,
         _build_window_rows,
         _fit_candidates,
     )
 
-    horizon_rows: Dict[int, List[BacktestWindowRow]] = {horizon_day: [] for horizon_day in horizon_days}
+    horizon_rows: dict[int, list[BacktestWindowRow]] = {horizon_day: [] for horizon_day in horizon_days}
     comparable_windows = 0
 
     for completed_windows, origin_date_value in enumerate(selected_origin_dates, start=1):
@@ -99,19 +100,20 @@ def _collect_backtest_horizon_rows(
 
     return horizon_rows, comparable_windows
 
+
 def _build_backtest_overview(
     *,
     backtest_rows,
-    valid_rows: List[BacktestWindowRow],
+    valid_rows: list[BacktestWindowRow],
     min_train_rows: int,
     validation_horizon_days: int,
     max_horizon_days: int,
-    horizon_days: List[int],
+    horizon_days: list[int],
     selection: _BacktestSelection,
     event_metrics: EventMetrics,
     prediction_interval_calibration: dict[str, Any],
     validation_summary: HorizonSummary,
-    horizon_summaries: Dict[str, HorizonSummary],
+    horizon_summaries: dict[str, HorizonSummary],
 ) -> BacktestOverview:
     prediction_interval_coverage = validation_summary.prediction_interval_coverage
     return BacktestOverview(
@@ -174,11 +176,12 @@ def _build_backtest_overview(
         ),
     )
 
+
 def _build_backtest_evaluation_artifacts(
     *,
-    horizon_rows: Dict[int, List[BacktestWindowRow]],
-    horizon_days: List[int],
-    valid_rows: List[BacktestWindowRow],
+    horizon_rows: dict[int, list[BacktestWindowRow]],
+    horizon_days: list[int],
+    valid_rows: list[BacktestWindowRow],
     dataset: pd.DataFrame,
     validation_horizon_days: int,
 ) -> _BacktestEvaluationArtifacts:
@@ -218,14 +221,15 @@ def _build_backtest_evaluation_artifacts(
         window_rows=window_rows,
     )
 
+
 def _build_backtest_success_result(
     *,
     artifacts: _BacktestEvaluationArtifacts,
-    valid_rows: List[BacktestWindowRow],
+    valid_rows: list[BacktestWindowRow],
     min_train_rows: int,
     validation_horizon_days: int,
     max_horizon_days: int,
-    horizon_days: List[int],
+    horizon_days: list[int],
 ) -> BacktestSuccess:
     overview = _build_backtest_overview(
         backtest_rows=artifacts.backtest_rows,

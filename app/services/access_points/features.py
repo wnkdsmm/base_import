@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -13,13 +13,13 @@ from .constants import (
 )
 
 
-def _normalize_access_point_feature_columns(feature_columns: Sequence[str] | None) -> List[str]:
+def _normalize_access_point_feature_columns(feature_columns: Sequence[str] | None) -> list[str]:
     return [str(item).strip() for item in (feature_columns or []) if str(item).strip()]
 
 
-def _build_access_point_shell_feature_options(selected_features: Sequence[str] | None = None) -> List[dict[str, Any]]:
+def _build_access_point_shell_feature_options(selected_features: Sequence[str] | None = None) -> list[dict[str, Any]]:
     selected_set = set(_normalize_access_point_feature_columns(selected_features)) or set(DEFAULT_ACCESS_POINT_FEATURES)
-    rows: List[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for feature_name in DEFAULT_ACCESS_POINT_FEATURES:
         metadata = ACCESS_POINT_FEATURE_METADATA.get(feature_name, {})
         rows.append(
@@ -61,12 +61,12 @@ def _access_point_feature_series(entity_frame: pd.DataFrame, feature_name: str) 
     return pd.Series(dtype=float)
 
 
-def _build_access_point_candidate_features(entity_frame: pd.DataFrame) -> List[dict[str, Any]]:
+def _build_access_point_candidate_features(entity_frame: pd.DataFrame) -> list[dict[str, Any]]:
     if entity_frame is None or entity_frame.empty:
         return []
 
     row_count = len(entity_frame)
-    rows: List[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for order, feature_name in enumerate(DEFAULT_ACCESS_POINT_FEATURES):
         series = _access_point_feature_series(entity_frame, feature_name)
         metadata = ACCESS_POINT_FEATURE_METADATA.get(feature_name, {})
@@ -93,7 +93,7 @@ def _build_access_point_candidate_features(entity_frame: pd.DataFrame) -> List[d
 def _resolve_selected_access_point_features(
     available_features: Sequence[str],
     requested_features: Sequence[str],
-) -> Tuple[List[str], str]:
+) -> tuple[list[str], str]:
     allowed = set(available_features)
     normalized_requested = [item for item in requested_features if item in allowed]
     if normalized_requested:
@@ -117,7 +117,7 @@ def _resolve_selected_access_point_features(
 def _build_access_point_feature_options(
     candidate_features: Sequence[dict[str, Any]],
     selected_features: Sequence[str],
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     selected_set = set(selected_features)
     prioritized = list(candidate_features[:MAX_ACCESS_POINT_FEATURE_OPTIONS])
     selected_rows = [item for item in candidate_features if item["name"] in selected_set and item not in prioritized]

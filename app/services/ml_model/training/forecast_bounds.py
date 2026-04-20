@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -37,7 +37,7 @@ def _resolve_interval_calibration(interval_calibration: dict[str, Any], horizon_
     return fallback
 
 
-def _format_ratio_percent(value: Optional[float]) -> str:
+def _format_ratio_percent(value: float | None) -> str:
     if value is None:
         return '—'
     return f"{_format_number(float(value) * 100.0)}%"
@@ -70,7 +70,7 @@ def _prediction_interval_margin(prediction: float, calibration: dict[str, Any]) 
     return max(minimum_floor, fallback_margin) if minimum_floor is not None else fallback_margin
 
 
-def _count_interval(prediction: float, calibration: dict[str, Any]) -> Tuple[float, float]:
+def _count_interval(prediction: float, calibration: dict[str, Any]) -> tuple[float, float]:
     margin = _prediction_interval_margin(prediction, calibration)
     center = max(0.0, float(prediction))
     lower = max(0.0, center - margin)
@@ -82,7 +82,7 @@ def _interval_coverage(
     actuals: np.ndarray,
     predictions: np.ndarray,
     calibration: dict[str, Any],
-) -> Optional[float]:
+) -> float | None:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)
     if actual_values.size == 0 or prediction_values.size == 0 or actual_values.size != prediction_values.size:
@@ -102,7 +102,7 @@ def _risk_index(prediction: float, sorted_history_counts: np.ndarray) -> float:
     return min(100.0, max(0.0, rank / float(sorted_history_counts.size) * 100.0))
 
 
-def _risk_band_from_index(risk_index: float) -> Tuple[str, str]:
+def _risk_band_from_index(risk_index: float) -> tuple[str, str]:
     if risk_index >= 90.0:
         return 'Очень высокий', 'critical'
     if risk_index >= 75.0:
@@ -118,7 +118,7 @@ def _bound_probability(value: float) -> float:
     return min(1.0, max(0.0, float(value)))
 
 
-def _format_probability(value: Optional[float]) -> str:
+def _format_probability(value: float | None) -> str:
     if value is None:
         return '—'
     return _format_percent(float(value) * 100.0)

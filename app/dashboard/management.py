@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.services.executive_brief import (
     build_executive_brief_from_risk_payload,
@@ -15,9 +15,9 @@ from .types import DashboardSection, DashboardTableRef, DistributionResult, Summ
 def _build_management_snapshot_payload(
     brief: dict[str, Any],  # one-off
     *,
-    territories: Optional[List[Dict[str, str]]] = None,
-    actions: Optional[List[Dict[str, str]]] = None,
-    notes: Optional[List[str]] = None,
+    territories: list[dict[str, str | None]] = None,
+    actions: list[dict[str, str | None]] = None,
+    notes: list[str | None] = None,
     priority_horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> dict[str, Any]:  # one-off
     resolved_notes = list(notes if notes is not None else brief.get("notes") or [])
@@ -52,8 +52,8 @@ def _empty_management_snapshot(priority_horizon_days: int = PRIORITY_HORIZON_DAY
 
 
 def _build_management_snapshot(
-    selected_tables: List[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_tables: list[DashboardTableRef],
+    selected_year: int | None,
     summary: SummaryResult,
     trend: DashboardSection,
     cause_overview: DistributionResult,
@@ -88,7 +88,7 @@ def _build_management_snapshot(
     top_district = district_widget["items"][0] if district_widget.get("items") else None
     top_territory = risk_territories[0] if risk_territories else None
 
-    territories: List[Dict[str, str]] = []
+    territories: list[dict[str, str]] = []
     for item in risk_territories[:3]:
         components = item.get("component_scores") or []
         top_component = components[0] if components else {}
@@ -109,7 +109,7 @@ def _build_management_snapshot(
             }
         )
 
-    actions: List[Dict[str, str]] = []
+    actions: list[dict[str, str]] = []
     if top_territory:
         for recommendation in (top_territory.get("recommendations") or [])[:3]:
             label = str(recommendation.get("label") or "").strip()
@@ -153,7 +153,7 @@ def _build_management_snapshot(
         f"Важно: это краткий территориальный приоритет на ближайшие {planning_horizon_days} дней, "
         "а не календарь риска по датам и не прогноз ожидаемого числа пожаров."
     )
-    notes: List[str] = []
+    notes: list[str] = []
     for note in (risk_payload.get("notes") or [])[:3]:
         text = str(note or "").strip()
         if text and text not in notes:

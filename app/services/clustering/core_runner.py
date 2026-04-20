@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import Any, Callable, Dict, Sequence, Tuple
+from typing import Any, Callable, Sequence
 
 from app.perf import current_perf_trace, profiled
 from config.constants import HOPKINS_MIN_CLUSTERABLE, MIN_ROWS_PER_CLUSTER, WEIGHTING_STRATEGY_INCIDENT_LOG
@@ -43,6 +43,7 @@ from .types import (
     ClusteringSummary,
     FeatureSelectionReport,
 )
+
 
 def _load_clustering_stage(
     *,
@@ -101,6 +102,7 @@ def _load_clustering_stage(
         "dataset": dataset,
         "feature_selection": feature_selection,
     }
+
 
 def _build_clustering_model_stage_context(
     *,
@@ -175,6 +177,7 @@ def _build_clustering_model_stage_context(
         "model_bundle": model_bundle,
     }
 
+
 def _render_clustering_payload_stage(
     *,
     base: ClusteringBaseState,
@@ -185,7 +188,7 @@ def _render_clustering_payload_stage(
     cluster_count_guidance: ClusterCountGuidance,
     requested_cluster_count: int,
     cluster_count_is_explicit: bool,
-    cache_key: Tuple[str, ...],
+    cache_key: tuple[str, ...],
     perf: Any,
     progress_callback: Callable[[str, str], None] | None,
 ) -> ClusteringPayload:
@@ -235,6 +238,7 @@ def _render_clustering_payload_stage(
             "Кластеризация завершена, результаты и графики готовы.",
         )
         return result
+
 
 def get_clustering_data(
     table_name: str = "",

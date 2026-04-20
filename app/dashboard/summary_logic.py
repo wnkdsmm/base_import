@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+
 
 from .distribution import _build_rankings, _build_table_breakdown_chart
 from .summary import (
@@ -26,7 +26,7 @@ from .utils import _find_option_label
 
 def _build_dashboard_summary_series(
     selected_tables: list[DashboardTableRef],
-    selected_year: Optional[int],
+    selected_year: int | None,
 ) -> DashboardSummarySeries:
     summary_bundle = _collect_dashboard_summary_bundle(selected_tables, selected_year)
     summary_rows = summary_bundle["summary_rows"]

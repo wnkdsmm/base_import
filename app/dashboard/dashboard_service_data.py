@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.perf import ensure_sqlalchemy_timing, perf_trace
 from app.plotly_bundle import PLOTLY_AVAILABLE, get_plotly_bundle
@@ -79,10 +79,11 @@ def _build_dashboard_cache_key(
         horizon_days,
     )
 
+
 def _build_resolved_dashboard_cache_key(
     metadata: DashboardMetadata,
     selected_table_name: str,
-    selected_year: Optional[int],
+    selected_year: int | None,
     selected_group_column: str,
     horizon_days: int,
 ) -> tuple[Any, ...]:
@@ -93,6 +94,7 @@ def _build_resolved_dashboard_cache_key(
         selected_group_column,
         horizon_days,
     )
+
 
 def _build_dashboard_context_payload(
     *,
@@ -117,6 +119,7 @@ def _build_dashboard_context_payload(
         "plotly_js": plotly_js,
     }
 
+
 def _resolve_shell_group_columns(
     metadata: DashboardMetadata,
     filter_state: DashboardRequestState,
@@ -129,6 +132,7 @@ def _resolve_shell_group_columns(
         if not has_selected_group:
             selected_group_column = available_group_columns[0]["value"]
     return available_group_columns, selected_group_column
+
 
 def _build_dashboard_shell_initial_data(
     metadata: DashboardMetadata,
@@ -161,13 +165,14 @@ def _build_dashboard_shell_initial_data(
     )
     return initial_data, available_group_columns
 
+
 def _resolve_requested_dashboard_cache(
     metadata: DashboardMetadata,
     table_name: str,
     year: str,
     group_column: str,
     horizon_days: int,
-) -> tuple[str, tuple[Any, ...], Optional[DashboardPayload]]:
+) -> tuple[str, tuple[Any, ...], DashboardPayload | None]:
     normalized_group_column = group_column or metadata["default_group_column"]
     cache_key = _build_dashboard_cache_key(
         metadata,
@@ -177,6 +182,7 @@ def _resolve_requested_dashboard_cache(
         horizon_days,
     )
     return normalized_group_column, cache_key, _get_dashboard_cache(cache_key)
+
 
 def _build_dashboard_request_state(
     metadata: DashboardMetadata,
@@ -207,12 +213,13 @@ def _build_dashboard_request_state(
         "horizon_days": horizon_days,
     }
 
+
 def _update_dashboard_filter_metrics(
     perf: Any,
     *,
     metadata: DashboardMetadata,
     request_state: DashboardRequestState,
-    cached_payload: Optional[DashboardPayload],
+    cached_payload: DashboardPayload | None,
     cache_hit: bool,
 ) -> None:
     perf.update(
@@ -225,6 +232,7 @@ def _update_dashboard_filter_metrics(
         payload_has_data=bool((cached_payload or {}).get("has_data")),
         payload_notes=len((cached_payload or {}).get("notes") or []),
     )
+
 
 def build_dashboard_context(
     table_name: str = "all",
@@ -250,6 +258,7 @@ def build_dashboard_context(
         plotly_js=get_plotly_bundle(),
     )
 
+
 def get_dashboard_page_context(
     table_name: str = "all",
     year: str = "all",
@@ -267,6 +276,7 @@ def get_dashboard_page_context(
         error_context = _build_dashboard_error_context(str(exc))
         del error_context["plotly_js"]
         return error_context
+
 
 def get_dashboard_shell_context(
     table_name: str = "all",
@@ -299,12 +309,13 @@ def get_dashboard_shell_context(
     except Exception as exc:
         return _build_dashboard_error_context(str(exc), plotly_js="")
 
+
 def get_dashboard_data(
     table_name: str = "all",
     year: str = "all",
     group_column: str = "",
     horizon_days: int = PRIORITY_HORIZON_DAYS,
-    metadata: Optional[DashboardMetadata] = None,
+    metadata: DashboardMetadata | None = None,
     allow_fallback: bool = True,
 ) -> DashboardPayload:
     from . import service as _service_module

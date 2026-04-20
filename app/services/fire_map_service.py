@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from app.cache import CopyingTtlCache
 from app.table_catalog import get_user_table_options, resolve_selected_table_value

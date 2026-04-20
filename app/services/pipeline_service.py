@@ -5,7 +5,7 @@ import os
 import shutil
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 import pandas as pd
 from fastapi import UploadFile
@@ -273,6 +273,7 @@ invalidate_runtime_caches = shared_invalidate_runtime_caches
 
 def _invalidate_runtime_caches(session_id: str, job_id: str) -> None:
     shared_invalidate_runtime_caches(on_warning=lambda message: add_log(session_id, job_id, message))
+
 
 def _build_upload_file_path(session_id: str, job_id: str, original_filename: str) -> Path:
     safe_name = Path(original_filename).name or "uploaded_file.xlsx"

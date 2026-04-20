@@ -1,14 +1,16 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from datetime import date, datetime
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from config.db import engine
 
 from .constants import LONG_RESPONSE_THRESHOLD_MINUTES
-def _parse_water_supply_flag(count_value: Optional[float], details: str) -> Optional[bool]:
+
+
+def _parse_water_supply_flag(count_value: float | None, details: str) -> bool | None:
     if count_value is not None:
         return count_value > 0
     normalized = _normalize_match_text(details)
@@ -21,7 +23,7 @@ def _parse_water_supply_flag(count_value: Optional[float], details: str) -> Opti
     return None
 
 
-def _truthy_value(value: Any) -> Optional[bool]:
+def _truthy_value(value: Any) -> bool | None:
     normalized = _normalize_match_text(_clean_text(value))
     if not normalized or normalized in {"нет данных", "не указано", "не указан", "-"}:
         return None
@@ -60,7 +62,7 @@ def _is_rural_label(value: str) -> bool:
     return any(token in normalized for token in ["сель", "деревн", "посел", "село", "хутор", "станиц", "аул"])
 
 
-def _calculate_response_minutes(start_time: Optional[datetime], end_time: Optional[datetime]) -> Optional[float]:
+def _calculate_response_minutes(start_time: datetime | None, end_time: datetime | None) -> float | None:
     if start_time is None or end_time is None:
         return None
     delta_minutes = (end_time - start_time).total_seconds() / 60.0
@@ -71,7 +73,7 @@ def _calculate_response_minutes(start_time: Optional[datetime], end_time: Option
     return round(delta_minutes, 1)
 
 
-def _parse_datetime_text(value: Any) -> Optional[datetime]:
+def _parse_datetime_text(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -85,7 +87,9 @@ def _parse_datetime_text(value: Any) -> Optional[datetime]:
 
 
 @lru_cache(maxsize=32768)
-def _parse_datetime_string(text_value: str) -> Optional[datetime]:
+
+
+def _parse_datetime_string(text_value: str) -> datetime | None:
     if len(text_value) == 10:
         try:
             if text_value[4:5] == "-" and text_value[7:8] == "-":
@@ -118,8 +122,8 @@ def _pick_territory_label(primary_value: Any, district_value: str) -> str:
     return "Территория не указана"
 
 
-def _scan_columns(columns: Sequence[str], token_groups: Sequence[Sequence[str]]) -> List[str]:
-    matches: List[str] = []
+def _scan_columns(columns: Sequence[str], token_groups: Sequence[Sequence[str]]) -> list[str]:
+    matches: list[str] = []
     for column_name in columns:
         normalized_column = _normalize_match_text(column_name)
         if any(all(token in normalized_column for token in group) for group in token_groups):
@@ -131,7 +135,7 @@ def _counter_top_label(counter: Counter, fallback: str) -> str:
     return counter.most_common(1)[0][0] if counter else fallback
 
 
-def _apply_history_window(records: Sequence[dict[str, Any]], history_window: str) -> List[dict[str, Any]]:
+def _apply_history_window(records: Sequence[dict[str, Any]], history_window: str) -> list[dict[str, Any]]:
     if not records or history_window == "all":
         return list(records)
     latest_year = max(record["date"].year for record in records)
@@ -175,7 +179,7 @@ def _clean_text(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def _to_float_or_none(value: Any) -> Optional[float]:
+def _to_float_or_none(value: Any) -> float | None:
     try:
         return None if value is None else float(value)
     except (TypeError, ValueError):
@@ -223,8 +227,8 @@ def _format_decimal(value: float) -> str:
     return str(rounded).replace(".", ",")
 
 
-def _unique_non_empty(values: Sequence[str]) -> List[str]:
-    items: List[str] = []
+def _unique_non_empty(values: Sequence[str]) -> list[str]:
+    items: list[str] = []
     for value in values:
         text_value = _clean_text(value)
         if text_value and text_value not in items:
@@ -237,6 +241,8 @@ def _quote_identifier(identifier: str) -> str:
 
 
 @lru_cache(maxsize=16384)
+
+
 def _normalize_match_text(value: str) -> str:
     return " ".join(str(value).lower().replace("?", "?").replace("/", " ").replace("-", " ").split())
 

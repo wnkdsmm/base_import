@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -76,7 +76,7 @@ def _shrink_mean(total: float, support: float, prior_mean: float | None, prior_s
     return float((float(total) + (prior_mean * prior_strength)) / (float(support) + prior_strength))
 
 
-def _summarize_support(entity_frame: pd.DataFrame) -> Dict[str, float]:
+def _summarize_support(entity_frame: pd.DataFrame) -> dict[str, float]:
     if entity_frame.empty or INCIDENT_COUNT_COLUMN not in entity_frame.columns:
         return {
             "territory_count": 0.0,
@@ -93,7 +93,7 @@ def _summarize_support(entity_frame: pd.DataFrame) -> Dict[str, float]:
     }
 
 
-def _build_table_options() -> List[ClusteringTableOption]:
+def _build_table_options() -> list[ClusteringTableOption]:
     tables = []
     for table_name in get_user_table_names(prefer_clean=True):
         if table_name.startswith(TABLE_EXCLUDED_PREFIXES):
@@ -103,7 +103,7 @@ def _build_table_options() -> List[ClusteringTableOption]:
 
 
 
-def _resolve_selected_table(table_options: List[ClusteringTableOption], table_name: str) -> str:
+def _resolve_selected_table(table_options: list[ClusteringTableOption], table_name: str) -> str:
     values = {item["value"] for item in table_options}
     if table_name in values:
         return table_name
@@ -176,13 +176,13 @@ def _resolve_selected_features(
     feature_frame: pd.DataFrame | None = None,
     entity_frame: pd.DataFrame | None = None,
     cluster_count: int = 4,
-) -> Tuple[List[str], str]:
+) -> tuple[list[str], str]:
     allowed = set(available_features)
     normalized_requested = [item for item in requested_features if item in allowed]
     if len(normalized_requested) >= 2:
         return normalized_requested, ""
 
-    fallback: List[str] = []
+    fallback: list[str] = []
     if feature_frame is not None and entity_frame is not None and len(available_features) >= 2:
         from .analysis_features import _select_default_cluster_features
 
@@ -215,7 +215,7 @@ def _resolve_selected_features(
 def _build_feature_options(
     candidate_features: Sequence[CandidateFeatureOption],
     selected_features: Sequence[str],
-) -> List[CandidateFeatureOption]:
+) -> list[CandidateFeatureOption]:
     selected_set = set(selected_features)
     prioritized = list(candidate_features[:MAX_FEATURE_OPTIONS])
     selected_rows = [item for item in candidate_features if item["name"] in selected_set and item not in prioritized]
@@ -237,7 +237,7 @@ def _prepare_cluster_frame(
     feature_frame: pd.DataFrame,
     entity_frame: pd.DataFrame,
     selected_features: Sequence[str],
-) -> Tuple[pd.DataFrame, pd.DataFrame, int]:
+) -> tuple[pd.DataFrame, pd.DataFrame, int]:
     selected_numeric = feature_frame.loc[:, list(selected_features)].apply(pd.to_numeric, errors="coerce")
     required_non_null = min(len(selected_features), max(2, math.ceil(len(selected_features) * 0.6)))
     row_mask = selected_numeric.notna().sum(axis=1) >= required_non_null
@@ -313,8 +313,8 @@ def _update_territory_bucket(bucket: TerritoryBucket, record: TerritoryRecord, l
         bucket["distance_count"] += 1
 
 
-def _aggregate_territory_buckets(records: Sequence[TerritoryRecord]) -> Dict[str, TerritoryBucket]:
-    buckets: Dict[str, TerritoryBucket] = {}
+def _aggregate_territory_buckets(records: Sequence[TerritoryRecord]) -> dict[str, TerritoryBucket]:
+    buckets: dict[str, TerritoryBucket] = {}
     for record in records:
         label = record.get("territory_label") or record.get("district") or "Территория не указана"
         bucket = buckets.get(label)
@@ -325,7 +325,7 @@ def _aggregate_territory_buckets(records: Sequence[TerritoryRecord]) -> Dict[str
     return buckets
 
 
-def _build_territory_global_stats(buckets: Dict[str, TerritoryBucket]) -> TerritoryGlobalStats:
+def _build_territory_global_stats(buckets: dict[str, TerritoryBucket]) -> TerritoryGlobalStats:
     total_incidents = sum(int(bucket["incidents"]) for bucket in buckets.values())
     total_area_count = sum(int(bucket["area_count"]) for bucket in buckets.values())
     total_response_count = sum(int(bucket["response_count"]) for bucket in buckets.values())
@@ -465,7 +465,7 @@ def _aggregate_territory_frame(records: Sequence[TerritoryRecord]) -> pd.DataFra
 
 
 
-def _sample_territory_frame(frame: pd.DataFrame, sample_limit: int, sampling_strategy: str) -> Tuple[pd.DataFrame, str]:
+def _sample_territory_frame(frame: pd.DataFrame, sample_limit: int, sampling_strategy: str) -> tuple[pd.DataFrame, str]:
     if frame.empty or len(frame) <= sample_limit:
         return frame.copy(), ""
 
@@ -517,8 +517,8 @@ def _sample_territory_frame(frame: pd.DataFrame, sample_limit: int, sampling_str
 
 
 
-def _discover_candidate_features(feature_frame: pd.DataFrame) -> List[CandidateFeatureOption]:
-    rows: List[CandidateFeatureOption] = []
+def _discover_candidate_features(feature_frame: pd.DataFrame) -> list[CandidateFeatureOption]:
+    rows: list[CandidateFeatureOption] = []
     row_count = len(feature_frame)
     if row_count == 0:
         return rows

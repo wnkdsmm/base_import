@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 from app.cache import clone_mutable_payload, freeze_mutable_payload
@@ -57,12 +57,14 @@ def _clone_job_result_payload(result: Any) -> Any:
 
 
 @dataclass
+
+
 class JobState:
     job_id: str
     kind: str
-    current_file_path: Optional[Path] = None
-    original_filename: Optional[str] = None
-    history: Dict[str, dict] = field(default_factory=dict)
+    current_file_path: Path | None = None
+    original_filename: str | None = None
+    history: dict[str, dict] = field(default_factory=dict)
     logs: list[str] = field(default_factory=list)
     result: Any = None
     error_message: str = ""
@@ -76,25 +78,27 @@ class JobState:
 
 
 @dataclass
+
+
 class SessionState:
     session_id: str
-    jobs: Dict[str, JobState] = field(default_factory=dict)
-    latest_job_ids: Dict[str, str] = field(default_factory=dict)
-    last_job_id: Optional[str] = None
+    jobs: dict[str, JobState] = field(default_factory=dict)
+    latest_job_ids: dict[str, str] = field(default_factory=dict)
+    last_job_id: str | None = None
 
 
 class JobStore:
     def __init__(self) -> None:
-        self._sessions: Dict[str, SessionState] = {}
+        self._sessions: dict[str, SessionState] = {}
         self._lock = RLock()
 
-    def ensure_session(self, session_id: Optional[str] = None) -> str:
+    def ensure_session(self, session_id: str | None = None) -> str:
         with self._lock:
             normalized_session_id = (session_id or "").strip() or uuid4().hex
             self._sessions.setdefault(normalized_session_id, SessionState(session_id=normalized_session_id))
             return normalized_session_id
 
-    def create_or_reset_job(self, session_id: str, kind: str, job_id: Optional[str] = None) -> JobState:
+    def create_or_reset_job(self, session_id: str, kind: str, job_id: str | None = None) -> JobState:
         with self._lock:
             normalized_session_id = self.ensure_session(session_id)
             normalized_job_id = (job_id or "").strip() or uuid4().hex
@@ -126,14 +130,14 @@ class JobStore:
             session.last_job_id = normalized_job_id
             return job
 
-    def get_job(self, session_id: str, job_id: str) -> Optional[JobState]:
+    def get_job(self, session_id: str, job_id: str) -> JobState | None:
         with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
                 return None
             return session.jobs.get(job_id)
 
-    def get_latest_job(self, session_id: str, kind: Optional[str] = None) -> Optional[JobState]:
+    def get_latest_job(self, session_id: str, kind: str | None = None) -> JobState | None:
         with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
@@ -154,7 +158,7 @@ class JobStore:
             session.last_job_id = job.job_id
             return job
 
-    def resolve_job(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[JobState]:
+    def resolve_job(self, session_id: str, job_id: str | None = None, kind: str | None = None) -> JobState | None:
         if job_id:
             return self.get_job(session_id, job_id)
         return self.get_latest_job(session_id, kind=kind)
@@ -173,7 +177,7 @@ class JobStore:
             job.status = "uploaded"
             self._touch_job(session_id, job)
 
-    def get_current_file_path(self, session_id: str, job_id: str) -> Optional[Path]:
+    def get_current_file_path(self, session_id: str, job_id: str) -> Path | None:
         with self._lock:
             job = self._require_job(session_id, job_id)
             return job.current_file_path
@@ -185,7 +189,7 @@ class JobStore:
             job.original_filename = None
             self._touch_job(session_id, job)
 
-    def has_uploaded_file(self, session_id: str, job_id: Optional[str] = None) -> bool:
+    def has_uploaded_file(self, session_id: str, job_id: str | None = None) -> bool:
         with self._lock:
             job = self.resolve_job(session_id, job_id=job_id, kind="import")
             return job is not None and job.current_file_path is not None and job.current_file_path.exists()
@@ -196,7 +200,7 @@ class JobStore:
             job.logs.append(message)
             self._touch_job(session_id, job)
 
-    def get_logs(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> list[str]:
+    def get_logs(self, session_id: str, job_id: str | None = None, kind: str | None = None) -> list[str]:
         with self._lock:
             job = self.resolve_job(session_id, job_id=job_id, kind=kind)
             if job is None:
@@ -279,7 +283,7 @@ class JobStore:
             job.meta.update(_freeze_job_meta(meta))
             self._touch_job(session_id, job)
 
-    def get_job_snapshot(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[dict]:
+    def get_job_snapshot(self, session_id: str, job_id: str | None = None, kind: str | None = None) -> dict | None:
         with self._lock:
             job = self.resolve_job(session_id, job_id=job_id, kind=kind)
             if job is None:
@@ -296,7 +300,7 @@ class JobStore:
                 "updated_at": job.updated_at.isoformat(),
             }
 
-    def get_job_status(self, session_id: str, job_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[str]:
+    def get_job_status(self, session_id: str, job_id: str | None = None, kind: str | None = None) -> str | None:
         with self._lock:
             job = self.resolve_job(session_id, job_id=job_id, kind=kind)
             return job.status if job is not None else None

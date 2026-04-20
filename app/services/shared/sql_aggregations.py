@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Sequence
 
 from app.cache import CopyingTtlCache
 
@@ -8,9 +8,9 @@ from app.cache import CopyingTtlCache
 class QueryBuilder:
     def __init__(
         self,
-        hook_resolver: Optional[Callable[[str], Any]] = None,
+        hook_resolver: Callable[[str | None, Any]] = None,
         *,
-        cache: Optional[CopyingTtlCache] = None,
+        cache: CopyingTtlCache | None = None,
         cache_ttl_seconds: float = 120.0,
     ) -> None:
         self._hook_resolver = hook_resolver
@@ -22,7 +22,7 @@ class QueryBuilder:
     def cache(self) -> CopyingTtlCache:
         return self._cache
 
-    def set_hook_resolver(self, hook_resolver: Optional[Callable[[str], Any]]) -> None:
+    def set_hook_resolver(self, hook_resolver: Callable[[str | None, Any]]) -> None:
         self._hook_resolver = hook_resolver
 
     def _resolve_hook(self, name: str, default: Callable[..., Any]) -> Callable[..., Any]:

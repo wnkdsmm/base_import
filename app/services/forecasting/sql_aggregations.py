@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -67,13 +67,13 @@ class AggregationQueryBuilder(QueryBuilder):
     def _daily_aggregate_view_name(self, table_name: str) -> str:
         return f"mv_forecasting_daily_{self._materialized_view_suffix(table_name)}"
 
-    def _daily_aggregate_view_status_map(self, table_names: Sequence[str]) -> Dict[str, bool]:
+    def _daily_aggregate_view_status_map(self, table_names: Sequence[str]) -> dict[str, bool]:
         normalized_names = [str(table_name) for table_name in dict.fromkeys(table_names) if str(table_name)]
         if not normalized_names:
             return {}
 
-        status_by_table: Dict[str, bool] = {}
-        pending_views: Dict[str, str] = {}
+        status_by_table: dict[str, bool] = {}
+        pending_views: dict[str, str] = {}
         for table_name in normalized_names:
             cache_key = self._build_sql_cache_key("daily_aggregate_view_exists", [table_name])
             cached_value = self.cache.get(cache_key)
@@ -111,8 +111,8 @@ class AggregationQueryBuilder(QueryBuilder):
 
     def _build_materialized_scope_conditions(
         self,
-        resolved_columns: Dict[str, str],
-        min_year: Optional[int] = None,
+        resolved_columns: dict[str, str],
+        min_year: int | None = None,
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
@@ -137,7 +137,7 @@ class AggregationQueryBuilder(QueryBuilder):
 
         return conditions, params, True
 
-    def _build_daily_aggregate_view_sql(self, table_name: str, resolved_columns: Dict[str, str]) -> str:
+    def _build_daily_aggregate_view_sql(self, table_name: str, resolved_columns: dict[str, str]) -> str:
         date_column = resolved_columns.get("date")
         if not date_column:
             return ""
@@ -166,10 +166,10 @@ class AggregationQueryBuilder(QueryBuilder):
 
     def prepare_forecasting_materialized_views(
         self,
-        source_tables: Optional[Sequence[str]] = None,
+        source_tables: Sequence[str | None] = None,
         *,
         refresh_existing: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         if engine.dialect.name != "postgresql":
             return []
 
@@ -181,7 +181,7 @@ class AggregationQueryBuilder(QueryBuilder):
         requested_tables = [table_name for table_name in (source_tables or available_tables) if table_name in available_tables]
         target_tables = _canonicalize_source_tables(requested_tables)[0]
         metadata_items, _notes = _collect_forecasting_metadata(target_tables)
-        prepared_views: List[str] = []
+        prepared_views: list[str] = []
 
         with engine.begin() as conn:
             for metadata in metadata_items:
@@ -221,7 +221,7 @@ class AggregationQueryBuilder(QueryBuilder):
         self.clear_forecasting_sql_cache()
         return prepared_views
 
-    def _daily_history_rows_from_query_rows(self, rows: Sequence[Any]) -> List[SqlMaterializedRow]:
+    def _daily_history_rows_from_query_rows(self, rows: Sequence[Any]) -> list[SqlMaterializedRow]:
         return [
             {
                 "date": row.get("fire_date"),
@@ -233,7 +233,7 @@ class AggregationQueryBuilder(QueryBuilder):
             if row.get("fire_date") is not None
         ]
 
-    def _execute_daily_history_row_query(self, query: Any, params: SqlFilters) -> List[SqlMaterializedRow]:
+    def _execute_daily_history_row_query(self, query: Any, params: SqlFilters) -> list[SqlMaterializedRow]:
         with engine.connect() as conn:
             rows = conn.execute(query, params).mappings().all()
         return self._daily_history_rows_from_query_rows(rows)
@@ -241,13 +241,13 @@ class AggregationQueryBuilder(QueryBuilder):
     def _load_materialized_daily_history_rows(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> List[SqlMaterializedRow]:
+        min_year: int | None,
+    ) -> list[SqlMaterializedRow]:
         conditions, params, scope_is_valid = self._build_materialized_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -280,14 +280,14 @@ class AggregationQueryBuilder(QueryBuilder):
     def _daily_history_union_materialized_part_sql(
         self,
         table_name: str,
-        resolved_columns: Dict[str, str],
+        resolved_columns: dict[str, str],
         params: SqlFilters,
         *,
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> Optional[str]:
+        min_year: int | None,
+    ) -> str | None:
         conditions, table_params, scope_is_valid = self._build_materialized_scope_conditions(
             resolved_columns,
             min_year=min_year,
@@ -332,7 +332,7 @@ class AggregationQueryBuilder(QueryBuilder):
 
     def _merge_daily_history_rows(
         self,
-        merged_rows: Dict[date, SqlMergedBucket],
+        merged_rows: dict[date, SqlMergedBucket],
         table_rows: Sequence[SqlMaterializedRow],
     ) -> None:
         for row in table_rows:
@@ -352,12 +352,12 @@ class AggregationQueryBuilder(QueryBuilder):
 
     def _dense_daily_history_from_merged_rows(
         self,
-        merged_rows: Dict[date, SqlMergedBucket],
-    ) -> List[SqlRow]:
+        merged_rows: dict[date, SqlMergedBucket],
+    ) -> list[SqlRow]:
         if not merged_rows:
             return []
 
-        history: List[SqlRow] = []
+        history: list[SqlRow] = []
         current_date = min(merged_rows)
         max_date = max(merged_rows)
         while current_date <= max_date:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -229,7 +229,7 @@ def _update_point_bucket_from_record(bucket: PointBucket, record: AccessPointInp
         bucket["longitude_values"].append(longitude)
 
 
-def _build_point_priors(buckets: Dict[str, PointBucket], total_incidents: int) -> PointPriors:
+def _build_point_priors(buckets: dict[str, PointBucket], total_incidents: int) -> PointPriors:
     total_response_count = 0
     total_long_arrivals = 0
     total_known_water = 0
@@ -271,7 +271,7 @@ def _build_smoothed_bucket_shares(
     known_water_count: int,
     priors: PointPriors,
     resolved_support: int,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     return {
         "long_arrival": _smooth_share(
             int(bucket["long_arrival_count"]),
@@ -324,8 +324,8 @@ def _build_smoothed_bucket_shares(
     }
 
 
-def _aggregate_point_buckets(records: Sequence[AccessPointInput]) -> Tuple[Dict[str, PointBucket], int]:
-    buckets: Dict[str, PointBucket] = {}
+def _aggregate_point_buckets(records: Sequence[AccessPointInput]) -> tuple[dict[str, PointBucket], int]:
+    buckets: dict[str, PointBucket] = {}
     total_incidents = 0
     for record in records:
         identity = _resolve_point_identity(record)
@@ -354,7 +354,7 @@ def _point_location_parts(
     settlement_label: str,
     territory_label: str,
     district_label: str,
-) -> List[str]:
+) -> list[str]:
     return _unique_non_empty(
         [
             settlement_label if settlement_label and settlement_label != bucket_label else "",
@@ -472,7 +472,7 @@ def _build_point_entity_frames(
     records: Sequence[AccessPointInput],
     *,
     minimum_support: int = MIN_ACCESS_POINT_SUPPORT,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     if not records:
         empty = pd.DataFrame()
         return empty, empty
@@ -501,8 +501,8 @@ def _load_access_point_dataset(
     source_tables: Sequence[str],
     *,
     district: str = "all",
-    selected_year: Optional[int] = None,
-    metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
+    selected_year: int | None = None,
+    metadata_items: Sequence[AccessPointMetadata | None] = None,
     minimum_support: int = MIN_ACCESS_POINT_SUPPORT,
 ) -> PointDataset:
     records, notes = _collect_access_point_inputs(

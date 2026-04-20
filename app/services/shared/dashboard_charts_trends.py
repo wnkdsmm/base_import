@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import textwrap
-from typing import Any, Dict, List, Optional, Sequence, TypedDict
+from typing import Any, Sequence, TypedDict
 
 from .dashboard_charts_kpi import (
     ChartData,
@@ -35,7 +35,8 @@ from app.services.chart_utils import (
 )
 from app.statistics_constants import PLOTLY_PALETTE
 
-def _build_yearly_plotly(title: str, items: List[ChartData], metric: str, empty_message: str) -> PlotlyPayload:
+
+def _build_yearly_plotly(title: str, items: list[ChartData], metric: str, empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
 
@@ -70,8 +71,9 @@ def _build_yearly_plotly(title: str, items: List[ChartData], metric: str, empty_
         layout=_plotly_layout("Площадь, га", showlegend=False),
     )
 
+
 def _build_combined_impact_timeline_plotly(
-    title: str, items: List[ImpactTimelineData], empty_message: str
+    title: str, items: list[ImpactTimelineData], empty_message: str
 ) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
@@ -136,7 +138,8 @@ def _build_combined_impact_timeline_plotly(
         ),
     )
 
-def _build_monthly_profile_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
+
+def _build_monthly_profile_plotly(title: str, items: list[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_vertical_bar_payload(
@@ -161,7 +164,8 @@ def _build_monthly_profile_plotly(title: str, items: List[ChartData], empty_mess
         line_width=1,
     )
 
-def _build_area_bucket_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
+
+def _build_area_bucket_plotly(title: str, items: list[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_pie_payload(
@@ -180,9 +184,10 @@ def _build_area_bucket_plotly(title: str, items: List[ChartData], empty_message:
         margin={"l": 20, "r": 20, "t": 10, "b": 10},
     )
 
+
 def _build_sql_widget_bar_plotly(
     title: str,
-    items: List[ChartData],
+    items: list[ChartData],
     empty_message: str,
     color_key: str,
     value_label: str,
@@ -210,7 +215,8 @@ def _build_sql_widget_bar_plotly(
         ),
     )
 
-def _build_sql_widget_season_plotly(title: str, items: List[ChartData], empty_message: str) -> PlotlyPayload:
+
+def _build_sql_widget_season_plotly(title: str, items: list[ChartData], empty_message: str) -> PlotlyPayload:
     if not items:
         return _empty_plotly_payload(empty_message)
     return build_item_vertical_bar_payload(
@@ -222,6 +228,7 @@ def _build_sql_widget_season_plotly(title: str, items: List[ChartData], empty_me
         line_width=1,
     )
 
+
 def build_dashboard_yearly_plotly(
     title: str,
     items: Sequence[ChartData],
@@ -229,6 +236,7 @@ def build_dashboard_yearly_plotly(
     empty_message: str,
 ) -> PlotlyPayload:
     return _build_yearly_plotly(title, list(items), metric, empty_message)
+
 
 def build_dashboard_combined_impact_timeline_plotly(
     title: str,

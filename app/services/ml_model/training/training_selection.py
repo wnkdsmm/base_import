@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from app.services.model_quality import relative_delta
 
@@ -8,7 +8,7 @@ from ..ml_model_config_types import COUNT_MODEL_KEYS, COUNT_MODEL_LABELS, COUNT_
 from ..ml_model_result_types import CountComparisonRow, CountMetrics
 
 
-def _available_count_model_labels(count_metrics: Dict[str, CountMetrics]) -> List[str]:
+def _available_count_model_labels(count_metrics: dict[str, CountMetrics]) -> list[str]:
     labels = [
         COUNT_MODEL_LABELS.get('seasonal_baseline', 'Seasonal baseline'),
         COUNT_MODEL_LABELS.get('heuristic_forecast', 'Heuristic forecast'),
@@ -18,11 +18,11 @@ def _available_count_model_labels(count_metrics: Dict[str, CountMetrics]) -> Lis
 
 
 def _all_count_metrics(
-    baseline_metrics: Dict[str, Optional[float]] | CountMetrics,
-    heuristic_metrics: Dict[str, Optional[float]] | CountMetrics,
-    count_metrics: Dict[str, Dict[str, Optional[float]] | CountMetrics],
-) -> Dict[str, CountMetrics]:
-    metrics: Dict[str, CountMetrics] = {
+    baseline_metrics: dict[str, float | None] | CountMetrics,
+    heuristic_metrics: dict[str, float | None] | CountMetrics,
+    count_metrics: dict[str, dict[str, float | None] | CountMetrics],
+) -> dict[str, CountMetrics]:
+    metrics: dict[str, CountMetrics] = {
         'seasonal_baseline': CountMetrics.coerce(baseline_metrics),
         'heuristic_forecast': CountMetrics.coerce(heuristic_metrics),
     }
@@ -36,7 +36,7 @@ def _all_count_metrics(
     return metrics
 
 
-def _metric_sort_key(metrics: Dict[str, Optional[float]] | CountMetrics) -> Tuple[float, float, float, float]:
+def _metric_sort_key(metrics: dict[str, float | None] | CountMetrics) -> tuple[float, float, float, float]:
     metrics = CountMetrics.coerce(metrics)
     return (
         metrics.poisson_deviance if metrics.poisson_deviance is not None else float('inf'),
@@ -46,7 +46,7 @@ def _metric_sort_key(metrics: Dict[str, Optional[float]] | CountMetrics) -> Tupl
     )
 
 
-def _within_relative_margin(candidate: Optional[float], reference: Optional[float], tolerance: float) -> bool:
+def _within_relative_margin(candidate: float | None, reference: float | None, tolerance: float) -> bool:
     if candidate is None or reference is None:
         return False
     if reference <= MIN_POSITIVE_PREDICTION:
@@ -55,8 +55,8 @@ def _within_relative_margin(candidate: Optional[float], reference: Optional[floa
 
 
 def _metrics_within_selection_tolerance(
-    candidate_metrics: Dict[str, Optional[float]] | CountMetrics,
-    reference_metrics: Dict[str, Optional[float]] | CountMetrics,
+    candidate_metrics: dict[str, float | None] | CountMetrics,
+    reference_metrics: dict[str, float | None] | CountMetrics,
 ) -> bool:
     candidate = CountMetrics.coerce(candidate_metrics)
     reference = CountMetrics.coerce(reference_metrics)
@@ -76,8 +76,8 @@ def _metrics_within_selection_tolerance(
 
 
 def _select_count_model(
-    count_metrics: Dict[str, Dict[str, Optional[float]] | CountMetrics],
-) -> Tuple[str, CountMetrics]:
+    count_metrics: dict[str, dict[str, float | None] | CountMetrics],
+) -> tuple[str, CountMetrics]:
     normalized_metrics = {
         model_key: CountMetrics.coerce(metrics)
         for model_key, metrics in count_metrics.items()
@@ -102,10 +102,10 @@ def _select_count_model(
 
 
 def _select_count_method(
-    baseline_metrics: Dict[str, Optional[float]] | CountMetrics,
-    heuristic_metrics: Dict[str, Optional[float]] | CountMetrics,
-    count_metrics: Dict[str, Dict[str, Optional[float]] | CountMetrics],
-) -> Tuple[str, CountMetrics, dict[str, Any]]:
+    baseline_metrics: dict[str, float | None] | CountMetrics,
+    heuristic_metrics: dict[str, float | None] | CountMetrics,
+    count_metrics: dict[str, dict[str, float | None] | CountMetrics],
+) -> tuple[str, CountMetrics, dict[str, Any]]:
     all_metrics = _all_count_metrics(baseline_metrics, heuristic_metrics, count_metrics)
     ranking = sorted(all_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
     raw_best_key, raw_best_metrics = ranking[0]
@@ -136,14 +136,14 @@ def _select_count_method(
 
 def _build_count_selection_details(
     selected_count_model_key: str,
-    selected_metrics: Dict[str, Optional[float]] | CountMetrics,
-    count_metrics: Dict[str, Dict[str, Optional[float]] | CountMetrics],
-    baseline_metrics: Dict[str, Optional[float]] | CountMetrics,
-    heuristic_metrics: Dict[str, Optional[float]] | CountMetrics,
+    selected_metrics: dict[str, float | None] | CountMetrics,
+    count_metrics: dict[str, dict[str, float | None] | CountMetrics],
+    baseline_metrics: dict[str, float | None] | CountMetrics,
+    heuristic_metrics: dict[str, float | None] | CountMetrics,
     overdispersion_ratio: float,
-    raw_best_key: Optional[str] = None,
-    tie_break_reason: Optional[str] = None,
-) -> Dict[str, str]:
+    raw_best_key: str | None = None,
+    tie_break_reason: str | None = None,
+) -> dict[str, str]:
     all_metrics = _all_count_metrics(baseline_metrics, heuristic_metrics, count_metrics)
     ranking = sorted(all_metrics.items(), key=lambda item: _metric_sort_key(item[1]))
     raw_best_key = raw_best_key or ranking[0][0]
@@ -216,12 +216,12 @@ def _build_count_selection_details(
 
 
 def _build_count_comparison_rows(
-    baseline_metrics: Dict[str, Optional[float]] | CountMetrics,
-    heuristic_metrics: Dict[str, Optional[float]] | CountMetrics,
-    count_metrics: Dict[str, Dict[str, Optional[float]] | CountMetrics],
+    baseline_metrics: dict[str, float | None] | CountMetrics,
+    heuristic_metrics: dict[str, float | None] | CountMetrics,
+    count_metrics: dict[str, dict[str, float | None] | CountMetrics],
     selected_count_model_key: str,
-) -> List[CountComparisonRow]:
-    rows: List[CountComparisonRow] = [
+) -> list[CountComparisonRow]:
+    rows: list[CountComparisonRow] = [
         CountComparisonRow(
             method_key='seasonal_baseline',
             method_label=COUNT_MODEL_LABELS.get('seasonal_baseline', 'Seasonal baseline'),

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time as datetime_time, timedelta
 from pathlib import PurePath
 from threading import RLock
-from typing import Any, Callable, Dict, Generic, Hashable, Optional, TypeVar
+from typing import Any, Callable, Generic, Hashable, TypeVar
 from uuid import UUID
 
 K = TypeVar("K", bound=Hashable)
@@ -40,27 +40,37 @@ _IMMUTABLE_LEAF_TYPES = (
 
 
 @dataclass(frozen=True, slots=True)
+
+
 class _FrozenDict:
     items: tuple[tuple[Any, object], ...]
 
 
 @dataclass(frozen=True, slots=True)
+
+
 class _FrozenList:
     items: tuple[object, ...]
 
 
 @dataclass(frozen=True, slots=True)
+
+
 class _FrozenTuple:
     items: tuple[object, ...]
 
 
 @dataclass(frozen=True, slots=True)
+
+
 class _FrozenSet:
     items: frozenset[object]
     preserve_frozenset: bool = False
 
 
 @dataclass(frozen=True, slots=True)
+
+
 class _FrozenLeaf:
     value: Any
 
@@ -122,10 +132,10 @@ def clone_mutable_payload(value: object) -> V:
 
 
 def _resolve_copy_hooks(
-    copier: Optional[Callable[[V], V]] = None,
+    copier: Callable[[V | None, V]] = None,
     *,
-    storer: Optional[Callable[[V], object]] = None,
-    loader: Optional[Callable[[object], V]] = None,
+    storer: Callable[[V | None, object]] = None,
+    loader: Callable[[object | None, V]] = None,
     skip_freeze: bool = False,
 ) -> tuple[Callable[[V], object], Callable[[object], V]]:
     if skip_freeze:
@@ -145,10 +155,10 @@ class CopyingTtlCache(Generic[K, V]):
     def __init__(
         self,
         ttl_seconds: float,
-        copier: Optional[Callable[[V], V]] = None,
+        copier: Callable[[V | None, V]] = None,
         *,
-        storer: Optional[Callable[[V], object]] = None,
-        loader: Optional[Callable[[object], V]] = None,
+        storer: Callable[[V | None, object]] = None,
+        loader: Callable[[object | None, V]] = None,
         skip_freeze: bool = False,
     ) -> None:
         self._ttl_seconds = max(float(ttl_seconds), 0.0)
@@ -160,9 +170,9 @@ class CopyingTtlCache(Generic[K, V]):
             skip_freeze=self._skip_freeze,
         )
         self._lock = RLock()
-        self._items: Dict[K, Dict[str, object]] = {}
+        self._items: dict[K, dict[str, object]] = {}
 
-    def get(self, key: K) -> Optional[V]:
+    def get(self, key: K) -> V | None:
         now = time.time()
         with self._lock:
             item = self._items.get(key)
@@ -195,10 +205,10 @@ class CopyingLruCache(Generic[K, V]):
     def __init__(
         self,
         max_size: int,
-        copier: Optional[Callable[[V], V]] = None,
+        copier: Callable[[V | None, V]] = None,
         *,
-        storer: Optional[Callable[[V], object]] = None,
-        loader: Optional[Callable[[object], V]] = None,
+        storer: Callable[[V | None, object]] = None,
+        loader: Callable[[object | None, V]] = None,
         skip_freeze: bool = False,
     ) -> None:
         self._max_size = max(int(max_size), 0)
@@ -212,7 +222,7 @@ class CopyingLruCache(Generic[K, V]):
         self._lock = RLock()
         self._items: "OrderedDict[K, object]" = OrderedDict()
 
-    def get(self, key: K) -> Optional[V]:
+    def get(self, key: K) -> V | None:
         with self._lock:
             item = self._items.get(key)
             if item is None:

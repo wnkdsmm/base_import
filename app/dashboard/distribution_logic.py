@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.statistics_constants import CAUSE_COLUMNS
 
@@ -43,9 +43,9 @@ def _can_reuse_distribution_counts(
 
 def _build_damage_dashboard_item_bundle(
     selected_tables: list[dict[str, Any]],
-    selected_year: Optional[int],
-    damage_counts: Dict[str, int],
-) -> Dict[str, list[dict[str, Any]]]:
+    selected_year: int | None,
+    damage_counts: dict[str, int],
+) -> dict[str, list[dict[str, Any]]]:
     return {
         "category_items": _build_damage_category_items(
             selected_tables,
@@ -62,9 +62,9 @@ def _build_damage_dashboard_item_bundle(
 
 def _build_damage_dashboard_charts(
     selected_tables: list[dict[str, Any]],
-    selected_year: Optional[int],
+    selected_year: int | None,
     *,
-    damage_counts: Optional[Dict[str, int]] = None,
+    damage_counts: dict[str, int | None] = None,
 ) -> dict[str, Any]:
     from . import service as _service_module
 
@@ -108,7 +108,7 @@ def _build_damage_dashboard_charts(
 
 def _build_standard_dashboard_charts(
     selected_tables: list[dict[str, Any]],
-    selected_year: Optional[int],
+    selected_year: int | None,
     selected_group_column: str,
     grouped_counts_bundle: dict[str, Any],
 ) -> dict[str, Any]:
@@ -175,7 +175,7 @@ def _build_standard_dashboard_charts(
 
 def _build_dashboard_widgets(
     selected_tables: list[dict[str, Any]],
-    selected_year: Optional[int],
+    selected_year: int | None,
     grouped_counts_bundle: dict[str, Any],
 ) -> dict[str, Any]:
     from . import service as _service_module

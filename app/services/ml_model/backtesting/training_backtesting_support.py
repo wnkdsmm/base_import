@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -8,7 +8,7 @@ from ..ml_model_config_types import COUNT_MODEL_KEYS, MIN_POSITIVE_PREDICTION
 from ..ml_model_result_types import BacktestWindowRow
 
 
-def _optional_float(value: Any) -> Optional[float]:
+def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
@@ -40,7 +40,7 @@ def _nan_float_array(length: int) -> np.ndarray:
 def _selected_count_prediction(
     row: dict[str, Any] | BacktestWindowRow,
     selected_count_model_key: str,
-) -> Optional[float]:
+) -> float | None:
     if selected_count_model_key == 'seasonal_baseline':
         return row.get('baseline_count')
     if selected_count_model_key == 'heuristic_forecast':
@@ -49,18 +49,18 @@ def _selected_count_prediction(
 
 
 def _selected_count_arrays_from_rows(
-    rows: List[BacktestWindowRow],
+    rows: list[BacktestWindowRow],
     selected_count_model_key: str,
     *,
-    include_event_probabilities: Optional[bool] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
-    predictions: List[float] = []
+    include_event_probabilities: bool | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    predictions: list[float] = []
     collect_event_probabilities = (
         selected_count_model_key in COUNT_MODEL_KEYS
         if include_event_probabilities is None
         else bool(include_event_probabilities)
     )
-    event_probabilities: List[float] = []
+    event_probabilities: list[float] = []
     for row in rows:
         predictions.append(float(_selected_count_prediction(row, selected_count_model_key)))
         if collect_event_probabilities:
@@ -74,7 +74,7 @@ def _selected_count_arrays_from_rows(
 
 
 def _selected_count_predictions(
-    rows: List[BacktestWindowRow],
+    rows: list[BacktestWindowRow],
     selected_count_model_key: str,
 ) -> np.ndarray:
     return _selected_count_arrays_from_rows(
@@ -84,7 +84,7 @@ def _selected_count_predictions(
     )[0]
 
 
-def _optional_probability_from_array(value: Any) -> Optional[float]:
+def _optional_probability_from_array(value: Any) -> float | None:
     return None if not np.isfinite(value) else float(value)
 
 
@@ -92,7 +92,7 @@ def _lead_time_label(horizon_days: int) -> str:
     return '1 day' if int(horizon_days) == 1 else f'{int(horizon_days)} days'
 
 
-def _lead_time_validation_horizons(max_horizon_days: int) -> List[int]:
+def _lead_time_validation_horizons(max_horizon_days: int) -> list[int]:
     return list(range(1, max(1, int(max_horizon_days)) + 1))
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Sequence
+from typing import Any, Sequence
 
 from .types import (
     FeatureCard,
@@ -26,7 +26,7 @@ def _compact_feature_sources(sources: Sequence[FeatureSource]) -> str:
     if not sources:
         return "Не найдена"
 
-    grouped_sources: List[dict[str, Any]] = []
+    grouped_sources: list[dict[str, Any]] = []
     for item in sources:
         columns = tuple(item.get("columns") or ())
         if not columns:
@@ -40,7 +40,7 @@ def _compact_feature_sources(sources: Sequence[FeatureSource]) -> str:
     if not grouped_sources:
         return "Не найдена"
 
-    parts: List[str] = []
+    parts: list[str] = []
     for group in grouped_sources[:3]:
         columns_text = ", ".join(group["columns"][:4])
         tables = group["tables"]
@@ -54,7 +54,7 @@ def _compact_feature_sources(sources: Sequence[FeatureSource]) -> str:
     return "; ".join(parts)
 
 
-def _build_feature_cards(metadata_items: Sequence[dict[str, Any]]) -> List[FeatureCard]:
+def _build_feature_cards(metadata_items: Sequence[dict[str, Any]]) -> list[FeatureCard]:
     if not metadata_items:
         return []
     feature_config = [
@@ -134,13 +134,13 @@ def _build_feature_cards(metadata_items: Sequence[dict[str, Any]]) -> List[Featu
         },
     ]
     total_tables = len(metadata_items)
-    cards: List[FeatureCard] = []
+    cards: list[FeatureCard] = []
     for feature in feature_config:
         full_tables = 0
         partial_tables = 0
-        sources: List[FeatureSource] = []
+        sources: list[FeatureSource] = []
         for item in metadata_items:
-            found_columns: List[str] = []
+            found_columns: list[str] = []
             for key in feature.get("resolved_keys", []):
                 column_name = item["resolved_columns"].get(key)
                 if column_name:

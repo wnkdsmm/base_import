@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 import math
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -38,16 +38,18 @@ from .types import (
 
 
 @dataclass
+
+
 class _RecursiveForecastSeed:
     temperature_usable: bool
-    monthly_temp: Dict[int, float]
+    monthly_temp: dict[int, float]
     overall_temp: float
-    history_counts: List[float]
-    history_records: List[TrainingHistoryRecord]
+    history_counts: list[float]
+    history_records: list[TrainingHistoryRecord]
     last_date: date
 
 
-def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = True) -> List[TrainingHistoryRecord]:
+def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = True) -> list[TrainingHistoryRecord]:
     history_frame = frame.loc[:, ['date', 'count', 'avg_temperature']].copy()
     history_frame['date'] = pd.to_datetime(history_frame['date'])
     history_frame['count'] = pd.to_numeric(history_frame['count'], errors='coerce').fillna(0.0).astype(float)
@@ -61,7 +63,7 @@ def _history_records_from_frame(frame: pd.DataFrame, temperature_usable: bool = 
 
 def _build_recursive_forecast_seed(
     frame: pd.DataFrame,
-    temperature_stats: Optional[TrainingTemperatureStats] = None,
+    temperature_stats: TrainingTemperatureStats | None = None,
 ) -> _RecursiveForecastSeed:
     temperature_usable = bool((temperature_stats or {}).get('usable', True))
     monthly_temp = frame.groupby(frame['date'].dt.month)['temp_value'].mean().to_dict() if temperature_usable else {}
@@ -76,7 +78,7 @@ def _build_recursive_forecast_seed(
     )
 
 
-def _future_feature_row(history_counts: List[float], target_date: date, temp_value: float) -> Dict[str, float]:
+def _future_feature_row(history_counts: list[float], target_date: date, temp_value: float) -> dict[str, float]:
     def lag_value(offset: int) -> float:
         if len(history_counts) >= offset:
             return float(history_counts[-offset])
@@ -98,13 +100,13 @@ def _future_feature_row(history_counts: List[float], target_date: date, temp_val
 
 
 def _predict_heuristic_future_step(
-    history_records: List[TrainingHistoryRecord],
+    history_records: list[TrainingHistoryRecord],
     target_date: date,
     temp_value: float,
     temperature_usable: bool,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
-    reference_train_factory: Optional[Callable[[], pd.DataFrame]] = None,
-) -> Tuple[float, Optional[float]]:
+    reference_train_factory: Callable[[ | None, pd.DataFrame]] = None,
+) -> tuple[float, float | None]:
     forecast_rows = _build_scenario_forecast_rows(history_records, 1, temp_value if temperature_usable else None)
     if forecast_rows:
         row = forecast_rows[0]
@@ -125,15 +127,15 @@ def _predict_heuristic_future_step(
 
 def _predict_future_count(
     selected_count_model_key: str,
-    history_records: List[TrainingHistoryRecord],
-    history_counts: List[float],
+    history_records: list[TrainingHistoryRecord],
+    history_counts: list[float],
     target_date: date,
     temp_value: float,
-    count_model: Optional[TrainingModelArtifact],
+    count_model: TrainingModelArtifact | None,
     temperature_usable: bool,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
-    feature_design_row: Optional[pd.DataFrame] = None,
-    reference_train_factory: Optional[Callable[[], pd.DataFrame]] = None,
+    feature_design_row: pd.DataFrame | None = None,
+    reference_train_factory: Callable[[ | None, pd.DataFrame]] = None,
 ) -> float:
     if selected_count_model_key == 'seasonal_baseline':
         reference_train = (
@@ -163,7 +165,7 @@ def _predict_future_count(
     return float(_predict_count_from_design(count_model, feature_design_row)[0])
 
 
-def _sanitize_recursive_count_prediction(prediction: float, history_counts: List[float]) -> float:
+def _sanitize_recursive_count_prediction(prediction: float, history_counts: list[float]) -> float:
     finite_history = np.asarray([float(value) for value in history_counts if np.isfinite(value)], dtype=float)
     recent_support = float(np.max(finite_history[-28:])) if finite_history.size else 0.0
     upper_cap = float(_count_prediction_upper_cap_from_support(recent_support))
@@ -176,15 +178,15 @@ def _sanitize_recursive_count_prediction(prediction: float, history_counts: List
 def _simulate_recursive_forecast_path(
     frame: pd.DataFrame,
     selected_count_model_key: str,
-    count_model: Optional[TrainingModelArtifact],
-    event_model: Optional[TrainingModelArtifact],
+    count_model: TrainingModelArtifact | None,
+    event_model: TrainingModelArtifact | None,
     forecast_days: int,
-    scenario_temperature: Optional[float],
+    scenario_temperature: float | None,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
-    temperature_stats: Optional[TrainingTemperatureStats] = None,
-    baseline_event_probability: Optional[Callable[[pd.DataFrame, pd.Timestamp], Optional[float]]] = None,
-    simulation_seed: Optional[_RecursiveForecastSeed] = None,
-) -> List[TrainingForecastPathPoint]:
+    temperature_stats: TrainingTemperatureStats | None = None,
+    baseline_event_probability: Callable[[pd.DataFrame, pd.Timestamp | None, float | None]] = None,
+    simulation_seed: _RecursiveForecastSeed | None = None,
+) -> list[TrainingForecastPathPoint]:
     seed = simulation_seed or _build_recursive_forecast_seed(frame, temperature_stats)
     temperature_usable = seed.temperature_usable
     monthly_temp = dict(seed.monthly_temp)
@@ -193,7 +195,7 @@ def _simulate_recursive_forecast_path(
     history_records = [dict(record) for record in seed.history_records]
     last_date = seed.last_date
 
-    forecast_path: List[TrainingForecastPathPoint] = []
+    forecast_path: list[TrainingForecastPathPoint] = []
     for step in range(1, forecast_days + 1):
         target_date = last_date + timedelta(days=step)
         historical_temp_value = (
@@ -204,10 +206,10 @@ def _simulate_recursive_forecast_path(
         temp_value = scenario_temperature if temperature_usable and scenario_temperature is not None else historical_temp_value
         model_temp_value = float(temp_value) if temp_value is not None else 0.0
         feature_row = _future_feature_row(history_counts, target_date, model_temp_value)
-        design_rows_by_columns: Dict[Tuple[str, ...], pd.DataFrame] = {}
-        reference_train: Optional[pd.DataFrame] = None
+        design_rows_by_columns: dict[tuple[str, ...], pd.DataFrame] = {}
+        reference_train: pd.DataFrame | None = None
 
-        def _design_row_for(columns: Optional[List[str]]) -> pd.DataFrame:
+        def _design_row_for(columns: list[str | None]) -> pd.DataFrame:
             key = tuple(columns or [])
             design_row = design_rows_by_columns.get(key)
             if design_row is None:
@@ -294,14 +296,14 @@ def _simulate_recursive_forecast_path(
 def _build_future_forecast_rows(
     frame: pd.DataFrame,
     selected_count_model_key: str,
-    count_model: Optional[TrainingModelArtifact],
-    event_model: Optional[TrainingModelArtifact],
+    count_model: TrainingModelArtifact | None,
+    event_model: TrainingModelArtifact | None,
     forecast_days: int,
-    scenario_temperature: Optional[float],
+    scenario_temperature: float | None,
     interval_calibration: IntervalCalibrationInput,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
-    temperature_stats: Optional[TrainingTemperatureStats] = None,
-) -> List[TrainingForecastRow]:
+    temperature_stats: TrainingTemperatureStats | None = None,
+) -> list[TrainingForecastRow]:
     history_counts = list(frame['count'].astype(float))
     sorted_history_counts = np.sort(np.asarray(history_counts, dtype=float)) if history_counts else np.asarray([], dtype=float)
     forecast_path = _simulate_recursive_forecast_path(
@@ -324,7 +326,7 @@ def _build_future_forecast_rows(
         reference_calibration.get('level_display')
         or f'{int(round(float(reference_calibration.get("level", PREDICTION_INTERVAL_LEVEL)) * 100.0))}%'
     )
-    forecast_rows: List[TrainingForecastRow] = []
+    forecast_rows: list[TrainingForecastRow] = []
     for point in forecast_path:
         step = int(point['step'])
         target_date = point['target_date']

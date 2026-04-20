@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -26,17 +26,19 @@ from .types import (
     PredictionIntervalStabilitySummary,
 )
 
-def _prediction_interval_horizon_prefix(horizon_days: Optional[int]) -> str:
+
+def _prediction_interval_horizon_prefix(horizon_days: int | None) -> str:
     if horizon_days is None:
         return ''
     day_label = '1-day lead' if int(horizon_days) == 1 else f'{int(horizon_days)}-day lead'
     return f'For the {day_label}, '
 
+
 def _build_prediction_interval_validation_explanation(
     selected_candidate: PredictionIntervalCandidate,
-    runner_up_candidate: Optional[PredictionIntervalCandidate],
-    reference_candidate: Optional[PredictionIntervalCandidate],
-    horizon_days: Optional[int] = None,
+    runner_up_candidate: PredictionIntervalCandidate | None,
+    reference_candidate: PredictionIntervalCandidate | None,
+    horizon_days: int | None = None,
 ) -> str:
     selected_label = selected_candidate.get('scheme_label') or PREDICTION_INTERVAL_ROLLING_SPLIT_LABEL
     runner_up_label = runner_up_candidate.get('scheme_label') if runner_up_candidate else None
@@ -68,12 +70,13 @@ def _build_prediction_interval_validation_explanation(
         'require leave-one-block-out refits for every checkpoint.'
     )
 
+
 def _evaluate_prediction_interval_backtest(
     actuals: np.ndarray,
     predictions: np.ndarray,
-    window_dates: List[Any],
+    window_dates: list[Any],
     level: float = PREDICTION_INTERVAL_LEVEL,
-    horizon_days: Optional[int] = None,
+    horizon_days: int | None = None,
 ) -> PredictionIntervalBacktestEvaluation:
     actual_values = np.asarray(actuals, dtype=float)
     prediction_values = np.asarray(predictions, dtype=float)

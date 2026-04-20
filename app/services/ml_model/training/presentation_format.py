@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import numpy as np
 
@@ -56,7 +56,7 @@ def _format_first_present(formatter: Callable[[Any], str], *values: Any) -> str:
 
 
 def _format_row_display(
-    row: Optional[dict[str, Any]],
+    row: dict[str, Any | None],
     display_key: str,
     raw_key: str,
     raw_formatter: Callable[[Any], str],

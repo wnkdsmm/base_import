@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -69,7 +69,7 @@ from .types import (
 )
 
 
-def _build_access_points_table_options() -> List[OptionItem]:
+def _build_access_points_table_options() -> list[OptionItem]:
     return [{"value": "all", "label": "\u0412\u0441\u0435 \u0442\u0430\u0431\u043b\u0438\u0446\u044b"}, *get_user_table_options(prefer_clean=True)]
 
 
@@ -77,7 +77,7 @@ def _resolve_selected_table(table_options: Sequence[OptionItem], table_name: str
     return resolve_selected_table_value(table_options, table_name, fallback_value="all")
 
 
-def _selected_source_tables(table_options: Sequence[OptionItem], selected_table: str) -> List[str]:
+def _selected_source_tables(table_options: Sequence[OptionItem], selected_table: str) -> list[str]:
     concrete_tables = [str(option.get("value") or "") for option in table_options if option.get("value") and option.get("value") != "all"]
     if selected_table == "all":
         return concrete_tables
@@ -136,7 +136,7 @@ def _load_table_metadata(table_name: str) -> AccessPointMetadata:
     return {"table_name": table_name, "columns": columns, "resolved_columns": resolved_columns}
 
 
-def _optional_text_expression(column_name: Optional[str], fallback: str = "''") -> str:
+def _optional_text_expression(column_name: str | None, fallback: str = "''") -> str:
     return select_expression_or_fallback(
         column_name,
         _text_expression,
@@ -144,7 +144,7 @@ def _optional_text_expression(column_name: Optional[str], fallback: str = "''") 
     )
 
 
-def _optional_numeric_expression(column_name: Optional[str], fallback: str = "NULL") -> str:
+def _optional_numeric_expression(column_name: str | None, fallback: str = "NULL") -> str:
     return select_expression_or_fallback(
         column_name,
         _numeric_expression_for_column,
@@ -208,7 +208,7 @@ def _build_source_sql(table_name: str, resolved_columns: ResolvedColumns) -> str
     """
 
 
-def _normalize_record(row: RawPointRow) -> Optional[PointRecord]:
+def _normalize_record(row: RawPointRow) -> PointRecord | None:
     district = _clean_text(row.get("district"))
     territory_label = _clean_text(row.get("territory_label"))
     settlement = _clean_text(row.get("settlement"))
@@ -265,7 +265,7 @@ def _normalize_record(row: RawPointRow) -> Optional[PointRecord]:
     }
 
 
-def _collect_source_records(table_name: str) -> List[PointRecord]:
+def _collect_source_records(table_name: str) -> list[PointRecord]:
     metadata = _load_table_metadata(table_name)
     query = text(_build_source_sql(metadata["table_name"], metadata["resolved_columns"]))
     with engine.connect() as conn:
@@ -284,7 +284,7 @@ def _filter_source_records(
     *,
     district: str = "all",
     year: str = "all",
-) -> List[PointRecord]:
+) -> list[PointRecord]:
     normalized_district = str(district or "").strip().lower()
     normalized_year = str(year or "").strip()
 
@@ -302,12 +302,12 @@ def _filter_source_records(
     return filtered
 
 
-def _collect_available_districts(records: Sequence[PointRecord]) -> List[OptionItem]:
+def _collect_available_districts(records: Sequence[PointRecord]) -> list[OptionItem]:
     districts = sorted({record["district"] for record in records if _clean_text(record.get("district"))})
     return [{"value": "all", "label": "Все районы"}, *({"value": district, "label": district} for district in districts)]
 
 
-def _collect_available_years(records: Sequence[PointRecord]) -> List[OptionItem]:
+def _collect_available_years(records: Sequence[PointRecord]) -> list[OptionItem]:
     years = sorted(
         {
             str(record["event_date"].year)
@@ -369,8 +369,8 @@ def _summarize_response(records: Sequence[PointRecord]) -> ResponseSummary:
     }
 
 
-def _build_priority_rows(records: Sequence[PointRecord]) -> List[PriorityRow]:
-    grouped: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+def _build_priority_rows(records: Sequence[PointRecord]) -> list[PriorityRow]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for record in records:
         key = (record.get("district") or "", record.get("territory_label") or "")
         grouped.setdefault(key, []).append(record)
@@ -438,7 +438,7 @@ def get_access_points_data(
             "notes": ["\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0442\u0430\u0431\u043b\u0438\u0446 \u0434\u043b\u044f \u0430\u043d\u0430\u043b\u0438\u0437\u0430 \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u043d\u044b\u0445 \u0442\u043e\u0447\u0435\u043a."],
         }
 
-    all_records: List[dict[str, Any]] = []
+    all_records: list[dict[str, Any]] = []
     for source_table in source_tables:
         all_records.extend(_collect_source_records(source_table))
 
@@ -466,9 +466,9 @@ def get_access_points_data(
     }
 
 
-def _collect_access_point_metadata(source_tables: Sequence[str]) -> Tuple[List[AccessPointMetadata], List[str]]:
-    metadata_items: List[dict[str, Any]] = []
-    notes: List[str] = []
+def _collect_access_point_metadata(source_tables: Sequence[str]) -> tuple[list[AccessPointMetadata], list[str]]:
+    metadata_items: list[dict[str, Any]] = []
+    notes: list[str] = []
     for table_name in source_tables:
         try:
             metadata = _load_table_metadata(table_name)
@@ -519,12 +519,12 @@ def _collect_access_point_inputs(
     source_tables: Sequence[str],
     *,
     district: str = "all",
-    selected_year: Optional[int] = None,
-    metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
-) -> Tuple[List[AccessPointInput], List[str]]:
+    selected_year: int | None = None,
+    metadata_items: Sequence[AccessPointMetadata | None] = None,
+) -> tuple[list[AccessPointInput], list[str]]:
     del metadata_items
-    records: List[dict[str, Any]] = []
-    notes: List[str] = []
+    records: list[dict[str, Any]] = []
+    notes: list[str] = []
     for table_name in source_tables:
         try:
             raw_records = _collect_source_records(table_name)
@@ -544,8 +544,8 @@ def _collect_access_point_inputs(
 def _build_option_catalog(
     source_tables: Sequence[str],
     *,
-    metadata_items: Optional[Sequence[AccessPointMetadata]] = None,
-) -> Dict[str, List[OptionItem]]:
+    metadata_items: Sequence[AccessPointMetadata | None] = None,
+) -> dict[str, list[OptionItem]]:
     del metadata_items
     records, _notes = _collect_access_point_inputs(source_tables)
     return {

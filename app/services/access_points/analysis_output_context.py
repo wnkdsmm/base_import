@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Sequence
 
 from app.services.shared.formatting import _format_integer, _format_number
 
@@ -30,13 +30,16 @@ from .analysis_output_types import (
     _share_value_display,
 )
 
+
 def _nullable_precomputed_float(value: Any) -> float | None:
     return None if value is None else float(value)
+
 
 def _coordinates_display(latitude: float | None, longitude: float | None) -> str:
     if latitude is None or longitude is None:
         return ""
     return f"{_format_coordinate(latitude)}, {_format_coordinate(longitude)}"
+
 
 def _build_reason_list_context(reason_details: Sequence[dict[str, Any]]) -> _AccessPointReasonListContext:
     top_four_details = list(reason_details[:4])
@@ -46,6 +49,7 @@ def _build_reason_list_context(reason_details: Sequence[dict[str, Any]]) -> _Acc
         reasons=[f"{item['label']}: {item['value_display']}" for item in top_four_details],
         reason_chips=[f"{item['label']}: {item['contribution_display']}" for item in top_three_details],
     )
+
 
 def _build_access_point_reason_context(
     *,
@@ -72,6 +76,7 @@ def _build_access_point_reason_context(
         ),
     )
 
+
 def _build_low_support_note(*, low_support: bool, incident_count: int) -> str:
     if not low_support:
         return ""
@@ -79,6 +84,7 @@ def _build_low_support_note(*, low_support: bool, incident_count: int) -> str:
         f"Точка собрана всего по {_format_integer(incident_count)} пожарам, "
         "долевые признаки сглажены."
     )
+
 
 def _build_incomplete_note(
     *,
@@ -99,7 +105,8 @@ def _build_incomplete_note(
         )
     return low_support_note
 
-def _access_point_row_metrics(precomputed: Dict[str, Sequence[Any]], row_index: int) -> _AccessPointRowMetrics:
+
+def _access_point_row_metrics(precomputed: dict[str, Sequence[Any]], row_index: int) -> _AccessPointRowMetrics:
     return _AccessPointRowMetrics(
         incident_count=int(precomputed["incident_count"][row_index]),
         years_observed=int(precomputed["years_observed"][row_index]),
@@ -134,6 +141,7 @@ def _access_point_row_metrics(precomputed: Dict[str, Sequence[Any]], row_index: 
         longitude=_nullable_precomputed_float(precomputed["longitude"][row_index]),
     )
 
+
 def _build_access_point_display_context(metrics: _AccessPointRowMetrics) -> _AccessPointDisplayContext:
     return _AccessPointDisplayContext(
         average_distance_display=_distance_value_display(metrics.average_distance),
@@ -150,13 +158,14 @@ def _build_access_point_display_context(metrics: _AccessPointRowMetrics) -> _Acc
         completeness_display=_share_value_display(metrics.completeness_share),
     )
 
+
 def _access_point_decomposition_components(
     metrics: _AccessPointRowMetrics,
     displays: _AccessPointDisplayContext,
     *,
     active_reason_codes: set[str],
-) -> List[tuple[str, float, float, str]]:
-    components: List[tuple[str, float, float, str]] = []
+) -> list[tuple[str, float, float, str]]:
+    components: list[tuple[str, float, float, str]] = []
     if DISTANCE_CODE in active_reason_codes:
         components.append((DISTANCE_CODE, metrics.distance_norm * 100.0, metrics.distance_norm, displays.average_distance_display))
     if RESPONSE_CODE in active_reason_codes:
@@ -175,14 +184,15 @@ def _access_point_decomposition_components(
         components.append((HEATING_CODE, metrics.heating_share * 100.0, metrics.heating_share, displays.heating_share_display))
     return components
 
+
 def _build_access_point_score_decomposition(
     metrics: _AccessPointRowMetrics,
     displays: _AccessPointDisplayContext,
     *,
     active_reason_codes: set[str],
-    normalized_factor_weights: Dict[str, float],
-) -> List[dict[str, Any]]:
-    score_decomposition: List[dict[str, Any]] = []
+    normalized_factor_weights: dict[str, float],
+) -> list[dict[str, Any]]:
+    score_decomposition: list[dict[str, Any]] = []
     for code, factor_score, factor_value, value_display in _access_point_decomposition_components(
         metrics,
         displays,
@@ -208,6 +218,7 @@ def _build_access_point_score_decomposition(
         )
     )
     return score_decomposition
+
 
 def _score_total_and_uncertainty_penalty(score_decomposition: Sequence[dict[str, Any]]) -> tuple[float, float]:
     pure_score = 0.0

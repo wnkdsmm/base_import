@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
 from app.services.executive_brief import empty_executive_brief
@@ -26,12 +26,12 @@ from .utils import (
 
 def _build_pending_decision_support_payload(
     *,
-    table_options: List[Dict[str, str]],
+    table_options: list[dict[str, str]],
     selected_table: str,
     forecast_days: int,
     temperature: str,
     history_window: str,
-    feature_cards: List[Dict[str, str]],
+    feature_cards: list[dict[str, str]],
     message: str,
 ) -> dict[str, Any]:
     risk_prediction = _empty_forecasting_data(
@@ -128,7 +128,7 @@ def _normalize_shell_filter_value(value: str) -> str:
     return normalized or "all"
 
 
-def _build_shell_filter_options(selected_value: str, all_label: str) -> List[Dict[str, str]]:
+def _build_shell_filter_options(selected_value: str, all_label: str) -> list[dict[str, str]]:
     normalized = _normalize_shell_filter_value(selected_value)
     if normalized == "all":
         return [{"value": "all", "label": all_label}]
@@ -158,12 +158,12 @@ def _build_decision_support_followup_message() -> str:
 
 def _build_shell_risk_prediction(
     *,
-    table_options: List[Dict[str, str]],
+    table_options: list[dict[str, str]],
     selected_table: str,
     forecast_days: int,
     temperature: str,
     history_window: str,
-    feature_cards: List[Dict[str, str]],
+    feature_cards: list[dict[str, str]],
     message: str,
 ) -> dict[str, Any]:
     followup_message = (

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Sequence, TypedDict
+from typing import Any, Sequence, TypedDict
 
 from app.plotly_bundle import (
     build_empty_plotly_figure_payload,
@@ -383,7 +383,7 @@ def build_item_pie_payload(
     colors: Sequence[str],
     hole: float,
     hovertemplate: str,
-    margin: Dict[str, int],
+    margin: dict[str, int],
     label_key: str = "label",
     value_key: str = "value",
 ) -> PlotlyTrace:

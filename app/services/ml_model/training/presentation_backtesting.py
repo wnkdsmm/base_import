@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 from ..ml_model_result_types import BacktestOverview, CountComparisonRow, EventComparisonRow
 from .types import (
@@ -218,7 +218,7 @@ def _comparison_metric_card(
     baseline_value: Any,
     heuristic_value: Any,
     formatter: Callable[[Any], str],
-) -> Dict[str, str]:
+) -> dict[str, str]:
     return {
         'label': label,
         'value': formatter(value),
@@ -226,7 +226,7 @@ def _comparison_metric_card(
     }
 
 
-def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
+def _count_comparison_row(row: CountComparisonRow) -> dict[str, str]:
     normalized_row = CountComparisonRow.coerce(row)
     return {
         'method_label': normalized_row.get('method_label', 'Метод'),
@@ -240,7 +240,7 @@ def _count_comparison_row(row: CountComparisonRow) -> Dict[str, str]:
     }
 
 
-def _event_comparison_row(row: EventComparisonRow) -> Dict[str, str]:
+def _event_comparison_row(row: EventComparisonRow) -> dict[str, str]:
     normalized_row = EventComparisonRow.coerce(row)
     return {
         'method_label': normalized_row.get('method_label', 'Метод'),
@@ -276,7 +276,7 @@ def _prediction_interval_quality_note(
     evaluation_range = _translate_interval_range_label(overview.get('prediction_interval_evaluation_range_label'))
 
     if is_validated:
-        parts: List[str] = []
+        parts: list[str] = []
         if translated_explanation:
             parts.append(translated_explanation)
         if evaluation_range and calibration_range:
@@ -301,7 +301,7 @@ def _prediction_interval_quality_note(
 
 
 def _join_meta_parts(*parts: Any) -> str:
-    values: List[str] = []
+    values: list[str] = []
     for part in parts:
         if _is_missing_metric(part):
             continue
@@ -321,7 +321,7 @@ def _prediction_interval_card_label(level_display: str) -> str:
 def _build_prediction_interval_card(
     interval_context: PredictionIntervalDisplayContext,
     interval_meta: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     return {
         'label': _prediction_interval_card_label(interval_context['level_display']),
         'value': interval_context['coverage_display'],
@@ -331,7 +331,7 @@ def _build_prediction_interval_card(
 
 def _build_event_table(
     ml_result: MlBacktestPresentationResult,
-    event_context: Dict[str, Optional[str]],
+    event_context: dict[str, str | None],
 ) -> BacktestEventTable:
     rows = [_event_comparison_row(row) for row in ml_result.get('event_comparison_rows', [])]
     return {
@@ -346,7 +346,7 @@ def _build_event_table(
 
 
 def _comparison_method_labels(ml_result: MlBacktestPresentationResult, overview: BacktestOverview) -> str:
-    labels: List[str] = []
+    labels: list[str] = []
     for source in (
         overview.get('candidate_model_labels') or [],
         ml_result.get('candidate_count_model_labels') or [],
@@ -370,7 +370,7 @@ def _comparison_method_labels(ml_result: MlBacktestPresentationResult, overview:
     return ', '.join(labels) if labels else MISSING_DISPLAY
 
 
-def _methodology_item(label: str, value: str, meta: str = '') -> Dict[str, str]:
+def _methodology_item(label: str, value: str, meta: str = '') -> dict[str, str]:
     return {
         'label': label,
         'value': value,
@@ -419,9 +419,9 @@ def _model_choice_section(ml_result: MlBacktestPresentationResult, overview: Bac
 def _dissertation_points(
     ml_result: MlBacktestPresentationResult,
     interval_meta: str,
-    event_context: Dict[str, Optional[str]],
-) -> List[str]:
-    points: List[str] = []
+    event_context: dict[str, str | None],
+) -> list[str]:
+    points: list[str] = []
     for item in (
         ml_result.get('selected_count_model_reason_short'),
         ml_result.get('selected_count_model_reason'),
@@ -483,7 +483,7 @@ def _build_quality_assessment(ml_result: MlBacktestPresentationResult) -> Backte
             _format_optional_number,
         ),
     ]
-    event_metric_cards: List[Dict[str, str]] = []
+    event_metric_cards: list[dict[str, str]] = []
     if ml_result.get('event_backtest_available'):
         event_metric_cards.extend(
             [

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
-from typing import Any, Tuple
+from typing import Any
 
 from app.services.job_support import (
     JobLaunchBundle,
@@ -20,7 +20,7 @@ from .core_runner import _CLUSTERING_CACHE, _build_clustering_request_state, get
 
 _CLUSTERING_JOB_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="clustering")
 _CLUSTERING_JOB_LOCK = RLock()
-_CLUSTERING_JOB_IDS_BY_CACHE_KEY: dict[Tuple[str, str], str] = {}
+_CLUSTERING_JOB_IDS_BY_CACHE_KEY: dict[tuple[str, str], str] = {}
 
 
 def start_clustering_job(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 from app.plotly_bundle import get_plotly_bundle
 from app.cache import CopyingTtlCache
@@ -22,11 +22,14 @@ from .utils import _format_datetime, _format_integer
 _CLUSTERING_CACHE = CopyingTtlCache(ttl_seconds=120.0)
 _CLUSTERING_CACHE_SCHEMA_VERSION = "v3_feature_importance_chart"
 
+
 def clear_clustering_cache() -> None:
     _CLUSTERING_CACHE.clear()
 
+
 def _normalize_clustering_cache_value(value: str) -> str:
     return str(value or "").strip()
+
 
 def _build_clustering_cache_key(
     selected_table: str,
@@ -35,7 +38,7 @@ def _build_clustering_cache_key(
     sampling_strategy: str,
     feature_columns: Sequence[str] | None,
     cluster_count_is_explicit: bool,
-) -> Tuple[str, ...]:
+) -> tuple[str, ...]:
     return (
         _CLUSTERING_CACHE_SCHEMA_VERSION,
         selected_table,
@@ -46,8 +49,10 @@ def _build_clustering_cache_key(
         *tuple(str(item).strip() for item in (feature_columns or []) if str(item).strip()),
     )
 
-def _normalize_feature_columns(feature_columns: Sequence[str] | None) -> List[str]:
+
+def _normalize_feature_columns(feature_columns: Sequence[str] | None) -> list[str]:
     return [str(item).strip() for item in (feature_columns or []) if str(item).strip()]
+
 
 def _build_clustering_request_state(
     table_name: str = "",
@@ -82,6 +87,7 @@ def _build_clustering_request_state(
         "cache_key": cache_key,
     }
 
+
 def get_clustering_page_context(
     table_name: str = "",
     cluster_count: str = "4",
@@ -106,6 +112,7 @@ def get_clustering_page_context(
         "plotly_js": get_plotly_bundle(),
         "has_data": bool(initial_data["filters"]["available_tables"]),
     }
+
 
 def get_clustering_shell_context(
     table_name: str = "",
@@ -137,8 +144,9 @@ def get_clustering_shell_context(
         "has_data": bool(initial_data["filters"]["available_tables"]),
     }
 
+
 def _empty_clustering_data(
-    table_options: List[Dict[str, str]],
+    table_options: list[dict[str, str]],
     selected_table: str,
     cluster_count: int,
     sample_limit: int,

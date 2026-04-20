@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -27,8 +27,8 @@ from .types import (
 from .utils import _date_expression, _quote_identifier, _resolve_column_name, _to_float_or_none
 
 
-def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[ForecastingTableMetadata], List[str]]:
-    metadata_items: List[ForecastingTableMetadata] = []
+def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[list[ForecastingTableMetadata], list[str]]:
+    metadata_items: list[ForecastingTableMetadata] = []
     normalized_tables, notes = _canonicalize_source_tables(source_tables)
     for source_table in normalized_tables:
         try:
@@ -40,13 +40,13 @@ def _collect_forecasting_metadata(source_tables: Sequence[str]) -> tuple[List[Fo
 
 
 def _collect_forecasting_inputs(
-    source_tables: List[str],
+    source_tables: list[str],
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
     history_window: str = "all",
-) -> tuple[List[ForecastingInputRecord], List[ForecastingTableMetadata], List[str]]:
-    records: List[ForecastingInputRecord] = []
+) -> tuple[list[ForecastingInputRecord], list[ForecastingTableMetadata], list[str]]:
+    records: list[ForecastingInputRecord] = []
     metadata_items, notes = _collect_forecasting_metadata(source_tables)
     min_year = _resolve_history_window_min_year(metadata_items, history_window)
     for metadata in metadata_items:
@@ -136,7 +136,7 @@ def _temperature_quality_from_daily_rows(rows: Sequence[ForecastingInputRecord])
     return _build_temperature_quality(non_null_days, total_days)
 
 
-def _load_temperature_quality(table_name: str, resolved_columns: Dict[str, str]) -> ForecastingTemperatureQuality:
+def _load_temperature_quality(table_name: str, resolved_columns: dict[str, str]) -> ForecastingTemperatureQuality:
     date_column = resolved_columns.get("date")
     temperature_column = resolved_columns.get("temperature")
     if not date_column or not temperature_column:
@@ -179,7 +179,7 @@ def _load_table_metadata(table_name: str) -> ForecastingTableMetadata:
     }
 
 
-def _resolve_history_window_min_year(metadata_items: Sequence[ForecastingTableMetadata], history_window: str) -> Optional[int]:
+def _resolve_history_window_min_year(metadata_items: Sequence[ForecastingTableMetadata], history_window: str) -> int | None:
     year_span = _history_window_year_span(history_window)
     if year_span <= 0 or not metadata_items:
         return None
@@ -190,7 +190,7 @@ def _resolve_history_window_min_year(metadata_items: Sequence[ForecastingTableMe
     if cached_year is not None:
         return int(cached_year)
 
-    query_parts: List[str] = []
+    query_parts: list[str] = []
     for metadata in metadata_items:
         resolved_columns = metadata.get("resolved_columns") or {}
         date_column = resolved_columns.get("date")

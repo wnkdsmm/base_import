@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import timedelta
 import math
 from statistics import mean
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from .profile_resolution import resolve_weight_profile_for_records
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile, resolve_component_weights
@@ -32,7 +32,7 @@ def build_historical_validation_payload(
     records: Sequence[RiskEventRecord],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-    profile_override: Optional[RiskProfile] = None,
+    profile_override: RiskProfile | None = None,
 ) -> HistoricalValidationPayload:
     profile = deepcopy(profile_override) if profile_override is not None else get_risk_weight_profile(weight_mode)
     payload = empty_historical_validation_payload(profile.get("mode_label") or "Адаптивные веса")
@@ -203,14 +203,14 @@ def _build_historical_windows(
     step_days = max(horizon_days, 30)
     earliest_cutoff = history_start + timedelta(days=min_training_days - 1)
     latest_cutoff = history_end - timedelta(days=horizon_days)
-    cutoffs: List[Any] = []
+    cutoffs: list[Any] = []
     cursor = earliest_cutoff
     while cursor <= latest_cutoff:
         cutoffs.append(cursor)
         cursor += timedelta(days=step_days)
     cutoffs = cutoffs[-12:]
 
-    windows: List[HistoricalWindow] = []
+    windows: list[HistoricalWindow] = []
     skipped_no_future = 0
     for cutoff in cutoffs:
         train_records = [record for record in records if record["date"] <= cutoff]
@@ -245,7 +245,7 @@ def _evaluate_profile_on_windows(
     windows: Sequence[HistoricalWindow],
     ranking_k: int,
 ) -> ValidationEvaluation:
-    window_metrics: List[ValidationWindowMetrics] = []
+    window_metrics: list[ValidationWindowMetrics] = []
     skipped_no_rows = 0
 
     for window in windows:
@@ -285,7 +285,7 @@ def _evaluate_profile_on_windows(
 def _rerank_predicted_rows_for_profile(
     predicted_rows: Sequence[RiskScore],
     profile: RiskProfile,
-) -> List[ValidationRankedRow]:
+) -> list[ValidationRankedRow]:
     if not predicted_rows:
         return []
 
@@ -298,7 +298,7 @@ def _rerank_predicted_rows_for_profile(
         for item in resolve_component_weights(profile, is_rural=True)
     }
 
-    reranked: List[ValidationRankedRow] = []
+    reranked: list[ValidationRankedRow] = []
     for row in predicted_rows:
         component_scores = row.get("component_scores") or []
         weight_map = rural_weights if row.get("is_rural") else urban_weights
@@ -327,7 +327,7 @@ def _evaluate_ranking_window(
     future_records: Sequence[RiskEventRecord],
     ranking_k: int,
     cutoff: Any,
-) -> Optional[ValidationWindowMetrics]:
+) -> ValidationWindowMetrics | None:
     if not predicted_rows or not future_records:
         return None
 

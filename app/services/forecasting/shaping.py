@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 from statistics import mean, pstdev
-from typing import Dict, List, Optional, Tuple
+
 
 from .constants import MONTH_LABELS, WEEKDAY_LABELS
 from .utils import (
@@ -20,7 +20,7 @@ from .utils import (
 )
 
 
-def _build_option_catalog(records: List[Dict[str, object]]) -> Dict[str, List[Dict[str, str]]]:
+def _build_option_catalog(records: list[dict[str, object]]) -> dict[str, list[dict[str, str]]]:
     return {
         "districts": _build_options(records, "district", "Все районы"),
         "causes": _build_options(records, "cause", "Все причины"),
@@ -28,7 +28,7 @@ def _build_option_catalog(records: List[Dict[str, object]]) -> Dict[str, List[Di
     }
 
 
-def _build_options(records: List[Dict[str, object]], key: str, default_label: str) -> List[Dict[str, str]]:
+def _build_options(records: list[dict[str, object]], key: str, default_label: str) -> list[dict[str, str]]:
     counter = Counter(record[key] for record in records if record.get(key))
     options = [{"value": "all", "label": default_label}]
     for value, count in sorted(counter.items(), key=lambda item: (-item[1], str(item[0]).lower()))[:200]:
@@ -36,12 +36,12 @@ def _build_options(records: List[Dict[str, object]], key: str, default_label: st
     return options
 
 
-def _build_daily_history(records: List[Dict[str, object]]) -> List[Dict[str, object]]:
+def _build_daily_history(records: list[dict[str, object]]) -> list[dict[str, object]]:
     if not records:
         return []
 
-    counts_by_date: Dict[date, int] = defaultdict(int)
-    temps_by_date: Dict[date, List[float]] = defaultdict(list)
+    counts_by_date: dict[date, int] = defaultdict(int)
+    temps_by_date: dict[date, list[float]] = defaultdict(list)
     min_date = records[0]["date"]
     max_date = records[-1]["date"]
 
@@ -51,7 +51,7 @@ def _build_daily_history(records: List[Dict[str, object]]) -> List[Dict[str, obj
         if record["temperature"] is not None:
             temps_by_date[fire_date].append(record["temperature"])
 
-    history: List[Dict[str, object]] = []
+    history: list[dict[str, object]] = []
     current = min_date
     while current <= max_date:
         day_temps = temps_by_date.get(current, [])
@@ -66,7 +66,7 @@ def _build_daily_history(records: List[Dict[str, object]]) -> List[Dict[str, obj
     return history
 
 
-def _build_forecast_history_stats(daily_history: List[Dict[str, object]]) -> Dict[str, object]:
+def _build_forecast_history_stats(daily_history: list[dict[str, object]]) -> dict[str, object]:
     history_counts = [float(item["count"]) for item in daily_history]
     history_dates = [item["date"] for item in daily_history]
     history_events = [1.0 if value > 0 else 0.0 for value in history_counts]
@@ -119,15 +119,15 @@ def _build_forecast_history_stats(daily_history: List[Dict[str, object]]) -> Dic
 
 
 def _build_weekday_forecast_factors(
-    daily_history: List[Dict[str, object]],
+    daily_history: list[dict[str, object]],
     *,
     overall_average: float,
     recent_event_rate: float,
     recent_positive_average: float,
-) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]:
-    weekday_factor: Dict[int, float] = {}
-    weekday_event_rate: Dict[int, float] = {}
-    weekday_positive_average: Dict[int, float] = {}
+) -> tuple[dict[int, float], dict[int, float], dict[int, float]]:
+    weekday_factor: dict[int, float] = {}
+    weekday_event_rate: dict[int, float] = {}
+    weekday_positive_average: dict[int, float] = {}
     for weekday in range(7):
         weekday_values = [float(item["count"]) for item in daily_history if item["date"].weekday() == weekday]
         weekday_avg = mean(weekday_values) if weekday_values else overall_average
@@ -142,16 +142,16 @@ def _build_weekday_forecast_factors(
 
 
 def _build_month_forecast_factors(
-    daily_history: List[Dict[str, object]],
+    daily_history: list[dict[str, object]],
     *,
     overall_average: float,
     recent_event_rate: float,
     recent_positive_average: float,
-) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, float], Dict[int, float], Optional[float]]:
-    month_factor: Dict[int, float] = {}
-    month_event_rate: Dict[int, float] = {}
-    month_positive_average: Dict[int, float] = {}
-    seasonal_temperature_by_month: Dict[int, float] = {}
+) -> tuple[dict[int, float], dict[int, float], dict[int, float], dict[int, float], float | None]:
+    month_factor: dict[int, float] = {}
+    month_event_rate: dict[int, float] = {}
+    month_positive_average: dict[int, float] = {}
+    seasonal_temperature_by_month: dict[int, float] = {}
     overall_temperature_values = [item["avg_temperature"] for item in daily_history if item["avg_temperature"] is not None]
     overall_temperature_average = mean(overall_temperature_values) if overall_temperature_values else None
 
@@ -179,10 +179,10 @@ def _forecast_event_probability(
     target_date: date,
     expected_count: float,
     *,
-    weekday_event_rate: Dict[int, float],
-    month_event_rate: Dict[int, float],
-    weekday_positive_average: Dict[int, float],
-    month_positive_average: Dict[int, float],
+    weekday_event_rate: dict[int, float],
+    month_event_rate: dict[int, float],
+    weekday_positive_average: dict[int, float],
+    month_positive_average: dict[int, float],
     recent_event_rate: float,
     recent_positive_average: float,
 ) -> float:
@@ -210,13 +210,13 @@ def _forecast_event_probability(
 
 def _forecast_temperature_effect(
     target_date: date,
-    temperature_value: Optional[float],
+    temperature_value: float | None,
     *,
-    seasonal_temperature_by_month: Dict[int, float],
-    overall_temperature_average: Optional[float],
-    temperature_slope: Optional[float],
+    seasonal_temperature_by_month: dict[int, float],
+    overall_temperature_average: float | None,
+    temperature_slope: float | None,
     volatility: float,
-) -> Tuple[Optional[float], float]:
+) -> tuple[float | None, float]:
     temperature_for_day = temperature_value
     if temperature_for_day is None:
         temperature_for_day = seasonal_temperature_by_month.get(target_date.month, overall_temperature_average)
@@ -236,13 +236,13 @@ def _forecast_temperature_effect(
 
 def _build_forecast_probability_context(
     *,
-    weekday_event_rate: Dict[int, float],
-    month_event_rate: Dict[int, float],
-    weekday_positive_average: Dict[int, float],
-    month_positive_average: Dict[int, float],
+    weekday_event_rate: dict[int, float],
+    month_event_rate: dict[int, float],
+    weekday_positive_average: dict[int, float],
+    month_positive_average: dict[int, float],
     recent_event_rate: float,
     recent_positive_average: float,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     return {
         "weekday_event_rate": weekday_event_rate,
         "month_event_rate": month_event_rate,
@@ -260,8 +260,8 @@ def _forecast_probability_bundle(
     lower_bound: float,
     upper_bound: float,
     usual_for_day: float,
-    probability_context: Dict[str, object],
-) -> Dict[str, float]:
+    probability_context: dict[str, object],
+) -> dict[str, float]:
     return {
         "fire": _forecast_event_probability(target_date, estimate, **probability_context),
         "lower": _forecast_event_probability(target_date, lower_bound, **probability_context),
@@ -278,11 +278,11 @@ def _build_forecast_row_payload(
     lower_bound: float,
     upper_bound: float,
     usual_for_day: float,
-    temperature_for_day: Optional[float],
+    temperature_for_day: float | None,
     scenario_label: str,
     scenario_tone: str,
-    probabilities: Dict[str, float],
-) -> Dict[str, object]:
+    probabilities: dict[str, float],
+) -> dict[str, object]:
     return {
         "date": target_date.isoformat(),
         "date_display": target_date.strftime("%d.%m.%Y"),
@@ -310,10 +310,10 @@ def _build_forecast_row_payload(
 
 
 def _build_forecast_rows(
-    daily_history: List[Dict[str, object]],
+    daily_history: list[dict[str, object]],
     forecast_days: int,
-    temperature_value: Optional[float],
-) -> List[Dict[str, object]]:
+    temperature_value: float | None,
+) -> list[dict[str, object]]:
     if not daily_history or forecast_days <= 0:
         return []
 
@@ -353,7 +353,7 @@ def _build_forecast_rows(
     ]
     temperature_slope = _compute_temperature_slope(temperature_pairs)
 
-    forecast_rows: List[Dict[str, object]] = []
+    forecast_rows: list[dict[str, object]] = []
     last_observed_date = history_dates[-1]
     probability_context = _build_forecast_probability_context(
         weekday_event_rate=weekday_event_rate,
@@ -414,7 +414,7 @@ def _build_forecast_rows(
     return forecast_rows
 
 
-def _build_weekday_profile(daily_history: List[Dict[str, object]]) -> List[Dict[str, object]]:
+def _build_weekday_profile(daily_history: list[dict[str, object]]) -> list[dict[str, object]]:
     items = []
     for weekday in range(7):
         values = [float(item["count"]) for item in daily_history if item["date"].weekday() == weekday]
@@ -433,12 +433,12 @@ def _build_weekday_profile(daily_history: List[Dict[str, object]]) -> List[Dict[
     return items
 
 
-def _build_weekly_outlook(daily_history: List[Dict[str, object]], forecast_rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    history_buckets: Dict[date, float] = defaultdict(float)
+def _build_weekly_outlook(daily_history: list[dict[str, object]], forecast_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    history_buckets: dict[date, float] = defaultdict(float)
     for item in daily_history:
         history_buckets[_week_start(item["date"])] += float(item["count"])
 
-    forecast_buckets: Dict[date, float] = defaultdict(float)
+    forecast_buckets: dict[date, float] = defaultdict(float)
     for row in forecast_rows:
         row_date = _parse_iso_date(row["date"])
         forecast_buckets[_week_start(row_date)] += float(row["forecast_value"])
@@ -465,17 +465,17 @@ def _build_weekly_outlook(daily_history: List[Dict[str, object]], forecast_rows:
     return items
 
 
-def _build_monthly_outlook(daily_history: List[Dict[str, object]], forecast_rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    history_by_month_of_year: Dict[int, List[float]] = defaultdict(list)
+def _build_monthly_outlook(daily_history: list[dict[str, object]], forecast_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    history_by_month_of_year: dict[int, list[float]] = defaultdict(list)
     if daily_history:
-        month_totals: Dict[Tuple[int, int], float] = defaultdict(float)
+        month_totals: dict[tuple[int, int], float] = defaultdict(float)
         for item in daily_history:
             key = (item["date"].year, item["date"].month)
             month_totals[key] += float(item["count"])
         for (_year_value, month_value), total_value in month_totals.items():
             history_by_month_of_year[month_value].append(total_value)
 
-    forecast_by_month: Dict[Tuple[int, int], float] = defaultdict(float)
+    forecast_by_month: dict[tuple[int, int], float] = defaultdict(float)
     for row in forecast_rows:
         row_date = _parse_iso_date(row["date"])
         forecast_by_month[(row_date.year, row_date.month)] += float(row["forecast_value"])

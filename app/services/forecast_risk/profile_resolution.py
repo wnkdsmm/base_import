@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from .profiles import DEFAULT_RISK_WEIGHT_MODE, get_risk_weight_profile
 from .scoring import _build_territory_rows
@@ -67,8 +67,8 @@ def resolve_weight_profile_for_records(
         expert_profile,
     )
     candidates = _generate_weight_candidates(expert_profile)
-    evaluations: List[CalibrationEntry] = []
-    expert_entry: Optional[CalibrationEntry] = None
+    evaluations: list[CalibrationEntry] = []
+    expert_entry: CalibrationEntry | None = None
 
     for candidate in candidates:
         candidate_profile = _profile_with_weights(requested_profile, expert_profile, candidate["weights"])
@@ -159,13 +159,13 @@ def _build_uncalibrated_profile(
     return profile
 
 
-def _generate_weight_candidates(profile: RiskProfile) -> List[WeightCandidate]:
+def _generate_weight_candidates(profile: RiskProfile) -> list[WeightCandidate]:
     base_weights = {key: float(value) for key, value in (profile.get("component_weights") or {}).items()}
     component_order = list(profile.get("component_order") or base_weights.keys())
-    candidates: List[WeightCandidate] = []
+    candidates: list[WeightCandidate] = []
     seen = set()
 
-    def add_candidate(key: str, label: str, weights: Dict[str, float]) -> None:
+    def add_candidate(key: str, label: str, weights: dict[str, float]) -> None:
         normalized = _normalize_component_weights(weights, component_order)
         if not normalized:
             return
@@ -204,9 +204,9 @@ def _generate_weight_candidates(profile: RiskProfile) -> List[WeightCandidate]:
 
 
 def _normalize_component_weights(
-    weights: Dict[str, float],
+    weights: dict[str, float],
     component_order: Sequence[str],
-) -> Optional[Dict[str, float]]:
+) -> dict[str, float | None]:
     cleaned = {component: max(0.0, float(weights.get(component, 0.0))) for component in component_order}
     total = sum(cleaned.values())
     if total <= 0:
@@ -222,8 +222,8 @@ def _normalize_component_weights(
 def _prepare_evaluation_windows(
     windows: Sequence[dict[str, Any]],
     profile: RiskProfile,
-) -> List[dict[str, Any]]:
-    prepared: List[dict[str, Any]] = []
+) -> list[dict[str, Any]]:
+    prepared: list[dict[str, Any]] = []
     for window in windows:
         prepared_window = dict(window)
         prepared_window["predicted_rows"] = _build_territory_rows(
@@ -236,7 +236,7 @@ def _prepare_evaluation_windows(
     return prepared
 
 
-def _weight_distance(candidate_weights: Dict[str, float], base_weights: Dict[str, float]) -> float:
+def _weight_distance(candidate_weights: dict[str, float], base_weights: dict[str, float]) -> float:
     return sum(abs(float(candidate_weights.get(key, 0.0)) - float(base_weights.get(key, 0.0))) for key in base_weights)
 
 
@@ -267,7 +267,7 @@ def _build_metric_comparison(
 def _profile_with_weights(
     requested_profile: RiskProfile,
     expert_profile: RiskProfile,
-    component_weights: Dict[str, float],
+    component_weights: dict[str, float],
 ) -> RiskProfile:
     profile = deepcopy(requested_profile)
     profile["component_weights"] = dict(component_weights)

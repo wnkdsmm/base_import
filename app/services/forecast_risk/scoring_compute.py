@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from app.services.explainable_logistics import build_explainable_logistics_profile
 
@@ -40,15 +40,16 @@ from .types import (
 
 
 def _normalization_fields(
-    territories: Dict[str, TerritoryBucket],
+    territories: dict[str, TerritoryBucket],
     recent_incidents: int,
     recent_window_days: int,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     return {
         "base_fire_signal": _clamp(1.0 - math.exp(-(recent_incidents / recent_window_days)), 0.08, 0.72),
         "max_incidents": max(bucket["incidents"] for bucket in territories.values()),
         "max_weighted": max(bucket["weighted_history"] for bucket in territories.values()),
     }
+
 
 def _territory_identity_fields(bucket: TerritoryBucket) -> TerritoryIdentity:
     dominant_object_category = _counter_top_label(bucket["object_categories"], "Не указано")
@@ -62,10 +63,11 @@ def _territory_identity_fields(bucket: TerritoryBucket) -> TerritoryIdentity:
         "settlement_context_label": settlement_context_label,
     }
 
+
 def _normalized_risk_fields(
     bucket: TerritoryBucket,
     horizon: HorizonContext,
-    normalization: Dict[str, float],
+    normalization: dict[str, float],
 ) -> RiskFactors:
     incidents = bucket["incidents"]
     safe_incidents = max(1, incidents)
@@ -120,6 +122,7 @@ def _normalized_risk_fields(
         "severe_probability": severe_probability,
     }
 
+
 def _logistics_fields(
     bucket: TerritoryBucket,
     defaults: dict[str, Any],
@@ -170,6 +173,7 @@ def _logistics_fields(
         "arrival_probability": arrival_probability,
     }
 
+
 def _water_fields(
     bucket: TerritoryBucket,
     defaults: dict[str, Any],
@@ -190,13 +194,14 @@ def _water_fields(
         "water_deficit_probability": water_deficit_probability,
     }
 
+
 def _score_inputs(
     bucket: TerritoryBucket,
     identity: TerritoryIdentity,
     risk_fields: RiskFactors,
     logistics: LogisticsFactors,
     water: WaterFactors,
-) -> tuple[Dict[str, float], ScoreContext]:
+) -> tuple[dict[str, float], ScoreContext]:
     logistics_profile = logistics["logistics_profile"]
     signal_values = {
         "predicted_repeat_rate": risk_fields["fire_probability"],
@@ -252,13 +257,14 @@ def _score_inputs(
     }
     return signal_values, context
 
+
 def _component_score_bundle(
     component_weights: Sequence[dict[str, Any]],
     profile_components: dict[str, Any],
-    signal_values: Dict[str, float],
+    signal_values: dict[str, float],
     thresholds: dict[str, Any],
     context: ScoreContext,
-) -> tuple[List[ComponentScore], Dict[str, ComponentScoreMapEntry], float]:
+) -> tuple[list[ComponentScore], dict[str, ComponentScoreMapEntry], float]:
     component_scores = [
         _score_component(
             component_weight=component_weight,
@@ -281,6 +287,7 @@ def _component_score_bundle(
     risk_score = _clamp(sum(item["contribution"] for item in component_scores), 1.0, 99.0)
     return component_scores, component_score_map, risk_score
 
+
 def _territory_row_payload(
     bucket: TerritoryBucket,
     profile: RiskProfile,
@@ -290,8 +297,8 @@ def _territory_row_payload(
     logistics: LogisticsFactors,
     water: WaterFactors,
     context: ScoreContext,
-    component_scores: List[ComponentScore],
-    component_score_map: Dict[str, ComponentScoreMapEntry],
+    component_scores: list[ComponentScore],
+    component_score_map: dict[str, ComponentScoreMapEntry],
     risk_score: float,
 ) -> RiskScore:
     logistics_profile = logistics["logistics_profile"]
@@ -365,12 +372,13 @@ def _territory_row_payload(
         "history_pressure": round(risk_fields["history_pressure"], 3),
     }
 
+
 def _build_territory_rows(
     records: Sequence[dict[str, Any]],
     planning_horizon_days: int,
     weight_mode: str = DEFAULT_RISK_WEIGHT_MODE,
-    profile_override: Optional[RiskProfile] = None,
-) -> List[RiskScore]:
+    profile_override: RiskProfile | None = None,
+) -> list[RiskScore]:
     if not records:
         return []
 
@@ -384,7 +392,7 @@ def _build_territory_rows(
     territories, recent_incidents = _collect_territory_buckets(records, horizon)
     normalization = _normalization_fields(territories, recent_incidents, horizon["recent_window_days"])
 
-    territory_rows: List[RiskScore] = []
+    territory_rows: list[RiskScore] = []
     for bucket in territories.values():
         identity = _territory_identity_fields(bucket)
         component_weights = _component_weights_for_rural(
@@ -433,14 +441,15 @@ def _build_territory_rows(
     _attach_ranking_context(territory_rows)
     return territory_rows
 
+
 def _score_component(
     component_weight: dict[str, Any],
     component_spec: dict[str, Any],
-    signal_values: Dict[str, float],
+    signal_values: dict[str, float],
     thresholds: dict[str, Any],
     context: ScoreContext,
 ) -> ComponentScore:
-    signal_rows: List[ComponentSignal] = []
+    signal_rows: list[ComponentSignal] = []
     weighted_sum = 0.0
     total_signal_weight = 0.0
 
@@ -486,6 +495,7 @@ def _score_component(
     result["driver_text"] = _component_driver_text(result["key"], score, context)
     return result
 
+
 def _component_tone(score: float, thresholds: dict[str, Any]) -> str:
     component_thresholds = thresholds.get("component") or {}
     if score >= float(component_thresholds.get("high", 65.0)):
@@ -493,6 +503,7 @@ def _component_tone(score: float, thresholds: dict[str, Any]) -> str:
     if score >= float(component_thresholds.get("medium", 40.0)):
         return "medium"
     return "low"
+
 
 def _component_rationale(component_key: str, score: float, context: ScoreContext) -> str:
     if component_key == "fire_frequency":
@@ -553,6 +564,7 @@ def _component_rationale(component_key: str, score: float, context: ScoreContext
         parts.append("Для сельской территории запас воды и подъезд к источникам особенно критичны.")
     return " ".join(parts[:4])
 
+
 def _component_driver_text(component_key: str, score: float, context: ScoreContext) -> str:
     if score < 38:
         return ""
@@ -570,7 +582,8 @@ def _component_driver_text(component_key: str, score: float, context: ScoreConte
         return "travel-time и сервисная зона повышают логистический риск"
     return "не подтверждён стабильный доступ к воде для тушения"
 
-def _build_risk_drivers(component_scores: Sequence[ComponentScore]) -> List[str]:
+
+def _build_risk_drivers(component_scores: Sequence[ComponentScore]) -> list[str]:
     drivers = [item.get("driver_text") or "" for item in component_scores if item.get("driver_text")]
     if not drivers:
         return ["профиль риска пока умеренный и без явного доминирующего фактора"]

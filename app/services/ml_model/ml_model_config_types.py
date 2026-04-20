@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable
 
 from app.labels import (
     ML_COUNT_MODEL_LABELS as L_ML_COUNT_MODEL_LABELS,
@@ -149,7 +149,7 @@ _CACHE_LIMIT = C_ML_CACHE_LIMIT
 _POISSON_PARAMS = C_POISSON_PARAMS
 _LOGISTIC_PARAMS = C_LOGISTIC_PARAMS
 
-MlProgressCallback = Optional[Callable[[str, str], None]]
+MlProgressCallback = Callable[[str, str | None, None]]
 
 
 def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: str) -> None:

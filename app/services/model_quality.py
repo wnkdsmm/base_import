@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional, Sequence
+from typing import Sequence
 
 import numpy as np
 from sklearn.metrics import (
@@ -24,7 +24,7 @@ def _has_both_classes(actual: np.ndarray) -> bool:
     return np.unique(actual).size > 1
 
 
-def relative_delta(value: Optional[float], baseline: Optional[float]) -> Optional[float]:
+def relative_delta(value: float | None, baseline: float | None) -> float | None:
     if value is None or baseline is None or baseline == 0:
         return None
     return float((float(value) - float(baseline)) / float(baseline))
@@ -53,8 +53,8 @@ def mean_poisson_deviance(actuals: Sequence[float], predictions: Sequence[float]
 def compute_count_metrics(
     actuals: Sequence[float],
     predictions: Sequence[float],
-    baseline_metrics: Optional[Dict[str, Optional[float]]] = None,
-) -> Dict[str, Optional[float]]:
+    baseline_metrics: dict[str, float | None] | None = None,
+) -> dict[str, float | None]:
     actual = _as_float_array(actuals)
     predicted = _as_float_array(predictions)
     residuals = predicted - actual
@@ -78,9 +78,9 @@ def compute_count_metrics(
 def compute_classification_metrics(
     actuals: Sequence[int],
     probabilities: Sequence[float],
-    baseline_probabilities: Optional[Sequence[float]] = None,
+    baseline_probabilities: Sequence[float | None] = None,
     threshold: float = 0.5,
-) -> Dict[str, Optional[float]]:
+) -> dict[str, float | None]:
     actual = np.asarray(list(actuals), dtype=int)
     predicted_probabilities = np.clip(_as_float_array(probabilities), 0.001, 0.999)
     baseline_values = (
@@ -128,7 +128,7 @@ def compute_classification_metrics(
     }
 
 
-def compute_clustering_metrics(points: np.ndarray, labels: Sequence[int]) -> Dict[str, Optional[float]]:
+def compute_clustering_metrics(points: np.ndarray, labels: Sequence[int]) -> dict[str, float | None]:
     label_array = np.asarray(list(labels), dtype=int)
     unique_labels = np.unique(label_array)
     cluster_sizes = [int(np.sum(label_array == label)) for label in unique_labels]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from app.perf import current_perf_trace
 
@@ -14,6 +14,8 @@ from .types import ForecastingOptionCatalog, ForecastingTableMetadata, SqlRow, T
 
 
 @dataclass
+
+
 class _DailyHistoryLoadTrace:
     used_union_fast_path: bool = False
     union_fast_path_attempted: bool = False
@@ -43,7 +45,7 @@ class PayloadQueryBuilder(QueryBuilder):
         self,
         source_tables: Sequence[str],
         history_window: str = "all",
-        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+        metadata_items: Sequence[ForecastingTableMetadata | None] = None,
     ) -> ForecastingOptionCatalog:
         from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
@@ -149,7 +151,7 @@ class PayloadQueryBuilder(QueryBuilder):
         cache_key: tuple[Any, ...],
         count_cache_key: tuple[Any, ...],
         perf: Any,
-    ) -> Optional[list[SqlRow]]:
+    ) -> list[SqlRow | None]:
         cached_history = self.cache.get(cache_key)
         if cached_history is None:
             return None
@@ -168,8 +170,8 @@ class PayloadQueryBuilder(QueryBuilder):
         self,
         normalized_tables: Sequence[str],
         history_window: str,
-        metadata_items: Optional[Sequence[ForecastingTableMetadata]],
-    ) -> tuple[list[ForecastingTableMetadata], Optional[int]]:
+        metadata_items: Sequence[ForecastingTableMetadata | None],
+    ) -> tuple[list[ForecastingTableMetadata], int | None]:
         from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 
         local_metadata_items = list(metadata_items) if metadata_items is not None else _collect_forecasting_metadata(normalized_tables)[0]
@@ -183,8 +185,8 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str,
         cause: str,
         object_category: str,
-        min_year: Optional[int],
-    ) -> Optional[dict[date, SqlRow]]:
+        min_year: int | None,
+    ) -> dict[date, SqlRow | None]:
         trace.union_fast_path_attempted = len(metadata_items) > 1
         if not trace.union_fast_path_attempted:
             return None
@@ -220,7 +222,7 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str,
         cause: str,
         object_category: str,
-        metadata_items: Optional[Sequence[ForecastingTableMetadata]],
+        metadata_items: Sequence[ForecastingTableMetadata | None],
     ) -> tuple[list[SqlRow], _DailyHistoryLoadTrace, int]:
         local_metadata_items, min_year = self._load_daily_history_metadata_and_min_year(
             normalized_tables,
@@ -280,7 +282,7 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+        metadata_items: Sequence[ForecastingTableMetadata | None] = None,
     ) -> list[SqlRow]:
         perf_getter = self._resolve_hook("current_perf_trace", current_perf_trace)
         perf = perf_getter()
@@ -320,7 +322,7 @@ class PayloadQueryBuilder(QueryBuilder):
         district: str = "all",
         cause: str = "all",
         object_category: str = "all",
-        metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+        metadata_items: Sequence[ForecastingTableMetadata | None] = None,
     ) -> int:
         from .sources import _collect_forecasting_metadata, _resolve_history_window_min_year
 

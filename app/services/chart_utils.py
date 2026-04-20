@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Sequence, TypedDict
+from typing import Any, Sequence, TypedDict
 
 from app.statistics_constants import PLOTLY_PALETTE
 

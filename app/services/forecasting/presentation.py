@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.services.shared.formatting import format_percent as _format_percent
 
@@ -30,17 +30,19 @@ from .utils import (
 # intentionally separate from access_points/presentation.py::_build_summary and
 # ml_model/training/presentation_training.py::_build_summary:
 # forecasting summary is scenario-level (time-series probability) and lightweight.
+
+
 def _build_summary(
     selected_table: str,
     selected_district: str,
     selected_cause: str,
     selected_object_category: str,
-    temperature_value: Optional[float],
+    temperature_value: float | None,
     daily_history: list[ForecastingDailyHistoryRow],
     filtered_records_count: int,
     forecast_rows: list[ForecastingForecastRow],
     history_window: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     history_dates = [item["date"] for item in daily_history]
     history_counts = [float(item["count"]) for item in daily_history]
     active_days = sum(1 for item in daily_history if item["count"] > 0)
@@ -133,7 +135,7 @@ def _build_feature_cards(metadata: Any) -> list[dict[str, str]]:
 
 def _build_feature_cards_with_quality(
     metadata: Any,
-    temperature_quality: Optional[ForecastingTemperatureQuality] = None,
+    temperature_quality: ForecastingTemperatureQuality | None = None,
 ) -> list[ForecastingFeatureCard]:
     metadata_items = metadata if isinstance(metadata, list) else [metadata]
     metadata_items = [item for item in metadata_items if item]
@@ -149,7 +151,7 @@ def _build_feature_cards_with_quality(
     cards: list[ForecastingFeatureCard] = []
     for key, label, base_description in feature_config:
         description = base_description
-        sources: List[str] = []
+        sources: list[str] = []
         found = 0
         quality_items: list[ForecastingTemperatureQuality] = []
         for item in metadata_items:
@@ -286,11 +288,11 @@ def _build_notes(
     metadata: ForecastingTableMetadata | list[ForecastingTableMetadata],  # one-off
     filtered_records_count: int,
     daily_history: list[ForecastingDailyHistoryRow],
-    temperature_value: Optional[float],
+    temperature_value: float | None,
 ) -> list[str]:
     metadata_items = metadata if isinstance(metadata, list) else [metadata]
     metadata_items = [item for item in metadata_items if item]
-    notes: List[str] = []
+    notes: list[str] = []
     if len(metadata_items) > 1:
         notes.append(f"Прогноз собран сразу по {len(metadata_items)} таблицам.")
     if not any(item["resolved_columns"].get("date") for item in metadata_items):

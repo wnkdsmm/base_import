@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Iterable, Sequence
 
 
 def _maybe_fix_mojibake(text: str) -> str:
@@ -34,8 +34,8 @@ def _normalize_tone(value: Any, fallback: str = "sky") -> str:
     return tone_map.get(tone, tone or fallback)
 
 
-def _unique_notes(notes: Iterable[Any]) -> List[str]:
-    result: List[str] = []
+def _unique_notes(notes: Iterable[Any]) -> list[str]:
+    result: list[str] = []
     for item in notes:
         text = _safe_text(item)
         if text and text not in result:
@@ -92,7 +92,7 @@ def empty_executive_brief() -> dict[str, Any]:
 
 
 def build_executive_brief_from_risk_payload(
-    risk_payload: Optional[dict[str, Any]],
+    risk_payload: dict[str, Any | None],
     *,
     notes: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
@@ -155,7 +155,7 @@ def build_executive_brief_from_risk_payload(
         f"Надежность приоритета: {confidence_label} ({confidence_score_display})."
     )
 
-    simplified_territories: List[Dict[str, str]] = []
+    simplified_territories: list[dict[str, str]] = []
     for item in territories[:3]:
         simplified_territories.append(
             {
@@ -223,7 +223,7 @@ def build_executive_brief_from_risk_payload(
 
 
 def compose_executive_brief_text(
-    brief: Optional[dict[str, Any]],
+    brief: dict[str, Any | None],
     *,
     scope_label: str = "",
     generated_at: str = "",

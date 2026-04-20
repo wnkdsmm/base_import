@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import Any, Callable, Dict, Sequence
+from typing import Any, Callable, Sequence
 
 from config.constants import CLUSTER_COUNT_OPTIONS
 from app.services.shared.formatting import _format_integer
@@ -27,6 +27,7 @@ from .types import (
     FeatureSelectionReport,
 )
 
+
 def _emit_clustering_progress(
     progress_callback: Callable[[str, str], None] | None,
     phase: str,
@@ -35,6 +36,7 @@ def _emit_clustering_progress(
     if progress_callback is None:
         return
     progress_callback(phase, message)
+
 
 def _prepare_clustering_feature_selection(
     *,
@@ -88,6 +90,7 @@ def _prepare_clustering_feature_selection(
         "selection_note": selection_note,
     }
 
+
 def _append_clustering_feature_notes(
     base: ClusteringBaseState,
     dataset: ClusteringDatasetBundle,
@@ -98,6 +101,7 @@ def _append_clustering_feature_notes(
         base["notes"].append(selection_note)
     if dataset["sampling_note"]:
         base["notes"].append(dataset["sampling_note"])
+
 
 def _load_clustering_dataset_for_request(
     *,
@@ -122,6 +126,7 @@ def _load_clustering_dataset_for_request(
                 sampled_entities=dataset["sampled_entities"],
             )
     return dataset
+
 
 def _build_clustering_feature_context(
     *,
@@ -154,6 +159,7 @@ def _build_clustering_feature_context(
             )
     _append_clustering_feature_notes(base, dataset, feature_selection["selection_note"])
     return feature_selection
+
 
 def _build_clustering_model_inputs(
     *,
@@ -188,6 +194,7 @@ def _build_clustering_model_inputs(
         "requested_working_cluster_count": requested_working_cluster_count,
         "actual_cluster_count": actual_cluster_count,
     }
+
 
 def _build_clustering_model_description(
     *,

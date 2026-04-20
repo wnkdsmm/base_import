@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.services.shared.formatting import (
     format_datetime as _format_datetime,
@@ -14,20 +14,20 @@ from config.db import engine
 DASHBOARD_HORIZON_OPTIONS: tuple[int, ...] = (7, 14, 30)
 
 
-def build_horizon_day_options() -> list[Dict[str, str]]:
+def build_horizon_day_options() -> list[dict[str, str]]:
     return [{"value": str(day), "label": f"{day} дней"} for day in DASHBOARD_HORIZON_OPTIONS]
 
 
-def _select_tables(table_names: List[str]) -> List[str]:
+def _select_tables(table_names: list[str]) -> list[str]:
     return select_user_table_names(table_names)
 
 
-def _extract_year_from_name(table_name: str) -> Optional[int]:
+def _extract_year_from_name(table_name: str) -> int | None:
     match = re.search(r"(19|20)\d{2}", table_name)
     return int(match.group(0)) if match else None
 
 
-def _parse_year(year_value: str) -> Optional[int]:
+def _parse_year(year_value: str) -> int | None:
     if not year_value or year_value == "all":
         return None
     try:
@@ -36,7 +36,7 @@ def _parse_year(year_value: str) -> Optional[int]:
         return None
 
 
-def _find_option_label(options: List[Dict[str, str]], value: str, fallback: str) -> str:
+def _find_option_label(options: list[dict[str, str]], value: str, fallback: str) -> str:
     for item in options:
         if item["value"] == value:
             return item["label"]
@@ -71,7 +71,7 @@ def _format_signed_number(value: float, integer: bool = False) -> str:
     return _format_number(value, integer=integer)
 
 
-def _format_period_label(years: List[int]) -> str:
+def _format_period_label(years: list[int]) -> str:
     if not years:
         return "Нет данных"
     normalized = sorted(set(years))

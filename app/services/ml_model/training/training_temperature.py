@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ def _temperature_quality_summary(
     frame: pd.DataFrame,
     *,
     frame_is_prepared: bool = False,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     reference = frame if frame_is_prepared else _prepare_reference_frame(frame)
     temperature_source = _temperature_source_series(reference)
     history_rows = [
@@ -36,7 +36,7 @@ def _temperature_quality_summary(
     return _temperature_quality_from_daily_history(history_rows)
 
 
-def _temperature_quality_note(temperature_stats: Dict[str, object]) -> str:
+def _temperature_quality_note(temperature_stats: dict[str, object]) -> str:
     non_null_days = int(temperature_stats.get('non_null_days', 0) or 0)
     total_days = int(temperature_stats.get('total_days', 0) or 0)
     coverage = float(temperature_stats.get('coverage', 0.0) or 0.0)
@@ -53,7 +53,7 @@ def _temperature_quality_note(temperature_stats: Dict[str, object]) -> str:
     )
 
 
-def _temperature_feature_columns(temperature_stats: Optional[Dict[str, object]]) -> List[str]:
+def _temperature_feature_columns(temperature_stats: dict[str, object | None]) -> list[str]:
     if temperature_stats is not None and not bool(temperature_stats.get('usable', True)):
         return NON_TEMPERATURE_FEATURE_COLUMNS
     return FEATURE_COLUMNS
@@ -63,7 +63,7 @@ def _fit_temperature_statistics(
     frame: pd.DataFrame,
     *,
     frame_is_prepared: bool = False,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     reference = frame if frame_is_prepared else _prepare_reference_frame(frame)
     quality = _temperature_quality_summary(reference, frame_is_prepared=True)
     if reference.empty or not quality['usable']:
@@ -90,7 +90,7 @@ def _fit_temperature_statistics(
 
 def _apply_temperature_statistics(
     frame: pd.DataFrame,
-    temperature_stats: Dict[str, object],
+    temperature_stats: dict[str, object],
     *,
     frame_is_prepared: bool = False,
 ) -> pd.DataFrame:

@@ -1,7 +1,7 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
-from typing import Any, List, Optional
+from typing import Any
 
 from sqlalchemy import text
 
@@ -31,7 +31,7 @@ def _resolve_district_column(table: DashboardTableRef) -> str:
     return ""
 
 
-def _collect_impact_totals(selected_tables: List[DashboardTableRef], selected_year: Optional[int]) -> ImpactTotals:
+def _collect_impact_totals(selected_tables: list[DashboardTableRef], selected_year: int | None) -> ImpactTotals:
     from config.db import engine
 
     totals = {metric_key: 0.0 for metric_key in IMPACT_METRIC_CONFIG}
@@ -62,11 +62,11 @@ def _collect_impact_totals(selected_tables: List[DashboardTableRef], selected_ye
 
 def _build_impact_timeline_query(
     table: DashboardTableRef,
-    selected_year: Optional[int],
+    selected_year: int | None,
     *,
     include_order_by: bool = True,
-) -> Optional[str]:
-    where_conditions: List[str] = []
+) -> str | None:
+    where_conditions: list[str] = []
 
     if DATE_COLUMN in table["column_set"]:
         date_expression = _date_expression(DATE_COLUMN)
@@ -190,7 +190,7 @@ def _normalize_match_text(value: str) -> str:
     return normalized
 
 
-def _build_yearly_query(table: DashboardTableRef) -> Optional[str]:
+def _build_yearly_query(table: DashboardTableRef) -> str | None:
     table_name = _quote_identifier(table["name"])
     area_expression = _area_expression(table)
 
@@ -219,7 +219,7 @@ def _build_yearly_query(table: DashboardTableRef) -> Optional[str]:
     return None
 
 
-def _fetch_table_years(conn: Any, table_name: str, column_set: set) -> List[int]:
+def _fetch_table_years(conn: Any, table_name: str, column_set: set) -> list[int]:
     if DATE_COLUMN not in column_set:
         return []
     year_expression = _year_expression(DATE_COLUMN)
@@ -234,7 +234,7 @@ def _fetch_table_years(conn: Any, table_name: str, column_set: set) -> List[int]
     return [int(row["year_value"]) for row in conn.execute(query).mappings().all() if row["year_value"] is not None]
 
 
-def _build_year_filter_clause(table: DashboardTableRef, selected_year: Optional[int]) -> Optional[str]:
+def _build_year_filter_clause(table: DashboardTableRef, selected_year: int | None) -> str | None:
     if selected_year is None:
         return "TRUE"
     if DATE_COLUMN in table["column_set"]:
@@ -270,7 +270,7 @@ def _area_expression(table: DashboardTableRef) -> str:
     return f"CASE WHEN {cleaned} ~ '^[-+]?[0-9]*\\.?[0-9]+$' THEN ({cleaned})::double precision ELSE NULL END"
 
 
-def _resolve_years_in_scope(table: DashboardTableRef, selected_year: Optional[int]) -> List[int]:
+def _resolve_years_in_scope(table: DashboardTableRef, selected_year: int | None) -> list[int]:
     if selected_year is not None:
         return [selected_year] if _build_year_filter_clause(table, selected_year) is not None else []
     if table["years"]:

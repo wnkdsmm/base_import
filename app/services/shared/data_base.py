@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Callable, Iterable, Mapping, Sequence, TypeVar
 
 from config.db import engine
 
@@ -61,7 +61,7 @@ class DataLoader:
         return normalized or default
 
     @staticmethod
-    def resolve_option_value(options: Sequence[Dict[str, str]], selected_value: object, default: str = "all") -> str:
+    def resolve_option_value(options: Sequence[dict[str, str]], selected_value: object, default: str = "all") -> str:
         normalized = DataLoader.normalize_value(selected_value, default=default)
         available = {str(option.get("value") or "") for option in options}
         if normalized in available:

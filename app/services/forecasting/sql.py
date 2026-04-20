@@ -10,7 +10,7 @@ Role split:
 
 from collections import Counter
 from datetime import date
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from app.perf import current_perf_trace
 from config.db import engine
@@ -84,7 +84,7 @@ def _daily_aggregate_view_exists(table_name: str) -> bool:
 
 def _build_materialized_scope_conditions(
     resolved_columns: dict[str, str],
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
@@ -103,10 +103,10 @@ def _build_daily_aggregate_view_sql(table_name: str, resolved_columns: dict[str,
 
 
 def prepare_forecasting_materialized_views(
-    source_tables: Optional[Sequence[str]] = None,
+    source_tables: Sequence[str | None] = None,
     *,
     refresh_existing: bool = True,
-) -> List[str]:
+) -> list[str]:
     return _AGGREGATION_BUILDER.prepare_forecasting_materialized_views(
         source_tables=source_tables,
         refresh_existing=refresh_existing,
@@ -115,11 +115,11 @@ def prepare_forecasting_materialized_views(
 
 def _build_scope_conditions(
     resolved_columns: dict[str, str],
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-) -> tuple[Optional[str], list[str], SqlFilters, bool]:
+) -> tuple[str | None, list[str], SqlFilters, bool]:
     return _SOURCE_BUILDER._build_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -135,7 +135,7 @@ def _load_forecasting_records(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
 ) -> list[ForecastingInputRecord]:
     return _SOURCE_BUILDER._load_forecasting_records(
         table_name,
@@ -151,7 +151,7 @@ def _load_option_counts(
     table_name: str,
     resolved_columns: dict[str, str],
     field_name: str,
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
 ) -> Counter:
     return _SOURCE_BUILDER._load_option_counts(
         table_name,
@@ -164,7 +164,7 @@ def _load_option_counts(
 def _load_all_option_counts(
     table_name: str,
     resolved_columns: dict[str, str],
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
 ) -> dict[str, Counter]:
     return _SOURCE_BUILDER._load_all_option_counts(
         table_name,
@@ -180,7 +180,7 @@ def _build_options_from_counter(counter: Counter, default_label: str) -> list[Ta
 def _build_option_catalog_sql(
     source_tables: Sequence[str],
     history_window: str = "all",
-    metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    metadata_items: Sequence[ForecastingTableMetadata | None] = None,
 ) -> dict[str, list[TableOption]]:
     return _PAYLOAD_BUILDER._build_option_catalog_sql(
         source_tables,
@@ -195,7 +195,7 @@ def _load_daily_history_rows(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
 ) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_daily_history_rows(
         table_name,
@@ -222,7 +222,7 @@ def _load_materialized_daily_history_rows(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
+    min_year: int | None,
 ) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_materialized_daily_history_rows(
         table_name,
@@ -248,7 +248,7 @@ def _load_source_daily_history_rows(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
+    min_year: int | None,
 ) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_source_daily_history_rows(
         table_name,
@@ -268,8 +268,8 @@ def _daily_history_union_materialized_part_sql(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
-) -> Optional[str]:
+    min_year: int | None,
+) -> str | None:
     return _SOURCE_BUILDER._daily_history_union_materialized_part_sql(
         table_name,
         resolved_columns,
@@ -289,8 +289,8 @@ def _daily_history_union_source_part_sql(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
-) -> Optional[str]:
+    min_year: int | None,
+) -> str | None:
     return _SOURCE_BUILDER._daily_history_union_source_part_sql(
         table_name,
         resolved_columns,
@@ -308,8 +308,8 @@ def _load_daily_history_rows_union(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    min_year: Optional[int] = None,
-) -> Optional[list[SqlRow]]:
+    min_year: int | None = None,
+) -> list[SqlRow | None]:
     return _SOURCE_BUILDER._load_daily_history_rows_union(
         metadata_items,
         district=district,
@@ -326,7 +326,7 @@ def _daily_history_union_query_parts(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
+    min_year: int | None,
 ) -> list[str]:
     return _SOURCE_BUILDER._daily_history_union_query_parts(
         metadata_items,
@@ -355,7 +355,7 @@ def _load_scope_total_count(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    min_year: Optional[int] = None,
+    min_year: int | None = None,
 ) -> int:
     return _SOURCE_BUILDER._load_scope_total_count(
         table_name,
@@ -422,15 +422,15 @@ def _lookup_daily_history_cache(
     cache_key: tuple[Any, ...],
     count_cache_key: tuple[Any, ...],
     perf: Any,
-) -> Optional[list[SqlRow]]:
+) -> list[SqlRow | None]:
     return _PAYLOAD_BUILDER._lookup_daily_history_cache(cache_key, count_cache_key, perf)
 
 
 def _load_daily_history_metadata_and_min_year(
     normalized_tables: Sequence[str],
     history_window: str,
-    metadata_items: Optional[Sequence[ForecastingTableMetadata]],
-) -> tuple[list[ForecastingTableMetadata], Optional[int]]:
+    metadata_items: Sequence[ForecastingTableMetadata | None],
+) -> tuple[list[ForecastingTableMetadata], int | None]:
     return _PAYLOAD_BUILDER._load_daily_history_metadata_and_min_year(
         normalized_tables,
         history_window,
@@ -445,8 +445,8 @@ def _load_daily_history_union_fast_path(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
-) -> Optional[dict[date, SqlRow]]:
+    min_year: int | None,
+) -> dict[date, SqlRow | None]:
     return _PAYLOAD_BUILDER._load_daily_history_union_fast_path(
         metadata_items,
         trace,
@@ -468,7 +468,7 @@ def _load_table_daily_history_record_fallback(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
+    min_year: int | None,
 ) -> list[SqlRow]:
     return _SOURCE_BUILDER._load_table_daily_history_record_fallback(
         table_name,
@@ -486,7 +486,7 @@ def _load_daily_history_per_table_fallback(
     district: str,
     cause: str,
     object_category: str,
-    min_year: Optional[int],
+    min_year: int | None,
 ) -> dict[date, SqlRow]:
     return _SOURCE_BUILDER._load_daily_history_per_table_fallback(
         metadata_items,
@@ -529,7 +529,7 @@ def _load_daily_history_uncached(
     district: str,
     cause: str,
     object_category: str,
-    metadata_items: Optional[Sequence[ForecastingTableMetadata]],
+    metadata_items: Sequence[ForecastingTableMetadata | None],
 ) -> tuple[list[SqlRow], _DailyHistoryLoadTrace, int]:
     return _PAYLOAD_BUILDER._load_daily_history_uncached(
         normalized_tables,
@@ -547,7 +547,7 @@ def _build_daily_history_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    metadata_items: Sequence[ForecastingTableMetadata | None] = None,
 ) -> list[SqlRow]:
     return _PAYLOAD_BUILDER._build_daily_history_sql(
         source_tables,
@@ -565,7 +565,7 @@ def _count_forecasting_records_sql(
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    metadata_items: Optional[Sequence[ForecastingTableMetadata]] = None,
+    metadata_items: Sequence[ForecastingTableMetadata | None] = None,
 ) -> int:
     return _PAYLOAD_BUILDER._count_forecasting_records_sql(
         source_tables,

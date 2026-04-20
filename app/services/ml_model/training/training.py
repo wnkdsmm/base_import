@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from app.perf import current_perf_trace, profiled
 
@@ -30,53 +30,61 @@ _run_backtest = profiled('ml_backtest')(_backtesting._run_backtest)
 
 
 @dataclass
+
+
 class _TrainingArtifacts:
     final_frame: Any
     final_dataset: Any
     final_temperature_stats: TrainingTemperatureStats
     backtest: Any
-    final_count_model: Optional[TrainingModelArtifact]
-    final_event_model: Optional[TrainingModelArtifact]
+    final_count_model: TrainingModelArtifact | None
+    final_event_model: TrainingModelArtifact | None
     selected_count_model_key: str
-    feature_importance: List[TrainingFeatureImportanceRow]
-    feature_importance_source_key: Optional[str]
-    feature_importance_source_label: Optional[str]
-    feature_importance_note: Optional[str]
-    trend_warning: Optional[str] = None
+    feature_importance: list[TrainingFeatureImportanceRow]
+    feature_importance_source_key: str | None
+    feature_importance_source_label: str | None
+    feature_importance_note: str | None
+    trend_warning: str | None = None
 
 
 @dataclass
+
+
 class _TrainingSeedData:
-    history_tail: List[TrainingHistoryRecord]
+    history_tail: list[TrainingHistoryRecord]
     frame: Any
     dataset: Any
 
 
 @dataclass
+
+
 class _FinalTrainingModels:
     final_frame: Any
     final_dataset: Any
     final_temperature_stats: TrainingTemperatureStats
-    feature_columns: List[str]
+    feature_columns: list[str]
     backtest: Any
     selected_count_model_key: str
-    final_count_model: Optional[TrainingModelArtifact]
-    final_event_model: Optional[TrainingModelArtifact]
+    final_count_model: TrainingModelArtifact | None
+    final_event_model: TrainingModelArtifact | None
 
 
 @dataclass
+
+
 class _FeatureImportanceArtifacts:
-    rows: List[TrainingFeatureImportanceRow]
-    source_key: Optional[str]
-    source_label: Optional[str]
-    note: Optional[str]
+    rows: list[TrainingFeatureImportanceRow]
+    source_key: str | None
+    source_label: str | None
+    note: str | None
 
 
 _TRAINING_ARTIFACT_CACHE_LIMIT = 32
 _DEFAULT_CACHES = create_default_caches()
 
 
-def clear_training_artifact_cache(caches: Optional[MLModelCaches] = None) -> None:
+def clear_training_artifact_cache(caches: MLModelCaches | None = None) -> None:
     cache_set = caches or _DEFAULT_CACHES
     cache_set.artifact_cache.clear()
 
@@ -87,7 +95,7 @@ def _signature_date(value: Any) -> str:
     return str(value)
 
 
-def _signature_float(value: Any) -> Optional[float]:
+def _signature_float(value: Any) -> float | None:
     if value is None:
         return None
     try:
@@ -99,7 +107,7 @@ def _signature_float(value: Any) -> Optional[float]:
     return numeric_value
 
 
-def _daily_history_signature(daily_history: List[TrainingHistoryRecord]) -> Tuple[Tuple[Any, ...], ...]:
+def _daily_history_signature(daily_history: list[TrainingHistoryRecord]) -> tuple[tuple[Any, ...], ...]:
     return tuple(
         (
             _signature_date(item.get('date')),
@@ -111,16 +119,16 @@ def _daily_history_signature(daily_history: List[TrainingHistoryRecord]) -> Tupl
 
 
 def _training_artifact_cache_key(
-    daily_history: List[TrainingHistoryRecord],
+    daily_history: list[TrainingHistoryRecord],
     forecast_days: int,
-) -> Tuple[int, Tuple[Tuple[Any, ...], ...]]:
+) -> tuple[int, tuple[tuple[Any, ...], ...]]:
     return (int(forecast_days), _daily_history_signature(daily_history))
 
 
 def _training_artifact_cache_get(
-    cache_key: Tuple[int, Tuple[Tuple[Any, ...], ...]],
+    cache_key: tuple[int, tuple[tuple[Any, ...], ...]],
     caches: MLModelCaches,
-) -> Optional[_TrainingArtifacts]:
+) -> _TrainingArtifacts | None:
     artifacts = caches.artifact_cache.get(cache_key)
     if artifacts is not None:
         caches.artifact_cache.move_to_end(cache_key)
@@ -128,7 +136,7 @@ def _training_artifact_cache_get(
 
 
 def _training_artifact_cache_store(
-    cache_key: Tuple[int, Tuple[Tuple[Any, ...], ...]],
+    cache_key: tuple[int, tuple[tuple[Any, ...], ...]],
     artifacts: _TrainingArtifacts,
     caches: MLModelCaches,
 ) -> _TrainingArtifacts:
@@ -143,8 +151,8 @@ def _forecast_rows_from_training_artifacts(
     artifacts: _TrainingArtifacts,
     *,
     forecast_days: int,
-    scenario_temperature: Optional[float],
-) -> List[TrainingForecastRow]:
+    scenario_temperature: float | None,
+) -> list[TrainingForecastRow]:
     return _forecast_intervals._build_future_forecast_rows(
         frame=artifacts.final_frame,
         selected_count_model_key=artifacts.selected_count_model_key,
@@ -163,7 +171,7 @@ def _forecast_rows_from_training_artifacts(
 
 def _assemble_training_artifacts_result(
     artifacts: _TrainingArtifacts,
-    forecast_rows: List[TrainingForecastRow],
+    forecast_rows: list[TrainingForecastRow],
 ) -> TrainingResultPayload:
     return _result._assemble_training_result(
         backtest=artifacts.backtest,
@@ -180,7 +188,7 @@ def _assemble_training_artifacts_result(
 
 
 def _build_training_seed(
-    daily_history: List[TrainingHistoryRecord],
+    daily_history: list[TrainingHistoryRecord],
     *,
     perf: Any,
 ) -> _TrainingSeedData:
@@ -192,7 +200,7 @@ def _build_training_seed(
     return _TrainingSeedData(history_tail=history_tail, frame=frame, dataset=dataset)
 
 
-def _ensure_min_feature_rows(dataset: Any, message: str) -> Optional[TrainingResultPayload]:
+def _ensure_min_feature_rows(dataset: Any, message: str) -> TrainingResultPayload | None:
     if len(dataset) >= MIN_FEATURE_ROWS:
         return None
     return _result._empty_ml_result(message.format(rows=len(dataset)))
@@ -321,12 +329,12 @@ def _build_feature_importance_artifacts(
 
 
 def _store_training_artifacts(
-    cache_key: Tuple[int, Tuple[Tuple[Any, ...], ...]],
+    cache_key: tuple[int, tuple[tuple[Any, ...], ...]],
     *,
     training_models: _FinalTrainingModels,
     feature_importance: _FeatureImportanceArtifacts,
     caches: MLModelCaches,
-    trend_warning: Optional[str] = None,
+    trend_warning: str | None = None,
 ) -> _TrainingArtifacts:
     return _training_artifact_cache_store(
         cache_key,
@@ -351,9 +359,9 @@ def _store_training_artifacts(
 def _train_ml_model(
     daily_history,
     forecast_days: int,
-    scenario_temperature: Optional[float],
+    scenario_temperature: float | None,
     progress_callback: MlProgressCallback = None,
-    caches: Optional[MLModelCaches] = None,
+    caches: MLModelCaches | None = None,
  ) -> TrainingResultPayload:
     cache_set = caches or _DEFAULT_CACHES
     perf = current_perf_trace()

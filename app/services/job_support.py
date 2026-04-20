@@ -3,14 +3,14 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from threading import RLock
-from typing import Any, Callable, Dict, MutableMapping, Optional, Sequence, Tuple
+from typing import Any, Callable, MutableMapping, Sequence
 
 from app.state import FINAL_JOB_STATUSES, job_store
 from app.services.forecasting.types import JobMetaPayload, JobSnapshot, JobStageMeta, JobStatusPayload
 
-JobCacheMapping = MutableMapping[Tuple[str, str], str]
-StageMetaResolver = Callable[[str], Optional[JobStageMeta]]
-StatusResolver = Callable[[str, str], Optional[str]]
+JobCacheMapping = MutableMapping[tuple[str, str], str]
+StageMetaResolver = Callable[[str], JobStageMeta | None]
+StatusResolver = Callable[[str, str], str | None]
 StatusPayloadBuilder = Callable[[str, bool], JobStatusPayload]
 CachedPayloadLoader = Callable[[], Any | None]
 JobBundleFactory = Callable[[bool], "JobLaunchBundle"]
@@ -24,12 +24,16 @@ JobFailureHook = Callable[[str], None]
 
 
 @dataclass(frozen=True)
+
+
 class JobLaunchBundle:
     primary_job_id: str
-    related_job_ids: Dict[str, str] = field(default_factory=dict)
+    related_job_ids: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
+
+
 class LinkedJobStatusSpec:
     payload_key: str
     meta_key: str
@@ -38,13 +42,15 @@ class LinkedJobStatusSpec:
 
 
 @dataclass(frozen=True)
+
+
 class JobReuseCoordinator:
     session_id: str
     cache_key_token: str
     job_ids_by_cache_key: JobCacheMapping
     job_lock: RLock
 
-    def find_reusable_job_id(self) -> Optional[str]:
+    def find_reusable_job_id(self) -> str | None:
         return find_reusable_job_id(
             self.session_id,
             self.cache_key_token,
@@ -63,7 +69,7 @@ class JobReuseCoordinator:
         )
 
 
-def serialize_job_cache_key(cache_key: Tuple[Any, ...]) -> str:
+def serialize_job_cache_key(cache_key: tuple[Any, ...]) -> str:
     return json.dumps(list(cache_key), ensure_ascii=False, default=str)
 
 
@@ -72,7 +78,7 @@ def find_reusable_job_id(
     cache_key_token: str,
     *,
     job_ids_by_cache_key: JobCacheMapping,
-) -> Optional[str]:
+) -> str | None:
     job_id = job_ids_by_cache_key.get((session_id, cache_key_token))
     if not job_id:
         return None
@@ -123,8 +129,8 @@ def attach_linked_job_metadata(
     cache_key_token: str,
     params_payload: dict[str, object],
     cache_hit: bool,
-    primary_meta: Optional[JobMetaPayload] = None,
-    linked_meta_by_job_id: Optional[dict[str, JobMetaPayload]] = None,
+    primary_meta: JobMetaPayload | None = None,
+    linked_meta_by_job_id: dict[str, JobMetaPayload | None] = None,
 ) -> None:
     attach_standard_job_metadata(
         session_id=session_id,
@@ -281,7 +287,7 @@ def run_background_job(
                 reuse_coordinator.discard(primary_job_id)
 
 
-def default_stage_meta_for_phase(phase: str) -> Optional[JobStageMeta]:
+def default_stage_meta_for_phase(phase: str) -> JobStageMeta | None:
     normalized_phase = str(phase or "").strip().lower()
     if "loading" in normalized_phase:
         return {

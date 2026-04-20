@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -54,8 +54,10 @@ from ..training.training_temperature import (
     _temperature_feature_columns,
 )
 
+
 def _not_ready_backtest(message: str) -> BacktestFailure:
     return BacktestFailure(message=message)
+
 
 def _build_window(
     *,
@@ -64,7 +66,7 @@ def _build_window(
     origin_date: pd.Timestamp,
     max_horizon_days: int,
     min_train_rows: int,
-) -> Optional[_BacktestWindow]:
+) -> _BacktestWindow | None:
     origin_cutoff = int(np.searchsorted(history_dates, origin_date.to_datetime64(), side='right'))
     reference_train = history_frame.iloc[:origin_cutoff]
     future_rows = history_frame.iloc[origin_cutoff : origin_cutoff + max_horizon_days]
@@ -95,15 +97,16 @@ def _build_window(
         temperature_stats=window_temperature_stats,
     )
 
+
 def _simulate_candidate_paths(
     *,
     window: _BacktestWindow,
-    count_model_bundles: Dict[str, Optional[dict[str, Any]]],
-    event_bundle: Optional[dict[str, Any]],
+    count_model_bundles: dict[str, dict[str, Any | None]],
+    event_bundle: dict[str, Any | None],
     forecast_days: int,
-) -> Dict[str, Optional[List[dict[str, Any]]]]:
-    forecast_paths: Dict[str, Optional[List[dict[str, Any]]]] = {}
-    candidate_specs: List[Tuple[str, Optional[dict[str, Any]], Optional[dict[str, Any]]]] = [
+) -> dict[str, list[dict[str, Any | None]]]:
+    forecast_paths: dict[str, list[dict[str, Any | None]]] = {}
+    candidate_specs: list[tuple[str, dict[str, Any | None], dict[str, Any | None]]] = [
         ('seasonal_baseline', None, None),
         ('heuristic_forecast', None, None),
     ]
@@ -131,6 +134,7 @@ def _simulate_candidate_paths(
         )
     return forecast_paths
 
+
 def _fit_candidates(
     window: _BacktestWindow,
     *,
@@ -151,19 +155,20 @@ def _fit_candidates(
         ),
     )
 
+
 def _build_window_rows(
     *,
     window: _BacktestWindow,
     candidate_fits: _WindowCandidateFits,
-    horizon_days: List[int],
-) -> List[BacktestWindowRow]:
+    horizon_days: list[int],
+) -> list[BacktestWindowRow]:
     baseline_path = candidate_fits.forecast_paths['seasonal_baseline'] or []
     heuristic_path = candidate_fits.forecast_paths['heuristic_forecast'] or []
     count_model_paths = {
         model_key: candidate_fits.forecast_paths.get(model_key)
         for model_key in COUNT_MODEL_KEYS
     }
-    rows: List[BacktestWindowRow] = []
+    rows: list[BacktestWindowRow] = []
     for horizon_day in horizon_days:
         step_index = horizon_day - 1
         actual_row = window.future_rows.iloc[step_index]
@@ -200,6 +205,7 @@ def _build_window_rows(
         )
     return rows
 
+
 def _score_candidates(evaluation_data: _HorizonEvaluationData) -> _ScoredCandidates:
     baseline_metrics = CountMetrics.coerce(
         compute_count_metrics(evaluation_data.actuals, evaluation_data.baseline_predictions)
@@ -208,7 +214,7 @@ def _score_candidates(evaluation_data: _HorizonEvaluationData) -> _ScoredCandida
         compute_count_metrics(evaluation_data.actuals, evaluation_data.heuristic_predictions, baseline_metrics)
     )
 
-    count_metrics: Dict[str, CountMetrics] = {}
+    count_metrics: dict[str, CountMetrics] = {}
     for model_key, coverage in evaluation_data.coverage_by_model.items():
         if coverage.covered_window_count != coverage.window_count:
             continue
@@ -224,17 +230,19 @@ def _score_candidates(evaluation_data: _HorizonEvaluationData) -> _ScoredCandida
         coverage_by_model=evaluation_data.coverage_by_model,
     )
 
+
 def _select_working_method(
     scored_candidates: _ScoredCandidates,
-) -> Tuple[str, CountMetrics, dict[str, Any]]:
+) -> tuple[str, CountMetrics, dict[str, Any]]:
     return _select_count_method(
         scored_candidates.baseline_metrics,
         scored_candidates.heuristic_metrics,
         scored_candidates.count_metrics,
     )
 
+
 def _select_backtest_count_model(
-    valid_rows: List[BacktestWindowRow],
+    valid_rows: list[BacktestWindowRow],
     dataset: pd.DataFrame,
 ) -> _BacktestSelection:
     evaluation_data = _build_horizon_evaluation_data(
@@ -266,6 +274,7 @@ def _select_backtest_count_model(
         validation_evaluation_data=_with_selected_count_model(evaluation_data, selected_count_model_key),
     )
 
+
 def _select_backtest_origins(
     *,
     dataset: pd.DataFrame,
@@ -285,12 +294,13 @@ def _select_backtest_origins(
         total_windows=len(selected_origin_dates),
     )
 
+
 def _prepare_backtest_run_context(
     history_frame: pd.DataFrame,
     dataset: pd.DataFrame,
     *,
     validation_horizon_days: int,
-    max_horizon_days: Optional[int],
+    max_horizon_days: int | None,
     history_frame_is_prepared: bool,
 ) -> _BacktestRunContext:
     prepared_history_frame = (
@@ -315,13 +325,15 @@ def _prepare_backtest_run_context(
         ),
     )
 
-def _validate_backtest_run_context(context: _BacktestRunContext) -> Optional[BacktestRunResult]:
+
+def _validate_backtest_run_context(context: _BacktestRunContext) -> BacktestRunResult | None:
     if len(context.history_frame) > context.max_horizon_days and context.min_train_rows > 0:
         return None
     return _not_ready_backtest(
         f'Lead-time-aware rolling-origin backtesting is unavailable for the {_lead_time_label(context.validation_horizon_days)} '
         'lead because the history is too short after lagged features are built.'
     )
+
 
 def _record_backtest_context_perf(perf: Any, context: _BacktestRunContext, origin_selection: _BacktestOriginSelection) -> None:
     if perf is None:
@@ -334,6 +346,7 @@ def _record_backtest_context_perf(perf: Any, context: _BacktestRunContext, origi
         validation_horizon_days=context.validation_horizon_days,
         max_horizon_days=context.max_horizon_days,
     )
+
 
 def _emit_backtest_start_progress(
     progress_callback: MlProgressCallback,
@@ -350,12 +363,13 @@ def _emit_backtest_start_progress(
         ),
     )
 
+
 def _run_backtest(
     history_frame: pd.DataFrame,
     dataset: pd.DataFrame,
     progress_callback: MlProgressCallback = None,
     validation_horizon_days: int = 1,
-    max_horizon_days: Optional[int] = None,
+    max_horizon_days: int | None = None,
     history_frame_is_prepared: bool = False,
 ) -> BacktestRunResult:
     perf = current_perf_trace()
@@ -439,7 +453,7 @@ def _run_backtest(
             payload_rows=len(artifacts.backtest_rows),
         )
 
-    horizon_7_mae: Optional[float] = None
+    horizon_7_mae: float | None = None
     if len(valid_rows_7) >= MIN_BACKTEST_POINTS:
         evaluation_data_7 = _build_horizon_evaluation_data(
             valid_rows_7,

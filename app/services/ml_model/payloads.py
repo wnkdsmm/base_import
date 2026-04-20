@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from app.services.forecasting.presentation import _build_feature_cards_with_quality
 from app.services.forecasting.utils import _format_datetime, _format_float_for_input, _history_window_label
@@ -18,8 +18,8 @@ from .training.presentation_training import (
 from .training.training_result import _empty_ml_result
 
 
-def _compact_ui_notes(items: List[Any], limit: int = 2) -> List[str]:
-    notes: List[str] = []
+def _compact_ui_notes(items: list[Any], limit: int = 2) -> list[str]:
+    notes: list[str] = []
     for item in items:
         text = str(item).strip() if item is not None else ''
         if not text or text in notes:
@@ -32,20 +32,20 @@ def _compact_ui_notes(items: List[Any], limit: int = 2) -> List[str]:
 
 def _build_ml_payload(
     *,
-    table_options: List[Dict[str, str]],
+    table_options: list[dict[str, str]],
     selected_table: str,
     selected_cause: str,
     selected_object_category: str,
     temperature: str,
     days_ahead: int,
     selected_history_window: str,
-    option_catalog: Dict[str, List[Dict[str, str]]],
+    option_catalog: dict[str, list[dict[str, str]]],
     filtered_records_count: int,
-    metadata_items: List[dict[str, Any]],
-    preload_notes: List[str],
-    source_table_notes: List[str],
-    source_tables: List[str],
-    daily_history: List[dict[str, Any]],
+    metadata_items: list[dict[str, Any]],
+    preload_notes: list[str],
+    source_table_notes: list[str],
+    source_tables: list[str],
+    daily_history: list[dict[str, Any]],
     ml_result: dict[str, Any],
     scenario_temperature: Any,
     temperature_quality: dict[str, Any],
@@ -105,7 +105,7 @@ def _build_ml_payload(
 
 
 def _empty_ml_model_data(
-    table_options: List[Dict[str, str]],
+    table_options: list[dict[str, str]],
     selected_table: str,
     forecast_days: int,
     temperature: str,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import text
 
@@ -54,9 +54,9 @@ from .utils import (
 from .types import RiskDataRecord, RiskTableMetadata
 
 
-def _collect_risk_metadata(source_tables: Sequence[str]) -> tuple[List[RiskTableMetadata], List[str]]:
-    metadata_items: List[RiskTableMetadata] = []
-    notes: List[str] = []
+def _collect_risk_metadata(source_tables: Sequence[str]) -> tuple[list[RiskTableMetadata], list[str]]:
+    metadata_items: list[RiskTableMetadata] = []
+    notes: list[str] = []
     for source_table in source_tables:
         try:
             metadata = _load_table_metadata(source_table)
@@ -74,12 +74,12 @@ def _history_window_year_span(history_window: str) -> int:
     return 0
 
 
-def _resolve_history_window_min_year(metadata_items: Sequence[RiskTableMetadata], history_window: str) -> Optional[int]:
+def _resolve_history_window_min_year(metadata_items: Sequence[RiskTableMetadata], history_window: str) -> int | None:
     year_span = _history_window_year_span(history_window)
     if year_span <= 0 or not metadata_items:
         return None
 
-    latest_years: List[int] = []
+    latest_years: list[int] = []
     with engine.connect() as conn:
         for metadata in metadata_items:
             resolved_columns = metadata.get("resolved_columns") or {}
@@ -106,13 +106,13 @@ def _resolve_history_window_min_year(metadata_items: Sequence[RiskTableMetadata]
 
 
 def _build_scope_conditions(
-    resolved_columns: Dict[str, str],
-    min_year: Optional[int] = None,
+    resolved_columns: dict[str, str],
+    min_year: int | None = None,
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    selected_year: Optional[int] = None,
-) -> tuple[Optional[str], list[str], dict[str, Any], bool]:
+    selected_year: int | None = None,
+) -> tuple[str | None, list[str], dict[str, Any], bool]:
     return build_scope_conditions(
         resolved_columns,
         date_field="date",
@@ -135,10 +135,10 @@ def _collect_risk_inputs(
     cause: str = "all",
     object_category: str = "all",
     history_window: str = "all",
-    selected_year: Optional[int] = None,
-) -> tuple[List[RiskTableMetadata], List[RiskDataRecord], List[str]]:
+    selected_year: int | None = None,
+) -> tuple[list[RiskTableMetadata], list[RiskDataRecord], list[str]]:
     metadata_items, notes = _collect_risk_metadata(source_tables)
-    records: List[RiskDataRecord] = []
+    records: list[RiskDataRecord] = []
     min_year = _resolve_history_window_min_year(metadata_items, history_window)
     for metadata in metadata_items:
         try:
@@ -195,13 +195,13 @@ def _load_table_metadata(table_name: str) -> RiskTableMetadata:
 
 def _load_risk_records(
     table_name: str,
-    resolved_columns: Dict[str, str],
+    resolved_columns: dict[str, str],
     district: str = "all",
     cause: str = "all",
     object_category: str = "all",
-    min_year: Optional[int] = None,
-    selected_year: Optional[int] = None,
-) -> List[RiskDataRecord]:
+    min_year: int | None = None,
+    selected_year: int | None = None,
+) -> list[RiskDataRecord]:
     date_expression, conditions, params, scope_is_valid = _build_scope_conditions(
         resolved_columns,
         min_year=min_year,
@@ -257,7 +257,7 @@ def _load_risk_records(
     with engine.connect() as conn:
         rows = conn.execute(query, params).mappings().all()
 
-    records: List[RiskDataRecord] = []
+    records: list[RiskDataRecord] = []
     for row in rows:
         fire_date = row.get("fire_date")
         if fire_date is None:

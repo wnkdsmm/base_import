@@ -6,7 +6,7 @@ This module keeps dashboard-specific cache keys and invalidation logic on top of
 generic primitives from ``app.cache``.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from app.db_metadata import get_table_signature_cached, invalidate_db_metadata_cache
 from app.cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
@@ -15,23 +15,23 @@ from app.statistics_constants import DASHBOARD_CACHE_TTL_SECONDS, METADATA_CACHE
 
 from .metadata import _collect_dashboard_metadata
 
-_DASHBOARD_METADATA_CACHE = CopyingTtlCache[Tuple[str, ...], dict[str, Any]](
+_DASHBOARD_METADATA_CACHE = CopyingTtlCache[tuple[str, ...], dict[str, Any]](
     ttl_seconds=METADATA_CACHE_TTL_SECONDS,
     storer=freeze_mutable_payload,
     loader=clone_mutable_payload,
 )
-_DASHBOARD_CACHE = CopyingTtlCache[Tuple[Any, ...], dict[str, Any]](
+_DASHBOARD_CACHE = CopyingTtlCache[tuple[Any, ...], dict[str, Any]](
     ttl_seconds=DASHBOARD_CACHE_TTL_SECONDS,
     storer=freeze_mutable_payload,
     loader=clone_mutable_payload,
 )
 
 
-def _current_dashboard_table_names() -> Tuple[str, ...]:
+def _current_dashboard_table_names() -> tuple[str, ...]:
     return tuple(sorted(select_user_table_names(list(get_table_signature_cached()))))
 
 
-def _metadata_table_names(metadata: Optional[dict[str, Any]]) -> Tuple[str, ...]:
+def _metadata_table_names(metadata: dict[str, Any | None]) -> tuple[str, ...]:
     if not metadata:
         return ()
     cached_signature = metadata.get("table_signature")
@@ -59,11 +59,11 @@ def _collect_dashboard_metadata_cached() -> dict[str, Any]:
     return metadata
 
 
-def _get_dashboard_cache(cache_key: Tuple[Any, ...]) -> Optional[dict[str, Any]]:
+def _get_dashboard_cache(cache_key: tuple[Any, ...]) -> dict[str, Any | None]:
     return _DASHBOARD_CACHE.get(cache_key)
 
 
-def _set_dashboard_cache(cache_key: Tuple[Any, ...], value: dict[str, Any]) -> None:
+def _set_dashboard_cache(cache_key: tuple[Any, ...], value: dict[str, Any]) -> None:
     _DASHBOARD_CACHE.set(cache_key, value)
 
 

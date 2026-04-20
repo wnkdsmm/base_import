@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Sequence
+from typing import Sequence
 
 from app.db_metadata import get_table_names_cached
 from app.statistics_constants import EXCLUDED_TABLE_PREFIXES
@@ -31,11 +31,11 @@ def is_user_table_name(table_name: str) -> bool:
     return not normalized.startswith(EXCLUDED_TABLE_PREFIXES) and not normalized.startswith("alembic")
 
 
-def select_user_table_names(table_names: Sequence[str], *, prefer_clean: bool = False) -> List[str]:
+def select_user_table_names(table_names: Sequence[str], *, prefer_clean: bool = False) -> list[str]:
     selected = [_normalize_table_name(table_name) for table_name in table_names if is_user_table_name(str(table_name))]
     if not prefer_clean:
         return selected
-    selected_by_key: Dict[str, str] = {}
+    selected_by_key: dict[str, str] = {}
     for table_name in selected:
         key = _table_canonical_key(table_name)
         current = selected_by_key.get(key)
@@ -47,7 +47,7 @@ def select_user_table_names(table_names: Sequence[str], *, prefer_clean: bool = 
     return list(selected_by_key.values())
 
 
-def get_user_table_names(*, prefer_clean: bool = False) -> List[str]:
+def get_user_table_names(*, prefer_clean: bool = False) -> list[str]:
     return select_user_table_names(get_table_names_cached(), prefer_clean=prefer_clean)
 
 
@@ -57,7 +57,7 @@ def build_table_options(
     include_all: bool = False,
     all_label: str = _ALL_TABLES_LABEL,
     prefer_clean: bool = False,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     options = [
         {"value": table_name, "label": table_name}
         for table_name in select_user_table_names(table_names, prefer_clean=prefer_clean)
@@ -72,7 +72,7 @@ def get_user_table_options(
     include_all: bool = False,
     all_label: str = _ALL_TABLES_LABEL,
     prefer_clean: bool = False,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     return build_table_options(
         get_table_names_cached(),
         include_all=include_all,
@@ -82,7 +82,7 @@ def get_user_table_options(
 
 
 def resolve_selected_table_value(
-    table_options: Sequence[Dict[str, str]],
+    table_options: Sequence[dict[str, str]],
     table_name: str,
     *,
     fallback_value: str = "",

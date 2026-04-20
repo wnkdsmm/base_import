@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from .ml_model_config_types import (
     MIN_INTERVAL_BIN_RESIDUALS,
@@ -19,10 +19,10 @@ from .ml_model_config_types import (
 
 class PredictionIntervalAdaptiveBin(TypedDict, total=False):
     bin_index: int
-    prediction_min: Optional[float]
-    prediction_max: Optional[float]
-    lower_edge: Optional[float]
-    upper_edge: Optional[float]
+    prediction_min: float | None
+    prediction_max: float | None
+    lower_edge: float | None
+    upper_edge: float | None
     residual_count: int
     absolute_error_quantile: float
     fallback_to_global: bool
@@ -39,7 +39,7 @@ class PredictionIntervalCalibration(TypedDict, total=False):
     adaptive_bins: list[PredictionIntervalAdaptiveBin]
     method_label: str
     coverage_validated: bool
-    validated_coverage: Optional[float]
+    validated_coverage: float | None
     coverage_note: str
     calibration_window_count: int
     evaluation_window_count: int

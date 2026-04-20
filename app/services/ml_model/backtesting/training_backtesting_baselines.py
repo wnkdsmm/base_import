@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ def _baseline_expected_count(train: pd.DataFrame, target_date: pd.Timestamp) -> 
     return max(0.0, recent_mean)
 
 
-def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) -> Optional[float]:
+def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) -> float | None:
     if train.empty:
         return None
     recent_rate = float(train['event'].tail(28).mean())
@@ -34,8 +34,8 @@ def _baseline_event_probability(train: pd.DataFrame, target_date: pd.Timestamp) 
 def _scenario_reference_forecast(
     train: pd.DataFrame,
     test: pd.DataFrame,
-    temperature_stats: Optional[dict[str, Any]] = None,
-) -> Tuple[float, Optional[float]]:
+    temperature_stats: dict[str, Any | None] = None,
+) -> tuple[float, float | None]:
     if train.empty:
         return 0.0, None
 

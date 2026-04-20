@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 from .presentation_format import (
@@ -23,7 +23,7 @@ from .presentation_format import (
 def _event_probability_context(
     ml_result: dict[str, Any],
     overview: dict[str, Any],
-) -> Dict[str, Optional[str]]:
+) -> dict[str, str | None]:
     reason_code = _first_present(
         ml_result.get('event_probability_reason_code'),
         overview.get('event_probability_reason_code'),
@@ -41,15 +41,15 @@ def _event_probability_context(
 
 
 def _build_notes(
-    preload_notes: List[str],
-    metadata_items: List[dict[str, Any]],
+    preload_notes: list[str],
+    metadata_items: list[dict[str, Any]],
     filtered_records_count: int,
-    daily_history: List[dict[str, Any]],
+    daily_history: list[dict[str, Any]],
     ml_result: dict[str, Any],
-    scenario_temperature: Optional[float],
-    source_tables: List[str],
-) -> List[str]:
-    notes: List[str] = []
+    scenario_temperature: float | None,
+    source_tables: list[str],
+) -> list[str]:
+    notes: list[str] = []
 
     def append_note(value: Any) -> None:
         if value is None:

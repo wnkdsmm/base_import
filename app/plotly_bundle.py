@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from typing import Any, Dict
+from typing import Any
 
 try:
     import plotly.graph_objects as go
@@ -30,6 +30,8 @@ DEFAULT_PLOTLY_CONFIG: dict[str, Any] = {
 
 
 @lru_cache(maxsize=1)
+
+
 def get_plotly_bundle() -> str:
     if not PLOTLY_AVAILABLE or get_plotlyjs is None:
         return "window.Plotly = window.Plotly || undefined;"
@@ -68,7 +70,7 @@ def build_empty_plotly_figure_payload(
     annotation_color: str = "#7b6a5a",
     paper_bgcolor: str = "rgba(255,255,255,0)",
     plot_bgcolor: str = "rgba(255,255,255,0)",
-    margin: Dict[str, int] | None = None,
+    margin: dict[str, int] | None = None,
     use_plotly: bool = True,
 ) -> dict[str, Any]:
     if not use_plotly:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -13,10 +13,10 @@ class ClusteringDataLoader(DataLoader):
     def __init__(self) -> None:
         super().__init__(cache=None, cache_namespace="clustering_data")
 
-    def build_table_options(self) -> List[Dict[str, str]]:
+    def build_table_options(self) -> list[dict[str, str]]:
         return _impl._build_table_options()
 
-    def resolve_selected_table(self, table_options: List[Dict[str, str]], table_name: str) -> str:
+    def resolve_selected_table(self, table_options: list[dict[str, str]], table_name: str) -> str:
         return _impl._resolve_selected_table(table_options, table_name)
 
     def parse_cluster_count(self, value: str) -> int:
@@ -38,7 +38,7 @@ class ClusteringDataLoader(DataLoader):
         feature_frame: pd.DataFrame | None = None,
         entity_frame: pd.DataFrame | None = None,
         cluster_count: int = 4,
-    ) -> Tuple[List[str], str]:
+    ) -> tuple[list[str], str]:
         return _impl._resolve_selected_features(
             available_features,
             requested_features,
@@ -47,7 +47,7 @@ class ClusteringDataLoader(DataLoader):
             cluster_count=cluster_count,
         )
 
-    def build_feature_options(self, candidate_features: Sequence[dict[str, Any]], selected_features: Sequence[str]) -> List[dict[str, Any]]:
+    def build_feature_options(self, candidate_features: Sequence[dict[str, Any]], selected_features: Sequence[str]) -> list[dict[str, Any]]:
         return _impl._build_feature_options(candidate_features, selected_features)
 
     def prepare_cluster_frame(
@@ -55,18 +55,18 @@ class ClusteringDataLoader(DataLoader):
         feature_frame: pd.DataFrame,
         entity_frame: pd.DataFrame,
         selected_features: Sequence[str],
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, int]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame, int]:
         return _impl._prepare_cluster_frame(feature_frame, entity_frame, selected_features)
 
 
 _LOADER = ClusteringDataLoader()
 
 
-def _build_table_options() -> List[Dict[str, str]]:
+def _build_table_options() -> list[dict[str, str]]:
     return _LOADER.build_table_options()
 
 
-def _resolve_selected_table(table_options: List[Dict[str, str]], table_name: str) -> str:
+def _resolve_selected_table(table_options: list[dict[str, str]], table_name: str) -> str:
     return _LOADER.resolve_selected_table(table_options, table_name)
 
 
@@ -92,7 +92,7 @@ def _resolve_selected_features(
     feature_frame: pd.DataFrame | None = None,
     entity_frame: pd.DataFrame | None = None,
     cluster_count: int = 4,
-) -> Tuple[List[str], str]:
+) -> tuple[list[str], str]:
     return _LOADER.resolve_selected_features(
         available_features,
         requested_features,
@@ -102,7 +102,7 @@ def _resolve_selected_features(
     )
 
 
-def _build_feature_options(candidate_features: Sequence[dict[str, Any]], selected_features: Sequence[str]) -> List[dict[str, Any]]:
+def _build_feature_options(candidate_features: Sequence[dict[str, Any]], selected_features: Sequence[str]) -> list[dict[str, Any]]:
     return _LOADER.build_feature_options(candidate_features, selected_features)
 
 
@@ -110,8 +110,9 @@ def _prepare_cluster_frame(
     feature_frame: pd.DataFrame,
     entity_frame: pd.DataFrame,
     selected_features: Sequence[str],
-) -> Tuple[pd.DataFrame, pd.DataFrame, int]:
+) -> tuple[pd.DataFrame, pd.DataFrame, int]:
     return _LOADER.prepare_cluster_frame(feature_frame, entity_frame, selected_features)
+
 
 def _aggregate_territory_frame(records: Sequence[dict[str, Any]]) -> pd.DataFrame:
     return _impl._aggregate_territory_frame(records)

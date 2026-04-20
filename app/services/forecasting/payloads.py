@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from app.services.charting import build_empty_chart_bundle as _empty_chart_bundle
 from app.services.executive_brief import empty_executive_brief
@@ -13,7 +13,7 @@ from .utils import _format_datetime, _history_window_label
 
 
 def _empty_forecasting_data(
-    table_options: List[Dict[str, str]],
+    table_options: list[dict[str, str]],
     selected_table: str,
     forecast_days: int,
     temperature: str,

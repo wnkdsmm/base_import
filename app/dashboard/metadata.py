@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from app.db_metadata import get_table_columns_cached, get_table_signature_cached
 from app.table_catalog import build_table_options, select_user_table_names
@@ -34,8 +34,8 @@ def _source_table_canonical_key(table_name: str) -> str:
     return normalized.casefold()
 
 
-def _prefer_original_source_tables(table_names: Sequence[str]) -> List[str]:
-    selected_by_key: Dict[str, str] = {}
+def _prefer_original_source_tables(table_names: Sequence[str]) -> list[str]:
+    selected_by_key: dict[str, str] = {}
     for raw_name in table_names:
         normalized = str(raw_name or "").strip()
         if not normalized:
@@ -66,7 +66,7 @@ def _resolve_original_table_name(table_name: str, available_tables: Sequence[str
     return normalized
 
 
-def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> dict[str, Any]:
+def _collect_dashboard_metadata(table_names: Sequence[str | None] = None) -> dict[str, Any]:
     resolved_table_names = (
         list(table_names)
         if table_names is not None
@@ -74,8 +74,8 @@ def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> 
     )
     resolved_table_names = _prefer_original_source_tables(resolved_table_names)
 
-    tables: List[dict[str, Any]] = []
-    errors: List[str] = []
+    tables: list[dict[str, Any]] = []
+    errors: list[str] = []
 
     with engine.connect() as conn:
         for table_name in resolved_table_names:
@@ -128,18 +128,18 @@ def _collect_dashboard_metadata(table_names: Optional[Sequence[str]] = None) -> 
     }
 
 
-def _resolve_selected_tables(tables: List[dict[str, Any]], table_name: str) -> List[dict[str, Any]]:
+def _resolve_selected_tables(tables: list[dict[str, Any]], table_name: str) -> list[dict[str, Any]]:
     if not table_name or table_name == "all":
         return tables
     return [table for table in tables if table["name"] == table_name]
 
 
-def _collect_year_options(tables: List[dict[str, Any]]) -> List[Dict[str, str]]:
+def _collect_year_options(tables: list[dict[str, Any]]) -> list[dict[str, str]]:
     years = sorted({year for table in tables for year in table["years"]}, reverse=True)
     return [{"value": str(year), "label": str(year)} for year in years]
 
 
-def _collect_group_column_options(tables: List[dict[str, Any]]) -> List[Dict[str, str]]:
+def _collect_group_column_options(tables: list[dict[str, Any]]) -> list[dict[str, str]]:
     result = []
     for group_label, columns in DISTRIBUTION_GROUPS:
         if group_label == DAMAGE_GROUP_LABEL:
@@ -164,7 +164,7 @@ def _collect_group_column_options(tables: List[dict[str, Any]]) -> List[Dict[str
     return result
 
 
-def _resolve_group_column(group_column: str, options: List[Dict[str, str]], default_value: str) -> str:
+def _resolve_group_column(group_column: str, options: list[dict[str, str]], default_value: str) -> str:
     available_values = [item["value"] for item in options]
     if group_column in available_values:
         return group_column

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from .utils import _format_number, _format_percent
 
 
 def _priority_label(
     risk_score: float,
-    component_score_map: Dict[str, Dict[str, float]],
+    component_score_map: dict[str, dict[str, float]],
     is_rural: bool,
     thresholds: dict[str, Any],
 ) -> tuple[str, str]:
@@ -25,6 +25,7 @@ def _priority_label(
         return "Нужны точечные меры", "sand"
     return "Плановое наблюдение", "sky"
 
+
 def _risk_class(score: float, thresholds: dict[str, Any]) -> tuple[str, str]:
     risk_thresholds = thresholds.get("risk_class") or {}
     if score >= float(risk_thresholds.get("high", 67.0)):
@@ -33,13 +34,14 @@ def _risk_class(score: float, thresholds: dict[str, Any]) -> tuple[str, str]:
         return "Средний риск", "medium"
     return "Низкий риск", "low"
 
+
 def _recommended_action(
     risk_score: float,
     component_scores: Sequence[dict[str, Any]],
     context: dict[str, Any],
-) -> tuple[str, str, List[Dict[str, str]]]:
+) -> tuple[str, str, list[dict[str, str]]]:
     component_map = {item["key"]: item for item in component_scores}
-    recommendations: List[Dict[str, str]] = []
+    recommendations: list[dict[str, str]] = []
 
     fire_component = component_map.get("fire_frequency", {})
     severe_component = component_map.get("consequence_severity", {})
@@ -120,11 +122,13 @@ def _recommended_action(
         action_hint = recommendations[0]["detail"]
     return action_label, action_hint, recommendations[:3]
 
+
 def _build_formula_display(component_scores: Sequence[dict[str, Any]], risk_score: float) -> str:
     parts = [f"{item['label']} {_format_number(item['contribution'])}" for item in component_scores]
     return f"{' + '.join(parts)} = {_format_number(risk_score)}"
 
-def _attach_ranking_context(territory_rows: List[dict[str, Any]]) -> None:
+
+def _attach_ranking_context(territory_rows: list[dict[str, Any]]) -> None:
     if not territory_rows:
         return
 
@@ -152,6 +156,7 @@ def _attach_ranking_context(territory_rows: List[dict[str, Any]]) -> None:
             }
         )
 
+
 def _build_ranking_reason(index: int, gap_to_next: float, gap_to_top: float, component_lead: str) -> str:
     if index == 0:
         if gap_to_next >= 4.0:
@@ -166,7 +171,8 @@ def _build_ranking_reason(index: int, gap_to_next: float, gap_to_top: float, com
         return f"Территория входит в верхнюю группу: отставание {_format_number(gap_to_top)} балла, ключевые вклады {component_lead}."
     return f"Территория остается в списке из-за вкладов {component_lead}, хотя ниже лидера на {_format_number(gap_to_top)} балла."
 
-def _top_territory_lead(top_territory: Optional[dict[str, Any]]) -> str:
+
+def _top_territory_lead(top_territory: dict[str, Any | None]) -> str:
     if not top_territory:
         return "Недостаточно данных для лидирующей территории."
     strongest_components = ", ".join(
@@ -180,6 +186,7 @@ def _top_territory_lead(top_territory: Optional[dict[str, Any]]) -> str:
         top_territory.get("action_hint") or "",
     ]
     return " ".join(part.strip() for part in parts if str(part).strip())
+
 
 def _water_supply_display(available_count: int, known_count: int) -> str:
     if known_count <= 0:

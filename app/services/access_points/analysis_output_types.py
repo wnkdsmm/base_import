@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, NamedTuple, Sequence
+from typing import Any, NamedTuple, Sequence
 
 from app.services.shared.formatting import _format_number, _format_percent
 
@@ -19,10 +19,12 @@ from .analysis_factors import (
     WATER_CODE,
 )
 
+
 def _format_coordinate(value: float | None) -> str:
     if value is None:
         return ""
     return f"{value:.4f}".replace(".", ",")
+
 
 def _status_for_score(score: float) -> tuple[str, str]:
     if score >= CRITICAL_THRESHOLD:
@@ -33,6 +35,7 @@ def _status_for_score(score: float) -> tuple[str, str]:
         return "watch", "Наблюдение"
     return "normal", "Контроль"
 
+
 def _component_tone(score: float) -> str:
     if score >= 65.0:
         return "critical"
@@ -42,7 +45,8 @@ def _component_tone(score: float) -> str:
         return "watch"
     return "normal"
 
-def _severity_band_descriptor(score: float) -> Dict[str, str]:
+
+def _severity_band_descriptor(score: float) -> dict[str, str]:
     tone, label = _status_for_score(score)
     if tone == "critical":
         return {"severity_band_code": "critical", "severity_band": "критический", "priority_label": label, "tone": tone}
@@ -51,6 +55,7 @@ def _severity_band_descriptor(score: float) -> Dict[str, str]:
     if tone == "watch":
         return {"severity_band_code": "medium", "severity_band": "средний", "priority_label": label, "tone": tone}
     return {"severity_band_code": "low", "severity_band": "низкий", "priority_label": label, "tone": tone}
+
 
 def _factor_label(reason_code: str) -> str:
     return {
@@ -64,6 +69,7 @@ def _factor_label(reason_code: str) -> str:
         HEATING_CODE: "Отопительный сезон",
         UNCERTAINTY_CODE: "Неполнота данных",
     }.get(reason_code, reason_code)
+
 
 def _make_decomposition_item(
     *,
@@ -92,14 +98,18 @@ def _make_decomposition_item(
         "tone": _component_tone(contribution_points * 5.0),
     }
 
+
 def _distance_value_display(value: Any) -> str:
     return "н/д" if value is None else f"{_format_number(value)} км"
+
 
 def _response_value_display(value: Any) -> str:
     return "н/д" if value is None else f"{_format_number(value)} мин"
 
+
 def _share_value_display(value: float) -> str:
     return _format_percent(value * 100.0)
+
 
 def _build_component_score_item(key: str, label: str, score: float) -> dict[str, Any]:
     return {
@@ -110,6 +120,7 @@ def _build_component_score_item(key: str, label: str, score: float) -> dict[str,
         "tone": _component_tone(score),
     }
 
+
 def _build_component_scores_from_values(
     *,
     access_score: float,
@@ -117,7 +128,7 @@ def _build_component_scores_from_values(
     severity_score: float,
     recurrence_score: float,
     data_gap_score: float,
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     return [
         _build_component_score_item("access", "Доступность ПЧ", access_score),
         _build_component_score_item("water", "Водоснабжение", water_score),
@@ -126,7 +137,8 @@ def _build_component_scores_from_values(
         _build_component_score_item("data_gap", "Неполнота данных", data_gap_score),
     ]
 
-def _build_reason_details(score_decomposition: Sequence[dict[str, Any]]) -> List[dict[str, Any]]:
+
+def _build_reason_details(score_decomposition: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     ranked = sorted(
         ((item, float(item.get("contribution_points") or 0.0)) for item in score_decomposition),
         key=lambda pair: pair[1],
@@ -144,6 +156,7 @@ def _build_reason_details(score_decomposition: Sequence[dict[str, Any]]) -> List
         if contribution > 0
     ]
     return details[:4]
+
 
 def _build_human_readable_explanation(
     *,
@@ -170,6 +183,7 @@ def _build_human_readable_explanation(
     elif low_support:
         lead += " Точка низкой опоры: долевые признаки сглажены, а итоговый score ослаблен."
     return lead
+
 
 def _typology_for_score_values(
     *,
@@ -198,6 +212,7 @@ def _typology_for_score_values(
     if dominant == "recurrence" and components["recurrence"] >= 28.0:
         return "recurrence", "Повторяющийся очаг"
     return "mixed", "Комбинированный риск"
+
 
 class _AccessPointRowMetrics(NamedTuple):
     incident_count: int
@@ -232,8 +247,9 @@ class _AccessPointRowMetrics(NamedTuple):
     latitude: float | None
     longitude: float | None
 
+
 class _AccessPointScoreContext(NamedTuple):
-    score_decomposition: List[dict[str, Any]]
+    score_decomposition: list[dict[str, Any]]
     total_score: float
     total_score_payload: float
     total_score_display: str
@@ -248,7 +264,8 @@ class _AccessPointScoreContext(NamedTuple):
     severity_score_payload: float
     recurrence_score_payload: float
     data_gap_score_payload: float
-    component_scores: List[dict[str, Any]]
+    component_scores: list[dict[str, Any]]
+
 
 class _AccessPointDisplayContext(NamedTuple):
     average_distance_display: str
@@ -264,12 +281,14 @@ class _AccessPointDisplayContext(NamedTuple):
     rural_share_display: str
     completeness_display: str
 
+
 class _AccessPointReasonListContext(NamedTuple):
-    top_reason_codes: List[str]
-    reasons: List[str]
-    reason_chips: List[str]
+    top_reason_codes: list[str]
+    reasons: list[str]
+    reason_chips: list[str]
+
 
 class _AccessPointReasonContext(NamedTuple):
-    reason_details: List[dict[str, Any]]
+    reason_details: list[dict[str, Any]]
     reason_lists: _AccessPointReasonListContext
     explanation: str

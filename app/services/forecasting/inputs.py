@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Sequence
+from typing import Any, Callable, Sequence
 
 from app.cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
 
 from .selection import _canonicalize_source_tables, _normalize_filter_value
 from .types import ForecastingBaseInputs, ForecastingMetadataInputs
 
-ForecastingDeps = Dict[str, Callable[..., Any]]
+ForecastingDeps = dict[str, Callable[..., Any]]
 
 _FORECASTING_METADATA_BUNDLE_CACHE = CopyingTtlCache(
     ttl_seconds=120.0,
