@@ -127,7 +127,7 @@ def apply_match_results(
         drop_sub = profile_df.loc[protected_idx, "drop_reasons"] if has_drop_reasons else None
         protected_columns = [
             {
-                "column": str(names_sub.loc[idx]),
+                "column": str(names_sub.at[idx]),
                 "protected_feature_id": str(match_sub.at[idx, "feature_id"]),
                 "protected_feature_label": str(match_sub.at[idx, "feature_label"]),
                 "mandatory_feature_detected": bool(match_sub.at[idx, "mandatory"]),
@@ -135,7 +135,7 @@ def apply_match_results(
                 "protection_rule": str(match_sub.at[idx, "rule_id"]),
                 "protection_match": str(match_sub.at[idx, "matched_value"]),
                 "protection_reason": str(match_sub.at[idx, "reason"]),
-                "drop_reasons": drop_sub.loc[idx] if drop_sub is not None else [],
+                "drop_reasons": drop_sub.at[idx] if drop_sub is not None else [],
             }
             for idx in protected_idx
         ]

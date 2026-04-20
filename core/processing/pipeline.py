@@ -1,4 +1,6 @@
-﻿import logging
+from __future__ import annotations
+
+import logging
 import time
 
 
@@ -25,9 +27,13 @@ class Pipeline:
     def __init__(self, settings):
         self.settings = settings
         self.steps = []
+        self._step_kwargs: dict[str, dict[str, object]] = {}
 
     def add_step(self, step: PipelineStep):
         self.steps.append(step)
+
+    def set_step_kwargs(self, step_name: str, **kwargs: object) -> None:
+        self._step_kwargs[step_name] = kwargs
 
     def run(self) -> dict[str, object]:
         logger.info("\nЗапуск конвейера: %s\n", self.settings.project_name)
@@ -37,7 +43,7 @@ class Pipeline:
             logger.info("\nШаг: %s", step.name)
             start_time = time.time()
             try:
-                result = step.run(self.settings)
+                result = step.run(self.settings, **self._step_kwargs.get(step.name, {}))
             except Exception as exc:
                 logger.exception("Ошибка на шаге %s", step.name)
                 return {

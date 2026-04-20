@@ -10,6 +10,9 @@ DISTRICT_LABEL = "\u0420\u0430\u0439\u043e\u043d"
 
 
 class _CheapColumnMatcher(NatashaColumnMatcher):
+    # super().__init__() намеренно не вызывается: обходим инициализацию Natasha
+    # (MorphVocab, Segmenter, NewsMorphTagger) ради скорости unit-тестов.
+    # Все методы, зависящие от NLP-моделей, переопределены ниже.
     def __init__(self):
         self.column_term_calls = []
         self._terms_cache: OrderedDict[str, object] = OrderedDict()
