@@ -70,7 +70,7 @@ def _match_mandatory_feature_payload(
                 mandatory=True,
             )
 
-        tokens = list(synonym.get("tokens") or [])
+        tokens = synonym.get("tokens") or []
         if (
             token_match_synonym is None
             and len(tokens) > 1
@@ -375,9 +375,6 @@ def _collect_column_matches(
 
 class NatashaColumnMatcher:
     """Переиспользуемый Natasha-поиск и доменный матчер по названиям колонок."""
-    _terms_cache: OrderedDict[str, ColumnTermPayload]
-    _group_catalog_cache: OrderedDict[frozenset[str], list[dict[str, object]]]
-
     def __init__(self) -> None:
         self.morph_vocab: MorphVocab = MorphVocab()
         self.segmenter: Segmenter = Segmenter()
@@ -604,4 +601,3 @@ def get_column_matcher() -> NatashaColumnMatcher:
             if _COLUMN_MATCHER is None:
                 _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
-
