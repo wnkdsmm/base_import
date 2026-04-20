@@ -1,4 +1,3 @@
-# pipeline.py
 import logging
 import time
 

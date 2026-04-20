@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -11,6 +11,13 @@ from .column_definitions import (
     PROTECTION_TEXT_COLUMNS,
 )
 from ...types import ColumnMatchMetadata, ProtectedColumnInfo
+
+_PROTECTED_BOOL_COLUMNS: frozenset[str] = frozenset({
+    "profiling_candidate_to_drop",
+    "candidate_to_drop",
+    "mandatory_feature_detected",
+    "protected_from_drop",
+})
 
 
 def coerce_bool_series(series: pd.Series) -> pd.Series:
@@ -24,23 +31,18 @@ def coerce_text_series(series: pd.Series) -> pd.Series:
     return series.astype("string").fillna("").astype(object)
 
 
-def _coerce_list_value(value: Any) -> List[Any]:
+def _coerce_list_value(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return []
     if isinstance(value, str):
         text = value.strip()
-        if not text:
-            return []
         if text.startswith("["):
             try:
                 parsed = ast.literal_eval(text)
+                if isinstance(parsed, list):
+                    return parsed
             except (ValueError, SyntaxError):
-                return []
-            if isinstance(parsed, list):
-                return parsed
-        return []
+                pass
     return []
 
 
@@ -74,8 +76,8 @@ def coerce_report_bool_columns(profile_df: pd.DataFrame) -> pd.DataFrame:
 def apply_match_results(
     profile_df: pd.DataFrame,
     column_names: pd.Series,
-    matches: List[Optional[ColumnMatchMetadata]],
-) -> List[ProtectedColumnInfo]:
+    matches: list[Optional[ColumnMatchMetadata]],
+) -> list[ProtectedColumnInfo]:
     match_df = pd.DataFrame(
         [
             {
@@ -128,7 +130,7 @@ def apply_match_results(
         if "drop_reasons" in profile_df.columns
         else [[] for _ in range(len(profile_df))]
     )
-    protected_columns: List[ProtectedColumnInfo] = protected_export.loc[
+    protected_columns: list[ProtectedColumnInfo] = protected_export.loc[
         protected_mask,
         [
             "column",
@@ -149,17 +151,8 @@ def build_protected_report(profile_df: pd.DataFrame) -> pd.DataFrame:
     protected_df = profile_df.loc[profile_df["protected_from_drop"]].copy()
     for column_name in PROTECTED_REPORT_COLUMNS:
         if column_name not in protected_df.columns:
-            protected_df[column_name] = (
-                ""
-                if column_name
-                not in {
-                    "profiling_candidate_to_drop",
-                    "candidate_to_drop",
-                    "mandatory_feature_detected",
-                    "protected_from_drop",
-                }
-                else False
-            )
+            default = False if column_name in _PROTECTED_BOOL_COLUMNS else ""
+            protected_df[column_name] = default
     return protected_df[PROTECTED_REPORT_COLUMNS].sort_values(
         by=["mandatory_feature_detected", "protected_feature_label", "column"],
         ascending=[False, True, True],
