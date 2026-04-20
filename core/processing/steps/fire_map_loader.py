@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
 import pandas as pd
 from sqlalchemy import text
 
@@ -10,7 +8,7 @@ from config.db import engine
 from core.mapping.config import Config
 from core.types import FireMapSource
 
-_FIRE_MAP_COLUMN_GROUPS: Tuple[str, ...] = (
+_FIRE_MAP_COLUMN_GROUPS: tuple[str, ...] = (
     "lat_names",
     "lon_names",
     "date_names",
@@ -43,13 +41,15 @@ def _quote_identifier(value: str) -> str:
     return '"' + str(value).replace('"', '""') + '"'
 
 
-def _resolve_fire_map_columns(available_columns: List[str], config: Config) -> Tuple[List[str], Dict[str, str]]:
-    normalized_lookup: Dict[str, str] = {}
+def _resolve_fire_map_columns(
+    available_columns: list[str], config: Config
+) -> tuple[list[str], dict[str, str]]:
+    normalized_lookup: dict[str, str] = {}
     for column in available_columns:
         normalized_lookup.setdefault(_normalize_column_name(column), column)
 
-    selected_columns: List[str] = []
-    matched_columns: Dict[str, str] = {}
+    selected_columns: list[str] = []
+    matched_columns: dict[str, str] = {}
     for group_name in _FIRE_MAP_COLUMN_GROUPS:
         for candidate in getattr(config, group_name, ()):
             matched = normalized_lookup.get(_normalize_column_name(candidate))
