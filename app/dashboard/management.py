@@ -15,8 +15,8 @@ from .types import DashboardSection, DashboardTableRef, DistributionResult, Summ
 def _build_management_snapshot_payload(
     brief: dict[str, Any],  # one-off
     *,
-    territories: list[dict[str, str | None]] = None,
-    actions: list[dict[str, str | None]] = None,
+    territories: list[dict[str, str]] | None = None,
+    actions: list[dict[str, str]] | None = None,
     notes: list[str] | None = None,
     priority_horizon_days: int = PRIORITY_HORIZON_DAYS,
 ) -> dict[str, Any]:  # one-off
