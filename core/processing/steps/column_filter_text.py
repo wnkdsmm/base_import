@@ -1,22 +1,30 @@
-п»їfrom __future__ import annotations
+from __future__ import annotations
 
+import logging
 import re
 from typing import Callable, Dict, List, Set
 
 from ...types import CategoryRule, ColumnTermPayload, MandatoryFeatureSpec
 
+
+logger = logging.getLogger(__name__)
+
+
 def _normalize_column_text(value: str) -> str:
-    text = re.sub(r"[?_/#\-]|[^\w\s]+", " ", str(value).lower())
+    text = re.sub(r"[?_/#-]|[^\w\s]+", " ", str(value).lower())
     return re.sub(r"\s+", " ", text).strip()
+
 
 def _extract_word_tokens(value: str) -> List[str]:
     return re.findall(r"\w+", value)
+
 
 def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, Set[str], Set[str]]:
     normalized_name = column_payload.get("normalized_name", "")
     words = column_payload.get("words", set())
     lemmas = column_payload.get("lemmas", set())
     return normalized_name, words, lemmas
+
 
 def _prepare_synonym_payloads(
     synonyms: List[str],
@@ -28,11 +36,14 @@ def _prepare_synonym_payloads(
         for s in synonyms
     ]
 
+
 def _prepare_token_sets(token_sets: List[List[str]], normalize_text: Callable[[str], str]) -> List[List[str]]:
     return [[normalize_text(token) for token in token_set if token] for token_set in token_sets]
 
+
 def _prepare_exclude_tokens(tokens: List[str], normalize_text: Callable[[str], str]) -> List[str]:
     return [normalize_text(token) for token in tokens if token]
+
 
 def _prepare_registry_feature_payload(
     feature: MandatoryFeatureSpec,
@@ -56,6 +67,7 @@ def _prepare_registry_feature_payload(
         ),
     }
 
+
 def _build_category_lemma_map(
     category_rules: List[CategoryRule],
     lemmatize_text: Callable[[str], List[str]],
@@ -66,8 +78,10 @@ def _build_category_lemma_map(
         for keyword in rule["keywords"]:
             try:
                 lemmas.update(lemmatize_text(keyword))
-            except Exception:
+            except Exception as exc:
+                logger.warning("Лемматизация ключевого слова '%s' не удалась: %s", keyword, exc, exc_info=False)
                 continue
         category_lemmas[rule["id"]] = lemmas
     return category_lemmas
+
 

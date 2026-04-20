@@ -30,7 +30,7 @@ class Pipeline:
     def add_step(self, step: PipelineStep):
         self.steps.append(step)
 
-    def run(self) -> dict:
+    def run(self) -> dict[str, object]:
         logger.info("\nЗапуск конвейера: %s\n", self.settings.project_name)
         step_results = []
 
@@ -38,7 +38,6 @@ class Pipeline:
             logger.info("\nШаг: %s", step.name)
             start_time = time.time()
             try:
-                # Передаем весь объект settings шагу
                 result = step.run(self.settings)
             except Exception as exc:
                 logger.exception("Ошибка на шаге %s", step.name)
@@ -66,3 +65,4 @@ class Pipeline:
             "project_name": self.settings.project_name,
             "step_results": step_results,
         }
+

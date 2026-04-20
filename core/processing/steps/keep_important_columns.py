@@ -9,11 +9,6 @@ import pandas as pd
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from core.processing.pipeline import PipelineStep
 from app.domain.column_matching import (
-    COLUMN_CATEGORY_RULES,
-    FALLBACK_IMPORTANT_PATTERNS,
-    KEYWORD_IMPORTANCE_RULES,
-    LEGACY_EXPLICIT_IMPORTANT_COLUMNS,
-    MANDATORY_FEATURE_REGISTRY,
     get_mandatory_feature_catalog,
 )
 

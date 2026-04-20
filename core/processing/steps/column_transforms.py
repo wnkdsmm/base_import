@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import json
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -39,10 +38,7 @@ def coerce_list_series(series: pd.Series) -> pd.Series:
                 try:
                     parsed = ast.literal_eval(text)
                 except (ValueError, SyntaxError):
-                    try:
-                        parsed = json.loads(text)
-                    except (json.JSONDecodeError, TypeError, ValueError):
-                        return []
+                    return []
                 if isinstance(parsed, list):
                     return parsed
             return []

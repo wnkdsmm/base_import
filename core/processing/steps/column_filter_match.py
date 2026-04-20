@@ -578,6 +578,3 @@ def get_column_matcher() -> NatashaColumnMatcher:
                 _COLUMN_MATCHER = NatashaColumnMatcher()
     return _COLUMN_MATCHER
 
-
-
-
