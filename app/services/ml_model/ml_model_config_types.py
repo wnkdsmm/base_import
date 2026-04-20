@@ -149,7 +149,7 @@ _CACHE_LIMIT = C_ML_CACHE_LIMIT
 _POISSON_PARAMS = C_POISSON_PARAMS
 _LOGISTIC_PARAMS = C_LOGISTIC_PARAMS
 
-MlProgressCallback = Callable[[str, str | None, None]]
+MlProgressCallback = Callable[[str, str | None], None]
 
 
 def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: str) -> None:
@@ -159,4 +159,3 @@ def _emit_progress(progress_callback: MlProgressCallback, phase: str, message: s
         progress_callback(phase, message)
     except Exception:
         return
-

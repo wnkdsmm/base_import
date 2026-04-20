@@ -9,6 +9,7 @@ from config.db import engine
 from app.services.shared.formatting import (
     _format_float_for_input,
     _format_period,
+    _format_percent,
     _format_signed_percent,
     format_count_range as _format_count_range,
     format_datetime as _format_datetime,
@@ -241,5 +242,4 @@ def _date_expression(column_name: str) -> str:
         f"WHEN {text_value} ~ '^[0-9]{{4}}/[0-9]{{2}}/[0-9]{{2}}' THEN TO_DATE(SUBSTRING({text_value} FROM 1 FOR 10), 'YYYY/MM/DD') "
         "ELSE NULL END"
     )
-
 

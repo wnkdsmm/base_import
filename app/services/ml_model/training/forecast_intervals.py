@@ -105,7 +105,7 @@ def _predict_heuristic_future_step(
     temp_value: float,
     temperature_usable: bool,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
-    reference_train_factory: Callable[[ | None, pd.DataFrame]] = None,
+    reference_train_factory: Callable[[], pd.DataFrame] | None = None,
 ) -> tuple[float, float | None]:
     forecast_rows = _build_scenario_forecast_rows(history_records, 1, temp_value if temperature_usable else None)
     if forecast_rows:
@@ -135,7 +135,7 @@ def _predict_future_count(
     temperature_usable: bool,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
     feature_design_row: pd.DataFrame | None = None,
-    reference_train_factory: Callable[[ | None, pd.DataFrame]] = None,
+    reference_train_factory: Callable[[], pd.DataFrame] | None = None,
 ) -> float:
     if selected_count_model_key == 'seasonal_baseline':
         reference_train = (

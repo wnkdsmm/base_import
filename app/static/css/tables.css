@@ -288,4 +288,120 @@
     z-index: var(--z-sticky);
 }
 
+.table-summary-scope {
+    max-width: min(100%, 30rem);
+    text-align: right;
+}
+
+.table-pagination-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    padding: 0 24px 20px;
+    align-items: end;
+}
+
+.table-pagination-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, max-content));
+    gap: 12px;
+    align-items: end;
+}
+
+.table-pagination-form.is-loading {
+    opacity: 0.72;
+}
+
+.table-pagination-field {
+    min-width: 0;
+}
+
+.table-pagination-submit {
+    min-width: 140px;
+    width: auto;
+}
+
+.table-pagination-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.table-page-link,
+.table-page-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: var(--space-token-03);
+    border-radius: var(--radius-control);
+    border: 1px solid var(--control-border);
+    background: var(--control-bg);
+}
+
+.table-page-link {
+    color: var(--accent-deep);
+    font-weight: 700;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.table-page-link:hover {
+    transform: translateY(-1px);
+    text-decoration: none;
+    border-color: var(--control-border-strong);
+    background: var(--control-bg-hover);
+}
+
+.table-page-link.is-disabled {
+    color: var(--muted);
+    pointer-events: none;
+    background: var(--color-token-28);
+}
+
+.table-page-indicator {
+    min-width: 110px;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.data-table-shell {
+    padding: 0 24px 24px;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+@media (max-width: 980px) {
+    .table-summary-scope {
+        text-align: left;
+    }
+
+    .table-pagination-toolbar {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .table-pagination-form {
+        grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+    }
+
+    .table-pagination-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 640px) {
+    .table-pagination-form {
+        grid-template-columns: 1fr;
+    }
+
+    .table-page-link,
+    .table-page-indicator,
+    .table-pagination-submit {
+        width: 100%;
+    }
+}
+
 
