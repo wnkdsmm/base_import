@@ -1,4 +1,4 @@
-from __future__ import annotations
+п»їfrom __future__ import annotations
 
 import logging
 import re
@@ -53,16 +53,16 @@ def _prepare_registry_feature_payload(
     return {
         **feature,
         "prepared_synonyms": _prepare_synonym_payloads(
-            list(feature.get("synonyms", [])),
+            feature.get("synonyms", []),
             normalize_text,
             extract_words,
         ),
         "prepared_token_sets": _prepare_token_sets(
-            list(feature.get("token_sets", [])),
+            feature.get("token_sets", []),
             normalize_text,
         ),
         "prepared_exclude_tokens": _prepare_exclude_tokens(
-            list(feature.get("exclude_tokens", [])),
+            feature.get("exclude_tokens", []),
             normalize_text,
         ),
     }
@@ -79,9 +79,7 @@ def _build_category_lemma_map(
             try:
                 lemmas.update(lemmatize_text(keyword))
             except Exception as exc:
-                logger.warning("Лемматизация ключевого слова '%s' не удалась: %s", keyword, exc, exc_info=False)
+                logger.warning("РќРµ СѓРґР°Р»РѕСЃСЊ Р»РµРјРјР°С‚РёР·РёСЂРѕРІР°С‚СЊ РєР»СЋС‡РµРІРѕРµ СЃР»РѕРІРѕ РєР°С‚РµРіРѕСЂРёРё '%s': %s", keyword, exc, exc_info=False)
                 continue
         category_lemmas[rule["id"]] = lemmas
     return category_lemmas
-
-

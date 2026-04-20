@@ -24,27 +24,28 @@ def coerce_text_series(series: pd.Series) -> pd.Series:
     return series.astype("string").fillna("").astype(object)
 
 
-def coerce_list_series(series: pd.Series) -> pd.Series:
-    def _coerce_value(value: Any) -> List[Any]:
-        if isinstance(value, list):
-            return value
-        if value is None or (isinstance(value, float) and pd.isna(value)):
-            return []
-        if isinstance(value, str):
-            text = value.strip()
-            if not text:
-                return []
-            if text.startswith("["):
-                try:
-                    parsed = ast.literal_eval(text)
-                except (ValueError, SyntaxError):
-                    return []
-                if isinstance(parsed, list):
-                    return parsed
-            return []
+def _coerce_list_value(value: Any) -> List[Any]:
+    if isinstance(value, list):
+        return value
+    if value is None or (isinstance(value, float) and pd.isna(value)):
         return []
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith("["):
+            try:
+                parsed = ast.literal_eval(text)
+            except (ValueError, SyntaxError):
+                return []
+            if isinstance(parsed, list):
+                return parsed
+        return []
+    return []
 
-    return series.apply(_coerce_value).astype(object)
+
+def coerce_list_series(series: pd.Series) -> pd.Series:
+    return series.apply(_coerce_list_value).astype(object)
 
 
 def ensure_report_columns(profile_df: pd.DataFrame) -> pd.DataFrame:
