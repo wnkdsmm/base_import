@@ -1,5 +1,5 @@
-from collections import OrderedDict
 import unittest
+from collections import OrderedDict
 
 from core.processing.steps import keep_important_columns
 from core.processing.steps.keep_important_columns import NatashaColumnMatcher
@@ -12,8 +12,8 @@ DISTRICT_LABEL = "\u0420\u0430\u0439\u043e\u043d"
 class _CheapColumnMatcher(NatashaColumnMatcher):
     def __init__(self):
         self.column_term_calls = []
-        self._terms_cache: OrderedDict = OrderedDict()
-        self._group_catalog_cache: OrderedDict = OrderedDict()
+        self._terms_cache: OrderedDict[str, object] = OrderedDict()
+        self._group_catalog_cache: OrderedDict[frozenset[str], list[object]] = OrderedDict()
         self.category_lemmas = {
             rule["id"]: {
                 lemma

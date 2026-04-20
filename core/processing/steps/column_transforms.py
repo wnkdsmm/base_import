@@ -121,19 +121,23 @@ def apply_match_results(
     protected_columns: list[ProtectedColumnInfo] = []
     if protected_mask.any():
         has_drop_reasons = "drop_reasons" in profile_df.columns
+        protected_idx = profile_df.index[protected_mask]
+        names_sub = column_names.loc[protected_idx]
+        match_sub = match_df.loc[protected_idx]
+        drop_sub = profile_df.loc[protected_idx, "drop_reasons"] if has_drop_reasons else None
         protected_columns = [
             {
-                "column": str(column_names.loc[idx]),
-                "protected_feature_id": str(match_df.loc[idx, "feature_id"]),
-                "protected_feature_label": str(match_df.loc[idx, "feature_label"]),
-                "mandatory_feature_detected": bool(match_df.loc[idx, "mandatory"]),
-                "protection_scope": str(match_df.loc[idx, "scope"]),
-                "protection_rule": str(match_df.loc[idx, "rule_id"]),
-                "protection_match": str(match_df.loc[idx, "matched_value"]),
-                "protection_reason": str(match_df.loc[idx, "reason"]),
-                "drop_reasons": profile_df.loc[idx, "drop_reasons"] if has_drop_reasons else [],
+                "column": str(names_sub.loc[idx]),
+                "protected_feature_id": str(match_sub.at[idx, "feature_id"]),
+                "protected_feature_label": str(match_sub.at[idx, "feature_label"]),
+                "mandatory_feature_detected": bool(match_sub.at[idx, "mandatory"]),
+                "protection_scope": str(match_sub.at[idx, "scope"]),
+                "protection_rule": str(match_sub.at[idx, "rule_id"]),
+                "protection_match": str(match_sub.at[idx, "matched_value"]),
+                "protection_reason": str(match_sub.at[idx, "reason"]),
+                "drop_reasons": drop_sub.loc[idx] if drop_sub is not None else [],
             }
-            for idx in profile_df.index[protected_mask]
+            for idx in protected_idx
         ]
     return protected_columns
 

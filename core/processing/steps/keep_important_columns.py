@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-
 import pandas as pd
 
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
