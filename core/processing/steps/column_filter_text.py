@@ -1,8 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import re
-from typing import Callable, Dict, List, Set
+from typing import Callable
 
 from ...types import CategoryRule, ColumnTermPayload, MandatoryFeatureSpec
 
@@ -15,11 +15,11 @@ def _normalize_column_text(value: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _extract_word_tokens(value: str) -> List[str]:
+def _extract_word_tokens(value: str) -> list[str]:
     return re.findall(r"\w+", value)
 
 
-def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, Set[str], Set[str]]:
+def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, set[str], set[str]]:
     normalized_name = column_payload.get("normalized_name", "")
     words = column_payload.get("words", set())
     lemmas = column_payload.get("lemmas", set())
@@ -27,28 +27,28 @@ def _column_payload_parts(column_payload: ColumnTermPayload) -> tuple[str, Set[s
 
 
 def _prepare_synonym_payloads(
-    synonyms: List[str],
+    synonyms: list[str],
     normalize_text: Callable[[str], str],
-    extract_words: Callable[[str], List[str]],
-) -> List[Dict[str, object]]:
+    extract_words: Callable[[str], list[str]],
+) -> list[dict[str, object]]:
     return [
         {"raw": s, "normalized": (n := normalize_text(s)), "tokens": extract_words(n)}
         for s in synonyms
     ]
 
 
-def _prepare_token_sets(token_sets: List[List[str]], normalize_text: Callable[[str], str]) -> List[List[str]]:
+def _prepare_token_sets(token_sets: list[list[str]], normalize_text: Callable[[str], str]) -> list[list[str]]:
     return [[normalize_text(token) for token in token_set if token] for token_set in token_sets]
 
 
-def _prepare_exclude_tokens(tokens: List[str], normalize_text: Callable[[str], str]) -> List[str]:
+def _prepare_exclude_tokens(tokens: list[str], normalize_text: Callable[[str], str]) -> list[str]:
     return [normalize_text(token) for token in tokens if token]
 
 
 def _prepare_registry_feature_payload(
     feature: MandatoryFeatureSpec,
     normalize_text: Callable[[str], str],
-    extract_words: Callable[[str], List[str]],
+    extract_words: Callable[[str], list[str]],
 ) -> MandatoryFeatureSpec:
     return {
         **feature,
@@ -69,12 +69,12 @@ def _prepare_registry_feature_payload(
 
 
 def _build_category_lemma_map(
-    category_rules: List[CategoryRule],
-    lemmatize_text: Callable[[str], List[str]],
-) -> Dict[str, Set[str]]:
-    category_lemmas: Dict[str, Set[str]] = {}
+    category_rules: list[CategoryRule],
+    lemmatize_text: Callable[[str], list[str]],
+) -> dict[str, set[str]]:
+    category_lemmas: dict[str, set[str]] = {}
     for rule in category_rules:
-        lemmas: Set[str] = set()
+        lemmas: set[str] = set()
         for keyword in rule["keywords"]:
             try:
                 lemmas.update(lemmatize_text(keyword))

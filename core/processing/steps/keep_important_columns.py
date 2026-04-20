@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import pandas as pd
 
 from config.constants import PROFILING_CSV_SUFFIX, PROFILING_XLSX_SUFFIX
 from core.processing.pipeline import PipelineStep
-from app.domain.column_matching import (
-    get_mandatory_feature_catalog,
-)
 
 from .column_definitions import (
     PROTECTED_REPORT_COLUMNS,
@@ -42,7 +39,7 @@ class KeepImportantColumnsStep(PipelineStep):
 
     def __init__(self):
         super().__init__("Keep Important Columns Report")
-        self.matcher = get_column_matcher()
+        self.matcher: NatashaColumnMatcher = get_column_matcher()
 
     def run(self, settings, profile_df: Optional[pd.DataFrame] = None) -> KeepImportantColumnsResult:
         output_folder = settings.output_folder

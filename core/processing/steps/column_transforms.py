@@ -21,7 +21,7 @@ _PROTECTED_BOOL_COLUMNS: frozenset[str] = frozenset({
 
 
 def coerce_bool_series(series: pd.Series) -> pd.Series:
-    if str(series.dtype) == "bool":
+    if pd.api.types.is_bool_dtype(series):
         return series.fillna(False)
     normalized = series.astype(str).str.strip().str.lower()
     return normalized.isin(["true", "1", "yes"])
@@ -73,25 +73,27 @@ def coerce_report_bool_columns(profile_df: pd.DataFrame) -> pd.DataFrame:
     return profile_df
 
 
+def _match_to_row(match: ColumnMatchMetadata | None) -> dict[str, object]:
+    m = match or {}
+    return {
+        "has_match": bool(match),
+        "mandatory": bool(m.get("mandatory")),
+        "feature_id": str(m.get("feature_id") or ""),
+        "feature_label": str(m.get("feature_label") or ""),
+        "scope": str(m.get("scope") or ""),
+        "rule_id": str(m.get("rule_id") or ""),
+        "matched_value": str(m.get("matched_value") or ""),
+        "reason": str(m.get("reason") or ""),
+    }
+
+
 def apply_match_results(
     profile_df: pd.DataFrame,
     column_names: pd.Series,
     matches: list[Optional[ColumnMatchMetadata]],
 ) -> list[ProtectedColumnInfo]:
     match_df = pd.DataFrame(
-        [
-            {
-                "has_match": bool(match),
-                "mandatory": bool((match or {}).get("mandatory")),
-                "feature_id": str((match or {}).get("feature_id") or ""),
-                "feature_label": str((match or {}).get("feature_label") or ""),
-                "scope": str((match or {}).get("scope") or ""),
-                "rule_id": str((match or {}).get("rule_id") or ""),
-                "matched_value": str((match or {}).get("matched_value") or ""),
-                "reason": str((match or {}).get("reason") or ""),
-            }
-            for match in matches
-        ],
+        [_match_to_row(match) for match in matches],
         index=profile_df.index,
     )
     match_mask = match_df["has_match"]
