@@ -31,7 +31,7 @@ def _prepare_synonym_payloads(
     normalize_text: Callable[[str], str],
     extract_words: Callable[[str], list[str]],
 ) -> list[dict[str, object]]:
-    result: list[dict[str, object]] = []
+    result = []
     for s in synonyms:
         normalized = normalize_text(s)
         result.append({"raw": s, "normalized": normalized, "tokens": extract_words(normalized)})

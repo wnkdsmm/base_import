@@ -120,7 +120,7 @@ def apply_match_results(
 
     protected_columns: list[ProtectedColumnInfo] = []
     if protected_mask.any():
-        protected_rows = profile_df.loc[protected_mask].copy()
+        has_drop_reasons = "drop_reasons" in profile_df.columns
         protected_columns = [
             {
                 "column": str(column_names.loc[idx]),
@@ -131,10 +131,9 @@ def apply_match_results(
                 "protection_rule": str(match_df.loc[idx, "rule_id"]),
                 "protection_match": str(match_df.loc[idx, "matched_value"]),
                 "protection_reason": str(match_df.loc[idx, "reason"]),
-                "drop_reasons": profile_df.loc[idx, "drop_reasons"]
-                if "drop_reasons" in profile_df.columns else [],
+                "drop_reasons": profile_df.loc[idx, "drop_reasons"] if has_drop_reasons else [],
             }
-            for idx in protected_rows.index
+            for idx in profile_df.index[protected_mask]
         ]
     return protected_columns
 
