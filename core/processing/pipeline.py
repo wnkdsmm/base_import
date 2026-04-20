@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ class PipelineStep:
     def __init__(self, name: str):
         self.name = name
 
-    def run(self, settings, **kwargs) -> dict[str, object] | None:
+    def run(self, settings: Any, **kwargs: object) -> dict[str, object] | None:
         """
         Логика шага. settings — объект конфигурации.
         Подклассы могут принимать дополнительные kwargs.
@@ -24,12 +25,12 @@ class PipelineStep:
 class Pipeline:
     """Менеджер пайплайна, запускает шаги последовательно."""
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         self.settings = settings
         self.steps = []
         self._step_kwargs: dict[str, dict[str, object]] = {}
 
-    def add_step(self, step: PipelineStep):
+    def add_step(self, step: PipelineStep) -> None:
         self.steps.append(step)
 
     def set_step_kwargs(self, step_name: str, **kwargs: object) -> None:
