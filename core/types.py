@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Protocol, Set, TypedDict
+from typing import Protocol, TypedDict
 
 import pandas as pd
 
 
 class RawDataRow(TypedDict, total=False):
-    column_values: Dict[str, object]
+    column_values: dict[str, object]
 
 
 class ProcessedRecord(TypedDict, total=False):
@@ -19,8 +19,8 @@ class ProcessedRecord(TypedDict, total=False):
     address: str
     cause: str
     object_category: str
-    response_minutes: Optional[float]
-    fire_station_distance: Optional[float]
+    response_minutes: float | None
+    fire_station_distance: float | None
     severity_raw: float
     has_victims: bool
     weight: float
@@ -28,27 +28,27 @@ class ProcessedRecord(TypedDict, total=False):
 
 
 class ColumnMapping(TypedDict, total=False):
-    date: Optional[str]
-    district: Optional[str]
-    territory_label: Optional[str]
-    settlement_type: Optional[str]
-    address: Optional[str]
-    fire_cause_general: Optional[str]
-    object_category: Optional[str]
-    deaths: Optional[str]
-    injured: Optional[str]
-    evacuated: Optional[str]
-    children_saved: Optional[str]
-    children_evacuated: Optional[str]
-    report_time: Optional[str]
-    arrival_time: Optional[str]
-    fire_station_distance: Optional[str]
+    date: str | None
+    district: str | None
+    territory_label: str | None
+    settlement_type: str | None
+    address: str | None
+    fire_cause_general: str | None
+    object_category: str | None
+    deaths: str | None
+    injured: str | None
+    evacuated: str | None
+    children_saved: str | None
+    children_evacuated: str | None
+    report_time: str | None
+    arrival_time: str | None
+    fire_station_distance: str | None
 
 
 class PipelineContext(TypedDict, total=False):
     table_name: str
-    selected_columns: List[str]
-    matched_columns: Dict[str, str]
+    selected_columns: list[str]
+    matched_columns: dict[str, str]
     limit: int
 
 
@@ -59,8 +59,8 @@ class FireMapSource(PipelineContext, total=False):
 class ColumnTermPayload(TypedDict, total=False):
     original_name: str
     normalized_name: str
-    words: Set[str]
-    lemmas: Set[str]
+    words: set[str]
+    lemmas: set[str]
 
 
 class ColumnMatchMetadata(TypedDict, total=False):
@@ -77,23 +77,23 @@ class MandatoryFeatureSpec(TypedDict, total=False):
     id: str
     label: str
     description: str
-    synonyms: List[str]
-    token_sets: List[List[str]]
-    exclude_tokens: List[str]
-    include_all: List[List[str]]
-    include_any: List[List[str]]
-    exclude: List[str]
-    prepared_synonyms: List[Dict[str, object]]
-    prepared_token_sets: List[List[str]]
-    prepared_exclude_tokens: List[str]
+    synonyms: list[str]
+    token_sets: list[list[str]]
+    exclude_tokens: list[str]
+    include_all: list[list[str]]
+    include_any: list[list[str]]
+    exclude: list[str]
+    prepared_synonyms: list[dict[str, object]]
+    prepared_token_sets: list[list[str]]
+    prepared_exclude_tokens: list[str]
 
 
 class CategoryRule(TypedDict, total=False):
     id: str
     label: str
     description: str
-    parts: List[str]
-    keywords: List[str]
+    parts: list[str]
+    keywords: list[str]
 
 
 class GroupCatalogEntry(TypedDict, total=False):
@@ -101,7 +101,7 @@ class GroupCatalogEntry(TypedDict, total=False):
     label: str
     description: str
     count: int
-    columns: List[str]
+    columns: list[str]
 
 
 class SpatialPoint(TypedDict, total=False):
@@ -134,15 +134,15 @@ class DbscanCluster(SpatialPoint, total=False):
     risk_score_display: str
     risk_label: str
     risk_tone: str
-    avg_response_minutes: Optional[float]
-    avg_station_distance: Optional[float]
+    avg_response_minutes: float | None
+    avg_station_distance: float | None
     explanation: str
     rank: int
     cluster_display: str
 
 
 class DbscanResult(TypedDict, total=False):
-    clusters: List[DbscanCluster]
+    clusters: list[DbscanCluster]
     eps_km: float
     min_samples: int
     noise_count: int
@@ -161,7 +161,7 @@ class RiskZone(SpatialPoint, total=False):
     explanation: str
     rank: int
     priority_label: str
-    polygon: List[List[float]]
+    polygon: list[list[float]]
 
 
 class PriorityTerritory(SpatialPoint, total=False):
@@ -173,11 +173,11 @@ class PriorityTerritory(SpatialPoint, total=False):
     risk_score_display: str
     risk_label: str
     risk_tone: str
-    avg_station_distance: Optional[float]
+    avg_station_distance: float | None
     avg_station_distance_display: str
-    avg_response_minutes: Optional[float]
+    avg_response_minutes: float | None
     avg_response_display: str
-    travel_time_minutes: Optional[float]
+    travel_time_minutes: float | None
     travel_time_display: str
     travel_time_source: str
     fire_station_coverage_display: str
@@ -198,13 +198,13 @@ class PriorityTerritory(SpatialPoint, total=False):
 
 class LogisticsSummaryPayload(TypedDict, total=False):
     basis_ready: bool
-    average_station_distance: Optional[float]
+    average_station_distance: float | None
     average_station_distance_display: str
-    average_response_minutes: Optional[float]
+    average_response_minutes: float | None
     average_response_display: str
-    average_travel_time_minutes: Optional[float]
+    average_travel_time_minutes: float | None
     average_travel_time_display: str
-    long_arrival_share: Optional[float]
+    long_arrival_share: float | None
     long_arrival_share_display: str
     fire_station_coverage_display: str
     fire_station_coverage_label: str
@@ -215,7 +215,7 @@ class LogisticsSummaryPayload(TypedDict, total=False):
     logistics_priority_label: str
     summary: str
     coverage_note: str
-    top_delayed_territories: List[Dict[str, object]]
+    top_delayed_territories: list[dict[str, object]]
 
 
 class SpatialQualityContext(TypedDict, total=False):
@@ -223,8 +223,8 @@ class SpatialQualityContext(TypedDict, total=False):
     duplicate_ratio: float
     mode: str
     mode_label: str
-    notes: List[str]
-    dated_records: List[ProcessedRecord]
+    notes: list[str]
+    dated_records: list[ProcessedRecord]
 
 
 class SpatialQualityPayload(TypedDict, total=False):
@@ -237,22 +237,22 @@ class SpatialQualityPayload(TypedDict, total=False):
     date_coverage_display: str
     unique_coordinate_count: int
     duplicate_ratio_percent: float
-    notes: List[str]
+    notes: list[str]
     fallback_message: str
 
 
 class SpatialSummaryPayload(TypedDict, total=False):
     title: str
     subtitle: str
-    methods: List[str]
-    insights: List[str]
-    thesis_paragraphs: List[str]
+    methods: list[str]
+    insights: list[str]
+    thesis_paragraphs: list[str]
     fallback_message: str
 
 
 class SpatialHeatmapPayload(TypedDict, total=False):
     enabled: bool
-    points: List[HeatmapPoint]
+    points: list[HeatmapPoint]
     radius: int
     blur: int
 
@@ -275,17 +275,17 @@ class SpatialLayerDefaults(TypedDict, total=False):
 class SpatialAnalyticsPayload(TypedDict, total=False):
     quality: SpatialQualityPayload
     heatmap: SpatialHeatmapPayload
-    hotspots: List[HotspotPayload]
+    hotspots: list[HotspotPayload]
     dbscan: SpatialDbscanPayload
-    risk_zones: List[RiskZone]
-    priority_territories: List[PriorityTerritory]
+    risk_zones: list[RiskZone]
+    priority_territories: list[PriorityTerritory]
     logistics: LogisticsSummaryPayload
     summary: SpatialSummaryPayload
     layer_defaults: SpatialLayerDefaults
 
 
 class GeoPredictionPayload(TypedDict, total=False):
-    hotspots: List[Dict[str, object]]
+    hotspots: list[dict[str, object]]
 
 
 class PopupRow(TypedDict, total=False):
@@ -296,7 +296,7 @@ class PopupRow(TypedDict, total=False):
 
 class GeoJsonFeatureCollection(TypedDict, total=False):
     type: str
-    features: List[Dict[str, object]]
+    features: list[dict[str, object]]
 
 
 class AnalyticsLayersPayload(TypedDict, total=False):
@@ -310,10 +310,10 @@ class AnalyticsLayersPayload(TypedDict, total=False):
 class MapTablePayload(TypedDict, total=False):
     name: str
     feature_count: int
-    counts: Dict[str, int]
+    counts: dict[str, int]
     center: tuple[float, float]
     initial_zoom: int
-    geojson: Dict[str, object]
+    geojson: dict[str, object]
     spatial_analytics: SpatialAnalyticsPayload
 
 
@@ -324,7 +324,7 @@ class AnalysisTableExport(TypedDict, total=False):
 
 
 class AnalysisExportPayload(TypedDict, total=False):
-    tables: List[AnalysisTableExport]
+    tables: list[AnalysisTableExport]
 
 
 class ProtectedColumnInfo(TypedDict, total=False):
@@ -336,7 +336,7 @@ class ProtectedColumnInfo(TypedDict, total=False):
     protection_rule: str
     protection_match: str
     protection_reason: str
-    drop_reasons: List[object]
+    drop_reasons: list[object]
 
 
 class KeepImportantColumnsResult(TypedDict, total=False):
@@ -346,9 +346,9 @@ class KeepImportantColumnsResult(TypedDict, total=False):
     protected_report_xlsx: str
     profile_df: pd.DataFrame
     protected_df: pd.DataFrame
-    protected_columns: List[ProtectedColumnInfo]
+    protected_columns: list[ProtectedColumnInfo]
     protected_count: int
-    mandatory_feature_catalog: List[Dict[str, object]]
+    mandatory_feature_catalog: list[dict[str, object]]
 
 
 class CategoryStyleLike(Protocol):

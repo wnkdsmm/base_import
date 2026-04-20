@@ -34,6 +34,7 @@ except Exception:  # pragma: no cover - graceful fallback when sklearn is unavai
     NearestNeighbors = None
     SKLEARN_AVAILABLE = False
 
+
 class MapCreatorAnalyticsMixin:
     def _collect_spatial_records(self, df: pd.DataFrame, lat_col: str, lon_col: str, columns: ColumnMapping) -> list[ProcessedRecord]:
         latitudes = pd.to_numeric(df[lat_col], errors='coerce')
@@ -193,4 +194,3 @@ class MapCreatorAnalyticsMixin:
     # =====================================================
 
 __all__ = ["MapCreatorAnalyticsMixin", "SKLEARN_AVAILABLE"]
-

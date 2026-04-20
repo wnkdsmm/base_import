@@ -12,6 +12,7 @@ import pandas as pd
 
 from ...types import PopupRow, ProcessedRecord, SpatialPoint
 
+
 class MapCreatorUtilityMixin:
     def _get_marker_category(self, row: pd.Series, columns: dict[str, str | None]) -> str:
         """Определяет категорию маркера по данным строки"""
