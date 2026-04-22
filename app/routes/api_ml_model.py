@@ -41,6 +41,7 @@ def ml_model_data_endpoint(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ):
     return run_analytics_request(
         lambda: get_ml_model_data(
@@ -50,6 +51,7 @@ def ml_model_data_endpoint(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+            current_user_date=current_user_date,
         ),
         invalid_code="ml_model_invalid_request",
         invalid_message=_INVALID_ML_MODEL_MESSAGE,
@@ -70,6 +72,7 @@ def start_ml_model_job_endpoint(request: Request, payload: dict = Body(...)):
             temperature=str(payload.get("temperature") or ""),
             forecast_days=str(payload.get("forecast_days") or "14"),
             history_window=str(payload.get("history_window") or "all"),
+            current_user_date=str(payload.get("current_user_date") or ""),
         ),
     )
 

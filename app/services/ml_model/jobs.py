@@ -39,6 +39,7 @@ def start_ml_model_job(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ) -> dict[str, Any]:
     request_state = _build_ml_request_state(
         table_name=table_name,
@@ -47,6 +48,7 @@ def start_ml_model_job(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
     )
     cache_key_token = _serialize_cache_key(request_state["cache_key"])
     params_payload = _build_params_payload(
@@ -56,6 +58,7 @@ def start_ml_model_job(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
     )
     reuse_coordinator = JobReuseCoordinator(
         session_id=session_id,
@@ -133,6 +136,7 @@ def _run_ml_model_job(
             temperature=params_payload["temperature"],
             forecast_days=params_payload["forecast_days"],
             history_window=params_payload["history_window"],
+            current_user_date=params_payload["current_user_date"],
             progress_callback=reporter.handle_progress,
         ),
         on_success=lambda payload: _finalize_ml_job_success(
@@ -331,6 +335,7 @@ def _build_params_payload(
     temperature: str,
     forecast_days: str,
     history_window: str,
+    current_user_date: str,
 ) -> dict[str, str]:
     return {
         "table_name": str(table_name or "all"),
@@ -339,6 +344,7 @@ def _build_params_payload(
         "temperature": str(temperature or ""),
         "forecast_days": str(forecast_days or "14"),
         "history_window": str(history_window or "all"),
+        "current_user_date": str(current_user_date or ""),
     }
 
 

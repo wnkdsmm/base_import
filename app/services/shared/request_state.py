@@ -126,6 +126,7 @@ def build_ml_cache_key(
     temperature: str,
     days_ahead: int,
     history_window: str,
+    current_user_date: str = "",
 ) -> tuple[Any, ...]:
     return (
         cache_schema_version,
@@ -135,6 +136,7 @@ def build_ml_cache_key(
         normalize_cache_value(temperature),
         days_ahead,
         history_window,
+        normalize_cache_value(current_user_date),
     )
 
 
@@ -146,6 +148,7 @@ def build_ml_request_state(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
     cache_schema_version: int,
     table_options_builder: TableOptionsBuilder,
     selection_resolver: SelectionResolver,
@@ -171,6 +174,7 @@ def build_ml_request_state(
     scenario_temperature = temperature_parser(temperature)
     state["selected_history_window"] = resolved_history_window
     state["scenario_temperature"] = scenario_temperature
+    state["current_user_date"] = normalize_cache_value(current_user_date)
     state["cache_key"] = build_ml_cache_key(
         cache_schema_version=cache_schema_version,
         selected_table=state["selected_table"],
@@ -179,6 +183,7 @@ def build_ml_request_state(
         temperature=temperature_formatter(scenario_temperature) if scenario_temperature is not None else "",
         days_ahead=state["days_ahead"],
         history_window=resolved_history_window,
+        current_user_date=state["current_user_date"],
     )
     return state
 

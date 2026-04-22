@@ -230,6 +230,7 @@ def ml_model_page(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ):
     page_kwargs = {
         "table_name": table_name,
@@ -238,6 +239,7 @@ def ml_model_page(
         "temperature": temperature,
         "forecast_days": forecast_days,
         "history_window": history_window,
+        "current_user_date": current_user_date,
     }
     ml_model = get_ml_model_shell_context(**page_kwargs, prefer_cached=True)
     return render_context_page(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from app.perf import current_perf_trace, profiled
@@ -151,6 +152,7 @@ def _forecast_rows_from_training_artifacts(
     *,
     forecast_days: int,
     scenario_temperature: float | None,
+    current_user_date: date | None = None,
 ) -> list[TrainingForecastRow]:
     return _forecast_intervals._build_future_forecast_rows(
         frame=artifacts.final_frame,
@@ -165,6 +167,7 @@ def _forecast_rows_from_training_artifacts(
         ),
         baseline_expected_count=_backtesting._baseline_expected_count,
         temperature_stats=artifacts.final_temperature_stats,
+        current_user_date=current_user_date,
     )
 
 
@@ -359,6 +362,7 @@ def _train_ml_model(
     daily_history,
     forecast_days: int,
     scenario_temperature: float | None,
+    current_user_date: date | None = None,
     progress_callback: MlProgressCallback = None,
     caches: MLModelCaches | None = None,
  ) -> TrainingResultPayload:
@@ -378,6 +382,7 @@ def _train_ml_model(
                 cached_artifacts,
                 forecast_days=forecast_days,
                 scenario_temperature=scenario_temperature,
+                current_user_date=current_user_date,
             )
             if perf is not None:
                 perf.update(
@@ -436,6 +441,7 @@ def _train_ml_model(
         ),
         baseline_expected_count=_backtesting._baseline_expected_count,
         temperature_stats=training_models.final_temperature_stats,
+        current_user_date=current_user_date,
     )
 
     _emit_progress(progress_callback, 'ml_model.running', 'Оцениваем важность признаков и собираем итоговый ML-отчёт.')

@@ -274,6 +274,8 @@ class MlRequestState(TypedDict, total=False):
     days_ahead: int
     selected_history_window: str
     scenario_temperature: float | None
+    current_user_date: str
+    current_user_day: date | None
     cache_key: tuple[Any, ...]
 
 

@@ -41,6 +41,21 @@
         }
     }
 
+    function padDatePart(value) {
+        return value < 10 ? '0' + value : String(value);
+    }
+
+    function getCurrentUserDateIso() {
+        var now = new Date();
+        return String(now.getFullYear()) + '-' + padDatePart(now.getMonth() + 1) + '-' + padDatePart(now.getDate());
+    }
+
+    function withCurrentUserDate(query) {
+        var params = new URLSearchParams(query || '');
+        params.set('current_user_date', getCurrentUserDateIso());
+        return params.toString();
+    }
+
     function buildQueryFromForm(formId) {
         var form = byId(formId || 'mlModelForm');
         if (!form) {
@@ -57,15 +72,17 @@
             object_category: params.get('object_category') || 'all',
             temperature: params.get('temperature') || '',
             forecast_days: params.get('forecast_days') || '14',
-            history_window: params.get('history_window') || 'all'
+            history_window: params.get('history_window') || 'all',
+            current_user_date: params.get('current_user_date') || getCurrentUserDateIso()
         };
     }
 
     function buildRequestPayload(options) {
         var settings = options || {};
-        var query = settings.useLocationSearch && global.location.search
+        var baseQuery = settings.useLocationSearch && global.location.search
             ? global.location.search.replace(/^\?/, '')
             : buildQueryFromForm(settings.formId || 'mlModelForm');
+        var query = withCurrentUserDate(baseQuery);
         return {
             body: buildPayloadFromQuery(query),
             query: query

@@ -86,6 +86,7 @@ class MlModelJobsTests(unittest.TestCase):
             "temperature": "",
             "forecast_days": "14",
             "history_window": "all",
+            "current_user_date": "",
         }
 
         def _fake_get_ml_model_data(**kwargs):

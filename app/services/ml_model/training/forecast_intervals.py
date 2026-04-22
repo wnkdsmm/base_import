@@ -186,6 +186,7 @@ def _simulate_recursive_forecast_path(
     temperature_stats: TrainingTemperatureStats | None = None,
     baseline_event_probability: Callable[[pd.DataFrame, pd.Timestamp | None, float | None]] = None,
     simulation_seed: _RecursiveForecastSeed | None = None,
+    current_user_date: date | None = None,
 ) -> list[TrainingForecastPathPoint]:
     seed = simulation_seed or _build_recursive_forecast_seed(frame, temperature_stats)
     temperature_usable = seed.temperature_usable
@@ -194,10 +195,13 @@ def _simulate_recursive_forecast_path(
     history_counts = list(seed.history_counts)
     history_records = [dict(record) for record in seed.history_records]
     last_date = seed.last_date
+    first_forecast_date = last_date + timedelta(days=1)
+    if current_user_date is not None and current_user_date > first_forecast_date:
+        first_forecast_date = current_user_date
 
     forecast_path: list[TrainingForecastPathPoint] = []
     for step in range(1, forecast_days + 1):
-        target_date = last_date + timedelta(days=step)
+        target_date = first_forecast_date + timedelta(days=step - 1)
         historical_temp_value = (
             float(monthly_temp.get(target_date.month, overall_temp))
             if temperature_usable and (monthly_temp or not frame.empty)
@@ -303,6 +307,7 @@ def _build_future_forecast_rows(
     interval_calibration: IntervalCalibrationInput,
     baseline_expected_count: Callable[[pd.DataFrame, pd.Timestamp], float],
     temperature_stats: TrainingTemperatureStats | None = None,
+    current_user_date: date | None = None,
 ) -> list[TrainingForecastRow]:
     history_counts = list(frame['count'].astype(float))
     sorted_history_counts = np.sort(np.asarray(history_counts, dtype=float)) if history_counts else np.asarray([], dtype=float)
@@ -315,6 +320,7 @@ def _build_future_forecast_rows(
         scenario_temperature=scenario_temperature,
         baseline_expected_count=baseline_expected_count,
         temperature_stats=temperature_stats,
+        current_user_date=current_user_date,
     )
     reference_calibration = _resolve_interval_calibration(interval_calibration, 1)
     interval_calibrations_by_step = {

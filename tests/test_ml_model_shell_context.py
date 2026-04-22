@@ -128,6 +128,7 @@ class MlModelPageRouteTests(unittest.TestCase):
             temperature="",
             forecast_days="14",
             history_window="all",
+            current_user_date="",
             prefer_cached=True,
         )
         template_response_mock.assert_called_once()

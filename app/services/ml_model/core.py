@@ -24,6 +24,7 @@ from app.services.forecasting.utils import (
     _parse_float,
     _parse_forecast_days,
     _parse_history_window,
+    _parse_optional_iso_date,
     _resolve_option_value,
 )
 from app.services.shared.request_state import build_ml_request_state as _build_ml_request_state_impl
@@ -128,6 +129,7 @@ def get_ml_model_shell_context(
     temperature: str = '',
     forecast_days: str = '14',
     history_window: str = 'all',
+    current_user_date: str = '',
     prefer_cached: bool = False,
     caches: MLModelCaches | None = None,
 ) -> MlContext:
@@ -139,6 +141,7 @@ def get_ml_model_shell_context(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
     )
     cached = _cache_get(request_state['cache_key'], cache_set) if prefer_cached else None
     if cached is not None:
@@ -163,6 +166,7 @@ def get_ml_model_data(
     temperature: str = '',
     forecast_days: str = '14',
     history_window: str = 'all',
+    current_user_date: str = '',
     progress_callback: MlProgressCallback = None,
     caches: MLModelCaches | None = None,
 ) -> MlPayload:
@@ -175,6 +179,7 @@ def get_ml_model_data(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
     )
     table_options = request_state['table_options']
     selected_table = request_state['selected_table']
@@ -253,6 +258,7 @@ def get_ml_model_data(
             daily_history,
             days_ahead,
             scenario_temperature,
+            current_user_date=request_state.get('current_user_day'),
             progress_callback=progress_callback,
             caches=cache_set,
         )
@@ -291,7 +297,7 @@ def get_ml_model_data(
 
 
 def _cache_get(
-    cache_key: tuple[int, str, str, str, str, int, str],
+    cache_key: tuple[int, str, str, str, str, int, str, str],
     caches: MLModelCaches | None = None,
 ) -> MlPayload | None:
     cache_set = caches or _DEFAULT_CACHES
@@ -299,7 +305,7 @@ def _cache_get(
 
 
 def _cache_store(
-    cache_key: tuple[int, str, str, str, str, int, str],
+    cache_key: tuple[int, str, str, str, str, int, str, str],
     payload: MlPayload,
     caches: MLModelCaches | None = None,
 ) -> MlPayload:
@@ -315,14 +321,20 @@ def _build_ml_request_state(
     temperature: str = '',
     forecast_days: str = '14',
     history_window: str = 'all',
+    current_user_date: str = '',
 ) -> MlRequestState:
-    return _build_ml_request_state_impl(
+    parsed_current_user_date = _parse_optional_iso_date(current_user_date)
+    normalized_current_user_date = (
+        parsed_current_user_date.isoformat() if parsed_current_user_date is not None else ''
+    )
+    state = _build_ml_request_state_impl(
         table_name=table_name,
         cause=cause,
         object_category=object_category,
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=normalized_current_user_date,
         cache_schema_version=ML_CACHE_SCHEMA_VERSION,
         table_options_builder=_build_forecasting_table_options,
         selection_resolver=_resolve_forecasting_selection,
@@ -333,6 +345,9 @@ def _build_ml_request_state(
         temperature_parser=_parse_float,
         temperature_formatter=_format_float_for_input,
     )
+    state['current_user_date'] = normalized_current_user_date
+    state['current_user_day'] = parsed_current_user_date
+    return state
 
 
 def clear_ml_model_cache(caches: MLModelCaches | None = None) -> None:
@@ -341,4 +356,3 @@ def clear_ml_model_cache(caches: MLModelCaches | None = None) -> None:
     clear_ml_model_input_cache()
     clear_training_artifact_cache(cache_set)
     clear_forecasting_sql_cache()
-
