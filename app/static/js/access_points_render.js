@@ -273,7 +273,7 @@ function showLoading(message) {
                 + '<span class="score-distribution-meta">' + escapeHtml(item.share_display || '0%') + ' от выборки</span>'
                 + '</article>'
             );
-        });
+        });
         node.innerHTML = cards.join('');
     }
 
