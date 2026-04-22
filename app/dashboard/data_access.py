@@ -142,7 +142,7 @@ def _resolve_table_column_name(table: DashboardTableRef, expected_name: str) -> 
 def _metric_expression(table: DashboardTableRef, metric_key: str) -> str:
     column_name = _find_metric_column(table, metric_key)
     if not column_name:
-        return "NULL"
+        return "CAST(NULL AS double precision)"
     return _numeric_expression_for_column(column_name)
 
 
@@ -264,7 +264,7 @@ def _month_expression(column_name: str) -> str:
 
 def _area_expression(table: DashboardTableRef) -> str:
     if AREA_COLUMN not in table["column_set"]:
-        return "NULL"
+        return "CAST(NULL AS double precision)"
     column_sql = _quote_identifier(AREA_COLUMN)
     cleaned = f"NULLIF(REPLACE(REPLACE(REPLACE(CAST({column_sql} AS TEXT), ' ', ''), ',', '.'), CHR(160), ''), '')"
     return f"CASE WHEN {cleaned} ~ '^[-+]?[0-9]*\\.?[0-9]+$' THEN ({cleaned})::double precision ELSE NULL END"
@@ -298,4 +298,3 @@ __all__ = [
     "_resolve_years_in_scope",
     "_year_expression",
 ]
-
