@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app.dashboard import cache as dashboard_cache
-from app.runtime_cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
+from app.cache import CopyingTtlCache, clone_mutable_payload, freeze_mutable_payload
 import app.services.forecasting.forecasting_pipeline as forecasting_core
 from app.services.ml_model import core as ml_core
 from app.state import JobStore

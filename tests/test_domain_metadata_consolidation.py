@@ -2,7 +2,7 @@ import unittest
 
 from app import statistics_constants
 from app.dashboard import data_access
-from app.domain import access_points_metadata, analytics_metadata, column_matching, fire_columns, time_labels
+from app.domain import access_points_metadata, analytics_metadata, column_matching, fire_columns
 from app.services.access_points import constants as access_points_constants
 from app.services.forecasting import constants as forecasting_constants
 from core.processing.steps import keep_important_columns
@@ -12,7 +12,7 @@ class DomainMetadataConsolidationTests(unittest.TestCase):
     def test_statistics_constants_remain_compatible_facade(self):
         self.assertEqual(statistics_constants.CAUSE_COLUMNS, fire_columns.CAUSE_COLUMNS)
         self.assertEqual(statistics_constants.DISTRIBUTION_GROUPS, analytics_metadata.DISTRIBUTION_GROUPS)
-        self.assertEqual(statistics_constants.MONTH_LABELS, time_labels.DASHBOARD_MONTH_LABELS)
+        self.assertEqual(statistics_constants.MONTH_LABELS, statistics_constants.DASHBOARD_MONTH_LABELS)
 
     def test_dashboard_data_access_uses_canonical_district_candidates(self):
         self.assertEqual(
@@ -29,8 +29,8 @@ class DomainMetadataConsolidationTests(unittest.TestCase):
         )
 
     def test_forecasting_time_labels_come_from_shared_time_catalog(self):
-        self.assertEqual(forecasting_constants.WEEKDAY_LABELS, time_labels.FORECAST_WEEKDAY_LABELS)
-        self.assertEqual(forecasting_constants.MONTH_LABELS, time_labels.FORECAST_MONTH_LABELS)
+        self.assertEqual(forecasting_constants.WEEKDAY_LABELS, statistics_constants.FORECAST_WEEKDAY_LABELS)
+        self.assertEqual(forecasting_constants.MONTH_LABELS, statistics_constants.FORECAST_MONTH_LABELS)
 
     def test_access_points_metadata_comes_from_domain_layer(self):
         self.assertEqual(

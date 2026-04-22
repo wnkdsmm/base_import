@@ -82,6 +82,8 @@ class ForecastingRequestState(TypedDict, total=False):
     source_table_notes: list[str]
     days_ahead: int
     history_window: str
+    current_user_date: str
+    current_user_day: Any
     cache_key: tuple[Any, ...]
 
 

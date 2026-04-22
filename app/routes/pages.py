@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -50,6 +51,7 @@ def resolve_selected_table(table_options, table_name: str) -> str:
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _lazy(module_path: str, attr: str):
@@ -138,6 +140,7 @@ def forecasting_brief_download(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ) -> Response:
     data = get_forecasting_page_context(
         table_name=table_name,
@@ -147,6 +150,7 @@ def forecasting_brief_download(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
     )["initial_data"]
     return _download_brief_response(data, "forecasting-brief.txt", "executive_brief", "export_text")
 
@@ -327,14 +331,24 @@ def column_search_page(request: Request, table_name: str = "", query: str = ""):
 
 @router.get("/fire-map", response_class=HTMLResponse)
 def fire_map_page(request: Request, table_name: str = ""):
-    fire_map = get_fire_map_page_context(table_name)
-    return render_context_page(
-        request,
-        "fire_map.html",
-        context_name="fire_map",
-        context_value=fire_map,
-        asset_files={**DASHBOARD_ONLY_ASSETS, **FIRE_MAP_ASSETS},
-    )
+    try:
+        fire_map = get_fire_map_page_context(table_name)
+        return render_context_page(
+            request,
+            "fire_map.html",
+            context_name="fire_map",
+            context_value=fire_map,
+            asset_files={**DASHBOARD_ONLY_ASSETS, **FIRE_MAP_ASSETS},
+        )
+    except Exception as exc:
+        logger.exception("Failed to render /fire-map for table %r", table_name)
+        return render_template_page(
+            request,
+            "fire_map_error.html",
+            message=str(exc),
+            status_code=500,
+            **asset_versions(**FIRE_MAP_ASSETS),
+        )
 
 
 @router.get("/fire-map/embed", response_class=HTMLResponse)
@@ -363,6 +377,7 @@ def fire_map_embed(request: Request, table_name: str = ""):
             )
         return HTMLResponse(map_html)
     except Exception as exc:
+        logger.exception("Failed to build /fire-map/embed for table %r", table_name)
         return render_template_page(
             request,
             "fire_map_error.html",

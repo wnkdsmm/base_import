@@ -73,6 +73,9 @@ from .utils import (
     _format_float_for_input,
     _history_window_label,
     _parse_float,
+    _parse_forecast_days,
+    _parse_history_window,
+    _parse_optional_iso_date,
     _resolve_option_value,
 )
 from .forecasting_bootstrap import (
@@ -116,6 +119,7 @@ def _resolve_cached_forecasting_shell_payload(
     selected_table = request_state["selected_table"]
     days_ahead = request_state["days_ahead"]
     selected_history_window = request_state["history_window"]
+    current_user_date = str(request_state.get("current_user_date") or "")
     full_cache_key = _build_forecasting_cache_key(
         selected_table,
         source_tables,
@@ -125,6 +129,7 @@ def _resolve_cached_forecasting_shell_payload(
         temperature,
         days_ahead,
         selected_history_window,
+        current_user_date,
         True,
     )
     cached_payload = _FORECASTING_CACHE.get(full_cache_key)
@@ -139,6 +144,7 @@ def _resolve_cached_forecasting_shell_payload(
         temperature,
         days_ahead,
         selected_history_window,
+        current_user_date,
         False,
     )
     return _FORECASTING_CACHE.get(core_cache_key)
@@ -152,6 +158,7 @@ def get_forecasting_page_context(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ) -> ForecastingContext:
     try:
         initial_data = get_forecasting_data(
@@ -162,6 +169,7 @@ def get_forecasting_page_context(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+            current_user_date=current_user_date,
         )
     except Exception as exc:
         request_state = _build_forecasting_request_state(
@@ -172,6 +180,7 @@ def get_forecasting_page_context(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+            current_user_date=current_user_date,
         )
         initial_data = _build_forecasting_page_fallback_initial_data(
             request_state,
@@ -197,6 +206,7 @@ def get_forecasting_shell_context(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ) -> ForecastingContext:
     perf = current_perf_trace()
     request_state = _build_forecasting_request_state(
@@ -207,6 +217,7 @@ def get_forecasting_shell_context(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
     )
     table_options = request_state["table_options"]
     selected_table = request_state["selected_table"]
@@ -315,7 +326,9 @@ def get_forecasting_metadata(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ) -> ForecastingPayload:
+    _parse_optional_iso_date(current_user_date)
     perf = current_perf_trace()
     with perf.span("filter_prep") if perf is not None else nullcontext():
         metadata_payload = _build_forecasting_shell_data(
@@ -376,6 +389,7 @@ def get_forecasting_data(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
     include_decision_support: bool = True,
 ) -> ForecastingPayload:
     perf = current_perf_trace()
@@ -387,6 +401,7 @@ def get_forecasting_data(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
         include_decision_support=include_decision_support,
     )
     table_options = request_state["table_options"]
@@ -469,6 +484,7 @@ def get_forecasting_data(
         temperature_value=temperature_value,
         days_ahead=days_ahead,
         selected_history_window=selected_history_window,
+        current_user_date=request_state.get("current_user_day"),
         include_decision_support=include_decision_support,
         deps=_forecasting_assembly_dependencies(),
     )
@@ -494,6 +510,7 @@ def get_forecasting_decision_support_data(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
     progress_callback: Callable[[str, str], None] | None = None,
 ) -> ForecastingPayload:
     request_state = _build_forecasting_request_state(
@@ -504,6 +521,7 @@ def get_forecasting_decision_support_data(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
         include_decision_support=True,
     )
     cached_payload = _FORECASTING_CACHE.get(request_state["cache_key"])
@@ -528,6 +546,7 @@ def get_forecasting_decision_support_data(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=current_user_date,
         include_decision_support=False,
     )
     payload = _complete_forecasting_decision_support_payload_impl(

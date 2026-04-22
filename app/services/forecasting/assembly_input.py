@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from statistics import mean
 from typing import Sequence
 
@@ -73,11 +74,17 @@ def _build_base_forecasting_artifacts(
     daily_history: Sequence[ForecastingDailyHistoryRow],
     days_ahead: int,
     temperature_value: float | None,
+    current_user_date: date | None,
     deps: ForecastingDeps,
 ) -> ForecastingBaseArtifacts:
     scenario_backtest = deps["run_scenario_backtesting"](daily_history)
     quality_assessment = deps["build_scenario_quality_assessment"](scenario_backtest)
-    forecast_rows = deps["build_forecast_rows"](daily_history, days_ahead, temperature_value)
+    forecast_rows = deps["build_forecast_rows"](
+        daily_history,
+        days_ahead,
+        temperature_value,
+        current_user_date=current_user_date,
+    )
     weekday_profile = deps["build_weekday_profile"](daily_history)
     charts = _build_base_forecasting_charts(
         daily_history=daily_history,

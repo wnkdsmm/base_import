@@ -54,7 +54,8 @@ def build_forecasting_cache_key(
     temperature: str,
     days_ahead: int,
     history_window: str,
-    include_decision_support: bool,
+    current_user_date: str = "",
+    include_decision_support: bool = False,
 ) -> tuple[str, ...]:
     return (
         selected_table,
@@ -65,6 +66,7 @@ def build_forecasting_cache_key(
         normalize_cache_value(temperature),
         str(days_ahead),
         history_window,
+        normalize_cache_value(current_user_date),
         "full" if include_decision_support else "core",
     )
 
@@ -78,6 +80,7 @@ def build_forecasting_request_state(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
     include_decision_support: bool = False,
     table_options_builder: TableOptionsBuilder,
     selection_resolver: SelectionResolver,
@@ -108,6 +111,7 @@ def build_forecasting_request_state(
         temperature=temperature,
         days_ahead=state["days_ahead"],
         history_window=resolved_history_window,
+        current_user_date=current_user_date,
         include_decision_support=include_decision_support,
     )
     return state

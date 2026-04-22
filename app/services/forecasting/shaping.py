@@ -313,6 +313,7 @@ def _build_forecast_rows(
     daily_history: list[dict[str, object]],
     forecast_days: int,
     temperature_value: float | None,
+    current_user_date: date | None = None,
 ) -> list[dict[str, object]]:
     if not daily_history or forecast_days <= 0:
         return []
@@ -355,6 +356,9 @@ def _build_forecast_rows(
 
     forecast_rows: list[dict[str, object]] = []
     last_observed_date = history_dates[-1]
+    first_forecast_date = last_observed_date + timedelta(days=1)
+    if current_user_date is not None and current_user_date > first_forecast_date:
+        first_forecast_date = current_user_date
     probability_context = _build_forecast_probability_context(
         weekday_event_rate=weekday_event_rate,
         month_event_rate=month_event_rate,
@@ -364,8 +368,9 @@ def _build_forecast_rows(
         recent_positive_average=recent_positive_average,
     )
 
-    for step in range(1, forecast_days + 1):
-        target_date = last_observed_date + timedelta(days=step)
+    for step_index in range(forecast_days):
+        step = step_index + 1
+        target_date = first_forecast_date + timedelta(days=step_index)
         wf = weekday_factor.get(target_date.weekday(), 1.0)
         mf = month_factor.get(target_date.month, 1.0)
         seasonal_factor = max(0.05, wf + mf - 1.0)

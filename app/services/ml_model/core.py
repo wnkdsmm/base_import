@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import datetime
+from typing import Any
 
 
 from app.perf import current_perf_trace, profiled
@@ -28,8 +29,8 @@ from app.services.forecasting.utils import (
 from app.services.shared.request_state import build_ml_request_state as _build_ml_request_state_impl
 from config.db import engine
 
-from .caches import MLModelCaches, create_default_caches
 from .ml_model_config_types import ML_CACHE_SCHEMA_VERSION, MlProgressCallback, _emit_progress
+from .caches import MLModelCaches, create_default_caches
 from .training.data_access import (
     clear_ml_model_input_cache,
     load_ml_aggregation_inputs as _load_ml_aggregation_inputs_impl,
@@ -340,6 +341,4 @@ def clear_ml_model_cache(caches: MLModelCaches | None = None) -> None:
     clear_ml_model_input_cache()
     clear_training_artifact_cache(cache_set)
     clear_forecasting_sql_cache()
-
-
 

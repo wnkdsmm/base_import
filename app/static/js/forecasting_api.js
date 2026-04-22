@@ -17,6 +17,20 @@
         var decisionSupportJobPollTimer = createSingleTimer();
         var forecastRequestToken = 0;
 
+        function padDatePart(value) {
+            return value < 10 ? '0' + value : String(value);
+        }
+
+        function getCurrentUserDateIso() {
+            var now = new Date();
+            return String(now.getFullYear()) + '-' + padDatePart(now.getMonth() + 1) + '-' + padDatePart(now.getDate());
+        }
+
+        function withCurrentUserDate(query) {
+            var params = new URLSearchParams(query || '');
+            params.set('current_user_date', getCurrentUserDateIso());
+            return params.toString();
+        }
         function applyForecastData(data) {
             if (typeof ui.applyForecastData === 'function') {
                 ui.applyForecastData(data);
@@ -54,7 +68,7 @@
         }
 
         function buildForecastRequestQuery(baseQuery, includeDecisionSupport) {
-            var params = new URLSearchParams(baseQuery || '');
+            var params = new URLSearchParams(withCurrentUserDate(baseQuery));
             params.set('include_decision_support', includeDecisionSupport ? '1' : '0');
             return params.toString();
         }
@@ -78,7 +92,7 @@
         }
 
         function requestForecastMetadataPayload(query, requestOptions) {
-            return requestForecastApiPayload('/api/forecasting-metadata', query, requestOptions);
+            return requestForecastApiPayload('/api/forecasting-metadata', withCurrentUserDate(query), requestOptions);
         }
 
         function buildForecastJobBody(query) {
@@ -90,7 +104,8 @@
                 object_category: params.get('object_category') || 'all',
                 temperature: params.get('temperature') || '',
                 forecast_days: params.get('forecast_days') || '14',
-                history_window: params.get('history_window') || 'all'
+                history_window: params.get('history_window') || 'all',
+                current_user_date: params.get('current_user_date') || getCurrentUserDateIso()
             };
         }
 

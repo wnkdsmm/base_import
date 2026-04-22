@@ -20,8 +20,8 @@ from app.domain.fire_columns import (
     OPEN_AREA_CAUSE_COLUMN,
     TEMPERATURE_COLUMN_CANDIDATES,
 )
-from app.domain.time_labels import FORECAST_MONTH_LABELS as MONTH_LABELS
-from app.domain.time_labels import FORECAST_WEEKDAY_LABELS as WEEKDAY_LABELS
+from app.statistics_constants import FORECAST_MONTH_LABELS as MONTH_LABELS
+from app.statistics_constants import FORECAST_WEEKDAY_LABELS as WEEKDAY_LABELS
 from app.labels import FORECASTING_HISTORY_WINDOW_LABELS, SCENARIO_FORECAST_DESCRIPTION
 from config.constants import (
     FORECASTING_FORECAST_DAY_OPTIONS,

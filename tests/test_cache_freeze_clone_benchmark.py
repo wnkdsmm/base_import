@@ -73,10 +73,11 @@ class CacheFreezeCloneBenchmarkTests(unittest.TestCase):
                 "after_ms": round(after_ms, 2),
             }
 
-            self.assertGreater(before_ms, 0.0)
-            self.assertGreater(after_ms, 0.0)
-
-        print("cache_freeze_clone_benchmark", report)
+            self.assertGreater(
+                before_ms,
+                after_ms,
+                f"[{label}] freeze+clone ({before_ms:.1f}ms) должен быть медленнее skip ({after_ms:.1f}ms)",
+            )
 
 
 if __name__ == "__main__":

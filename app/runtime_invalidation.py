@@ -94,3 +94,36 @@ def invalidate_runtime_caches(
 
 def invalidate_service_caches(on_warning: Callable[[str], None] | None = None) -> None:
     invalidate_runtime_caches(on_warning=on_warning, include_metadata=False)
+
+
+def invalidate_table_related_caches(
+    table_name: str | None = None,
+    *,
+    on_warning: Callable[[str], None] | None = None,
+) -> None:
+    db_metadata = import_module("app.db_metadata")
+    db_metadata.invalidate_db_metadata_cache(table_name=table_name)
+    invalidate_service_caches(on_warning=on_warning)
+
+
+def warmup_runtime_caches(on_warning: Callable[[str], None] | None = None) -> None:
+    def warn(message: str) -> None:
+        if on_warning is not None:
+            on_warning(message)
+
+    try:
+        db_metadata = import_module("app.db_metadata")
+        table_names: list[str] = db_metadata.get_table_names_cached()
+        for table_name in table_names:
+            try:
+                db_metadata.get_table_columns_cached(table_name)
+            except Exception as exc:
+                warn(f"Предупреждение при прогреве колонок таблицы '{table_name}': {exc}")
+    except Exception as exc:
+        warn(f"Предупреждение при прогреве кэша метаданных БД: {exc}")
+
+    try:
+        dashboard_cache = import_module("app.dashboard.cache")
+        dashboard_cache._collect_dashboard_metadata_cached()
+    except Exception as exc:
+        warn(f"Предупреждение при прогреве кэша дашборда: {exc}")

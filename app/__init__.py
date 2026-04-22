@@ -6,7 +6,7 @@ from typing import Any, Sequence
 from sqlalchemy import text
 
 from app.db_metadata import get_table_names_cached
-from app.table_invalidation import invalidate_table_related_caches
+from app.runtime_invalidation import invalidate_table_related_caches
 from app.table_metadata import get_table_columns
 from config.db import engine
 

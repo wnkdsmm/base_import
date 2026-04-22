@@ -154,6 +154,13 @@ def _parse_iso_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def _parse_optional_iso_date(value: str | None) -> date | None:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    return _parse_iso_date(normalized)
+
+
 def _rolling_average(values: Sequence[float], window: int) -> list[float]:
     items = [float(value) for value in values]
     result: list[float] = []
@@ -242,4 +249,3 @@ def _date_expression(column_name: str) -> str:
         f"WHEN {text_value} ~ '^[0-9]{{4}}/[0-9]{{2}}/[0-9]{{2}}' THEN TO_DATE(SUBSTRING({text_value} FROM 1 FOR 10), 'YYYY/MM/DD') "
         "ELSE NULL END"
     )
-

@@ -480,6 +480,14 @@
         var params = new URLSearchParams();
         var safeFilters = filters || {};
 
+        function padDatePart(value) {
+            return value < 10 ? '0' + value : String(value);
+        }
+
+        function getCurrentUserDateIso() {
+            var now = new Date();
+            return String(now.getFullYear()) + '-' + padDatePart(now.getMonth() + 1) + '-' + padDatePart(now.getDate());
+        }
         [
             'table_name',
             'district',
@@ -494,6 +502,8 @@
                 params.set(key, value);
             }
         });
+
+        params.set('current_user_date', getCurrentUserDateIso());
 
         var query = params.toString();
         return '/brief/forecasting.txt' + (query ? '?' + query : '');

@@ -70,6 +70,7 @@ def forecasting_data_endpoint(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
     include_decision_support: bool = True,
 ):
     def action():
@@ -82,6 +83,7 @@ def forecasting_data_endpoint(
                 temperature=temperature,
                 forecast_days=forecast_days,
                 history_window=history_window,
+                current_user_date=current_user_date,
             )
         return get_forecasting_data(
             table_name=table_name,
@@ -91,6 +93,7 @@ def forecasting_data_endpoint(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+            current_user_date=current_user_date,
             include_decision_support=False,
         )
 
@@ -112,6 +115,7 @@ def forecasting_metadata_endpoint(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
 ):
     return run_analytics_request(
         lambda: get_forecasting_metadata(
@@ -122,6 +126,7 @@ def forecasting_metadata_endpoint(
             temperature=temperature,
             forecast_days=forecast_days,
             history_window=history_window,
+            current_user_date=current_user_date,
         ),
         invalid_code="forecasting_metadata_invalid_request",
         invalid_message=_INVALID_FORECASTING_METADATA_MESSAGE,
@@ -143,6 +148,7 @@ def start_forecasting_decision_support_job_endpoint(request: Request, payload: d
             temperature=str(payload.get("temperature") or ""),
             forecast_days=str(payload.get("forecast_days") or "14"),
             history_window=str(payload.get("history_window") or "all"),
+            current_user_date=str(payload.get("current_user_date") or ""),
         ),
         invalid_code="forecasting_decision_support_invalid_request",
         invalid_message=_INVALID_DECISION_SUPPORT_MESSAGE,

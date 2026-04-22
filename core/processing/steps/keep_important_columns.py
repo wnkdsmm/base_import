@@ -20,7 +20,7 @@ from .column_definitions import (
     PROTECTION_REPORT_DEFAULTS,
     PROTECTION_TEXT_COLUMNS,
 )
-from .column_filters import (
+from .column_filter_match import (
     NatashaColumnMatcher,
     get_column_matcher,
 )

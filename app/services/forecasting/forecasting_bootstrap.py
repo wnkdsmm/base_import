@@ -5,7 +5,10 @@ from datetime import datetime
 from app.plotly_bundle import get_plotly_bundle
 from app.services.forecasting.types import ForecastPayload, ForecastingContext, ForecastingRequestState, TableOption
 from app.services.forecasting.payloads import _empty_forecasting_data
-from app.services.shared.request_state import build_forecasting_request_state as _build_forecasting_request_state_impl
+from app.services.shared.request_state import (
+    build_forecasting_cache_key as _build_forecasting_cache_key,
+    build_forecasting_request_state as _build_forecasting_request_state_impl,
+)
 
 from .bootstrap import (
     _build_base_forecast_loading_message,
@@ -20,6 +23,7 @@ from .data import (
 )
 from .utils import (
     _format_datetime,
+    _parse_optional_iso_date,
     _parse_forecast_days,
     _parse_history_window,
 )
@@ -144,9 +148,14 @@ def _build_forecasting_request_state(
     temperature: str = "",
     forecast_days: str = "14",
     history_window: str = "all",
+    current_user_date: str = "",
     include_decision_support: bool = False,
 ) -> ForecastingRequestState:
-    return _build_forecasting_request_state_impl(
+    parsed_current_user_date = _parse_optional_iso_date(current_user_date)
+    normalized_current_user_date = (
+        parsed_current_user_date.isoformat() if parsed_current_user_date is not None else ""
+    )
+    state = _build_forecasting_request_state_impl(
         table_name=table_name,
         district=district,
         cause=cause,
@@ -154,6 +163,7 @@ def _build_forecasting_request_state(
         temperature=temperature,
         forecast_days=forecast_days,
         history_window=history_window,
+        current_user_date=normalized_current_user_date,
         include_decision_support=include_decision_support,
         table_options_builder=_build_forecasting_table_options,
         selection_resolver=_resolve_forecasting_selection,
@@ -162,6 +172,21 @@ def _build_forecasting_request_state(
         forecast_days_parser=_parse_forecast_days,
         history_window_parser=_parse_history_window,
     )
+    state["current_user_date"] = normalized_current_user_date
+    state["current_user_day"] = parsed_current_user_date
+    state["cache_key"] = _build_forecasting_cache_key(
+        selected_table=state["selected_table"],
+        source_tables=state["source_tables"],
+        district=district,
+        cause=cause,
+        object_category=object_category,
+        temperature=temperature,
+        days_ahead=state["days_ahead"],
+        history_window=state["history_window"],
+        current_user_date=normalized_current_user_date,
+        include_decision_support=include_decision_support,
+    )
+    return state
 
 
 def _build_forecasting_shell_data(

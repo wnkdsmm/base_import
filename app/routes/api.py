@@ -23,7 +23,7 @@ from __future__ import annotations
 # - POST /upload -> app.services.pipeline_service.save_uploaded_file -> app.routes.api_common, app.state
 # - POST /import_data -> app.services.pipeline_service.import_uploaded_data -> app.routes.api_common, app.state
 # - POST /run_profiling -> app.services.pipeline_service.run_profiling_for_table -> app.routes.api_common, app.state
-# - GET /logs -> app.services.ops_service.build_logs_payload -> app.routes.api_common, app.state
+# - GET /logs -> app.routes.api_ops.build_logs_payload -> app.routes.api_common, app.state
 #
 # Page endpoints (defined in app.routes.pages)
 # - /, /forecasting, /ml-model, /backtesting, /clustering, /access-points, /column-search,

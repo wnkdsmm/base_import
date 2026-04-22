@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import OrderedDict
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
@@ -457,4 +456,3 @@ def _train_ml_model(
             trend_warning=trend_warning,
         )
         return _assemble_training_artifacts_result(artifacts, forecast_rows)
-

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Callable, Sequence
 
 from app.cache import clone_mutable_payload
@@ -370,6 +370,7 @@ def build_forecasting_base_payload(
     temperature_value: float | None,
     days_ahead: int,
     selected_history_window: str,
+    current_user_date: date | None,
     include_decision_support: bool,
     deps: ForecastingDeps,
 ) -> ForecastPayload:
@@ -389,6 +390,7 @@ def build_forecasting_base_payload(
         daily_history=daily_history,
         days_ahead=days_ahead,
         temperature_value=temperature_value,
+        current_user_date=current_user_date,
         deps=deps,
     )
     charts = artifacts["charts"]
