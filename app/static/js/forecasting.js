@@ -1,4 +1,6 @@
 (function () {
+    // Keep this entry file touched when dependent forecasting modules change,
+    // because the template cache key is derived from forecasting.js mtime.
     var shared = window.FireUi;
     if (!shared) {
         return;
