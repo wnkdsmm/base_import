@@ -10,7 +10,7 @@ insert_final_newline = true
 
 [*.js]
 charset = utf-8
-# BOM запрещён: никогда не сохранять как UTF-8 with BOM
+# Never save JavaScript files with UTF-8 BOM
 
 [*.html]
 indent_size = 2

@@ -1,90 +1,82 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title Установка Fire Analytics Dashboard
 
-echo === Установка Fire Analytics Dashboard ===
-echo.
+set "ROOT=%~dp0"
+cd /d "%ROOT%"
 
-set "PY_LAUNCHER="
+echo ==========================================
+echo Установка Fire Data
+echo ==========================================
 
-echo [1/6] Проверка Python...
-py --version >nul 2>&1
-if %errorlevel%==0 (
-    set "PY_LAUNCHER=py"
-) else (
-    python --version >nul 2>&1
-    if %errorlevel%==0 (
-        set "PY_LAUNCHER=python"
-    ) else (
-        echo ОШИБКА: Python не найден.
-        echo Установите Python 3.9+ с https://python.org/downloads/
-        pause
-        exit /b 1
-    )
+set "PY_CMD="
+where py >nul 2>&1 && set "PY_CMD=py"
+if not defined PY_CMD (
+    where python >nul 2>&1 && set "PY_CMD=python"
 )
-echo Python найден: %PY_LAUNCHER%
-echo.
 
-echo [2/6] Создание виртуального окружения .venv...
+if not defined PY_CMD (
+    echo [ОШИБКА] Python не найден в PATH.
+    echo Установите Python 3.10+ и добавьте его в PATH.
+    pause
+    exit /b 1
+)
+
+echo [1/5] Использую: %PY_CMD%
+
 if not exist ".venv\Scripts\python.exe" (
-    %PY_LAUNCHER% -m venv .venv
+    echo [2/5] Создаю .venv ...
+    %PY_CMD% -m venv .venv
     if errorlevel 1 (
-        echo ОШИБКА: Не удалось создать виртуальное окружение .venv
+        echo [ОШИБКА] Не удалось создать .venv
         pause
         exit /b 1
     )
 ) else (
-    echo Виртуальное окружение уже существует.
+    echo [2/5] .venv уже существует.
 )
-echo.
 
-echo [3/6] Установка зависимостей...
-if not exist ".venv\Scripts\pip.exe" (
-    echo ОШИБКА: Не найден .venv\Scripts\pip.exe
-    pause
-    exit /b 1
-)
-.venv\Scripts\pip install -r requirements.txt
+echo [3/5] Устанавливаю зависимости ...
+".venv\Scripts\python.exe" -m pip install --upgrade pip
 if errorlevel 1 (
-    echo ОШИБКА: Не удалось установить зависимости.
+    echo [ОШИБКА] Не удалось обновить pip
     pause
     exit /b 1
 )
-echo.
+".venv\Scripts\python.exe" -m pip install -r requirements.txt
+if errorlevel 1 (
+    echo [ОШИБКА] Не удалось установить зависимости
+    pause
+    exit /b 1
+)
 
-echo [4/6] Подготовка файла .env...
 if not exist ".env" (
+    echo [4/5] Создаю .env из .env.example ...
     if not exist ".env.example" (
-        echo ОШИБКА: Не найден файл .env.example
+        echo [ОШИБКА] Не найден .env.example
         pause
         exit /b 1
     )
-    copy .env.example .env >nul
+    copy /Y ".env.example" ".env" >nul
     if errorlevel 1 (
-        echo ОШИБКА: Не удалось создать .env из .env.example
+        echo [ОШИБКА] Не удалось создать .env
         pause
         exit /b 1
     )
-    echo Создан файл .env — проверьте настройки подключения к БД
-    notepad .env
 ) else (
-    echo Файл .env уже существует.
+    echo [4/5] .env уже существует.
 )
-echo.
 
-echo [5/6] Проверка подключения к БД...
-.venv\Scripts\python -c "from config.db import check_connection; check_connection()"
+echo [5/5] Проверка импортов ...
+".venv\Scripts\python.exe" -c "import fastapi,uvicorn,pandas,sqlalchemy; print('OK')"
 if errorlevel 1 (
-    echo ОШИБКА: Не удалось подключиться к базе данных.
-    echo Проверьте что PostgreSQL запущен и настройки в файле .env верны.
+    echo [ОШИБКА] Проверка импортов не прошла
     pause
     exit /b 1
 )
-echo.
 
-echo [6/6] Завершение...
-echo === Установка завершена ===
-echo Теперь запустите: start_web_app.cmd
+echo.
+echo [OK] Готово.
+echo Запуск приложения: start_web_app.vbs
 pause
 exit /b 0

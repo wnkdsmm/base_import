@@ -26,6 +26,6 @@ env/
 ENV/
 *.egg-info/
 .idea/
+.vscode/
 .DS_Store
 Thumbs.db
-.claude
