@@ -4,6 +4,7 @@ Dim shell, fso, projectRoot, logsDir, logFilePath
 Dim envFilePath, envExamplePath, envVars
 Dim appHost, appPort, appUrl
 Dim resolvedPort
+Dim existingAppUrl
 Dim venvPython, basePython
 Dim bootstrapCommand, startCommand, runCode
 Dim reqFilePath, installCode
@@ -42,16 +43,17 @@ End If
 Set envVars = LoadEnvFile(envFilePath)
 appHost = GetEnvOrDefault(envVars, "APP_HOST", "127.0.0.1")
 appPort = GetEnvOrDefault(envVars, "APP_PORT", "8000")
+existingAppUrl = FindRunningAppUrl(appHost, appPort, 20)
+If Len(existingAppUrl) > 0 Then
+    LogMessage "Found already running app at " & existingAppUrl & ". Open browser only."
+    shell.Run existingAppUrl, 1, False
+    WScript.Quit 0
+End If
+
 resolvedPort = ResolveAvailablePort(appPort, 20)
 appUrl = "http://" & appHost & ":" & resolvedPort & "/"
 
 LogMessage "Resolved APP_HOST=" & appHost & ", APP_PORT=" & appPort & ", EFFECTIVE_PORT=" & resolvedPort
-
-If IsServerRunning(appUrl) Then
-    LogMessage "Server already running. Open browser only."
-    shell.Run appUrl, 1, False
-    WScript.Quit 0
-End If
 
 venvPython = fso.BuildPath(projectRoot, ".venv\Scripts\python.exe")
 If Not fso.FileExists(venvPython) Then
@@ -95,9 +97,13 @@ If Not HasRuntimeDeps(venvPython) Then
     installCode = InstallRequirements(projectRoot, venvPython, reqFilePath, logFilePath)
     LogMessage "Install requirements exit code: " & CStr(installCode)
     If installCode <> 0 Then
-        MsgBox "Failed to install Python dependencies." & vbCrLf & _
-               "See logs\startup.log for details.", vbCritical, "Fire Data"
-        WScript.Quit 1
+        If HasRuntimeDeps(venvPython) Then
+            LogMessage "Install returned non-zero, but runtime dependencies are present. Continue startup."
+        Else
+            MsgBox "Failed to install Python dependencies." & vbCrLf & _
+                   "See logs\startup.log for details.", vbCritical, "Fire Data"
+            WScript.Quit 1
+        End If
     End If
 Else
     LogMessage "Runtime dependencies in .venv: OK"
@@ -229,6 +235,19 @@ Function ResolveAvailablePort(preferredPort, maxAttempts)
     ResolveAvailablePort = preferredPort
 End Function
 
+Function FindRunningAppUrl(hostValue, preferredPort, maxAttempts)
+    Dim i, portCandidate, candidateUrl
+    For i = 0 To maxAttempts
+        portCandidate = CStr(CLng(preferredPort) + i)
+        candidateUrl = "http://" & hostValue & ":" & portCandidate & "/"
+        If IsServerRunning(candidateUrl) Then
+            FindRunningAppUrl = candidateUrl
+            Exit Function
+        End If
+    Next
+    FindRunningAppUrl = ""
+End Function
+
 Function IsPortOccupied(portValue)
     Dim exec, checkCommand
     checkCommand = "cmd /c netstat -ano -p tcp | findstr LISTENING | findstr /c:" & Quote(":" & portValue & " ")
@@ -352,7 +371,7 @@ End Function
 
 Function HasRuntimeDeps(venvPythonPath)
     Dim exec, checkCommand
-    checkCommand = "cmd /c " & Quote(venvPythonPath) & " -c " & Quote("import fastapi,uvicorn,sqlalchemy,pandas; print('deps_ok')")
+    checkCommand = "cmd /c " & Quote(venvPythonPath) & " -c " & Quote("import fastapi,uvicorn,sqlalchemy,pandas,openpyxl,xlrd,psycopg2; print('deps_ok')")
 
     On Error Resume Next
     Set exec = shell.Exec(checkCommand)
@@ -373,8 +392,7 @@ Function InstallRequirements(rootPath, venvPythonPath, requirementsPath, startup
     Dim installCommand
     installCommand = _
         "cmd /c cd /d " & Quote(rootPath) & _
-        " && " & Quote(venvPythonPath) & " -m pip install --upgrade pip --no-cache-dir" & _
-        " && " & Quote(venvPythonPath) & " -m pip install --no-cache-dir -r " & Quote(requirementsPath)
+        " && " & Quote(venvPythonPath) & " -m pip install --disable-pip-version-check -r " & Quote(requirementsPath)
     InstallRequirements = shell.Run(installCommand & " >> " & Quote(startupLogPath) & " 2>>&1", 0, True)
 End Function
 
