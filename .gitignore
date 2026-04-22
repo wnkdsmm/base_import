@@ -17,6 +17,7 @@ tmp_*.txt
 .ruff_cache/
 .coverage
 htmlcov/
+tests/
 
 # local environments and IDE files
 .env
