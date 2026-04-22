@@ -3,6 +3,7 @@ Option Explicit
 Dim shell, fso, projectRoot, logsDir, logFilePath
 Dim envFilePath, envExamplePath, envVars
 Dim appHost, appPort, appUrl
+Dim resolvedPort
 Dim venvPython, basePython
 Dim bootstrapCommand, startCommand, runCode
 Dim reqFilePath, installCode
@@ -41,9 +42,10 @@ End If
 Set envVars = LoadEnvFile(envFilePath)
 appHost = GetEnvOrDefault(envVars, "APP_HOST", "127.0.0.1")
 appPort = GetEnvOrDefault(envVars, "APP_PORT", "8000")
-appUrl = "http://" & appHost & ":" & appPort & "/"
+resolvedPort = ResolveAvailablePort(appPort, 20)
+appUrl = "http://" & appHost & ":" & resolvedPort & "/"
 
-LogMessage "Resolved APP_HOST=" & appHost & ", APP_PORT=" & appPort
+LogMessage "Resolved APP_HOST=" & appHost & ", APP_PORT=" & appPort & ", EFFECTIVE_PORT=" & resolvedPort
 
 If IsServerRunning(appUrl) Then
     LogMessage "Server already running. Open browser only."
@@ -103,7 +105,7 @@ End If
 
 startCommand = _
     "cmd /c cd /d " & Quote(projectRoot) & _
-    " && " & Quote(venvPython) & " -m uvicorn app.main:app --host " & appHost & " --port " & appPort
+    " && " & Quote(venvPython) & " -m uvicorn app.main:app --host " & appHost & " --port " & resolvedPort & " --reload"
 
 LogMessage "Starting server command."
 shell.Run startCommand & " >> " & Quote(logFilePath) & " 2>>&1", 0, False
@@ -210,6 +212,38 @@ Function CommandExists(commandName)
     exec.StdErr.ReadAll
     CommandExists = (exec.ExitCode = 0)
     On Error GoTo 0
+End Function
+
+Function ResolveAvailablePort(preferredPort, maxAttempts)
+    Dim i, portCandidate
+    For i = 0 To maxAttempts
+        portCandidate = CStr(CLng(preferredPort) + i)
+        If Not IsPortOccupied(portCandidate) Then
+            If i > 0 Then
+                LogMessage "Preferred port " & preferredPort & " is busy. Using " & portCandidate
+            End If
+            ResolveAvailablePort = portCandidate
+            Exit Function
+        End If
+    Next
+    ResolveAvailablePort = preferredPort
+End Function
+
+Function IsPortOccupied(portValue)
+    Dim exec, checkCommand
+    checkCommand = "cmd /c netstat -ano -p tcp | findstr LISTENING | findstr /c:" & Quote(":" & portValue & " ")
+    On Error Resume Next
+    Set exec = shell.Exec(checkCommand)
+    If Err.Number <> 0 Then
+        Err.Clear
+        IsPortOccupied = False
+        On Error GoTo 0
+        Exit Function
+    End If
+    On Error GoTo 0
+    exec.StdOut.ReadAll
+    exec.StdErr.ReadAll
+    IsPortOccupied = (exec.ExitCode = 0)
 End Function
 
 Function WaitForUrl(url, timeoutSeconds)

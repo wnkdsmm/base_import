@@ -38,6 +38,41 @@ def build_modified_table_name(source_table: str) -> str:
     return base_name[:63]
 
 
+def _drop_postgres_dependent_views(conn, table_name: str) -> None:
+    if engine.dialect.name != "postgresql":
+        return
+
+    dependency_query = text(
+        """
+        SELECT
+            dep_ns.nspname AS dependent_schema,
+            dep_cls.relname AS dependent_name,
+            dep_cls.relkind AS dependent_kind
+        FROM pg_depend dep
+        JOIN pg_rewrite rw ON rw.oid = dep.objid
+        JOIN pg_class dep_cls ON dep_cls.oid = rw.ev_class
+        JOIN pg_namespace dep_ns ON dep_ns.oid = dep_cls.relnamespace
+        JOIN pg_class src_cls ON src_cls.oid = dep.refobjid
+        JOIN pg_namespace src_ns ON src_ns.oid = src_cls.relnamespace
+        WHERE src_ns.nspname = current_schema()
+          AND src_cls.relname = :table_name
+          AND dep_cls.relkind IN ('m', 'v')
+        """
+    )
+    dependent_rows = conn.execute(dependency_query, {"table_name": table_name}).mappings().all()
+    for row in dependent_rows:
+        schema_name = str(row.get("dependent_schema") or "").strip()
+        relation_name = str(row.get("dependent_name") or "").strip()
+        relation_kind = str(row.get("dependent_kind") or "").strip()
+        if not schema_name or not relation_name:
+            continue
+        quoted_relation = f"{_quote_identifier(schema_name)}.{_quote_identifier(relation_name)}"
+        if relation_kind == "m":
+            conn.execute(text(f"DROP MATERIALIZED VIEW IF EXISTS {quoted_relation} CASCADE"))
+        elif relation_kind == "v":
+            conn.execute(text(f"DROP VIEW IF EXISTS {quoted_relation} CASCADE"))
+
+
 def create_modified_table(
     source_table: str,
     selected_columns: Sequence[Any],
@@ -99,6 +134,7 @@ def delete_tables(table_names: Sequence[Any], *, db_engine=engine) -> dict[str, 
 
     with db_engine.begin() as conn:
         for table_name in normalized_names:
+            _drop_postgres_dependent_views(conn, table_name)
             conn.execute(text(f"DROP TABLE IF EXISTS {_quote_identifier(table_name)}"))
 
     invalidate_table_related_caches()
@@ -127,4 +163,3 @@ __all__ = [
     "delete_table",
     "delete_tables",
 ]
-
