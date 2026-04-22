@@ -5,6 +5,7 @@ Dim envFilePath, envExamplePath, envVars
 Dim appHost, appPort, appUrl
 Dim venvPython, basePython
 Dim bootstrapCommand, startCommand, runCode
+Dim reqFilePath, installCode
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -23,6 +24,7 @@ LogMessage "Project root: " & projectRoot
 
 envFilePath = fso.BuildPath(projectRoot, ".env")
 envExamplePath = fso.BuildPath(projectRoot, ".env.example")
+reqFilePath = fso.BuildPath(projectRoot, "requirements.txt")
 
 If Not fso.FileExists(envFilePath) And fso.FileExists(envExamplePath) Then
     On Error Resume Next
@@ -62,8 +64,8 @@ If Not fso.FileExists(venvPython) Then
     bootstrapCommand = _
         "cmd /c cd /d " & Quote(projectRoot) & _
         " && " & basePython & " -m venv .venv" & _
-        " && .venv\Scripts\python.exe -m pip install --upgrade pip" & _
-        " && .venv\Scripts\python.exe -m pip install -r requirements.txt"
+        " && .venv\Scripts\python.exe -m pip install --upgrade pip --no-cache-dir" & _
+        " && .venv\Scripts\python.exe -m pip install --no-cache-dir -r requirements.txt"
 
     runCode = shell.Run(bootstrapCommand & " >> " & Quote(logFilePath) & " 2>>&1", 0, True)
     LogMessage "Bootstrap exit code: " & CStr(runCode)
@@ -78,6 +80,25 @@ If Not fso.FileExists(venvPython) Then
     MsgBox "Python in .venv not found after bootstrap." & vbCrLf & _
            "Run setup.bat manually.", vbCritical, "Fire Data"
     WScript.Quit 1
+End If
+
+If Not fso.FileExists(reqFilePath) Then
+    MsgBox "requirements.txt not found." & vbCrLf & _
+           "Path: " & reqFilePath, vbCritical, "Fire Data"
+    WScript.Quit 1
+End If
+
+If Not HasRuntimeDeps(venvPython) Then
+    LogMessage "Runtime dependencies are missing in .venv. Installing requirements."
+    installCode = InstallRequirements(projectRoot, venvPython, reqFilePath, logFilePath)
+    LogMessage "Install requirements exit code: " & CStr(installCode)
+    If installCode <> 0 Then
+        MsgBox "Failed to install Python dependencies." & vbCrLf & _
+               "See logs\startup.log for details.", vbCritical, "Fire Data"
+        WScript.Quit 1
+    End If
+Else
+    LogMessage "Runtime dependencies in .venv: OK"
 End If
 
 startCommand = _
@@ -293,6 +314,34 @@ Function GetEnvOrDefault(envDict, keyName, defaultValue)
         End If
     End If
     GetEnvOrDefault = defaultValue
+End Function
+
+Function HasRuntimeDeps(venvPythonPath)
+    Dim exec, checkCommand
+    checkCommand = "cmd /c " & Quote(venvPythonPath) & " -c " & Quote("import fastapi,uvicorn,sqlalchemy,pandas; print('deps_ok')")
+
+    On Error Resume Next
+    Set exec = shell.Exec(checkCommand)
+    If Err.Number <> 0 Then
+        Err.Clear
+        HasRuntimeDeps = False
+        On Error GoTo 0
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    exec.StdOut.ReadAll
+    exec.StdErr.ReadAll
+    HasRuntimeDeps = (exec.ExitCode = 0)
+End Function
+
+Function InstallRequirements(rootPath, venvPythonPath, requirementsPath, startupLogPath)
+    Dim installCommand
+    installCommand = _
+        "cmd /c cd /d " & Quote(rootPath) & _
+        " && " & Quote(venvPythonPath) & " -m pip install --upgrade pip --no-cache-dir" & _
+        " && " & Quote(venvPythonPath) & " -m pip install --no-cache-dir -r " & Quote(requirementsPath)
+    InstallRequirements = shell.Run(installCommand & " >> " & Quote(startupLogPath) & " 2>>&1", 0, True)
 End Function
 
 Sub LogMessage(messageText)
