@@ -77,12 +77,12 @@
             var result = await apiCall(
                 endpoint + '?' + query,
                 { headers: { Accept: 'application/json' } },
-                'Не удалось выполнить запрос прогноза.',
-                'API прогноза вернул ответ в неожиданном формате.'
+                'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ Р·Р°РїСЂРѕСЃ РїСЂРѕРіРЅРѕР·Р°.',
+                'API РїСЂРѕРіРЅРѕР·Р° РІРµСЂРЅСѓР» РѕС‚РІРµС‚ РІ РЅРµРѕР¶РёРґР°РЅРЅРѕРј С„РѕСЂРјР°С‚Рµ.'
             );
             var payload = result.payload;
             if (requestOptions && requestOptions.expectResolved && payload && payload.bootstrap_mode === 'deferred') {
-                throw new Error('API прогноза вернул стартовую заготовку вместо готового результата.');
+                throw new Error('API РїСЂРѕРіРЅРѕР·Р° РІРµСЂРЅСѓР» СЃС‚Р°СЂС‚РѕРІСѓСЋ Р·Р°РіРѕС‚РѕРІРєСѓ РІРјРµСЃС‚Рѕ РіРѕС‚РѕРІРѕРіРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°.');
             }
             return payload;
         }
@@ -124,7 +124,7 @@
                 '/api/forecasting-decision-support-jobs/' + encodeURIComponent(jobId),
                 {
                     requestOptions: { headers: { Accept: 'application/json' } },
-                    fallbackMessage: 'Фоновая задача decision support завершилась с ошибкой.'
+                    fallbackMessage: 'Р¤РѕРЅРѕРІР°СЏ Р·Р°РґР°С‡Р° decision support Р·Р°РІРµСЂС€РёР»Р°СЃСЊ СЃ РѕС€РёР±РєРѕР№.'
                 },
                 {
                     onUpdate: function (nextPayload) {
@@ -148,7 +148,7 @@
                         }
                         var decisionSupportMessage = getForecastErrorMessage(
                             error,
-                            'Не удалось получить статус блока поддержки решений. Попробуйте повторить запрос.'
+                            'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃС‚Р°С‚СѓСЃ Р±Р»РѕРєР° РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№. РџРѕРїСЂРѕР±СѓР№С‚Рµ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.'
                         );
                         showForecastError(decisionSupportMessage);
                         renderForecastJobRuntime(payload);
@@ -171,7 +171,7 @@
                     getFailureMessage: function (nextPayload) {
                         return nextPayload && nextPayload.error_message
                             ? nextPayload.error_message
-                            : 'Фоновая задача decision support завершилась с ошибкой.';
+                            : 'Р¤РѕРЅРѕРІР°СЏ Р·Р°РґР°С‡Р° decision support Р·Р°РІРµСЂС€РёР»Р°СЃСЊ СЃ РѕС€РёР±РєРѕР№.';
                     }
                 }
             );
@@ -189,7 +189,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(buildForecastJobBody(baseQuery))
-                }, 'Не удалось запустить блок поддержки решений.');
+                }, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ Р±Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№.');
                 response = result.response;
                 payload = result.payload;
                 if (requestToken !== forecastRequestToken) {
@@ -197,7 +197,7 @@
                 }
                 updateDecisionSupportJobState(payload);
                 if (!response.ok || payload.status === 'failed' || payload.status === 'missing') {
-                    throw new Error(payload && payload.error_message ? payload.error_message : 'Не удалось запустить блок поддержки решений.');
+                    throw new Error(payload && payload.error_message ? payload.error_message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ Р±Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№.');
                 }
                 if (payload.status === 'completed' && payload.result) {
                     applyForecastData(payload.result);
@@ -211,7 +211,7 @@
                 }
                 var decisionSupportMessage = getForecastErrorMessage(
                     error,
-                    'Не удалось догрузить блок поддержки решений. Базовый прогноз уже показан, можно повторить запрос.'
+                    'РќРµ СѓРґР°Р»РѕСЃСЊ РґРѕРіСЂСѓР·РёС‚СЊ Р±Р»РѕРє РїРѕРґРґРµСЂР¶РєРё СЂРµС€РµРЅРёР№. Р‘Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР· СѓР¶Рµ РїРѕРєР°Р·Р°РЅ, РјРѕР¶РЅРѕ РїРѕРІС‚РѕСЂРёС‚СЊ Р·Р°РїСЂРѕСЃ.'
                 );
                 showForecastError(decisionSupportMessage);
             }
@@ -271,7 +271,7 @@
                 }
                 var forecastErrorMessage = getForecastErrorMessage(
                     error,
-                    'Не удалось загрузить базовый прогноз. Попробуйте изменить фильтры или запустить расчёт еще раз.'
+                    'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ Р±Р°Р·РѕРІС‹Р№ РїСЂРѕРіРЅРѕР·. РџРѕРїСЂРѕР±СѓР№С‚Рµ РёР·РјРµРЅРёС‚СЊ С„РёР»СЊС‚СЂС‹ РёР»Рё Р·Р°РїСѓСЃС‚РёС‚СЊ СЂР°СЃС‡С‘С‚ РµС‰Рµ СЂР°Р·.'
                 );
                 if (error && error.forecastingStage === 'metadata') {
                     showForecastError(forecastErrorMessage);

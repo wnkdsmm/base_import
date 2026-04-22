@@ -180,7 +180,7 @@ def _top_territory_lead(top_territory: dict[str, Any] | None) -> str:
         for item in (top_territory.get("component_scores") or [])[:2]
     )
     parts = [
-        f"{top_territory['action_label']}. �?тоговый риск {top_territory['risk_display']} формируют прежде всего {strongest_components}.",
+        f"{top_territory['action_label']}. Итоговый риск {top_territory['risk_display']} формируют прежде всего {strongest_components}.",
         f"Логистика: {top_territory.get('travel_time_display') or 'н/д'}, покрытие ПЧ {top_territory.get('fire_station_coverage_display') or 'н/д'}, зона {top_territory.get('service_zone_label') or 'не определена'}.",
         top_territory.get("ranking_reason") or "",
         top_territory.get("action_hint") or "",

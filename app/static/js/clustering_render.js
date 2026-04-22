@@ -188,11 +188,11 @@ function syncClusteringAsyncContainer() {
                 var riskLevel = String(row.risk_level || '-');
                 var clusterDisplay = Number.isFinite(clusterId) ? String(clusterId + 1) : String(row.cluster_id != null ? row.cluster_id : '-');
                 var riskClass = '';
-                if (riskLevel === 'Высокий') {
+                if (riskLevel === 'Р’С‹СЃРѕРєРёР№') {
                     riskClass = 'risk-high';
-                } else if (riskLevel === 'Средний') {
+                } else if (riskLevel === 'РЎСЂРµРґРЅРёР№') {
                     riskClass = 'risk-medium';
-                } else if (riskLevel === 'Низкий') {
+                } else if (riskLevel === 'РќРёР·РєРёР№') {
                     riskClass = 'risk-low';
                 }
                 return ''
