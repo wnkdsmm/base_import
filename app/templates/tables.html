@@ -1,10 +1,10 @@
-{% extends "base.html" %}
-{% set sidebar_title = "Таблицы" %}
+﻿{% extends "base.html" %}
+{% set sidebar_title = "РўР°Р±Р»РёС†С‹" %}
 {% set sidebar_active = "tables" %}
-{% set sidebar_description %}Навигация по исходным таблицам, очищенным таблицам `clean_*` и таблицам `modify_*` в базе данных.{% endset %}
+{% set sidebar_description %}РќР°РІРёРіР°С†РёСЏ РїРѕ РёСЃС…РѕРґРЅС‹Рј С‚Р°Р±Р»РёС†Р°Рј, РѕС‡РёС‰РµРЅРЅС‹Рј С‚Р°Р±Р»РёС†Р°Рј `clean_*` Рё С‚Р°Р±Р»РёС†Р°Рј `modify_*` РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С….{% endset %}
 
 {% block charset %}utf-8{% endblock %}
-{% block title %}Таблицы в базе{% endblock %}
+{% block title %}РўР°Р±Р»РёС†С‹ РІ Р±Р°Р·Рµ{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/tables.css?v={{ tables_css_version }}">
@@ -13,15 +13,15 @@
 {% block sidebar_status %}
     <div class="sidebar-status">
         <span id="tableAvailabilityBadge" class="status-badge{% if tables %} status-badge-live{% endif %}">
-            {% if tables %}Таблицы доступны{% else %}Таблицы отсутствуют{% endif %}
+            {% if tables %}РўР°Р±Р»РёС†С‹ РґРѕСЃС‚СѓРїРЅС‹{% else %}РўР°Р±Р»РёС†С‹ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚{% endif %}
         </span>
         <div class="status-line">
-            <span>Таблиц найдено</span>
+            <span>РўР°Р±Р»РёС† РЅР°Р№РґРµРЅРѕ</span>
             <strong id="sidebarTablesCount">{{ tables | length }}</strong>
         </div>
         <div class="status-line">
-            <span>Навигация</span>
-            <strong>Режим полного просмотра</strong>
+            <span>РќР°РІРёРіР°С†РёСЏ</span>
+            <strong>Р РµР¶РёРј РїРѕР»РЅРѕРіРѕ РїСЂРѕСЃРјРѕС‚СЂР°</strong>
         </div>
     </div>
 {% endblock %}
@@ -30,19 +30,19 @@
 <main class="main dashboard-main simple-page-main" id="page-content">
     <section class="hero-panel simple-page-intro">
         <div class="hero-copy">
-            <span class="eyebrow">Навигатор по таблицам</span>
-            <h1>Таблицы в базе данных</h1>
-            <p class="subtitle">Откройте таблицу для просмотра строк и верификации структуры данных перед анализом, очисткой и построением моделей.</p>
+            <span class="eyebrow">РќР°РІРёРіР°С‚РѕСЂ РїРѕ С‚Р°Р±Р»РёС†Р°Рј</span>
+            <h1>РўР°Р±Р»РёС†С‹ РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С…</h1>
+            <p class="subtitle">РћС‚РєСЂРѕР№С‚Рµ С‚Р°Р±Р»РёС†Сѓ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° СЃС‚СЂРѕРє Рё РІРµСЂРёС„РёРєР°С†РёРё СЃС‚СЂСѓРєС‚СѓСЂС‹ РґР°РЅРЅС‹С… РїРµСЂРµРґ Р°РЅР°Р»РёР·РѕРј, РѕС‡РёСЃС‚РєРѕР№ Рё РїРѕСЃС‚СЂРѕРµРЅРёРµРј РјРѕРґРµР»РµР№.</p>
             <div class="hero-tags">
-                <span class="hero-tag">Всего таблиц: <strong id="heroTablesCount">{{ tables | length }}</strong></span>
-                <span class="hero-tag">Просмотр: <strong>все строки</strong></span>
+                <span class="hero-tag">Р’СЃРµРіРѕ С‚Р°Р±Р»РёС†: <strong id="heroTablesCount">{{ tables | length }}</strong></span>
+                <span class="hero-tag">РџСЂРѕСЃРјРѕС‚СЂ: <strong>РІСЃРµ СЃС‚СЂРѕРєРё</strong></span>
             </div>
         </div>
         <div class="hero-side">
             <article class="hero-stat-card hero-stat-card-soft">
-                <span class="hero-stat-label">Состав раздела</span>
-                <strong class="hero-stat-value"><small>Исходные и производные наборы</small></strong>
-                <span class="hero-stat-foot">В разделе представлены загруженные таблицы, очищенные версии `clean_*` и производные таблицы `modify_*`.</span>
+                <span class="hero-stat-label">РЎРѕСЃС‚Р°РІ СЂР°Р·РґРµР»Р°</span>
+                <strong class="hero-stat-value"><small>РСЃС…РѕРґРЅС‹Рµ Рё РїСЂРѕРёР·РІРѕРґРЅС‹Рµ РЅР°Р±РѕСЂС‹</small></strong>
+                <span class="hero-stat-foot">Р’ СЂР°Р·РґРµР»Рµ РїСЂРµРґСЃС‚Р°РІР»РµРЅС‹ Р·Р°РіСЂСѓР¶РµРЅРЅС‹Рµ С‚Р°Р±Р»РёС†С‹, РѕС‡РёС‰РµРЅРЅС‹Рµ РІРµСЂСЃРёРё `clean_*` Рё РїСЂРѕРёР·РІРѕРґРЅС‹Рµ С‚Р°Р±Р»РёС†С‹ `modify_*`.</span>
             </article>
         </div>
     </section>
@@ -50,17 +50,17 @@
     <section class="panel table-import-panel">
         <div class="panel-head">
             <div>
-                <h2>Импорт данных</h2>
-                <span class="panel-meta">Загрузка, просмотр и последующая обработка данных объединены в едином разделе.</span>
+                <h2>РРјРїРѕСЂС‚ РґР°РЅРЅС‹С…</h2>
+                <span class="panel-meta">Р—Р°РіСЂСѓР·РєР°, РїСЂРѕСЃРјРѕС‚СЂ Рё РїРѕСЃР»РµРґСѓСЋС‰Р°СЏ РѕР±СЂР°Р±РѕС‚РєР° РґР°РЅРЅС‹С… РѕР±СЉРµРґРёРЅРµРЅС‹ РІ РµРґРёРЅРѕРј СЂР°Р·РґРµР»Рµ.</span>
             </div>
         </div>
         <div class="table-management-layout table-management-layout-single">
             <article class="table-action-card">
                 <div class="table-import-copy">
-                    <p class="table-import-lead">Загрузите новый файл; после завершения импорта перечень таблиц обновится автоматически.</p>
+                    <p class="table-import-lead">Р—Р°РіСЂСѓР·РёС‚Рµ РЅРѕРІС‹Р№ С„Р°Р№Р»; РїРѕСЃР»Рµ Р·Р°РІРµСЂС€РµРЅРёСЏ РёРјРїРѕСЂС‚Р° РїРµСЂРµС‡РµРЅСЊ С‚Р°Р±Р»РёС† РѕР±РЅРѕРІРёС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.</p>
                     <div class="table-import-actions">
-                        <button type="button" class="primary-action" onclick="selectAndImport()">Импортировать файл</button>
-                        <span class="table-import-note">После импорта список таблиц на странице обновится автоматически.</span>
+                        <button type="button" class="primary-action" onclick="selectAndImport()">РРјРїРѕСЂС‚РёСЂРѕРІР°С‚СЊ С„Р°Р№Р»</button>
+                        <span class="table-import-note">РџРѕСЃР»Рµ РёРјРїРѕСЂС‚Р° СЃРїРёСЃРѕРє С‚Р°Р±Р»РёС† РЅР° СЃС‚СЂР°РЅРёС†Рµ РѕР±РЅРѕРІРёС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.</span>
                     </div>
                 </div>
             </article>
@@ -70,42 +70,42 @@
     <section class="panel">
         <div class="panel-head">
             <div>
-                <h2>Список таблиц</h2>
-                <span class="panel-meta">Отметьте таблицы и выполните групповое удаление выбранных элементов.</span>
+                <h2>РЎРїРёСЃРѕРє С‚Р°Р±Р»РёС†</h2>
+                <span class="panel-meta">РћС‚РјРµС‚СЊС‚Рµ С‚Р°Р±Р»РёС†С‹ Рё РІС‹РїРѕР»РЅРёС‚Рµ РіСЂСѓРїРїРѕРІРѕРµ СѓРґР°Р»РµРЅРёРµ РІС‹Р±СЂР°РЅРЅС‹С… СЌР»РµРјРµРЅС‚РѕРІ.</span>
             </div>
         </div>
 
         <div class="table-selection-toolbar u-flex-between-gap-12">
             <div id="tablesSelectionMeta" class="table-selection-summary">
-                {% if tables %}Выбрано: 0{% else %}Таблицы отсутствуют{% endif %}
+                {% if tables %}Р’С‹Р±СЂР°РЅРѕ: 0{% else %}РўР°Р±Р»РёС†С‹ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚{% endif %}
             </div>
             <div class="table-selection-actions">
-                <button id="selectAllTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>Выбрать все</button>
-                <button id="clearSelectedTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>Снять выбор</button>
-                <button id="deleteSelectedTablesButton" type="button" class="danger-action" {% if not tables %}disabled{% endif %}>Удалить выбранные</button>
+                <button id="selectAllTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>Р’С‹Р±СЂР°С‚СЊ РІСЃРµ</button>
+                <button id="clearSelectedTablesButton" type="button" class="table-selection-button" {% if not tables %}disabled{% endif %}>РЎРЅСЏС‚СЊ РІС‹Р±РѕСЂ</button>
+                <button id="deleteSelectedTablesButton" type="button" class="danger-action" {% if not tables %}disabled{% endif %}>РЈРґР°Р»РёС‚СЊ РІС‹Р±СЂР°РЅРЅС‹Рµ</button>
             </div>
         </div>
 
         <div id="tableActionStatus" class="table-action-status is-hidden" aria-live="polite"></div>
 
-        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="В базе данных таблицы отсутствуют." data-has-items="{% if tables %}true{% else %}false{% endif %}" {% if not tables %}hidden{% endif %}>
+        <ul id="tableList" class="table-link-list{% if not tables %} is-hidden{% endif %}" data-empty-message="Р’ Р±Р°Р·Рµ РґР°РЅРЅС‹С… С‚Р°Р±Р»РёС†С‹ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚." data-has-items="{% if tables %}true{% else %}false{% endif %}" {% if not tables %}hidden{% endif %}>
             {% for table in tables %}
             <li class="table-link-item" data-table-row data-table-name="{{ table }}">
                 <article class="table-link-card table-link-record">
                     <div class="table-link-record-head">
                         <label class="table-selection-check">
-                            <input class="table-selection-checkbox" type="checkbox" value="{{ table }}" aria-label="Выбрать таблицу {{ table }}">
+                            <input class="table-selection-checkbox" type="checkbox" value="{{ table }}" aria-label="Р’С‹Р±СЂР°С‚СЊ С‚Р°Р±Р»РёС†Сѓ {{ table }}">
                         </label>
-                        <a class="table-link-title" href="/tables/{{ table }}">{{ table }}</a>
+                        <a class="table-link-title" href="/tables/{{ table | urlpath }}">{{ table }}</a>
                     </div>
                     <div class="table-link-actions">
-                        <a class="table-link-inline-action" href="/tables/{{ table }}">Открыть</a>
+                        <a class="table-link-inline-action" href="/tables/{{ table | urlpath }}">РћС‚РєСЂС‹С‚СЊ</a>
                     </div>
                 </article>
             </li>
             {% endfor %}
         </ul>
-        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}" {% if tables %}hidden{% endif %}>В базе данных таблицы отсутствуют.</div>
+        <div id="tableListEmpty" class="mini-empty{% if tables %} is-hidden{% endif %}" {% if tables %}hidden{% endif %}>Р’ Р±Р°Р·Рµ РґР°РЅРЅС‹С… С‚Р°Р±Р»РёС†С‹ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚.</div>
     </section>
 </main>
 <input type="file" id="fileInput" class="hidden-file-input">
@@ -121,3 +121,4 @@
 <script src="/static/js/tables.js?v={{ tables_js_version }}"></script>
 {{ super() }}
 {% endblock %}
+

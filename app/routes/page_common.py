@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable
+from urllib.parse import quote
 
 from fastapi import Request
 from fastapi.responses import Response
@@ -44,6 +45,13 @@ TABLE_VIEW_ASSETS = {
     "analytics_css_version": "css/analytics.css",
     "tables_css_version": "css/tables.css",
 }
+
+
+def _url_path_segment(value: object) -> str:
+    return quote(str(value or ""), safe="")
+
+
+templates.env.filters["urlpath"] = _url_path_segment
 
 
 def static_version(filename: str) -> int:

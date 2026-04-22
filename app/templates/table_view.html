@@ -1,10 +1,10 @@
-{% extends "base.html" %}
-{% set sidebar_title = "Просмотр" %}
+﻿{% extends "base.html" %}
+{% set sidebar_title = "РџСЂРѕСЃРјРѕС‚СЂ" %}
 {% set sidebar_active = "tables" %}
-{% set sidebar_description %}Предпросмотр выбранной таблицы с серверной пагинацией, фиксированным заголовком и горизонтальной прокруткой в пределах таблицы.{% endset %}
+{% set sidebar_description %}РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РІС‹Р±СЂР°РЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹ СЃ СЃРµСЂРІРµСЂРЅРѕР№ РїР°РіРёРЅР°С†РёРµР№, С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Рј Р·Р°РіРѕР»РѕРІРєРѕРј Рё РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕР№ РїСЂРѕРєСЂСѓС‚РєРѕР№ РІ РїСЂРµРґРµР»Р°С… С‚Р°Р±Р»РёС†С‹.{% endset %}
 
 {% block charset %}utf-8{% endblock %}
-{% block title %}Таблица: {{ table_name }}{% endblock %}
+{% block title %}РўР°Р±Р»РёС†Р°: {{ table_name }}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/tables.css?v={{ tables_css_version }}">
@@ -12,25 +12,25 @@
 
 {% block sidebar_status %}
     <div class="sidebar-status">
-        <span class="status-badge status-badge-live">Предпросмотр доступен</span>
+        <span class="status-badge status-badge-live">РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РґРѕСЃС‚СѓРїРµРЅ</span>
         <div class="status-line">
-            <span>Таблица</span>
+            <span>РўР°Р±Р»РёС†Р°</span>
             <strong>{{ table_name }}</strong>
         </div>
         <div class="status-line">
-            <span>Колонок</span>
+            <span>РљРѕР»РѕРЅРѕРє</span>
             <strong>{{ columns | length }}</strong>
         </div>
         <div class="status-line">
-            <span>Всего строк</span>
+            <span>Р’СЃРµРіРѕ СЃС‚СЂРѕРє</span>
             <strong id="sidebarTotalRows">{{ pagination.total_rows }}</strong>
         </div>
         <div class="status-line">
-            <span>Текущая страница</span>
+            <span>РўРµРєСѓС‰Р°СЏ СЃС‚СЂР°РЅРёС†Р°</span>
             <strong id="sidebarPageNumber">{{ pagination.page }} / {{ pagination.total_pages }}</strong>
         </div>
         <div class="status-line">
-            <span>Показан диапазон</span>
+            <span>РџРѕРєР°Р·Р°РЅ РґРёР°РїР°Р·РѕРЅ</span>
             <strong id="sidebarShownRows">
                 {% if pagination.displayed_rows %}
                 {{ pagination.page_row_start }}-{{ pagination.page_row_end }}
@@ -51,14 +51,14 @@
 >
     <section class="hero-panel simple-page-intro">
         <div class="hero-copy">
-            <span class="eyebrow">Предпросмотр таблицы</span>
+            <span class="eyebrow">РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ С‚Р°Р±Р»РёС†С‹</span>
             <h1>{{ table_name }}</h1>
-            <p class="subtitle">На странице отображается ограниченный фрагмент строк. Для больших таблиц PostgreSQL данные загружаются постранично без передачи полного набора в шаблон.</p>
+            <p class="subtitle">РќР° СЃС‚СЂР°РЅРёС†Рµ РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ РѕРіСЂР°РЅРёС‡РµРЅРЅС‹Р№ С„СЂР°РіРјРµРЅС‚ СЃС‚СЂРѕРє. Р”Р»СЏ Р±РѕР»СЊС€РёС… С‚Р°Р±Р»РёС† PostgreSQL РґР°РЅРЅС‹Рµ Р·Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ РїРѕСЃС‚СЂР°РЅРёС‡РЅРѕ Р±РµР· РїРµСЂРµРґР°С‡Рё РїРѕР»РЅРѕРіРѕ РЅР°Р±РѕСЂР° РІ С€Р°Р±Р»РѕРЅ.</p>
             <div class="hero-tags">
-                <span class="hero-tag">Колонок: <strong>{{ columns | length }}</strong></span>
-                <span class="hero-tag">Всего строк: <strong id="tableHeroTotalRows">{{ pagination.total_rows }}</strong></span>
+                <span class="hero-tag">РљРѕР»РѕРЅРѕРє: <strong>{{ columns | length }}</strong></span>
+                <span class="hero-tag">Р’СЃРµРіРѕ СЃС‚СЂРѕРє: <strong id="tableHeroTotalRows">{{ pagination.total_rows }}</strong></span>
                 <span class="hero-tag">
-                    Диапазон:
+                    Р”РёР°РїР°Р·РѕРЅ:
                     <strong id="tableHeroRange">
                         {% if pagination.displayed_rows %}
                         {{ pagination.page_row_start }}-{{ pagination.page_row_end }}
@@ -67,17 +67,17 @@
                         {% endif %}
                     </strong>
                 </span>
-                <span class="hero-tag">Страница: <strong id="tableHeroPage">{{ pagination.page }} / {{ pagination.total_pages }}</strong></span>
+                <span class="hero-tag">РЎС‚СЂР°РЅРёС†Р°: <strong id="tableHeroPage">{{ pagination.page }} / {{ pagination.total_pages }}</strong></span>
             </div>
             <div class="simple-page-actions">
-                <a class="primary-action" href="/tables">Вернуться к таблицам</a>
+                <a class="primary-action" href="/tables">Р’РµСЂРЅСѓС‚СЊСЃСЏ Рє С‚Р°Р±Р»РёС†Р°Рј</a>
             </div>
         </div>
         <div class="hero-side">
             <article class="hero-stat-card">
-                <span class="hero-stat-label">Размер страницы</span>
+                <span class="hero-stat-label">Р Р°Р·РјРµСЂ СЃС‚СЂР°РЅРёС†С‹</span>
                 <strong class="hero-stat-value" id="tablePageSizeValue">{{ pagination.page_size }}</strong>
-                <span class="hero-stat-foot">Доступные размеры: 50, 100 и 500 строк. Переключение страниц выполняется без повторной передачи полной таблицы в шаблон.</span>
+                <span class="hero-stat-foot">Р”РѕСЃС‚СѓРїРЅС‹Рµ СЂР°Р·РјРµСЂС‹: 50, 100 Рё 500 СЃС‚СЂРѕРє. РџРµСЂРµРєР»СЋС‡РµРЅРёРµ СЃС‚СЂР°РЅРёС† РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ Р±РµР· РїРѕРІС‚РѕСЂРЅРѕР№ РїРµСЂРµРґР°С‡Рё РїРѕР»РЅРѕР№ С‚Р°Р±Р»РёС†С‹ РІ С€Р°Р±Р»РѕРЅ.</span>
             </article>
         </div>
     </section>
@@ -85,7 +85,7 @@
     <section class="panel">
         <div class="panel-head">
             <div>
-                <h2>Краткая статистика по таблице</h2>
+                <h2>РљСЂР°С‚РєР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР° РїРѕ С‚Р°Р±Р»РёС†Рµ</h2>
                 <span class="panel-meta" id="tableSummaryLead">{{ table_summary.lead }}</span>
             </div>
             <span class="panel-meta table-summary-scope" id="tableSummaryScopeNote">{{ table_summary.scope_note }}</span>
@@ -103,7 +103,7 @@
 
     <section class="panel">
         <div class="panel-head">
-            <h2>Ключевые критерии перед просмотром</h2>
+            <h2>РљР»СЋС‡РµРІС‹Рµ РєСЂРёС‚РµСЂРёРё РїРµСЂРµРґ РїСЂРѕСЃРјРѕС‚СЂРѕРј</h2>
             <span class="panel-meta" id="tableCriteriaLead">{{ table_summary.criteria_lead }}</span>
         </div>
         <div class="stats-grid" id="tableCriteriaGroups">
@@ -120,32 +120,32 @@
     <section class="panel data-table-panel">
         <div class="panel-head">
             <div>
-                <h2>Строки таблицы</h2>
-                <span class="panel-meta">Заголовок таблицы фиксирован, длинные значения переносятся внутри ячеек, переключение страниц выполняется на стороне сервера.</span>
+                <h2>РЎС‚СЂРѕРєРё С‚Р°Р±Р»РёС†С‹</h2>
+                <span class="panel-meta">Р—Р°РіРѕР»РѕРІРѕРє С‚Р°Р±Р»РёС†С‹ С„РёРєСЃРёСЂРѕРІР°РЅ, РґР»РёРЅРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїРµСЂРµРЅРѕСЃСЏС‚СЃСЏ РІРЅСѓС‚СЂРё СЏС‡РµРµРє, РїРµСЂРµРєР»СЋС‡РµРЅРёРµ СЃС‚СЂР°РЅРёС† РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РЅР° СЃС‚РѕСЂРѕРЅРµ СЃРµСЂРІРµСЂР°.</span>
             </div>
             <span class="panel-meta" id="tablePageStatus">
                 {% if pagination.displayed_rows %}
-                Показаны строки {{ pagination.page_row_start }}-{{ pagination.page_row_end }} из {{ pagination.total_rows }}
+                РџРѕРєР°Р·Р°РЅС‹ СЃС‚СЂРѕРєРё {{ pagination.page_row_start }}-{{ pagination.page_row_end }} РёР· {{ pagination.total_rows }}
                 {% else %}
-                В таблице строки отсутствуют
+                Р’ С‚Р°Р±Р»РёС†Рµ СЃС‚СЂРѕРєРё РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚
                 {% endif %}
             </span>
         </div>
 
         <div id="tableInlineError" class="analysis-error-card table-inline-error is-hidden" aria-live="polite">
             <div class="analysis-error-copy">
-                <strong>Загрузка страницы таблицы не выполнена</strong>
-                <span id="tableInlineErrorMessage">Повторите запрос с текущими параметрами.</span>
+                <strong>Р—Р°РіСЂСѓР·РєР° СЃС‚СЂР°РЅРёС†С‹ С‚Р°Р±Р»РёС†С‹ РЅРµ РІС‹РїРѕР»РЅРµРЅР°</strong>
+                <span id="tableInlineErrorMessage">РџРѕРІС‚РѕСЂРёС‚Рµ Р·Р°РїСЂРѕСЃ СЃ С‚РµРєСѓС‰РёРјРё РїР°СЂР°РјРµС‚СЂР°РјРё.</span>
             </div>
             <div class="analysis-inline-actions">
-                <button id="tableInlineRetryButton" class="primary-action analysis-retry-button" type="button">Повторить</button>
+                <button id="tableInlineRetryButton" class="primary-action analysis-retry-button" type="button">РџРѕРІС‚РѕСЂРёС‚СЊ</button>
             </div>
         </div>
 
         <div class="table-pagination-toolbar">
-            <form id="tablePaginationForm" class="table-pagination-form" method="get" action="/tables/{{ table_name }}">
+            <form id="tablePaginationForm" class="table-pagination-form" method="get" action="/tables/{{ table_name | urlpath }}">
                 <label class="filter-field table-pagination-field">
-                    <span>Размер страницы</span>
+                    <span>Р Р°Р·РјРµСЂ СЃС‚СЂР°РЅРёС†С‹</span>
                     <select id="tablePageSize" name="page_size">
                         {% for option in page_size_options %}
                         <option value="{{ option }}"{% if option == pagination.page_size %} selected{% endif %}>{{ option }}</option>
@@ -154,7 +154,7 @@
                 </label>
 
                 <label class="filter-field table-pagination-field">
-                    <span>Страница</span>
+                    <span>РЎС‚СЂР°РЅРёС†Р°</span>
                     <input
                         id="tablePageInput"
                         name="page"
@@ -165,28 +165,28 @@
                     >
                 </label>
 
-                <button class="primary-action table-pagination-submit" type="submit">Перейти</button>
+                <button class="primary-action table-pagination-submit" type="submit">РџРµСЂРµР№С‚Рё</button>
             </form>
 
             <div class="table-pagination-actions">
                 <a
                     id="tablePrevLink"
                     class="table-page-link{% if not pagination.has_previous %} is-disabled{% endif %}"
-                    href="/tables/{{ table_name }}?page={{ pagination.page - 1 if pagination.has_previous else 1 }}&page_size={{ pagination.page_size }}"
+                    href="/tables/{{ table_name | urlpath }}?page={{ pagination.page - 1 if pagination.has_previous else 1 }}&page_size={{ pagination.page_size }}"
                     aria-disabled="{{ 'false' if pagination.has_previous else 'true' }}"
                     data-page-target="{{ pagination.page - 1 if pagination.has_previous else pagination.page }}"
                 >
-                    Предыдущая
+                    РџСЂРµРґС‹РґСѓС‰Р°СЏ
                 </a>
                 <div class="table-page-indicator" id="tablePageCount">{{ pagination.page }} / {{ pagination.total_pages }}</div>
                 <a
                     id="tableNextLink"
                     class="table-page-link{% if not pagination.has_next %} is-disabled{% endif %}"
-                    href="/tables/{{ table_name }}?page={{ pagination.page + 1 if pagination.has_next else pagination.total_pages }}&page_size={{ pagination.page_size }}"
+                    href="/tables/{{ table_name | urlpath }}?page={{ pagination.page + 1 if pagination.has_next else pagination.total_pages }}&page_size={{ pagination.page_size }}"
                     aria-disabled="{{ 'false' if pagination.has_next else 'true' }}"
                     data-page-target="{{ pagination.page + 1 if pagination.has_next else pagination.page }}"
                 >
-                    Следующая
+                    РЎР»РµРґСѓСЋС‰Р°СЏ
                 </a>
             </div>
         </div>
@@ -211,7 +211,7 @@
                         {% endfor %}
                     {% else %}
                         <tr class="table-empty-row">
-                            <td colspan="{{ columns | length if columns else 1 }}">В выбранной таблице отсутствуют строки для отображения.</td>
+                            <td colspan="{{ columns | length if columns else 1 }}">Р’ РІС‹Р±СЂР°РЅРЅРѕР№ С‚Р°Р±Р»РёС†Рµ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚ СЃС‚СЂРѕРєРё РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ.</td>
                         </tr>
                     {% endif %}
                 </tbody>
@@ -230,3 +230,4 @@
 <script src="/static/js/analytics_shared.js?v={{ analytics_shared_js_version }}"></script>
 <script src="/static/js/table_view.js?v={{ table_view_js_version }}"></script>
 {% endblock %}
+
