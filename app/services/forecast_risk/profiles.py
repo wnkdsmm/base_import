@@ -330,7 +330,12 @@ def _format_shift(value: float) -> str:
 
 
 def _format_probability(value: float) -> str:
-    rounded = round(float(value) * 100.0, 1)
+    numeric = float(value)
+    if numeric > 1.5:
+        while numeric > 1.0 and numeric <= 10000.0:
+            numeric = numeric / 100.0
+    numeric = max(0.0, min(1.0, numeric))
+    rounded = round(numeric * 100.0, 1)
     if abs(rounded - round(rounded)) < 1e-9:
         return f"{int(round(rounded))}%"
     return f"{str(rounded).replace('.', ',')}%"

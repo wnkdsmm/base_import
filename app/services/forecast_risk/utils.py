@@ -217,7 +217,13 @@ def _format_percent(value: float) -> str:
 
 
 def _format_probability(value: float) -> str:
-    return _format_percent(value * 100.0)
+    numeric = _to_float_or_none(value)
+    if numeric is None:
+        numeric = 0.0
+    if numeric > 1.5:
+        while numeric > 1.0 and numeric <= 10000.0:
+            numeric = numeric / 100.0
+    return _format_percent(_clamp(numeric, 0.0, 1.0) * 100.0)
 
 
 def _format_decimal(value: float) -> str:
@@ -268,4 +274,3 @@ def _date_expression(column_name: str) -> str:
         f"WHEN {text_value} ~ '^[0-9]{{4}}/[0-9]{{2}}/[0-9]{{2}}' THEN TO_DATE(SUBSTRING({text_value} FROM 1 FOR 10), 'YYYY/MM/DD') "
         "ELSE NULL END"
     )
-

@@ -3,7 +3,10 @@ from __future__ import annotations
 from statistics import mean
 from typing import Any
 
-from app.services.shared.formatting import format_percent as _format_percent
+from app.services.shared.formatting import (
+    format_percent as _format_percent,
+    normalize_probability as _normalize_probability,
+)
 
 from .bootstrap import _build_slice_label
 from .selection import _table_selection_label
@@ -48,7 +51,11 @@ def _build_summary(
     active_days = sum(1 for item in daily_history if item["count"] > 0)
     predicted_total = sum(item["forecast_value"] for item in forecast_rows)
     predicted_average = predicted_total / len(forecast_rows) if forecast_rows else 0.0
-    average_probability = mean(float(item.get("fire_probability", 0.0)) for item in forecast_rows) if forecast_rows else 0.0
+    average_probability = (
+        mean(_normalize_probability(item.get("fire_probability", 0.0)) for item in forecast_rows)
+        if forecast_rows
+        else 0.0
+    )
     historical_average = mean(history_counts) if history_counts else 0.0
     recent_counts = history_counts[-28:] if len(history_counts) >= 28 else history_counts
     recent_average = mean(recent_counts) if recent_counts else historical_average
@@ -232,7 +239,7 @@ def _build_insights(
 ) -> list[dict[str, str]]:
     insights = []
     if forecast_rows:
-        peak_row = max(forecast_rows, key=lambda item: float(item["fire_probability"]))
+        peak_row = max(forecast_rows, key=lambda item: _normalize_probability(item.get("fire_probability", 0.0)))
         insights.append(
             {
                 "label": "Самый рискованный день",
@@ -241,7 +248,7 @@ def _build_insights(
                 "tone": "fire",
             }
         )
-        average_probability = mean(float(item.get("fire_probability", 0.0)) for item in forecast_rows)
+        average_probability = mean(_normalize_probability(item.get("fire_probability", 0.0)) for item in forecast_rows)
         insights.append(
             {
                 "label": "Средняя вероятность пожара",

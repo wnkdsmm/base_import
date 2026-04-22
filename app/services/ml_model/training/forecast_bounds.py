@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 
 from app.services.forecasting.utils import _format_number, _format_percent
+from app.services.shared.formatting import normalize_probability as _normalize_probability
 
 
 def _resolve_interval_calibration(interval_calibration: dict[str, Any], horizon_days: int) -> dict[str, Any]:
@@ -121,4 +122,4 @@ def _bound_probability(value: float) -> float:
 def _format_probability(value: float | None) -> str:
     if value is None:
         return '—'
-    return _format_percent(float(value) * 100.0)
+    return _format_percent(_normalize_probability(value) * 100.0)

@@ -50,7 +50,24 @@ def format_datetime(value: datetime) -> str:
 
 
 def format_probability(value: float) -> str:
-    return format_percent(value)
+    return format_percent(normalize_probability(value))
+
+
+def normalize_probability(value: Any) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(numeric):
+        return 0.0
+    # Support mixed upstream scales:
+    # - 0..1 (ratio)
+    # - 0..100 (already percent)
+    # - 0..10000 (double-converted percent, e.g. 9049.6)
+    if numeric > 1.5:
+        while numeric > 1.0 and numeric <= 10000.0:
+            numeric = numeric / 100.0
+    return _clamp(numeric, 0.0, 1.0)
 
 
 def format_count_range(lower: float, upper: float) -> str:

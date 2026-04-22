@@ -4,6 +4,7 @@ from statistics import mean
 from typing import Any
 
 from app.plotly_bundle import PLOTLY_AVAILABLE, empty_plotly_payload, go
+from app.services.shared.formatting import normalize_probability as _normalize_probability
 from app.services.charting import (
     build_chart_bundle,
     build_empty_chart_bundle,
@@ -157,7 +158,7 @@ def _build_forecast_breakdown_chart(forecast_rows: list[dict[str, Any]], recent_
 
     colors = [_scenario_color(row.get("scenario_tone", "sky")) for row in visible_rows]
     labels = [row["date_display"] for row in visible_rows]
-    values = [float(row.get("fire_probability", 0.0)) * 100.0 for row in visible_rows]
+    values = [_normalize_probability(row.get("fire_probability", 0.0)) * 100.0 for row in visible_rows]
     text_values = [row["fire_probability_display"] for row in visible_rows]
 
     figure = go.Figure()
@@ -173,7 +174,10 @@ def _build_forecast_breakdown_chart(forecast_rows: list[dict[str, Any]], recent_
             hovertemplate="<b>%{x}</b><br>%{customdata[0]}<br>Вероятность: %{y:.1f}%<br>%{customdata[1]}<extra></extra>",
         )
     )
-    usual_probability_values = [float(row.get("usual_fire_probability", 0.0)) * 100.0 for row in visible_rows]
+    usual_probability_values = [
+        _normalize_probability(row.get("usual_fire_probability", 0.0)) * 100.0
+        for row in visible_rows
+    ]
     if any(value > 0 for value in usual_probability_values):
         figure.add_trace(
             build_plotly_scatter_trace(
@@ -364,5 +368,4 @@ def build_forecasting_weekday_chart(weekday_profile: list[ForecastingWeekdayProf
 
 def build_forecasting_geo_chart(geo_prediction: ForecastingGeoPrediction) -> ForecastingPayload:
     return _build_geo_chart(geo_prediction)
-
 
