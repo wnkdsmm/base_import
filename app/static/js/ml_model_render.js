@@ -376,6 +376,13 @@
         renderCountTable(quality.count_table || {});
         setText('mlForecastTitle', 'Сколько пожаров ожидается по дням');
         charts.renderLineChart(chartData.forecast, 'mlForecastChart', 'mlForecastChartFallback');
+        if (Array.isArray(data.forecast_rows) && data.forecast_rows.length) {
+            var forecastFallback = byId('mlForecastChartFallback');
+            if (forecastFallback) {
+                forecastFallback.classList.add('is-hidden');
+                forecastFallback.style.display = 'none';
+            }
+        }
         renderForecastTable(data.forecast_rows || []);
 
         setText('mlImportanceTitle', 'Что сильнее всего влияет на прогноз');

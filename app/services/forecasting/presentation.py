@@ -171,7 +171,7 @@ def _build_feature_cards_with_quality(
             if key == "temperature" and temperature_quality is None:
                 non_null_days = int(quality.get("non_null_days", 0) or 0)
                 total_days = int(quality.get("total_days", 0) or 0)
-                coverage_value = float(quality.get("coverage", 0.0) or 0.0)
+                coverage_value = _normalize_probability(quality.get("coverage", 0.0) or 0.0)
                 coverage_suffix = f" | покрытие: {non_null_days}/{total_days} дней ({_format_percent(coverage_value)})"
             if key == "temperature":
                 quality_items.append(quality)
@@ -193,7 +193,7 @@ def _build_feature_cards_with_quality(
         if key == "temperature" and found > 0 and temperature_quality is not None:
             non_null_days = int(temperature_quality.get("non_null_days", 0) or 0)
             total_days = int(temperature_quality.get("total_days", 0) or 0)
-            coverage_value = float(temperature_quality.get("coverage", 0.0) or 0.0)
+            coverage_value = _normalize_probability(temperature_quality.get("coverage", 0.0) or 0.0)
             coverage_display = f"{non_null_days}/{total_days} дней ({_format_percent(coverage_value)})"
             usable = bool(temperature_quality.get("usable")) and found == total_tables
             quality_status = str(temperature_quality.get("quality_key") or ("missing" if non_null_days <= 0 else "sparse"))
@@ -203,6 +203,11 @@ def _build_feature_cards_with_quality(
             if sources:
                 base_sources = [source.split(" | ", 1)[0] for source in sources[:3]]
                 sources = [f"{'; '.join(base_sources)} | покрытие по дневной истории: {coverage_display}"]
+        if key == "temperature" and found > 0 and found < total_tables:
+            usable = False
+            quality_status = "partial"
+            quality_label = f"Частично ({found}/{total_tables})"
+            description = base_description
         if found == 0:
             status = "missing"
             status_label = "Не найдена"

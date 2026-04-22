@@ -42,6 +42,7 @@
         chartNode.innerHTML = '';
         fallbackNode.textContent = message || 'Нет данных для графика.';
         fallbackNode.classList.remove('is-hidden');
+        fallbackNode.style.display = '';
     }
 
     function renderLineChart(chart, chartId, fallbackId) {
@@ -59,6 +60,7 @@
 
         setChartEmptyState(chartNode, false);
         fallbackNode.classList.add('is-hidden');
+        fallbackNode.style.display = 'none';
         var history = series.history || [];
         var backtestActual = series.backtest_actual || [];
         var backtestPredicted = series.backtest_predicted || [];
@@ -234,6 +236,7 @@
         }
         if (fallbackNode) {
             fallbackNode.classList.add('is-hidden');
+            fallbackNode.style.display = 'none';
         }
     }
 

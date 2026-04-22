@@ -358,7 +358,7 @@ def _build_future_forecast_rows(
                 'upper_bound_display': _format_number(upper_bound),
                 'range_label': f'{interval_label} interval',
                 'range_display': f"{interval_label}: {_format_number(lower_bound)} - {_format_number(upper_bound)} пожара",
-                'temperature_display': f"{_format_number(temp_value)} В°C",
+                'temperature_display': f"{_format_number(temp_value)} °C",
                 'risk_index': round(risk_index, 1),
                 'risk_index_display': f"{int(round(risk_index))} / 100",
                 'risk_level_label': risk_level_label,
