@@ -52,7 +52,7 @@ def _build_summary(
     historical_average = mean(history_counts) if history_counts else 0.0
     recent_counts = history_counts[-28:] if len(history_counts) >= 28 else history_counts
     recent_average = mean(recent_counts) if recent_counts else historical_average
-    active_days_share = active_days / len(daily_history) * 100.0 if daily_history else 0.0
+    active_days_share = active_days / len(daily_history) if daily_history else 0.0
     delta_ratio = (predicted_average - recent_average) / recent_average if recent_average > 0 else 0.0
     scenario_label, _scenario_tone = _forecast_level_label(
         predicted_average,
@@ -165,7 +165,7 @@ def _build_feature_cards_with_quality(
                 non_null_days = int(quality.get("non_null_days", 0) or 0)
                 total_days = int(quality.get("total_days", 0) or 0)
                 coverage_value = float(quality.get("coverage", 0.0) or 0.0)
-                coverage_suffix = f" | покрытие: {non_null_days}/{total_days} дней ({_format_percent(coverage_value * 100.0)})"
+                coverage_suffix = f" | покрытие: {non_null_days}/{total_days} дней ({_format_percent(coverage_value)})"
             if key == "temperature":
                 quality_items.append(quality)
             sources.append(f"{item['table_name']}: {source_column}{coverage_suffix}")
@@ -177,7 +177,7 @@ def _build_feature_cards_with_quality(
             non_null_days = sum(int(item.get("non_null_days", 0) or 0) for item in quality_items)
             total_days = sum(int(item.get("total_days", 0) or 0) for item in quality_items)
             coverage_value = float(non_null_days) / float(total_days) if total_days > 0 else 0.0
-            coverage_display = f"{non_null_days}/{total_days} дней ({_format_percent(coverage_value * 100.0)})"
+            coverage_display = f"{non_null_days}/{total_days} дней ({_format_percent(coverage_value)})"
             usable = all(bool(item.get("usable")) for item in quality_items) and len(quality_items) == found
             quality_status = "good" if usable else "missing" if non_null_days <= 0 else "sparse"
             quality_label = "Достаточное покрытие" if usable else "Нет измерений" if non_null_days <= 0 else "Низкое покрытие"
@@ -187,7 +187,7 @@ def _build_feature_cards_with_quality(
             non_null_days = int(temperature_quality.get("non_null_days", 0) or 0)
             total_days = int(temperature_quality.get("total_days", 0) or 0)
             coverage_value = float(temperature_quality.get("coverage", 0.0) or 0.0)
-            coverage_display = f"{non_null_days}/{total_days} дней ({_format_percent(coverage_value * 100.0)})"
+            coverage_display = f"{non_null_days}/{total_days} дней ({_format_percent(coverage_value)})"
             usable = bool(temperature_quality.get("usable")) and found == total_tables
             quality_status = str(temperature_quality.get("quality_key") or ("missing" if non_null_days <= 0 else "sparse"))
             quality_label = str(temperature_quality.get("quality_label") or ("Нет измерений" if non_null_days <= 0 else "Низкое покрытие"))

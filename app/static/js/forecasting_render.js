@@ -66,6 +66,58 @@
         }).join('');
     }
 
+    function parsePercentText(value) {
+        var rawValue = String(value == null ? '' : value).trim();
+        if (!rawValue) {
+            return null;
+        }
+        var normalized = rawValue.replace('%', '').replace(',', '.').trim();
+        var numeric = Number(normalized);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function normalizeProbabilityPercent(value) {
+        if (!Number.isFinite(value)) {
+            return null;
+        }
+        var percentValue = Number(value);
+        if (percentValue > 100 && percentValue <= 10000) {
+            percentValue = percentValue / 100;
+        }
+        percentValue = Math.max(0, Math.min(100, percentValue));
+        return percentValue;
+    }
+
+    function formatLocalizedPercent(value) {
+        if (!Number.isFinite(value)) {
+            return '0%';
+        }
+        var rounded = Math.round(Number(value) * 10) / 10;
+        if (Math.abs(rounded - Math.round(rounded)) < 1e-9) {
+            return String(Math.round(rounded)) + '%';
+        }
+        return String(rounded).replace('.', ',') + '%';
+    }
+
+    function formatProbabilityDisplay(probabilityValue, fallbackDisplay) {
+        var numericProbability = Number(probabilityValue);
+        if (Number.isFinite(numericProbability)) {
+            var asPercent = numericProbability <= 1.5
+                ? numericProbability * 100
+                : numericProbability;
+            var normalizedFromNumber = normalizeProbabilityPercent(asPercent);
+            if (normalizedFromNumber !== null) {
+                return formatLocalizedPercent(normalizedFromNumber);
+            }
+        }
+        var parsedFallback = parsePercentText(fallbackDisplay);
+        var normalizedFromFallback = normalizeProbabilityPercent(parsedFallback);
+        if (normalizedFromFallback !== null) {
+            return formatLocalizedPercent(normalizedFromFallback);
+        }
+        return String(fallbackDisplay == null ? '0%' : fallbackDisplay);
+    }
+
     function renderForecastTable(rows) {
         var container = byId('forecastTableShell');
         if (!container) {
@@ -83,7 +135,7 @@
                 return '<tr>' +
                     '<td data-label="Дата">' + escapeHtml(row.date_display) + '</td>' +
                     '<td data-label="День недели">' + escapeHtml(row.weekday_label) + '</td>' +
-                    '<td data-label="Вероятность пожара">' + escapeHtml(row.fire_probability_display || '0%') + '</td>' +
+                    '<td data-label="Вероятность пожара">' + escapeHtml(formatProbabilityDisplay(row.fire_probability, row.fire_probability_display || '0%')) + '</td>' +
                     '<td data-label="Комментарий"><span class="forecast-scenario-pill tone-' + escapeHtml(row.scenario_tone || 'sky') + '">' + escapeHtml(row.scenario_label || 'Около обычного') + '</span><div class="forecast-cell-note">' + escapeHtml(row.scenario_hint || '') + '</div></td>' +
                 '</tr>';
             }).join('') + '</tbody></table>';
@@ -312,8 +364,8 @@
             return data.loading_status_message;
         }
         return 'Сейчас показано: ' + (safeSummary.slice_label || 'Все пожары') +
-            ' | Типичный день: ' + (safeSummary.average_probability_display || '0%') +
-            ' | Пик: ' + (safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
+            ' | Типичный день: ' + formatProbabilityDisplay(safeSummary.average_probability, safeSummary.average_probability_display || '0%') +
+            ' | Пик: ' + formatProbabilityDisplay(safeSummary.peak_forecast_probability, safeSummary.peak_forecast_probability_display || '0%') + ' (' + (safeSummary.peak_forecast_day_display || '-') + ')' +
             ' | К последним 4 неделям: ' + (safeSummary.forecast_vs_recent_display || '0%');
     }
 
@@ -689,7 +741,7 @@
         setText('forecastHistoryMode', summary.history_window_label || 'Все годы');
         setText('forecastSliceLabel', summary.slice_label || 'Все пожары');
         setText('forecastTemperatureMode', summary.temperature_scenario_display || 'Историческая сезонность');
-        setText('forecastAverageValue', summary.average_probability_display || '0%');
+        setText('forecastAverageValue', formatProbabilityDisplay(summary.average_probability, summary.average_probability_display || '0%'));
         setText('forecastDaysTotal', (summary.forecast_days_display || '0') + ' дней');
         setText('forecastHeroPriority', executiveBrief.top_territory_label || risk.top_territory_label || '-');
         setText('forecastHeroPriorityMeta', executiveBrief.priority_reason || risk.top_territory_explanation || 'Недостаточно данных для определения территории первого внимания.');
@@ -704,9 +756,9 @@
         setText('forecastHistoricalAverage', summary.historical_average_display || '0');
         setText('forecastRecentAverage', summary.recent_average_display || '0');
         setText('forecastPeakDay', summary.peak_forecast_day_display || '-');
-        setText('forecastPeakValue', summary.peak_forecast_probability_display || '0%');
+        setText('forecastPeakValue', formatProbabilityDisplay(summary.peak_forecast_probability, summary.peak_forecast_probability_display || '0%'));
         setText('forecastPeakRiskDay', summary.peak_forecast_day_display || '-');
-        setText('forecastPeakRiskValue', summary.peak_forecast_probability_display || '0%');
+        setText('forecastPeakRiskValue', formatProbabilityDisplay(summary.peak_forecast_probability, summary.peak_forecast_probability_display || '0%'));
         setText('forecastSidebarTable', summary.selected_table_label || 'Нет таблицы');
         setText('forecastSidebarHistory', summary.history_period_label || 'Нет данных');
         setText('forecastSidebarHorizon', (summary.forecast_days_display || '0') + ' дн.');
@@ -777,4 +829,3 @@
         };
     };
 })();
-

@@ -50,7 +50,7 @@ def format_datetime(value: datetime) -> str:
 
 
 def format_probability(value: float) -> str:
-    return format_percent(value * 100.0)
+    return format_percent(value)
 
 
 def format_count_range(lower: float, upper: float) -> str:
